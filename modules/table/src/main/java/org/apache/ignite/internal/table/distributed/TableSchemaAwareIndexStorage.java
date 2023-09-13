@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -35,6 +38,8 @@ public class TableSchemaAwareIndexStorage {
     private final IndexStorage storage;
     private final ColumnsExtractor indexRowResolver;
 
+    private final int columnCount;
+
     /** Constructs the object. */
     public TableSchemaAwareIndexStorage(
             int indexId,
@@ -44,6 +49,14 @@ public class TableSchemaAwareIndexStorage {
         this.indexId = indexId;
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
+
+        if (storage instanceof HashIndexStorage) {
+            columnCount = ((HashIndexStorage) storage).indexDescriptor().columns().size();
+        } else if (storage instanceof SortedIndexStorage) {
+            columnCount = ((SortedIndexStorage) storage).indexDescriptor().columns().size();
+        } else {
+            throw new IllegalArgumentException("Unknown index type: " + storage);
+        }
     }
 
     /** Returns an identifier of the index. */
@@ -92,5 +105,14 @@ public class TableSchemaAwareIndexStorage {
     /** Returns underlying index storage. */
     public IndexStorage storage() {
         return storage;
+    }
+
+    /**
+     * Creates the binary tuple buffer according to the index.
+     *
+     * @param buffer Buffer with a binary tuple.
+     */
+    public BinaryTuple resolve(ByteBuffer buffer) {
+        return new BinaryTuple(columnCount, buffer);
     }
 }

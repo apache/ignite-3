@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -48,7 +49,7 @@ public final class SchemaTestUtils {
     private static final int MAX_YEAR = (1 << 14) - 1;
 
     /** All types for tests. */
-    public static List<NativeType> ALL_TYPES = List.of(
+    public static final List<NativeType> ALL_TYPES = List.of(
             NativeTypes.BOOLEAN,
             NativeTypes.INT8,
             NativeTypes.INT16,
@@ -98,7 +99,7 @@ public final class SchemaTestUtils {
                 return rnd.nextDouble();
 
             case UUID:
-                return new java.util.UUID(rnd.nextLong(), rnd.nextLong());
+                return new UUID(rnd.nextLong(), rnd.nextLong());
 
             case STRING:
                 return IgniteTestUtils.randomString(rnd, rnd.nextInt(255));

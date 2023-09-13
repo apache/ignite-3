@@ -19,30 +19,27 @@ package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongSupplier;
-import java.util.stream.Stream;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.configuration.NamedListConfiguration;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -66,13 +63,12 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
@@ -85,6 +81,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -116,12 +113,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
 
-    public static final HybridClock CLOCK = new TestHybridClock(new LongSupplier() {
-        @Override
-        public long getAsLong() {
-            return 0;
-        }
-    });
+    // 2000 was picked to avoid negative time that we get when building read timestamp
+    // in TxManagerImpl.currentReadTimestamp.
+    // We subtract (ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + HybridTimestamp.CLOCK_SKEW) = (1000 + 7) = 1007
+    // from the current time.
+    // Any value greater than that will work, hence 2000.
+    public static final HybridClock CLOCK = new TestHybridClock(() -> 2000);
 
     private static final int PART_ID = 0;
 
@@ -311,9 +308,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
+        StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
+
+        when(pkIndexDescriptor.columns()).then(
+                invocation -> Collections.nCopies(schema.keyColumns().columns().length, mock(StorageHashIndexColumnDescriptor.class))
+        );
+
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 indexId,
-                new TestHashIndexStorage(PART_ID, null),
+                new TestHashIndexStorage(PART_ID, pkIndexDescriptor),
                 row2Tuple
         ));
 
@@ -342,21 +345,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
-        TablesConfiguration tablesConfig = mock(TablesConfiguration.class);
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tablesTree = mock(NamedListConfiguration.class);
-        NamedListView<TableView> tablesList = mock(NamedListView.class);
-        TableView tableConfig = mock(TableView.class, RETURNS_DEEP_STUBS);
+        CatalogTables catalogTables = mock(CatalogTables.class);
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
-        when(tablesConfig.tables()).thenReturn(tablesTree);
-        when(tablesTree.value()).thenReturn(tablesList);
-        when(tablesList.stream()).thenReturn(Stream.of(tableConfig));
-
-        String[] primaryKeyColumns = Arrays.stream(schema.keyColumns().columns())
-                .map(Column::name)
-                .toArray(String[]::new);
-
-        when(tableConfig.id()).thenReturn(tableId);
-        when(tableConfig.primaryKey().columns()).thenReturn(primaryKeyColumns);
+        lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -380,7 +373,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
-                tablesConfig,
+                catalogTables,
+                mock(TablesConfiguration.class),
                 new TestPlacementDriver(LOCAL_NODE.name())
         );
 

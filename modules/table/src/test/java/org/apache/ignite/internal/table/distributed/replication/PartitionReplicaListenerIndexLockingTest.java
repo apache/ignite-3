@@ -26,6 +26,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -66,6 +69,8 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
@@ -81,6 +86,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -133,7 +139,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     @BeforeAll
     public static void beforeAll(
             @InjectConfiguration GcConfiguration gcConfig,
-            @InjectConfiguration("mock.tables.foo.primaryKey.columns: [id]") TablesConfiguration tablesConfig
+            @InjectConfiguration TablesConfiguration tablesConfig
     ) {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
@@ -150,9 +156,14 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         row2HashKeyConverter = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
+        StorageHashIndexDescriptor pkIndexDescriptor = new StorageHashIndexDescriptor(
+                PK_INDEX_ID,
+                List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false))
+        );
+
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
-                new TestHashIndexStorage(PART_ID, null),
+                new TestHashIndexStorage(PART_ID, pkIndexDescriptor),
                 row2HashKeyConverter
         );
         pkStorage = new Lazy<>(() -> hashIndexStorage);
@@ -194,6 +205,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE);
 
+        CatalogTables catalogTables = mock(CatalogTables.class);
+        when(catalogTables.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+
         ClusterNode localNode = mock(ClusterNode.class);
 
         partitionReplicaListener = new PartitionReplicaListener(
@@ -232,6 +246,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
+                catalogTables,
                 tablesConfig,
                 new TestPlacementDriver(localNode.name())
         );

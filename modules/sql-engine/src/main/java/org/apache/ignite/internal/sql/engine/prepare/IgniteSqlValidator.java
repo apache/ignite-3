@@ -81,7 +81,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** Decimal of Integer.MAX_VALUE for fetch/offset bounding. */
     private static final BigDecimal DEC_INT_MAX = BigDecimal.valueOf(Integer.MAX_VALUE);
 
-    private static final int MAX_LENGTH_OF_ALIASES = 256;
+    public static final int MAX_LENGTH_OF_ALIASES = 256;
 
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
