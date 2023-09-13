@@ -93,11 +93,15 @@ class ProjectedTupleTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
     void projectionReturnsProperElementCount(int projectionSize) {
-        InternalTuple projection1 = new ProjectedTuple(
+        InternalTuple projection1 = new FieldDeserializingProjectedTuple(
                 ALL_TYPES_SCHEMA, TUPLE, new int[projectionSize]
+        );
+        InternalTuple projection2 = new FormatAwareProjectedTuple(
+                TUPLE, new int[projectionSize]
         );
 
         assertThat(projection1.elementCount(), equalTo(projectionSize));
+        assertThat(projection2.elementCount(), equalTo(projectionSize));
     }
 
     @ParameterizedTest
@@ -110,8 +114,8 @@ class ProjectedTupleTest {
         int[] projection = {f1, f2, f3};
 
         InternalTuple projectedTuple = useOptimizeProjection
-                ? new ProjectedTuple(TUPLE, projection)
-                : new ProjectedTuple(ALL_TYPES_SCHEMA, TUPLE, projection);
+                ? new FormatAwareProjectedTuple(TUPLE, projection)
+                : new FieldDeserializingProjectedTuple(ALL_TYPES_SCHEMA, TUPLE, projection);
 
         Element e1 = ALL_TYPES_SCHEMA.element(f1);
         Element e2 = ALL_TYPES_SCHEMA.element(f2);

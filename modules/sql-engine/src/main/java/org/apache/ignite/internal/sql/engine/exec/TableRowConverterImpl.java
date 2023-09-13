@@ -26,7 +26,8 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.util.ProjectedTuple;
+import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
+import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -78,14 +79,14 @@ public class TableRowConverterImpl implements TableRowConverter {
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
             InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
 
-            tuple = new ProjectedTuple(
+            tuple = new FormatAwareProjectedTuple(
                     tableTuple,
                     mapping
             );
         } else {
             InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
 
-            tuple = new ProjectedTuple(
+            tuple = new FieldDeserializingProjectedTuple(
                     binaryTupleSchema,
                     tableTuple,
                     mapping
