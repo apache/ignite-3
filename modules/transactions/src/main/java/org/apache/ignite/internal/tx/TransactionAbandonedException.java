@@ -29,6 +29,11 @@ import org.apache.ignite.tx.TransactionException;
 public class TransactionAbandonedException extends TransactionException {
     private final UUID abandonedTxId;
 
+    /**
+     * Constructor.
+     *
+     * @param abandonedTxId ID of the transaction that is abandoned.
+     */
     public TransactionAbandonedException(UUID abandonedTxId) {
         super(UUID.randomUUID(), TX_ABANDONED_ERR, null);
 
