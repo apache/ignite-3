@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -64,7 +65,7 @@ public class CreateSystemViewCommand implements CatalogCommand {
      */
     private CreateSystemViewCommand(String name, List<ColumnParams> columns, SystemViewType systemViewType) {
         this.name = name;
-        this.columns = List.copyOf(columns);
+        this.columns = copyOrNull(columns);
         this.systemViewType = systemViewType;
 
         validate();
