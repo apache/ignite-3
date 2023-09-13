@@ -24,13 +24,24 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
  */
 public class RequestTypes {
     /**
-     * Returns {@code true} if the operation works with a single row.
+     * Returns {@code true} if the operation works with a single PK and it's RW.
      */
-    public static boolean isSingleRow(RequestType type) {
+    public static boolean isSingleRowRwPkOnly(RequestType type) {
         switch (type) {
             case RW_GET:
             case RW_DELETE:
             case RW_GET_AND_DELETE:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Returns {@code true} if the operation works with a single row (full row) and it's RW.
+     */
+    public static boolean isSingleRowRwFullRow(RequestType type) {
+        switch (type) {
             case RW_DELETE_EXACT:
             case RW_INSERT:
             case RW_UPSERT:
@@ -44,19 +55,37 @@ public class RequestTypes {
     }
 
     /**
-     * Returns {@code true} if the operation works with a single row and it's a write.
+     * Returns {@code true} if the operation works with a single row and it's RW.
      */
-    public static boolean isSingleRowWrite(RequestType type) {
-        return isSingleRow(type) && type != RequestType.RW_GET;
+    public static boolean isSingleRowRw(RequestType type) {
+        return isSingleRowRwPkOnly(type) || isSingleRowRwFullRow(type);
     }
 
     /**
-     * Returns {@code true} if the operation works with multiple rows.
+     * Returns {@code true} if the operation works with a single row and it's a write.
      */
-    public static boolean isMultipleRows(RequestType type) {
+    public static boolean isSingleRowWrite(RequestType type) {
+        return isSingleRowRw(type) && type.isWrite();
+    }
+
+    /**
+     * Returns {@code true} if the operation works with multiple PKs and it's RW.
+     */
+    public static boolean isMultipleRowsRwPkOnly(RequestType type) {
         switch (type) {
             case RW_GET_ALL:
             case RW_DELETE_ALL:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Returns {@code true} if the operation works with multiple rows (full rows) and it's RW.
+     */
+    public static boolean isMultipleRowsRwFullRows(RequestType type) {
+        switch (type) {
             case RW_DELETE_EXACT_ALL:
             case RW_INSERT_ALL:
             case RW_UPSERT_ALL:
@@ -67,10 +96,17 @@ public class RequestTypes {
     }
 
     /**
-     * Returns {@code true} if the operation works with multiple rows.
+     * Returns {@code true} if the operation works with multiple rows and it's RW.
+     */
+    public static boolean isMultipleRowsRw(RequestType type) {
+        return isMultipleRowsRwPkOnly(type) || isMultipleRowsRwFullRows(type);
+    }
+
+    /**
+     * Returns {@code true} if the operation works with multiple rows and it is a write.
      */
     public static boolean isMultipleRowsWrite(RequestType type) {
-        return isMultipleRows(type) && type != RequestType.RW_GET_ALL;
+        return isMultipleRowsRw(type) && type.isWrite();
     }
 
     /**
@@ -99,6 +135,34 @@ public class RequestTypes {
                 return false;
             default:
                 return true;
+        }
+    }
+
+    /**
+     * Returns {@code true} if the operation only makes a write if the corresponding key does not have a value yet in the table.
+     */
+    public static boolean writesIfKeyDoesNotExist(RequestType type) {
+        switch (type) {
+            case RW_INSERT:
+            case RW_INSERT_ALL:
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Returns {@code true} if the operation always reads or writes something, regardless of whether there is something under the key
+     * in the table or not.
+     */
+    public static boolean neverMisses(RequestType type) {
+        switch (type) {
+            case RW_UPSERT:
+            case RW_UPSERT_ALL:
+            case RW_GET_AND_UPSERT:
+                return true;
+            default:
+                return false;
         }
     }
 }
