@@ -311,7 +311,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private KvMarshaller<TestKey, TestValue> kvMarshallerVersion2;
 
     private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-            tblId, 1, "table", 1, CURRENT_SCHEMA_VERSION,
+            TABLE_ID, 1, "table", 1, CURRENT_SCHEMA_VERSION,
             List.of(
                     new CatalogTableColumnDescriptor("intKey", ColumnType.INT32, false, 0, 0, 0, null),
                     new CatalogTableColumnDescriptor("strKey", ColumnType.STRING, false, 0, 0, 0, null),
@@ -1873,8 +1873,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
         when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
 
-        when(catalogTables.table(tblId, txBeginTs.longValue())).thenReturn(tableVersion1);
-        when(catalogTables.table(eq(tblId), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
+        when(catalogTables.table(TABLE_ID, txBeginTs.longValue())).thenReturn(tableVersion1);
+        when(catalogTables.table(eq(TABLE_ID), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, key);
 
