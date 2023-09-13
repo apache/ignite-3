@@ -74,8 +74,6 @@ include(':ignite-catalog')
 include(":ignite-arch-test")
 include(":ignite-file-transfer")
 include(":ignite-system-view")
-include(":ignite-jul")
-include(":ignite-log4j2")
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
@@ -135,8 +133,6 @@ project(":ignite-catalog").projectDir = file('modules/catalog')
 project(":ignite-arch-test").projectDir = file('modules/arch-test')
 project(":ignite-file-transfer").projectDir = file('modules/file-transfer')
 project(":ignite-system-view").projectDir = file('modules/system-view')
-project(":ignite-jul").projectDir = file('modules/jul')
-project(":ignite-log4j2").projectDir = file('modules/log4j2')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 

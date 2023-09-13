@@ -128,14 +128,6 @@ distributions {
                 from "$buildDir/zip/ignite3db"
             }
             into('lib') {
-                into('optional') {
-                    into('ignite-log4j2') {
-                        from project(':ignite-log4j2').configurations.runtimeClasspath
-                    }
-                    into('ignite-jul') {
-                        from project(':ignite-jul').configurations.runtimeClasspath
-                    }
-                }
                 from configurations.dbArtifacts
                 from "$buildDir/zip/${zipStartScriptTokens.BOOTSTRAP_FILE_NAME}"
                 from "$buildDir/zip/${zipStartScriptTokens.SETUP_JAVA_FILE_NAME}"
