@@ -591,9 +591,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .map(pendingAssignmentEntry -> {
                         if (LOG.isInfoEnabled()) {
                             LOG.info(
-                                    "Missed pending assignments for key '{}' with revision {} discovered, performing recovery",
-                                    new String(pendingAssignmentEntry.key(), UTF_8),
-                                    revision
+                                    "Missed pending assignments for key '{}' discovered, performing recovery",
+                                    new String(pendingAssignmentEntry.key(), UTF_8)
                             );
                         }
 
@@ -606,10 +605,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .toArray(CompletableFuture[]::new);
 
             return allOf(futures)
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            LOG.error("Error when performing pending assignments recovery", e);
-                        }
+                    // Simply log any errors, we don't want to block watch processing.
+                    .exceptionally(e -> {
+                        LOG.error("Error when performing pending assignments recovery", e);
+
+                        return null;
                     });
         }
     }
@@ -2218,13 +2218,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    assert evt.single();
+                    Entry newEntry = evt.entryEvent().newEntry();
 
-                    return recoveryFuture.thenComposeAsync(v -> {
-                        Entry newEntry = evt.entryEvent().newEntry();
+                    long revision = evt.revision();
 
-                        return handleChangePendingAssignmentEvent(newEntry, evt.revision());
-                    }, ioExecutor);
+                    if (recoveryFuture.isDone()) {
+                        return handleChangePendingAssignmentEvent(newEntry, revision);
+                    } else {
+                        return recoveryFuture.thenCompose(v -> handleChangePendingAssignmentEvent(newEntry, revision));
+                    }
                 } finally {
                     busyLock.leaveBusy();
                 }

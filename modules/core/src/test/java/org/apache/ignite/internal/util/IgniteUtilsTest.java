@@ -20,7 +20,10 @@ package org.apache.ignite.internal.util;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
+import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
@@ -205,5 +208,23 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
 
         verify(worker0, times(2)).join();
         verify(worker1, times(2)).join();
+    }
+
+    @Test
+    void testCopyStateToNormal() {
+        CompletableFuture<Number> result = new CompletableFuture<>();
+
+        completedFuture(2).whenComplete(copyStateTo(result));
+
+        assertThat(result, willBe(equalTo(2)));
+    }
+
+    @Test
+    void testCopyStateToException() {
+        CompletableFuture<Number> result = new CompletableFuture<>();
+
+        CompletableFuture.<Integer>failedFuture(new NumberFormatException()).whenComplete(copyStateTo(result));
+
+        assertThat(result, willThrow(NumberFormatException.class));
     }
 }
