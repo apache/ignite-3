@@ -108,7 +108,7 @@ public class TableSchemaAwareIndexStorage {
     }
 
     /**
-     * Resolves the binary tuple buffer according to the index.
+     * Creates the binary tuple buffer according to the index.
      *
      * @param buffer Buffer with a binary tuple.
      */
