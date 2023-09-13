@@ -17,24 +17,52 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.tx.TxState.ABANDONED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
+
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStateRequest;
+import org.apache.ignite.internal.tx.message.TxStateResponse;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Helper class that allows to resolve transaction state.
+ * Placement driver.
  */
 public class TransactionStateResolver {
+    /** Tx messages factory. */
+    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+
+    /** Network timeout. */
+    private static final long RPC_TIMEOUT = 3000;
+
     /** Assignment node names per replication group. */
     private final Map<ReplicationGroupId, LinkedHashSet<String>> primaryReplicaMapping = new ConcurrentHashMap<>();
 
@@ -44,29 +72,191 @@ public class TransactionStateResolver {
     /** Function that resolves a node consistent ID to a cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
+    // TODO we will store coordinator as ClusterNode in local tx state map.
+    /** Function that resolves a node non-consistent ID to a cluster node. */
+    private final Function<String, ClusterNode> clusterNodeResolverById;
+
+    private final Map<UUID, CompletableFuture<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
+
+    private final Lazy<String> localNodeId;
+
+    private final TxManager txManager;
+
+    private final HybridClock clock;
+
+    private final MessagingService messagingService;
+
     /**
      * The constructor.
      *
      * @param replicaService Replication service.
+     * @param txManager Transaction manager.
+     * @param clock Node clock.
+     * @param clusterNodeResolver Cluster node resolver.
+     * @param localNodeIdSupplier Local node id supplier.
      */
-    public TransactionStateResolver(ReplicaService replicaService, Function<String, ClusterNode> clusterNodeResolver) {
+    public TransactionStateResolver(
+            ReplicaService replicaService,
+            TxManager txManager,
+            HybridClock clock,
+            Function<String, ClusterNode> clusterNodeResolver,
+            Function<String, ClusterNode> clusterNodeResolverById,
+            Supplier<String> localNodeIdSupplier,
+            MessagingService messagingService
+    ) {
         this.replicaService = replicaService;
+        this.txManager = txManager;
+        this.clock = clock;
         this.clusterNodeResolver = clusterNodeResolver;
+        this.clusterNodeResolverById = clusterNodeResolverById;
+        this.localNodeId = new Lazy<>(localNodeIdSupplier);
+        this.messagingService = messagingService;
+    }
+
+    public void start() {
+        messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+            if (msg instanceof TxStateRequest) {
+                TxStateRequest req = (TxStateRequest) msg;
+
+                processTxStateRequest(req)
+                        .thenAccept(txStateMeta -> {
+                            NetworkMessage response = FACTORY.txStateResponse()
+                                    .txStateMeta(txStateMeta)
+                                    .timestampLong(clock.nowLong())
+                                    .build();
+
+                            messagingService.respond(sender, response, correlationId);
+                        });
+            }
+        });
     }
 
     /**
-     * Sends a transaction state request to the primary replica.
+     * Resolves transaction state locally, if possible, or distributively, if needed.
      *
-     * @param replicaGrp Replication group id.
-     * @param request Status request.
-     * @return Result future.
+     * @param txId Transaction id.
+     * @param commitGrpId Commit partition group id.
+     * @param timestamp Timestamp.
+     * @return Future with the transaction state meta as a result.
      */
-    public CompletableFuture<TxMeta> sendMetaRequest(ReplicationGroupId replicaGrp, TxStateReplicaRequest request) {
-        CompletableFuture<TxMeta> resFut = new CompletableFuture<>();
+    public CompletableFuture<TransactionMeta> resolveTxState(
+            UUID txId,
+            ReplicationGroupId commitGrpId,
+            HybridTimestamp timestamp
+    ) {
+        TxStateMeta localMeta = txManager.stateMeta(txId);
 
-        sendAndRetry(resFut, replicaGrp, request);
+        if (localMeta != null) {
+            if (isFinalState(localMeta.txState())) {
+                return completedFuture(localMeta);
+            }
 
-        return resFut;
+            // If the local node is a tx coordinator:
+            // if tx state is FINISHING, we will have to wait for the actual finish, otherwise we can return the current state.
+            if (localNodeId.get().equals(localMeta.txCoordinatorId()) && localMeta.txState() != FINISHING) {
+                return completedFuture(localMeta);
+            }
+        }
+
+        CompletableFuture<TransactionMeta> future = txStateFutures.computeIfAbsent(txId, k -> new CompletableFuture<>());
+
+        future.whenComplete((v, e) -> txStateFutures.remove(txId));
+
+        resolveDistributiveTxState(txId, localMeta, commitGrpId, timestamp, future);
+
+        return future;
+    }
+
+    /**
+     * Resolve the transaction state distributively. This method doesn't process final tx states.
+     *
+     * @param txId Transaction id.
+     * @param localMeta Local tx meta.
+     * @param commitGrpId Commit partition group id.
+     * @param timestamp Timestamp to pass to target node.
+     * @param txMetaFuture Tx meta future to complete with the result.
+     */
+    private void resolveDistributiveTxState(
+            UUID txId,
+            @Nullable TxStateMeta localMeta,
+            ReplicationGroupId commitGrpId,
+            HybridTimestamp timestamp,
+            CompletableFuture<TransactionMeta> txMetaFuture
+    ) {
+        assert localMeta == null || !isFinalState(localMeta.txState()) : "Unexpected tx meta [txId" + txId + ", meta=" + localMeta + ']';
+
+        HybridTimestamp timestamp0 = timestamp == null ? HybridTimestamp.MIN_VALUE : timestamp;
+
+        if (localMeta == null) {
+            // Fallback to commit partition path, because we don't have coordinator id.
+            resolveTxStateFromCommitPartition(txId, commitGrpId, timestamp0, txMetaFuture);
+        } else if (localMeta.txState() == PENDING) {
+            resolveTxStateFromTxCoordinator(txId, localMeta.txCoordinatorId(), commitGrpId, timestamp0, txMetaFuture);
+        } else if (localMeta.txState() == FINISHING) {
+            assert localMeta instanceof TxStateMetaFinishing;
+
+            ((TxStateMetaFinishing) localMeta).future().whenComplete((v, e) -> {
+                if (e == null) {
+                    txMetaFuture.complete(v);
+                } else {
+                    txMetaFuture.completeExceptionally(e);
+                }
+            });
+        } else {
+            assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + txId + ", txStateMeta=" + localMeta + ']';
+
+            txMetaFuture.complete(localMeta);
+        }
+    }
+
+    private void resolveTxStateFromTxCoordinator(
+            UUID txId,
+            String coordinatorId,
+            ReplicationGroupId commitGrpId,
+            HybridTimestamp timestamp,
+            CompletableFuture<TransactionMeta> txMetaFuture
+    ) {
+        ClusterNode coordinator = clusterNodeResolverById.apply(coordinatorId);
+
+        updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
+
+        if (coordinator == null) {
+            // This means the coordinator node have either left the cluster or restarted.
+            resolveTxStateFromCommitPartition(txId, commitGrpId, timestamp, txMetaFuture);
+        } else {
+            TxStateRequest request = FACTORY.txStateRequest()
+                    .readTimestampLong(timestamp.longValue())
+                    .txId(txId)
+                    .build();
+
+            sendAndRetry(txMetaFuture, coordinator, request);
+        }
+    }
+
+    private void resolveTxStateFromCommitPartition(
+            UUID txId,
+            ReplicationGroupId commitGrpId,
+            HybridTimestamp timestamp,
+            CompletableFuture<TransactionMeta> txMetaFuture
+    ) {
+        TxStateReplicaRequest request = FACTORY.txStateReplicaRequest()
+                .groupId(commitGrpId)
+                .readTimestampLong(timestamp.longValue())
+                .txId(txId)
+                .build();
+
+        updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
+
+        sendAndRetry(txMetaFuture, commitGrpId, request);
+    }
+
+    private void updateLocalTxMapAfterDistributedStateResolved(UUID txId, CompletableFuture<TransactionMeta> future) {
+        future.thenAccept(txMeta -> {
+            if (txMeta instanceof TxStateMeta) {
+                txManager.updateTxMeta(txId, old -> (TxStateMeta) txMeta);
+            }
+        });
     }
 
     /**
@@ -87,7 +277,7 @@ public class TransactionStateResolver {
      * @param replicaGrp Replication group id.
      * @param request Request.
      */
-    private void sendAndRetry(CompletableFuture<TxMeta> resFut, ReplicationGroupId replicaGrp, TxStateReplicaRequest request) {
+    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, ReplicationGroupId replicaGrp, TxStateReplicaRequest request) {
         ClusterNode nodeToSend = primaryReplicaMapping.get(replicaGrp).stream()
                 .map(clusterNodeResolver)
                 .filter(Objects::nonNull)
@@ -114,5 +304,65 @@ public class TransactionStateResolver {
                 sendAndRetry(resFut, replicaGrp, request);
             }
         });
+    }
+
+    /**
+     * Tries to send a request to the given node.
+     *
+     * @param resFut Response future.
+     * @param node Node to send to.
+     * @param request Request.
+     */
+    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, ClusterNode node, TxStateRequest request) {
+        messagingService.invoke(node, request, RPC_TIMEOUT).thenAccept(resp -> {
+            assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
+
+            TxStateResponse response = (TxStateResponse) resp;
+
+            resFut.complete(response.txStateMeta());
+        });
+    }
+
+    /**
+     * Processes the transaction state requests that are used for coordinator path based write intent resolution. Can't return
+     * {@link org.apache.ignite.internal.tx.TxState#FINISHING}, it waits for actual completion instead.
+     *
+     * @param request Request.
+     * @return Future that should be completed with transaction state meta.
+     */
+    private CompletableFuture<TransactionMeta> processTxStateRequest(TxStateRequest request) {
+        clock.update(request.readTimestamp());
+
+        UUID txId = request.txId();
+
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+        if (txStateMeta != null && txStateMeta.txState() == FINISHING) {
+            assert txStateMeta instanceof TxStateMetaFinishing;
+
+            TxStateMetaFinishing txStateMetaFinishing = (TxStateMetaFinishing) txStateMeta;
+
+            AtomicReference<CompletableFuture<TransactionMeta>> futRef = new AtomicReference<>();
+
+            txStateFutures.computeIfAbsent(txId, k -> {
+                TxStateMeta meta = txManager.stateMeta(txId);
+
+                if (meta != null && meta.txState() != FINISHING) {
+                    futRef.set(completedFuture(meta));
+
+                    return null;
+                }
+
+                futRef.set(txStateMetaFinishing.future());
+
+                return futRef.get();
+            });
+
+            futRef.get().whenComplete((v, e) -> txStateFutures.remove(txId));
+
+            return futRef.get();
+        } else {
+            return completedFuture(txStateMeta);
+        }
     }
 }

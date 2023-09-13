@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -25,9 +26,11 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -44,7 +47,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
@@ -110,14 +112,14 @@ public class TxLocalTest extends TxAbstractTest {
         TransactionStateResolver transactionStateResolver = mock(TransactionStateResolver.class, RETURNS_DEEP_STUBS);
 
         doAnswer(invocationOnMock -> {
-            TxStateReplicaRequest request = invocationOnMock.getArgument(1);
+            UUID txId = invocationOnMock.getArgument(0);
+            ReplicationGroupId groupId = invocationOnMock.getArgument(1);
 
-            return CompletableFuture.completedFuture(
-                    tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
-        }).when(transactionStateResolver).sendMetaRequest(any(), any());
+            return completedFuture(tables.get(groupId).txStateStorage().getTxStateStorage(0).get(txId));
+        }).when(transactionStateResolver).resolveTxState(any(), any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, DummyInternalTableImpl.CLOCK,
-                new TransactionIdGenerator(0xdeadbeef), () -> localNodeName);
+        txManager = new TxManagerImpl(replicaSvc, lockManager, DummyInternalTableImpl.CLOCK, new TransactionIdGenerator(0xdeadbeef),
+                () -> localNodeName);
 
         igniteTransactions = new IgniteTransactionsImpl(txManager, timestampTracker);
 
@@ -171,5 +173,10 @@ public class TxLocalTest extends TxAbstractTest {
     @Override
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
         return true;
+    }
+
+    @Override
+    protected Collection<TxManager> txManagers() {
+        return List.of(txManager);
     }
 }

@@ -147,8 +147,8 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-
+    public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return null;
     }
 
     @Override

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
+import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -135,6 +136,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.TransactionAbandonedException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -170,9 +172,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-
-    /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
@@ -1201,9 +1200,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             String txCoordinatorId
     ) {
-        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit, txCoordinatorId);
+        HybridTimestamp commitTimestamp = request.commitTimestamp();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
+        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit, commitTimestamp, txCoordinatorId);
+
         CompletableFuture<?>[] cleanupFutures = new CompletableFuture[request.groups().size()];
         AtomicInteger cleanupFuturesCnt = new AtomicInteger(0);
 
@@ -1229,6 +1229,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param aggregatedGroupIds Partition identifies which are enlisted in the transaction.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
+     * @param commitTimestamp Commit timestamp, if applicable.
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future to wait of the finish.
      */
@@ -1236,15 +1237,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             List<TablePartitionId> aggregatedGroupIds,
             UUID txId,
             boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
             String txCoordinatorId
     ) {
-        // TODO: IGNITE-20034 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 
         txTimestampUpdateMap.put(txId, fut);
 
         HybridTimestamp currentTimestamp = hybridClock.now();
-        HybridTimestamp commitTimestamp = commit ? currentTimestamp : null;
 
         return reliableCatalogVersionFor(currentTimestamp)
                 .thenApply(catalogVersion -> {
@@ -1541,8 +1541,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 checkWriteIntentsBelongSameTx(writeIntents);
 
                 return resolveTxState(
-                        new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
                         writeIntent.transactionId(),
+                        new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
                         ts)
                         .thenApply(readLastCommitted -> {
                             if (readLastCommitted) {
@@ -2512,8 +2512,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             Supplier<BinaryRow> lastCommitted
     ) {
         return resolveTxState(
-                new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
                 readResult.transactionId(),
+                new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
                 timestamp
         ).thenApply(readLastCommitted -> {
             if (readLastCommitted) {
@@ -2527,34 +2527,72 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Resolve the actual tx state.
      *
-     * @param commitGrpId Commit partition id.
      * @param txId Transaction id.
+     * @param commitGrpId Commit partition id.
      * @param timestamp Timestamp.
      * @return The future completes with true when the transaction is not completed yet and false otherwise.
      */
     private CompletableFuture<Boolean> resolveTxState(
-            TablePartitionId commitGrpId,
             UUID txId,
+            TablePartitionId commitGrpId,
             HybridTimestamp timestamp
     ) {
-        boolean readLatest = timestamp == null;
+        return transactionStateResolver.resolveTxState(txId, commitGrpId, timestamp).thenApply(txMeta -> {
+            if (txMeta == null) {
+                return true;
+            } else if (txMeta.txState() == COMMITED) {
+                boolean readLatest = timestamp == null;
 
-        return transactionStateResolver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
-                        .groupId(commitGrpId)
-                        .readTimestampLong((readLatest ? HybridTimestamp.MIN_VALUE : timestamp).longValue())
-                        .txId(txId)
-                        .build())
-                .thenApply(txMeta -> {
-                    if (txMeta == null) {
-                        return true;
-                    } else if (txMeta.txState() == COMMITED) {
-                        return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
-                    } else {
-                        assert txMeta.txState() == ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
+                return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
+            } else if (txMeta.txState() == ABORTED) {
+                return true;
+            } else if (txMeta.txState() == PENDING) {
+                return true;
+            } else {
+                assert txMeta.txState() == ABANDONED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
 
-                        return true;
-                    }
-                });
+                throw new TransactionAbandonedException();
+            }
+        });
+
+        /*if (localMeta == null) {
+            return txStateResolver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
+                            .groupId(commitGrpId)
+                            .readTimestampLong((readLatest ? HybridTimestamp.MIN_VALUE : timestamp).longValue())
+                            .txId(txId)
+                            .build())
+                    .thenApply(txMeta -> {
+                        if (txMeta == null) {
+                            return true;
+                        } else if (txMeta.txState() == COMMITED) {
+                            return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
+                        } else {
+                            assert txMeta.txState() == ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
+
+                            return true;
+                        }
+                    });
+        } else if (localMeta.txState() == COMMITED) {
+            return completedFuture(!readLatest && localMeta.commitTimestamp().compareTo(timestamp) > 0);
+        } else if (localMeta.txState() == ABORTED) {
+            return completedFuture(true);
+        } else if (localMeta.txState() == FINISHING) {
+            return localMeta.getFut().thenApply(unused -> {
+                TxStateMeta finishedLocalMeta = txManager.stateMeta(txId);
+
+                if (finishedLocalMeta.txState() == COMMITED) {
+                    return !readLatest && localMeta.commitTimestamp().compareTo(timestamp) > 0;
+                } else {
+                    assert finishedLocalMeta.txState() == ABORTED :
+                            "Unexpected transaction state [state=" + finishedLocalMeta.txState() + ']';
+
+                    return true;
+                }
+            });
+        } else {
+            // Coordinator path
+            // Sent status request to localMeta.txCoordinatorId()
+        }*/
     }
 
     private CompletableFuture<Void> validateAtTimestamp(UUID txId) {

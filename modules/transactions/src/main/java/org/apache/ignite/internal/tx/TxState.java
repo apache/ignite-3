@@ -26,15 +26,21 @@ public enum TxState {
     PENDING,
     FINISHING,
     ABORTED,
-    COMMITED;
+    COMMITED,
+    ABANDONED;
 
     private static final boolean[][] TRANSITION_MATRIX = {
-            { false, true,  false, true,  true },
-            { false, true,  true,  true,  true },
-            { false, false, false, true,  true },
-            { false, false, false, true,  false},
-            { false, false, false, false, true },
+            { false, true,  false, true,  true,  true },
+            { false, true,  true,  true,  true,  true },
+            { false, false, false, true,  true,  true },
+            { false, false, false, true,  false, true },
+            { false, false, false, false, true,  true },
+            { true,  true,  true,  true,  true,  true }
     };
+
+    public static boolean isFinalState(TxState state) {
+        return state == COMMITED || state == ABORTED;
+    }
 
     /**
      * Checks the correctness of the transition between transaction states.

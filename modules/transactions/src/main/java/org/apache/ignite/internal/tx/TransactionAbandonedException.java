@@ -15,25 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import org.apache.ignite.lang.IgniteInternalException;
 
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.annotations.Transferable;
-
-/**
- * Transaction state request.
- */
-@Transferable(TxMessageGroup.TX_STATE_REPLICA_REQUEST)
-public interface TxStateReplicaRequest extends ReplicaRequest {
-    UUID txId();
-
-    long readTimestampLong();
-
-    default HybridTimestamp readTimestamp() {
-        return hybridTimestamp(readTimestampLong());
-    }
+public class TransactionAbandonedException extends IgniteInternalException {
 }

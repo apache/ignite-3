@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.Lazy;
@@ -189,8 +191,8 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        txStateMap.compute(txId, (k, oldMeta) -> {
+    public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
@@ -235,7 +237,12 @@ public class TxManagerImpl implements TxManager {
         // If there are no enlisted groups, just return - we already marked the tx as finished.
         boolean finishRequestNeeded = !groups.isEmpty();
 
-        updateTxMeta(txId, old -> new TxStateMeta(finishRequestNeeded ? FINISHING : ABORTED, old.txCoordinatorId(), commitTimestamp));
+        updateTxMeta(
+                txId,
+                old -> finishRequestNeeded
+                    ? new TxStateMetaFinishing(old.txCoordinatorId(), commitTimestamp, new CompletableFuture<>())
+                    : new TxStateMeta(ABORTED, old.txCoordinatorId(), commitTimestamp)
+        );
 
         if (!finishRequestNeeded) {
             return completedFuture(null);
@@ -254,11 +261,20 @@ public class TxManagerImpl implements TxManager {
                 .build();
 
         return replicaService.invoke(recipientNode, req)
-                .thenRun(() -> updateTxMeta(txId, old -> new TxStateMeta(
-                        commit ? COMMITED : ABORTED,
-                        old.txCoordinatorId(),
-                        old.commitTimestamp()
-                )));
+                .thenRun(() -> {
+                    updateTxMeta(txId, old -> {
+                        if (isFinalState(old.txState())) {
+                            return old;
+                        }
+
+                        assert old instanceof TxStateMetaFinishing;
+
+                        TxStateMeta newMeta = new TxStateMeta(commit ? COMMITED : ABORTED, old.txCoordinatorId(), old.commitTimestamp());
+                        ((TxStateMetaFinishing) old).future().complete(newMeta);
+
+                        return newMeta;
+                    });
+                });
     }
 
     @Override
