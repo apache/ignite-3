@@ -153,6 +153,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 tableId,
+                1,
                 TABLE_NAME,
                 zoneId,
                 1,

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -59,10 +59,8 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -762,21 +760,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private static void createTestTableAndIndexes(CatalogService catalogService) {
-        CreateSortedIndexParams createSortedIndexParams = CreateSortedIndexParams.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .indexName(SORTED_INDEX_NAME)
-                .columns(List.of("STRKEY"))
-                .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST))
-                .build();
-
-        CreateHashIndexParams createHashIndexParams = CreateHashIndexParams.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .indexName(HASH_INDEX_NAME)
-                .columns(List.of("STRKEY"))
-                .build();
-
         int id = 0;
 
         int tableId = id++;
@@ -786,6 +769,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 tableId,
+                hashIndexId,
                 TABLE_NAME,
                 zoneId,
                 1,
@@ -799,8 +783,21 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 null
         );
 
-        CatalogSortedIndexDescriptor sortedIndex = CatalogUtils.fromParams(sortedIndexId, tableId, createSortedIndexParams);
-        CatalogHashIndexDescriptor hashIndex = CatalogUtils.fromParams(hashIndexId, tableId, createHashIndexParams);
+        CatalogSortedIndexDescriptor sortedIndex = new CatalogSortedIndexDescriptor(
+                sortedIndexId,
+                SORTED_INDEX_NAME,
+                tableId,
+                false,
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+        );
+
+        CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
+                hashIndexId,
+                HASH_INDEX_NAME,
+                tableId,
+                true,
+                List.of("STRKEY")
+        );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
         when(catalogService.index(eq(SORTED_INDEX_NAME), anyLong())).thenReturn(sortedIndex);

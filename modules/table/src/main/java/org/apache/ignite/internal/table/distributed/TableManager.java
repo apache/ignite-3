@@ -87,8 +87,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
@@ -124,7 +122,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -151,7 +148,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.CatalogTablesWithIdConversion;
+import org.apache.ignite.internal.table.distributed.replicator.DirectCatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
@@ -170,7 +167,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -265,7 +261,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
      *
-     * <p>Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, int, TableImpl)}.
+     * <p>Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, TableImpl)}.
      *
      * <p>Completed strictly after {@link #localPartsByTableIdVv}.
      */
@@ -358,8 +354,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
-
-    private final TableIdRegistry tableIdTranslator = new TableIdRegistry();
 
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
@@ -539,32 +533,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }));
 
             addMessageHandler(clusterService.messagingService());
-
-            // TODO: IGNITE-19499 - remove when switched to the Catalog.
-            recoverTableIdsMapping();
-
-            // TODO: IGNITE-19499 - remove when switched to the Catalog.
-            catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
-                CreateTableEventParameters event = (CreateTableEventParameters) parameters;
-
-                TableView tableConfig = tablesCfg.tables().value().get(event.tableDescriptor().name());
-
-                assert tableConfig != null : "No table config found by name " + event.tableDescriptor().name();
-
-                tableIdTranslator.registerMapping(tableConfig.id(), event.tableId());
-
-                return completedFuture(false);
-            });
-        });
-    }
-
-    private void recoverTableIdsMapping() {
-        tablesCfg.tables().value().forEach(tableView -> {
-            CatalogTableDescriptor tableDescriptor = catalogService.table(tableView.name(), Long.MAX_VALUE);
-
-            assert tableDescriptor != null : "No table in the Catalog with name " + tableView.name();
-
-            tableIdTranslator.registerMapping(tableView.id(), tableDescriptor.id());
         });
     }
 
@@ -983,8 +951,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
-                // TODO: IGNITE-19499 - replace with DirectCatalogTables
-                new CatalogTablesWithIdConversion(catalogService, tableIdTranslator),
+                new DirectCatalogTables(catalogService),
                 placementDriver
         );
     }
@@ -1671,7 +1638,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    private CompletableFuture<TableImpl> tableAsyncInternal(String name) {
+    public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
