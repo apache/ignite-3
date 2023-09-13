@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-/** DROP INDEX statement. */
-public class DropIndexParams extends AbstractCreateIndexCommandParams {
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
+import org.apache.ignite.internal.catalog.CatalogCommand;
 
-    private DropIndexParams() {
-        // No-op.
-    }
+/**
+ * Abstract builder of index-related command.
+ *
+ * <p>Every index-related command, disregard it going to create new index or delete existing one,
+ * should specify name of the index and namespace (schema) where to find existing/put new index.
+ */
+interface AbstractIndexCommandBuilder<T extends AbstractIndexCommandBuilder<T>> {
+    /** A name of the schema an index belongs to. Should not be null or blank. */
+    T schemaName(String schemaName);
 
-    /** Parameters builder. */
-    public static class Builder extends AbstractIndexBuilder<DropIndexParams, Builder> {
-        private Builder() {
-            super(new DropIndexParams());
-        }
-    }
+    /** A name of the index. Should not be null or blank. */
+    T indexName(String indexName);
+
+    /** Returns a command with specified parameters. */
+    CatalogCommand build();
 }

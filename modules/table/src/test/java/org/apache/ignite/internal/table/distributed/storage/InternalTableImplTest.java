@@ -38,6 +38,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -66,7 +67,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                mock(PlacementDriver.class)
         );
 
         // Let's check the empty table.
@@ -111,7 +113,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                mock(PlacementDriver.class)
         );
 
         List<BinaryRowEx> originalRows = List.of(

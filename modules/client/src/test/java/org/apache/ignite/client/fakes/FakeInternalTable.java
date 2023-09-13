@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -496,6 +497,11 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
+        return null;
+    }
+
+    @Override
+    public Function<String, ClusterNode> getClusterNodeResolver() {
         return null;
     }
 }

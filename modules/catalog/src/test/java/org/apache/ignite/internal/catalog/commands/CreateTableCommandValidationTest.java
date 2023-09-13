@@ -298,14 +298,14 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     void exceptionIsThrownIfIndexWithGivenNameAlreadyExists() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        Catalog catalog = catalogWithIndex("TEST");
+        Catalog catalog = catalogWithIndex("TEST_IDX");
 
-        CatalogCommand command = fillProperties(builder).tableName("TEST").build();
+        CatalogCommand command = fillProperties(builder).tableName("TEST_IDX").build();
 
         assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
-                "Index with name 'PUBLIC.TEST' already exists"
+                "Index with name 'PUBLIC.TEST_IDX' already exists"
         );
     }
 

@@ -986,6 +986,7 @@ TEST_F(record_binary_view_test, types_test) {
         } else if (column == "timestamp2") {
             EXPECT_EQ(res->get(column), primitive{ignite_timestamp(3875238472, 248700000)});
         } else {
+            std::cout << "Column " + column << std::endl;
             EXPECT_EQ(res->get(column), inserted.get(column));
         }
     }

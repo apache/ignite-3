@@ -46,7 +46,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -134,7 +135,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx1);
+        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx1);
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx1,
@@ -410,7 +411,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -466,7 +467,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         int soredIndexId = getSortedIndexId();
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -549,7 +550,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
             try {
-                PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+                PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
                 Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
@@ -652,7 +653,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
             } else {
-                PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+                PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
                 publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
@@ -669,10 +670,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    private PrimaryReplica getLeaderRecipient(int partId, InternalTransaction tx) {
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+    private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
+        IgniteBiTuple<ClusterNode, Long> primaryReplica = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
 
-        return new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+        return new PrimaryReplica(primaryReplica.get1(), primaryReplica.get2());
     }
 
     /**
@@ -876,11 +877,20 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         InternalTable table = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
-        RaftGroupService raftSvc = table.partitionRaftGroupService(partId);
-        long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
+
+        PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
+        ReplicaMeta primaryReplica = IgniteTestUtils.await(
+                placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now()));
+
+        tx.enlist(
+                tblPartId,
+                new IgniteBiTuple<>(
+                        table.getClusterNodeResolver().apply(primaryReplica.getLeaseholder()),
+                        primaryReplica.getStartTime().longValue()
+                )
+        );
 
         tx.assignCommitPartition(tblPartId);
-        tx.enlist(tblPartId, new IgniteBiTuple<>(table.leaderAssignment(partId), term));
 
         return tx;
     }

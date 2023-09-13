@@ -78,7 +78,7 @@ namespace Apache.Ignite.Internal.Sql
             if (HasRowSet)
             {
                 _buffer = buf.Slice(reader.Consumed);
-                HasRows = reader.ReadArrayHeader() > 0;
+                HasRows = reader.ReadInt32() > 0;
             }
             else
             {
@@ -170,7 +170,7 @@ namespace Apache.Ignite.Internal.Sql
             void ReadPage(PooledBuffer buf)
             {
                 var reader = buf.GetReader();
-                var pageSize = reader.ReadArrayHeader();
+                var pageSize = reader.ReadInt32();
 
                 var capacity = hasMore ? pageSize * 2 : pageSize;
                 res ??= constructor(capacity);
@@ -271,7 +271,8 @@ namespace Apache.Ignite.Internal.Sql
             static bool HasMore(PooledBuffer buf)
             {
                 var reader = buf.GetReader();
-                reader.Skip();
+                var rowCount = reader.ReadInt32();
+                reader.Skip(rowCount);
 
                 return !reader.End && reader.ReadBoolean();
             }
@@ -279,13 +280,13 @@ namespace Apache.Ignite.Internal.Sql
 
         private static ResultSetMetadata ReadMeta(ref MsgPackReader reader)
         {
-            var size = reader.ReadArrayHeader();
+            var size = reader.ReadInt32();
 
             var columns = new List<IColumnMetadata>(size);
 
             for (int i = 0; i < size; i++)
             {
-                var propertyCount = reader.ReadArrayHeader();
+                var propertyCount = reader.ReadInt32();
                 const int minCount = 6;
 
                 Debug.Assert(propertyCount >= minCount, "propertyCount >= " + minCount);
@@ -348,7 +349,7 @@ namespace Apache.Ignite.Internal.Sql
             {
                 // ReSharper disable AccessToModifiedClosure
                 var reader = buf.GetReader(offset);
-                var pageSize = reader.ReadArrayHeader();
+                var pageSize = reader.ReadInt32();
                 offset += reader.Consumed;
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
