@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerSelfTest.applyNecessaryPrecisionScale;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
@@ -180,7 +181,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(
-                        ColumnParams.builder().name(columnName).type(ColumnType.DECIMAL).precision(10).build())
+                        ColumnParams.builder().name(columnName).type(ColumnType.DECIMAL).precision(10).scale(0).build())
                 )
                 .primaryKeyColumns(List.of(columnName))
         );
@@ -280,9 +281,9 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .name("ID")
                                 .type(ColumnType.INT32)
                                 .build(),
-                        ColumnParams.builder()
+                        applyNecessaryPrecisionScale(from, ColumnParams.builder()
                                 .name(columnName)
-                                .type(from)
+                                .type(from))
                                 .build())
                 )
                 .primaryKeyColumns(List.of("ID"))
@@ -313,13 +314,13 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(
-                        ColumnParams.builder()
+                        applyNecessaryPrecisionScale(ColumnType.INT64, ColumnParams.builder()
                                 .name("ID")
-                                .type(ColumnType.INT64)
+                                .type(ColumnType.INT64))
                                 .build(),
-                        ColumnParams.builder()
+                        applyNecessaryPrecisionScale(type, ColumnParams.builder()
                                 .name(columnName)
-                                .type(type)
+                                .type(type))
                                 .build())
                 )
                 .primaryKeyColumns(List.of("ID"))
@@ -356,6 +357,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                         ColumnParams.builder()
                                 .name(columnName)
                                 .type(ColumnType.DECIMAL)
+                                .scale(0)
                                 .precision(10)
                                 .build())
                 )
@@ -431,9 +433,9 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .name("ID")
                                 .type(ColumnType.INT64)
                                 .build(),
-                        ColumnParams.builder()
+                        applyNecessaryPrecisionScale(type, ColumnParams.builder()
                                 .name(columnName)
-                                .type(type)
+                                .type(type))
                                 .build())
                 )
                 .primaryKeyColumns(List.of("ID"))
@@ -470,6 +472,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                         ColumnParams.builder()
                                 .name(columnName)
                                 .type(ColumnType.STRING)
+                                .precision(10)
                                 .length(10)
                                 .build())
                 )

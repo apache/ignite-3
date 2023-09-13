@@ -15,33 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc;
+package org.apache.ignite.internal.catalog.commands;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import org.apache.ignite.sql.ColumnType;
+/** Transfer column type defined limitations. */
+public interface ColumnParamsSupplier {
+    /** Return max possible precision. */
+    int getMaxPrecision();
 
-/**
- * Utils for type conversion related to JDBC.
- */
-public class JdbcConverterUtils {
-    /**
-     * Column type to Java class for JDBC.
-     */
-    public static Class<?> columnTypeToJdbcClass(ColumnType type) {
-        assert type != null;
-
-        switch (type) {
-            case DATE:
-                return Date.class;
-            case TIME:
-                return Time.class;
-            case DATETIME:
-            case TIMESTAMP:
-                return Timestamp.class;
-            default:
-                return type.javaClass();
-        }
-    }
+    /** Return max possible scale. */
+    int getMaxScale();
 }

@@ -48,6 +48,9 @@ public class CatalogUtils {
     /** Default number of distribution zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;
 
+    /** Default nullable behavior. */
+    public static final boolean DEFAULT_NULLABLE = false;
+
     /**
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
      * nodes.
@@ -71,33 +74,11 @@ public class CatalogUtils {
     /** Max number of distribution zone partitions. */
     public static final int MAX_PARTITION_COUNT = 65_000;
 
-    /**
-     * Default TIMESTAMP type precision: microseconds.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 36
-     */
-    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+    /** Flag indicate no precision applicability. */
+    public static final int PRECISION_NOT_APPLICABLE = Integer.MIN_VALUE;
 
-    /**
-     * Default TIME type precision: seconds.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 36
-     */
-    public static final int DEFAULT_TIME_PRECISION = 0;
-
-    /**
-     * Default DECIMAL precision is implementation-defined.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 20
-     */
-    public static final int DEFAULT_DECIMAL_PRECISION = 19;
-
-    /**
-     * Default scale is 0.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 22
-     */
-    public static final int DEFAULT_SCALE = 0;
+    /** Flag indicate no scale applicability. */
+    public static final int SCALE_NOT_APPLICABLE = Integer.MIN_VALUE;
 
     /**
      * Maximum TIME and TIMESTAMP precision is implementation-defined.
@@ -119,6 +100,20 @@ public class CatalogUtils {
      * <p>SQL`16 part 2 section 6.1 syntax rule 25
      */
     public static final int MAX_DECIMAL_SCALE = Short.MAX_VALUE;
+
+    /**
+     * Default TIMESTAMP type precision: microseconds.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 36
+     */
+    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+
+    /**
+     * Default TIME type precision: seconds.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 36
+     */
+    public static final int DEFAULT_TIME_PRECISION = 0;
 
     /**
      * Default length is `1` if implicit.
@@ -197,14 +192,13 @@ public class CatalogUtils {
     /**
      * Converts AlterTableAdd command columns parameters to column descriptor.
      *
-     * @param params Parameters.
+     * @param params Column description.
      * @return Column descriptor.
      */
-    // FIXME: IGNITE-20105 Default values should be taken from the SQL standard
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
-        int precision = Objects.requireNonNullElse(params.precision(), defaultPrecision(params.type()));
-        int scale = Objects.requireNonNullElse(params.scale(), DEFAULT_SCALE);
-        int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type()));
+        int precision = params.precision() == null ? PRECISION_NOT_APPLICABLE : params.precision();
+        int scale = params.scale() == null ? SCALE_NOT_APPLICABLE : params.scale();
+        int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type(), precision));
 
         DefaultValue defaultValue = params.defaultValueDefinition();
 
@@ -244,31 +238,15 @@ public class CatalogUtils {
         }).collect(toList());
     }
 
-    private static int defaultPrecision(ColumnType columnType) {
-        //TODO IGNITE-19938: Add REAL,FLOAT and DOUBLE precision. See SQL`16 part 2 section 6.1 syntax rule 29-31
-        switch (columnType) {
-            case NUMBER:
-            case DECIMAL:
-                return DEFAULT_DECIMAL_PRECISION;
-            case TIME:
-                return DEFAULT_TIME_PRECISION;
-            case TIMESTAMP:
-            case DATETIME:
-                return DEFAULT_TIMESTAMP_PRECISION;
-            default:
-                return 0;
-        }
-    }
-
-    private static int defaultLength(ColumnType columnType) {
-        //TODO IGNITE-19938: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
+    private static int defaultLength(ColumnType columnType, int precision) {
+        //TODO IGNITE-20432: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
         switch (columnType) {
             case BITMASK:
             case STRING:
             case BYTE_ARRAY:
                 return DEFAULT_VARLEN_LENGTH;
             default:
-                return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
+                return Math.max(DEFAULT_LENGTH, precision);
         }
     }
 

@@ -25,16 +25,20 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAM
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_NULLABLE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.PRECISION_NOT_APPLICABLE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SCALE_NOT_APPLICABLE;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -43,6 +47,7 @@ import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.NULL;
+import static org.apache.ignite.sql.ColumnType.NUMBER;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -84,6 +89,7 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandB
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -117,6 +123,7 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -134,6 +141,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
+    private static final int DFLT_TEST_PRECISION = 11;
 
     @Test
     public void testEmptyCatalog() {
@@ -230,6 +238,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(table.id(), pkIndex.tableId());
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
+
+        CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
+        assertNotNull(desc);
+        // INT32 key
+        assertThat(desc.precision(), is(PRECISION_NOT_APPLICABLE));
 
         // Validate another table creation.
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
@@ -338,7 +351,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(addColumnParams(
-                        columnParamsBuilder(NEW_COLUMN_NAME, STRING, true).defaultValue(constant("Ignite!")).build()
+                        columnParamsBuilder(NEW_COLUMN_NAME, STRING, true, 11).defaultValue(constant("Ignite!")).build()
                 )),
                 willBe(nullValue())
         );
@@ -366,8 +379,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals("Ignite!", ((DefaultValue.ConstantValue) column.defaultValue()).value());
 
         assertEquals(DEFAULT_VARLEN_LENGTH, column.length());
-        assertEquals(0, column.precision());
-        assertEquals(0, column.scale());
+        assertEquals(DFLT_TEST_PRECISION, column.precision());
+        assertEquals(SCALE_NOT_APPLICABLE, column.scale());
     }
 
     @Test
@@ -521,34 +534,77 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testAlterColumnTypePrecision() {
         ColumnParams pkCol = columnParams("ID", INT32);
-        ColumnParams col = columnParamsBuilder("COL_DECIMAL", DECIMAL).precision(10).build();
+        ColumnParams col1 = columnParamsBuilder("COL_DECIMAL1", DECIMAL).precision(DFLT_TEST_PRECISION - 1).scale(1).build();
+        ColumnParams col2 = columnParamsBuilder("COL_DECIMAL2", DECIMAL).precision(DFLT_TEST_PRECISION).scale(1).build();
 
-        assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col1, col2))), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
         assertNull(manager.schema(schemaVer + 1));
 
-        // 10 ->11 : Ok.
+        // precision increment : Ok.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 11, null, null), null, null),
+                changeColumn(TABLE_NAME, col1.name(), new TestColumnTypeParams(col1.type(), DFLT_TEST_PRECISION, null, null), null, null),
                 willBe(nullValue())
         );
         assertNotNull(manager.schema(++schemaVer));
 
-        // No change.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 11, null, null), null, null),
+                changeColumn(TABLE_NAME, col2.name(), new TestColumnTypeParams(col2.type(), DFLT_TEST_PRECISION, null, null), null, null),
                 willBe(nullValue())
         );
         assertNull(manager.schema(schemaVer + 1));
 
-        // 11 -> 10 : Forbidden because this change lead to incompatible schemas.
+        // No change.
         assertThat(
-                changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null, null), null, null),
+                changeColumn(TABLE_NAME, col1.name(), new TestColumnTypeParams(col1.type(), DFLT_TEST_PRECISION, null, null), null, null),
+                willBe(nullValue())
+        );
+        assertNull(manager.schema(schemaVer + 1));
+
+        // precision decrement : Forbidden because this change lead to incompatible schemas.
+        assertThat(
+                changeColumn(TABLE_NAME, col1.name(),
+                        new TestColumnTypeParams(col1.type(), DFLT_TEST_PRECISION - 1, null, null), null, null),
                 willThrowFast(CatalogValidationException.class, "Decreasing the precision is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
+
+        assertThat(
+                changeColumn(TABLE_NAME, col2.name(),
+                        new TestColumnTypeParams(col2.type(), DFLT_TEST_PRECISION - 1, null, null), null, null),
+                willThrowFast(CatalogValidationException.class, "Decreasing the precision is not allowed")
+        );
+        assertNull(manager.schema(schemaVer + 1));
+    }
+
+    @ParameterizedTest
+    @EnumSource(ColumnType.class)
+    public void testColumnSetPrecisionScale(ColumnType type) {
+        Builder colBuilder = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20);
+
+        Builder colBuilderErrPrec1 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, Integer.MIN_VALUE, 2);
+        Builder colBuilderErrPrec2 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, Integer.MAX_VALUE, 2);
+        Builder colBuilderErrScale1 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, Integer.MAX_VALUE);
+
+        if (type.precScale() == PrecisionScale.NO_NO) {
+            assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Precision is not applicable for column of type");
+        }
+
+        if (type.precScale() == PrecisionScale.YES_NO) {
+            Builder colBuilder0 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, 2);
+            assertThrowsWithCause(colBuilder0::build, CatalogValidationException.class, "Scale is not applicable for column of type");
+        }
+
+        if (type.precScale() == PrecisionScale.YES_NO || type.precScale() == PrecisionScale.YES_YES) {
+            assertThrowsWithCause(colBuilderErrPrec1::build, CatalogValidationException.class, "must be between");
+            assertThrowsWithCause(colBuilderErrPrec2::build, CatalogValidationException.class, "must be between");
+        }
+
+        if (type.precScale() == PrecisionScale.YES_YES) {
+            assertThrowsWithCause(colBuilderErrScale1::build, CatalogValidationException.class, "must be between");
+        }
     }
 
     /**
@@ -558,29 +614,38 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
         ColumnParams pkCol = columnParams("ID", INT32);
-        ColumnParams col = columnParams("COL", type);
-        ColumnParams colWithPrecision = columnParamsBuilder("COL_PRECISION", type).precision(3).build();
+        ColumnParams colWithPrecision;
+        Builder colWithPrecisionBuilder = columnParamsBuilder("COL_PRECISION", type).precision(3);
+
+        if (type == NUMBER) {
+            colWithPrecisionBuilder.scale(0);
+        }
+
+        if (type.precScale() == PrecisionScale.NO_NO) {
+            assertThrowsWithCause(colWithPrecisionBuilder::build, CatalogValidationException.class);
+            return;
+        }
+
+        colWithPrecision = colWithPrecisionBuilder.build();
 
         assertThat(manager.execute(
-                simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe(nullValue())
+                simpleTable(TABLE_NAME, List.of(pkCol, colWithPrecision))), willBe(nullValue())
         );
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
         assertNull(manager.schema(schemaVer + 1));
 
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, 3, null, null), null, null),
-                willThrowFast(CatalogValidationException.class,
-                        "Changing the precision for column of type '" + col.type() + "' is not allowed"));
+        int origPrecision = colWithPrecision.precision() == null ? 11 : colWithPrecision.precision();
 
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 3, null, null), null, null),
-                willBe(nullValue()));
-
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 2, null, null), null, null),
+        // change precision different from default
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(),
+                        new TestColumnTypeParams(type, origPrecision - 1, null, null), null, null),
                 willThrowFast(CatalogValidationException.class,
                         "Changing the precision for column of type '" + colWithPrecision.type() + "' is not allowed"));
 
-        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 4, null, null), null, null),
+        assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(),
+                        new TestColumnTypeParams(type, origPrecision + 1, null, null), null, null),
                 willThrowFast(CatalogValidationException.class,
                         "Changing the precision for column of type '" + colWithPrecision.type() + "' is not allowed"));
 
@@ -599,7 +664,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
     public void testAlterColumnTypeLength(ColumnType type) {
         ColumnParams pkCol = columnParams("ID", INT32);
-        ColumnParams col = columnParamsBuilder("COL_" + type, type).length(10).build();
+        ColumnParams col = columnParamsBuilder("COL_" + type, type).length(10).precision(10).build();
 
         assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
@@ -647,11 +712,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      * Changing length is forbidden for all types other than STRING and BYTE_ARRAY.
      */
     @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"NULL", "STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyLengthChangeIsRejected(ColumnType type) {
         ColumnParams pkCol = columnParams("ID", INT32);
-        ColumnParams col = columnParams("COL", type);
-        ColumnParams colWithLength = columnParamsBuilder("COL_PRECISION", type).length(10).build();
+        Builder colBuilder = columnParamsBuilder("COL", type);
+        Builder colWithLengthBuilder = columnParamsBuilder("COL_PRECISION", type).length(10);
+
+        applyNecessaryPrecisionScale(type, colBuilder);
+        applyNecessaryPrecisionScale(type, colWithLengthBuilder);
+
+        ColumnParams col = colBuilder.build();
+        ColumnParams colWithLength = colWithLengthBuilder.build();
 
         assertThat(
                 manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithLength))),
@@ -684,10 +755,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      * Changing scale is incompatible change, thus it's forbidden for all types.
      */
     @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    @EnumSource(ColumnType.class)
     public void testAlterColumnTypeScaleIsRejected(ColumnType type) {
         ColumnParams pkCol = columnParams("ID", INT32);
-        ColumnParams col = columnParamsBuilder("COL_" + type, type).scale(3).build();
+        Builder colWithPrecisionBuilder = columnParamsBuilder("COL_" + type, type).scale(3);
+        ColumnParams col;
+
+        applyNecessaryPrecision(type, colWithPrecisionBuilder);
+
+        if (type.precScale() == PrecisionScale.NO_NO || type.precScale() == PrecisionScale.YES_NO) {
+            assertThrowsWithCause(colWithPrecisionBuilder::build, CatalogValidationException.class);
+            return;
+        }
+
+        col = colWithPrecisionBuilder.build();
+
         assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
         int schemaVer = 1;
@@ -732,7 +814,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         types.remove(NULL);
 
         List<ColumnParams> testColumns = types.stream()
-                .map(t -> columnParams("COL_" + t, t))
+                .map(t -> applyNecessaryPrecisionScale(t, columnParamsBuilder("COL_" + t, t)))
+                .map(Builder::build)
                 .collect(toList());
 
         List<ColumnParams> tableColumns = new ArrayList<>(List.of(columnParams("ID", INT32)));
@@ -756,9 +839,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                         format("Changing the type from {} to {} is not allowed", col.type(), target));
             }
 
-            TestColumnTypeParams tyoeParams = new TestColumnTypeParams(target);
+            TestColumnTypeParams typeParams = new TestColumnTypeParams(target);
 
-            assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), tyoeParams, null, null), matcher);
+            assertThat(col.type() + " -> " + target, changeColumn(TABLE_NAME, col.name(), typeParams, null, null), matcher);
             assertNotNull(manager.schema(schemaVer));
             assertNull(manager.schema(schemaVer + 1));
         }
@@ -1784,6 +1867,25 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(versionAfter, is(versionBefore));
     }
 
+    /** Append precision\scale according to type requirement. */
+    public static Builder applyNecessaryPrecisionScale(ColumnType type, Builder colBuilder) {
+        if (type.precScale() != PrecisionScale.NO_NO) {
+            colBuilder.precision(11);
+        }
+
+        if (type.precScale() == PrecisionScale.YES_YES) {
+            colBuilder.scale(0);
+        }
+
+        return colBuilder;
+    }
+
+    private static void applyNecessaryPrecision(ColumnType type, Builder colBuilder) {
+        if (type.precScale() != PrecisionScale.NO_NO) {
+            colBuilder.precision(11);
+        }
+    }
+
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,
@@ -1828,9 +1930,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 columnParams("ID", INT32),
                 columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
                 columnParamsBuilder("VAL_NOT_NULL", INT32).defaultValue(constant(1)).build(),
-                columnParams("DEC", DECIMAL, true),
-                columnParams("STR", STRING, true),
-                columnParamsBuilder("DEC_SCALE", DECIMAL).scale(3).build()
+                columnParams("DEC", DECIMAL, true, 11, 2),
+                columnParams("STR", STRING, true, 10),
+                columnParamsBuilder("DEC_SCALE", DECIMAL).precision(12).scale(3).build()
         );
 
         return simpleTable(name, cols);

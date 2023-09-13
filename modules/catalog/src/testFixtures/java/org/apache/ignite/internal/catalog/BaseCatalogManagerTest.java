@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_NULLABLE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
@@ -170,19 +171,35 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     }
 
     protected static ColumnParams columnParams(String name, ColumnType type) {
-        return columnParams(name, type, false);
+        return columnParams(name, type, DEFAULT_NULLABLE);
     }
 
     protected static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
         return columnParamsBuilder(name, type, nullable).build();
     }
 
+    protected static ColumnParams columnParams(String name, ColumnType type, boolean nullable, int precision) {
+        return columnParamsBuilder(name, type, nullable, precision).build();
+    }
+
+    protected static ColumnParams columnParams(String name, ColumnType type, boolean nullable, int precision, int scale) {
+        return columnParamsBuilder(name, type, nullable, precision, scale).build();
+    }
+
     protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type) {
-        return columnParamsBuilder(name, type, false);
+        return columnParamsBuilder(name, type, DEFAULT_NULLABLE);
     }
 
     protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable) {
         return ColumnParams.builder().name(name).nullable(nullable).type(type);
+    }
+
+    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable, int precision) {
+        return ColumnParams.builder().name(name).nullable(nullable).type(type).precision(precision);
+    }
+
+    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable, int precision, int scale) {
+        return ColumnParams.builder().name(name).nullable(nullable).type(type).precision(precision).scale(scale);
     }
 
     protected static CatalogCommand dropTableCommand(String tableName) {

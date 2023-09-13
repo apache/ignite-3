@@ -83,7 +83,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .name(SYS_VIEW_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).build()
+                        ColumnParams.builder().name("col2").type(STRING).precision(1 << 14).build()
                 ))
                 .type(type)
                 .build();
@@ -159,7 +159,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         private static final List<ColumnParams> COLUMNS = List.of(
                 ColumnParams.builder().name("col1").type(INT32).build(),
-                ColumnParams.builder().name("col2").type(STRING).build()
+                ColumnParams.builder().name("col2").type(STRING).precision(1 << 14).build()
         );
 
         static CreateSystemViewCommandBuilder newSystemView() {
@@ -179,6 +179,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                     ColumnParams column = ColumnParams.builder()
                             .name("col-x")
                             .type(ColumnType.BYTE_ARRAY)
+                            .precision(1 << 14)
                             .build();
 
                     List<ColumnParams> columns = new ArrayList<>(COLUMNS);
@@ -198,6 +199,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                     ColumnParams column = ColumnParams.builder()
                             .name(COLUMNS.get(0).name())
                             .type(ColumnType.BYTE_ARRAY)
+                            .precision(1 << 14)
                             .build();
 
                     List<ColumnParams> columns = new ArrayList<>(COLUMNS);
@@ -224,7 +226,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .name(SYS_VIEW_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).build()
+                        ColumnParams.builder().name("col2").type(STRING).precision(1 << 14).build()
                 ))
                 .type(type)
                 .build();
@@ -274,7 +276,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .name(TABLE_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).build()
+                        ColumnParams.builder().name("col2").type(STRING).precision(1 << 14).build()
                 ))
                 .type(type)
                 .build();
@@ -289,7 +291,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .name(SYS_VIEW_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).build()
+                        ColumnParams.builder().name("col2").type(STRING).precision(1 << 14).build()
                 ))
                 .type(type)
                 .build();
@@ -316,7 +318,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .name(SYS_VIEW_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).build()
+                        ColumnParams.builder().name("col2").type(STRING).precision(1 << 14).build()
                 ))
                 .type(type)
                 .build();

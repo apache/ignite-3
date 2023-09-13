@@ -17,9 +17,15 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.CatalogParamsValidationUtils;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
@@ -204,11 +210,71 @@ public class ColumnParams {
             return this;
         }
 
-        /** Builds parameters. */
+        /** Test only builder wrapper. */
+        @TestOnly
         public ColumnParams build() {
+            return build(new ColumnParamsSupplier() {
+                @Override
+                public int getMaxPrecision() {
+                    return 1 << 15;
+                }
+
+                @Override
+                public int getMaxScale() {
+                    return 10;
+                }
+            });
+        }
+
+        /** Builds parameters. */
+        public ColumnParams build(ColumnParamsSupplier helper) {
+            validate(helper);
+
             ColumnParams params0 = params;
             params = null;
             return params0;
+        }
+
+        private void validate(ColumnParamsSupplier helper) {
+            CatalogParamsValidationUtils.validateIdentifier(params.name(), "Column name");
+
+            if (params.type == null) {
+                throw new CatalogValidationException(format("Column '{}' type is not specified", params.name()));
+            }
+
+            PrecisionScale precScale = params.type.precScale();
+
+            if (precScale != PrecisionScale.NO_NO) {
+                Integer precision = params.precision();
+
+                if (precision == null) {
+                    throw new CatalogValidationException(format("Precision definition is necessary for type '{}'", params.type()));
+                }
+
+                if (precision < 0 || precision > helper.getMaxPrecision()) {
+                    throw new CatalogValidationException(format("Precision: {} for column of type '{}' must be between 0 and {}",
+                            params.precision, params.type(), helper.getMaxPrecision()));
+                }
+            } else if (params.precision() != null) {
+                throw new CatalogValidationException(format("Precision is not applicable for column of type '{}'", params.type()));
+            }
+
+            if (precScale != PrecisionScale.YES_YES) {
+                if (params.scale() != null) {
+                    throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
+                }
+            } else {
+                Integer scale0 = params.scale();
+
+                if (scale0 == null) {
+                    throw new CatalogValidationException(format("Scale definition is necessary for type '{}'", params.type()));
+                }
+
+                if (scale0 > helper.getMaxScale()) {
+                    throw new CatalogValidationException(format("Scale: {} for column of type '{}' must be between 0 and {}",
+                            params.scale(), params.type(), helper.getMaxScale()));
+                }
+            }
         }
     }
 }

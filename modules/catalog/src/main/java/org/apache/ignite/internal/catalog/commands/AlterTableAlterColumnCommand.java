@@ -33,6 +33,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -115,8 +116,6 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
     private void validate() {
         validateIdentifier(columnName, "Name of the column");
-
-        // TODO: IGNITE-19938 Add validation column length, precision and scale
     }
 
     private CatalogTableColumnDescriptor createNewTableColumn(CatalogTableColumnDescriptor origin) {
@@ -153,7 +152,8 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
             }
         }
 
-        if (precision != null && precision != origin.precision() && origin.type() != ColumnType.DECIMAL) {
+        if (precision != null && precision != origin.precision() && (origin.type() != ColumnType.DECIMAL
+                || origin.type().precScale() == PrecisionScale.NO_NO)) {
             throw new CatalogValidationException(format("Changing the precision for column of type '{}' is not allowed", origin.type()));
         }
 

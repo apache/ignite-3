@@ -24,7 +24,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 
@@ -33,134 +32,96 @@ import java.util.UUID;
  */
 public enum ColumnType {
     /** Boolean. */
-    BOOLEAN,
+    BOOLEAN(Boolean.class, PrecisionScale.NO_NO),
 
     /** 8-bit signed integer. */
-    INT8,
+    INT8(Byte.class, PrecisionScale.NO_NO),
 
     /** 16-bit signed integer. */
-    INT16,
+    INT16(Short.class, PrecisionScale.NO_NO),
 
     /** 32-bit signed integer. */
-    INT32,
+    INT32(Integer.class, PrecisionScale.NO_NO),
 
     /** 64-bit signed integer. */
-    INT64,
+    INT64(Long.class, PrecisionScale.NO_NO),
 
     /** 32-bit single-precision floating-point number. */
-    FLOAT,
-
-    /** 64-bit double-precision floating-point number. */
-    DOUBLE,
-
-    /** Arbitrary-precision signed decimal number. */
-    DECIMAL,
-
-    /** Timezone-free date. */
-    DATE,
-
-    /** Timezone-free time with precision. */
-    TIME,
-
-    /** Timezone-free datetime. */
-    DATETIME,
-
-    /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
-    TIMESTAMP,
-
-    /** 128-bit UUID. */
-    UUID,
-
-    /** Bit mask. */
-    BITMASK,
-
-    /** String. */
-    STRING,
-
-    /** Binary data. */
-    BYTE_ARRAY,
-
-    /** Date interval. */
-    PERIOD,
-
-    /** Time interval. */
-    DURATION,
-
-    /** Number. */
-    NUMBER,
-
-    /** Null. */
-    NULL;
+    FLOAT(Float.class, PrecisionScale.YES_NO),
 
     /**
-     * Column type to Java class.
+     * 64-bit double-precision floating-point number.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 31, implementation-defined precision
      */
-    public static Class<?> columnTypeToClass(ColumnType type) {
-        assert type != null;
+    DOUBLE(Double.class, PrecisionScale.NO_NO),
 
-        switch (type) {
-            case BOOLEAN:
-                return Boolean.class;
+    /** Arbitrary-precision signed decimal number. */
+    DECIMAL(BigDecimal.class, PrecisionScale.YES_YES),
 
-            case INT8:
-                return Byte.class;
+    /** Timezone-free date. */
+    DATE(LocalDate.class, PrecisionScale.NO_NO),
 
-            case INT16:
-                return Short.class;
+    /** Timezone-free time with precision. */
+    TIME(LocalTime.class, PrecisionScale.YES_NO),
 
-            case INT32:
-                return Integer.class;
+    /** Timezone-free datetime. */
+    DATETIME(LocalDateTime.class, PrecisionScale.YES_NO),
 
-            case INT64:
-                return Long.class;
+    /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
+    TIMESTAMP(Instant.class, PrecisionScale.YES_NO),
 
-            case FLOAT:
-                return Float.class;
+    /** 128-bit UUID. */
+    UUID(UUID.class, PrecisionScale.NO_NO),
 
-            case DOUBLE:
-                return Double.class;
+    /** Bit mask. */
+    BITMASK(BitSet.class, PrecisionScale.YES_NO),
 
-            case NUMBER:
-                return BigInteger.class;
+    /** String. */
+    STRING(String.class, PrecisionScale.YES_NO),
 
-            case DECIMAL:
-                return BigDecimal.class;
+    /** Binary data. */
+    BYTE_ARRAY(byte[].class, PrecisionScale.YES_NO),
 
-            case UUID:
-                return UUID.class;
+    /** Date interval. */
+    PERIOD(Void.class, PrecisionScale.YES_NO),
 
-            case STRING:
-                return String.class;
+    /** Time interval. */
+    DURATION(Duration.class, PrecisionScale.YES_NO),
 
-            case BYTE_ARRAY:
-                return byte[].class;
+    /** Number. */
+    NUMBER(BigInteger.class, PrecisionScale.YES_YES),
 
-            case BITMASK:
-                return BitSet.class;
+    /** Null. */
+    NULL(Void.class, PrecisionScale.NO_NO);
 
-            case DATE:
-                return LocalDate.class;
+    private final Class<?> javaClass;
+    private final PrecisionScale precScale;
 
-            case TIME:
-                return LocalTime.class;
+    ColumnType(Class<?> clazz, PrecisionScale precScale) {
+        javaClass = clazz;
+        this.precScale = precScale;
+    }
 
-            case DATETIME:
-                return LocalDateTime.class;
+    /** Appropriate java match type. */
+    public Class<?> javaClass() {
+        return javaClass;
+    }
 
-            case TIMESTAMP:
-                return Instant.class;
+    /** Precision and scale definition. */
+    public PrecisionScale precScale() {
+        return precScale;
+    }
 
-            case PERIOD:
-                return Period.class;
+    /** Precision\scale status. */
+    public enum PrecisionScale {
+        /** Precision and scale not acceptable. */
+        NO_NO,
 
-            case DURATION:
-                return Duration.class;
+        /** Only precision acceptable. */
+        YES_NO,
 
-            case NULL:
-                return Void.class;
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type);
-        }
+        /** Precision and scale are both acceptable. */
+        YES_YES;
     }
 }

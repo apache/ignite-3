@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandB
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParamsSupplier;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -55,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
 
@@ -62,6 +65,8 @@ import org.apache.ignite.sql.ColumnType;
  * Converter for DDL command classes to Catalog command params classes.
  */
 class DdlToCatalogCommandConverter {
+    private static final RelDataTypeSystem TYPE_SYSTEM = Commons.cluster().getTypeFactory().getTypeSystem();
+
     static CatalogCommand convert(CreateTableCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
@@ -238,7 +243,17 @@ class DdlToCatalogCommandConverter {
                 .scale(def.scale())
                 .length(def.precision())
                 .defaultValue(convert(def.defaultValueDefinition()))
-                .build();
+                .build(new ColumnParamsSupplier() {
+                    @Override
+                    public int getMaxPrecision() {
+                        return TYPE_SYSTEM.getMaxPrecision(def.type().getSqlTypeName());
+                    }
+
+                    @Override
+                    public int getMaxScale() {
+                        return TYPE_SYSTEM.getMaxScale(def.type().getSqlTypeName());
+                    }
+                });
     }
 
     private static DefaultValue convert(DefaultValueDefinition def) {

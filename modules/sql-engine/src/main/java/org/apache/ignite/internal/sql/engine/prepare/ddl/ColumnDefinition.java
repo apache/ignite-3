@@ -17,8 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
+
+import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnDefinition {
@@ -27,6 +35,12 @@ public class ColumnDefinition {
     private final RelDataType type;
 
     private final DefaultValueDefinition defaultValueDefinition;
+
+    /**
+     * Calcite definition {@link org.apache.calcite.sql.type.SqlTypeName} for precision and scale is
+     * different from standard, this fixes such a case.
+     **/
+    private static final Set<SqlTypeName> PRECISION_ALLOWED = EnumSet.of(SqlTypeName.FLOAT, SqlTypeName.REAL);
 
     /** Creates a column definition. */
     public ColumnDefinition(String name, RelDataType type, DefaultValueDefinition defaultValueDefinition) {
@@ -70,14 +84,24 @@ public class ColumnDefinition {
     /**
      * Get column's precision.
      */
-    public Integer precision() {
-        return type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED ? type.getPrecision() : null;
+    public @Nullable Integer precision() {
+        int prec = type.getPrecision();
+        // WA for undefined precision for such a types, if this definition raise in IgniteTypeSystem.getDefaultPrecision
+        // VARCHAR(65536) type instead of VARCHAR will occur in appropriate tests, additional investigation need.
+        if (type.getSqlTypeName() == SqlTypeName.VARCHAR || type.getSqlTypeName() == SqlTypeName.VARBINARY) {
+            prec = prec == PRECISION_NOT_SPECIFIED ? DEFAULT_VARLEN_LENGTH : prec;
+        }
+        Integer ret = prec == PRECISION_NOT_SPECIFIED ? null : prec;
+        return type.getSqlTypeName().allowsPrec() || PRECISION_ALLOWED.contains(type.getSqlTypeName()) ? ret : null;
     }
 
     /**
      * Get column's scale.
      */
-    public Integer scale() {
-        return type.getScale() != RelDataType.SCALE_NOT_SPECIFIED ? type.getScale() : null;
+    public @Nullable Integer scale() {
+        int scale = type.getScale();
+        Integer ret = scale == SCALE_NOT_SPECIFIED ? null : scale;
+        return type.getSqlTypeName().allowsScale() ? ret : null;
+
     }
 }

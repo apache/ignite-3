@@ -84,37 +84,19 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void tableColumnNameMustNotBeNullOrBlank(String name) {
-        CreateTableCommandBuilder builder = CreateTableCommand.builder();
-
-        builder = fillProperties(builder);
-
-        builder.columns(List.of(
-                ColumnParams.builder().name(name).build()
-        ));
-
         assertThrowsWithCause(
-                builder::build,
+                () -> ColumnParams.builder().name(name).build(),
                 CatalogValidationException.class,
-                "Name of the column can't be null or blank"
+                "Column name can't be null or blank"
         );
     }
 
     @Test
     void tableColumnShouldHaveType() {
-        CreateTableCommandBuilder builder = CreateTableCommand.builder();
-
-        builder = fillProperties(builder)
-                .columns(List.of(
-                        ColumnParams.builder()
-                                .name("C")
-                                .type(null)
-                                .build()
-                ));
-
         assertThrowsWithCause(
-                builder::build,
+                () -> ColumnParams.builder().name("C").type(null).build(),
                 CatalogValidationException.class,
-                "Missing column type: C"
+                "Column 'C' type is not specified"
         );
     }
 
