@@ -93,6 +93,8 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -165,6 +167,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.replicator.CatalogTablesWithIdConversion;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
@@ -395,6 +398,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    private final TableIdRegistry tableIdTranslator = new TableIdRegistry();
+
     /**
      * Future that represents the state of Rebalance recovery.
      *
@@ -581,6 +586,32 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         addMessageHandler(clusterService.messagingService());
+
+        // TODO: IGNITE-19499 - remove when switched to the Catalog.
+        recoverTableIdsMapping();
+
+        // TODO: IGNITE-19499 - remove when switched to the Catalog.
+        catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
+            CreateTableEventParameters event = (CreateTableEventParameters) parameters;
+
+            TableView tableConfig = tablesCfg.tables().value().get(event.tableDescriptor().name());
+
+            assert tableConfig != null : "No table config found by name " + event.tableDescriptor().name();
+
+            tableIdTranslator.registerMapping(tableConfig.id(), event.tableId());
+
+            return completedFuture(false);
+        });
+    }
+
+    private void recoverTableIdsMapping() {
+        tablesCfg.tables().value().forEach(tableView -> {
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tableView.name(), Long.MAX_VALUE);
+
+            assert tableDescriptor != null : "No table in the Catalog with name " + tableView.name();
+
+            tableIdTranslator.registerMapping(tableView.id(), tableDescriptor.id());
+        });
     }
 
     private CompletableFuture<Void> performRebalanceOnRecovery(long revision) {
@@ -1074,6 +1105,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
+                // TODO: IGNITE-19499 - replace with DirectCatalogTables
+                new CatalogTablesWithIdConversion(catalogService, tableIdTranslator),
                 tablesCfg,
                 placementDriver
         );
