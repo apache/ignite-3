@@ -2251,15 +2251,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    Entry newEntry = evt.entryEvent().newEntry();
+                    return executeAfterRecovery(() -> {
+                        Entry newEntry = evt.entryEvent().newEntry();
 
-                    long revision = evt.revision();
-
-                    if (recoveryFuture.isDone()) {
-                        return handleChangePendingAssignmentEvent(newEntry, revision);
-                    } else {
-                        return recoveryFuture.thenCompose(v -> handleChangePendingAssignmentEvent(newEntry, revision));
-                    }
+                        return handleChangePendingAssignmentEvent(newEntry, evt.revision());
+                    });
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -2270,6 +2266,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 LOG.warn("Unable to process pending assignments event", e);
             }
         };
+    }
+
+    private <T> CompletableFuture<T> executeAfterRecovery(Supplier<CompletableFuture<T>> action) {
+        if (recoveryFuture.isDone()) {
+            return action.get();
+        } else {
+            return recoveryFuture.thenCompose(v -> action.get());
+        }
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
@@ -2517,7 +2521,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    return handleChangeStableAssignmentEvent(evt);
+                    return executeAfterRecovery(() -> handleChangeStableAssignmentEvent(evt));
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -2544,36 +2548,38 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    byte[] key = evt.entryEvent().newEntry().key();
+                    return executeAfterRecovery(() -> {
+                        byte[] key = evt.entryEvent().newEntry().key();
 
-                    int partitionId = extractPartitionNumber(key);
-                    int tableId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
+                        int partitionId = extractPartitionNumber(key);
+                        int tableId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
 
-                    TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
+                        TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
-                    return tablesById(evt.revision())
-                            .thenCompose(tables -> {
-                                if (!busyLock.enterBusy()) {
-                                    return failedFuture(new NodeStoppingException());
-                                }
+                        return tablesById(evt.revision())
+                                .thenCompose(tables -> {
+                                    if (!busyLock.enterBusy()) {
+                                        return failedFuture(new NodeStoppingException());
+                                    }
 
-                                try {
-                                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId);
+                                    try {
+                                        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId);
 
-                                    assert tableDescriptor != null : replicaGrpId;
+                                        assert tableDescriptor != null : replicaGrpId;
 
-                                    return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
-                                            .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
-                                                    metaStorageMgr,
-                                                    dataNodes,
-                                                    getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
-                                                    replicaGrpId,
-                                                    evt
-                                            ));
-                                } finally {
-                                    busyLock.leaveBusy();
-                                }
-                            });
+                                        return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
+                                                .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
+                                                        metaStorageMgr,
+                                                        dataNodes,
+                                                        getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
+                                                        replicaGrpId,
+                                                        evt
+                                                ));
+                                    } finally {
+                                        busyLock.leaveBusy();
+                                    }
+                                });
+                    });
                 } finally {
                     busyLock.leaveBusy();
                 }
