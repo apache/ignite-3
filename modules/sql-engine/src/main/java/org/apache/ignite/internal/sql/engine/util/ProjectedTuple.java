@@ -25,13 +25,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A facade that creates projection of the given tuple.
@@ -48,7 +52,7 @@ import org.apache.ignite.internal.schema.row.InternalTuple;
  * </pre>
  */
 public class ProjectedTuple implements InternalTuple {
-    private final BinaryTupleSchema schema;
+    private final @Nullable BinaryTupleSchema schema;
 
     private InternalTuple delegate;
     private int[] projection;
@@ -56,7 +60,11 @@ public class ProjectedTuple implements InternalTuple {
     private boolean normalized = false;
 
     /**
-     * Constructor.
+     * Creates projected tuple with not optimal but reliable conversion.
+     *
+     * <p>When call to {@link #byteBuffer()}, the original tuple will be read field by field with regard to provided projection.
+     * Such an approach had an additional overhead on (de-)serialization fields value, but had no requirement for the tuple
+     * to be compatible with Binary Tuple format.
      *
      * @param schema A schema of the original tuple (represented by delegate). Used to read content of the delegate to build a
      *         proper byte buffer which content satisfying the schema with regard to given projection.
@@ -70,9 +78,33 @@ public class ProjectedTuple implements InternalTuple {
             InternalTuple delegate,
             int[] projection
     ) {
-        this.schema = schema;
+        this.schema = Objects.requireNonNull(schema);
         this.delegate = delegate;
         this.projection = projection;
+    }
+
+    /**
+     * Creates projected tuple with optimized conversion.
+     *
+     * <p>When call to {@link #byteBuffer()}, the original tuple will be rebuild with regard to provided projection
+     * by copying raw bytes from original tuple. Although this works more optimal, it requires an original tuple
+     * to be crafted with regard to Binary Tuple format.
+     *
+     * <p>It's up to the caller to get sure that provided tuple respect the format.
+     *
+     * @param delegate An original tuple to create projection from.
+     * @param projection A projection. That is, desired order of fields in original tuple. In that projection, index of the array is
+     *         an index of field in resulting projection, and an element of the array at that index is an index of column in original
+     *         tuple.
+     */
+    public ProjectedTuple(
+            InternalTuple delegate,
+            int[] projection
+    ) {
+        this.delegate = delegate;
+        this.projection = projection;
+
+        this.schema = null;
     }
 
     @Override
@@ -217,6 +249,16 @@ public class ProjectedTuple implements InternalTuple {
             return;
         }
 
+        if (schema != null) {
+            normalizeSlow();
+        } else {
+            normalizeFast();
+        }
+    }
+
+    private void normalizeSlow() {
+        assert schema != null;
+
         var builder = new BinaryTupleBuilder(projection.length);
         var newProjection = new int[projection.length];
 
@@ -228,6 +270,49 @@ public class ProjectedTuple implements InternalTuple {
             Element element = schema.element(col);
 
             BinaryRowConverter.appendValue(builder, element, schema.value(delegate, col));
+        }
+
+        delegate = new BinaryTuple(projection.length, builder.build());
+        projection = newProjection;
+        normalized = true;
+    }
+
+    private void normalizeFast() {
+        var newProjection = new int[projection.length];
+        ByteBuffer tupleBuffer = delegate.byteBuffer();
+        int[] requiredColumns = projection;
+
+        var parser = new BinaryTupleParser(delegate.elementCount(), tupleBuffer);
+
+        // Estimate total data size.
+        var stats = new Sink() {
+            int estimatedValueSize = 0;
+
+            @Override
+            public void nextElement(int index, int begin, int end) {
+                estimatedValueSize += end - begin;
+            }
+        };
+
+        for (int columnIndex : requiredColumns) {
+            parser.fetch(columnIndex, stats);
+        }
+
+        // Now compose the tuple.
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(requiredColumns.length, stats.estimatedValueSize);
+
+        int pos = 0;
+
+        for (int columnIndex : requiredColumns) {
+            parser.fetch(columnIndex, (index, begin, end) -> {
+                if (begin == end) {
+                    builder.appendNull();
+                } else {
+                    builder.appendElementBytes(tupleBuffer, begin, end - begin);
+                }
+            });
+
+            newProjection[pos++] = columnIndex;
         }
 
         delegate = new BinaryTuple(projection.length, builder.build());

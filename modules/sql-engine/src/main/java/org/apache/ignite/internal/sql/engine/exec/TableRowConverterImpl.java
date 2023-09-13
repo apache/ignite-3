@@ -74,18 +74,23 @@ public class TableRowConverterImpl implements TableRowConverter {
             BinaryRow tableRow,
             RowHandler.RowFactory<RowT> factory
     ) {
-        InternalTuple tableTuple;
+        InternalTuple tuple;
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
-            tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
-        } else {
-            tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
-        }
+            InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
 
-        InternalTuple tuple = new ProjectedTuple(
-                binaryTupleSchema,
-                tableTuple,
-                mapping
-        );
+            tuple = new ProjectedTuple(
+                    tableTuple,
+                    mapping
+            );
+        } else {
+            InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
+
+            tuple = new ProjectedTuple(
+                    binaryTupleSchema,
+                    tableTuple,
+                    mapping
+            );
+        }
 
         return factory.create(tuple);
     }

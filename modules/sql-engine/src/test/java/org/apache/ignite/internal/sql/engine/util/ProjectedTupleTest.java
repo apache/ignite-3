@@ -145,17 +145,18 @@ class ProjectedTupleTest {
         assertThat(projection1.elementCount(), equalTo(projectionSize));
     }
 
-    @Test
-    void testProjection() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testProjection(boolean useOptimizeProjection) {
         int f1 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
         int f2 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
         int f3 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
 
         int[] projection = {f1, f2, f3};
 
-        InternalTuple projectedTuple = new ProjectedTuple(
-                ALL_TYPES_SCHEMA, TUPLE, projection
-        );
+        InternalTuple projectedTuple = useOptimizeProjection
+                ? new ProjectedTuple(TUPLE, projection)
+                : new ProjectedTuple(ALL_TYPES_SCHEMA, TUPLE, projection);
 
         Element e1 = ALL_TYPES_SCHEMA.element(f1);
         Element e2 = ALL_TYPES_SCHEMA.element(f2);
