@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.tx.TransactionMeta;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Transaction state response.
- */
-@Transferable(TxMessageGroup.TX_STATE_RESPONSE)
-public interface TxStateResponse extends TimestampAware {
-    @Marshallable
-    TransactionMeta txStateMeta();
+public interface TransactionMeta extends Serializable {
+    TxState txState();
+
+    @Nullable HybridTimestamp commitTimestamp();
 }

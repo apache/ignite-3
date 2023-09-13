@@ -28,7 +28,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Transaction meta. */
-public class TxMeta implements Serializable {
+public class TxMeta implements TransactionMeta, Serializable {
     /** Serial version UID. */
     private static final long serialVersionUID = -172513482743911860L;
 
@@ -55,6 +55,7 @@ public class TxMeta implements Serializable {
         this.commitTimestamp = commitTimestamp;
     }
 
+    @Override
     public TxState txState() {
         return txState;
     }
@@ -63,6 +64,7 @@ public class TxMeta implements Serializable {
         return unmodifiableList(enlistedPartitions);
     }
 
+    @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
     }

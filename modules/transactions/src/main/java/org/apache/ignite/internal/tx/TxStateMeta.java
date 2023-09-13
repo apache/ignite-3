@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Transaction state meta.
  */
-public class TxStateMeta implements Serializable {
+public class TxStateMeta implements TransactionMeta, Serializable {
     private static final long serialVersionUID = 8521181896862227127L;
 
     private final TxState txState;
@@ -50,6 +50,7 @@ public class TxStateMeta implements Serializable {
         this.commitTimestamp = commitTimestamp;
     }
 
+    @Override
     public TxState txState() {
         return txState;
     }
@@ -58,6 +59,7 @@ public class TxStateMeta implements Serializable {
         return txCoordinatorId;
     }
 
+    @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
     }
