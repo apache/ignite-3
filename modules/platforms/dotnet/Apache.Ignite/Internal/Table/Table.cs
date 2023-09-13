@@ -290,7 +290,7 @@ namespace Apache.Ignite.Internal.Table
                 }
                 else
                 {
-                    w.WriteArrayHeader(1);
+                    w.Write(1);
                     w.Write(version);
                 }
             }
@@ -298,7 +298,7 @@ namespace Apache.Ignite.Internal.Table
             Schema Read()
             {
                 var r = resBuf.GetReader();
-                var schemaCount = r.ReadMapHeader();
+                var schemaCount = r.ReadInt32();
 
                 if (schemaCount == 0)
                 {
@@ -325,7 +325,7 @@ namespace Apache.Ignite.Internal.Table
         private Schema ReadSchema(ref MsgPackReader r)
         {
             var schemaVersion = r.ReadInt32();
-            var columnCount = r.ReadArrayHeader();
+            var columnCount = r.ReadInt32();
             var keyColumnCount = 0;
             var colocationColumnCount = 0;
 
@@ -333,7 +333,7 @@ namespace Apache.Ignite.Internal.Table
 
             for (var i = 0; i < columnCount; i++)
             {
-                var propertyCount = r.ReadArrayHeader();
+                var propertyCount = r.ReadInt32();
                 const int expectedCount = 7;
 
                 Debug.Assert(propertyCount >= expectedCount, "propertyCount >= " + expectedCount);
@@ -403,7 +403,7 @@ namespace Apache.Ignite.Internal.Table
             string[]? Read()
             {
                 var r = resBuf.GetReader();
-                var count = r.ReadArrayHeader();
+                var count = r.ReadInt32();
 
                 if (count == 0)
                 {

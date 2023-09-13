@@ -21,8 +21,8 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Read only multi row replica request.
+ * Read only single row replica request.
  */
-@Transferable(TableMessageGroup.RO_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadOnlyMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadOnlyReplicaRequest {
+@Transferable(TableMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST)
+public interface ReadOnlySingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadOnlyReplicaRequest {
 }

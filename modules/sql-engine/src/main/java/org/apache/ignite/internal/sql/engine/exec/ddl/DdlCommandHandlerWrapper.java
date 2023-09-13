@@ -20,11 +20,10 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.IndexExistsValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
-import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
@@ -117,19 +116,16 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
                     );
         } else if (cmd instanceof CreateIndexCommand) {
             return ddlCommandFuture
-                    .thenCompose(res -> {
-                        AbstractCreateIndexCommandParams params = DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd);
-                        if (params instanceof CreateSortedIndexParams) {
-                            return catalogManager.createIndex((CreateSortedIndexParams) params);
-                        } else {
-                            return catalogManager.createIndex((CreateHashIndexParams) params);
-                        }
-                    }).handle(handleModificationResult(((CreateIndexCommand) cmd).ifNotExists(), IndexAlreadyExistsException.class));
+                    .thenCompose(res -> catalogManager.execute(DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd))
+                            .handle(handleModificationResult(
+                                    ((CreateIndexCommand) cmd).ifNotExists(), IndexExistsValidationException.class)))
+                    .handle(handleModificationResult(((CreateIndexCommand) cmd).ifNotExists(), IndexAlreadyExistsException.class));
         } else if (cmd instanceof DropIndexCommand) {
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropIndex(DdlToCatalogCommandConverter.convert((DropIndexCommand) cmd))
-                            .handle(handleModificationResult(((DropIndexCommand) cmd).ifNotExists(), IndexNotFoundException.class))
-                    );
+                    .thenCompose(res -> catalogManager.execute(DdlToCatalogCommandConverter.convert((DropIndexCommand) cmd))
+                            .handle(handleModificationResult(
+                                    ((DropIndexCommand) cmd).ifNotExists(), IndexNotFoundValidationException.class))
+                    ).handle(handleModificationResult(((DropIndexCommand) cmd).ifNotExists(), IndexNotFoundException.class));
         } else if (cmd instanceof CreateZoneCommand) {
             CreateZoneCommand zoneCommand = (CreateZoneCommand) cmd;
 

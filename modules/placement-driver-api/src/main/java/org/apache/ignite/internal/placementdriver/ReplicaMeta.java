@@ -15,35 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.direct;
+package org.apache.ignite.internal.placementdriver;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Direct marshalling utils.
+ * Replica lease meta.
  */
-public class DirectMarshallingUtils {
+public interface ReplicaMeta extends Serializable {
     /**
-     * Reads a {@code short} from a byte buffer in an order defined by the {@link DirectByteBufferStream} implementation.
+     * Get a leaseholder node.
      *
-     * @param buffer Byte buffer.
-     * @return Direct message type.
+     * @return Leaseholder or {@code null} if nothing holds the lease.
      */
-    public static short getShort(ByteBuffer buffer) {
-        byte b0 = buffer.get();
-        byte b1 = buffer.get();
-
-        return asShort(b0, b1);
-    }
+    String getLeaseholder();
 
     /**
-     * Concatenates the two parameter bytes to form a {@code short}.
+     * Gets a lease start timestamp.
      *
-     * @param b0 The first byte.
-     * @param b1 The second byte.
+     * @return Lease start timestamp.
      */
-    private static short asShort(byte b0, byte b1) {
-        return (short) ((b1 & 0xFF) << 8 | b0 & 0xFF);
-    }
+    HybridTimestamp getStartTime();
+
+    /**
+     * Gets a lease expiration timestamp.
+     *
+     * @return Lease expiration timestamp or {@code null} if nothing holds the lease.
+     */
+    HybridTimestamp getExpirationTime();
 }

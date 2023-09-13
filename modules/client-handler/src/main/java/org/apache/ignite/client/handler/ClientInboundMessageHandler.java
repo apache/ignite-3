@@ -306,7 +306,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packUuid(clusterId.join());
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             write(packer, ctx);
 
@@ -436,7 +436,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         // Extensions.
         if (schemaVersionMismatchException != null) {
-            packer.packMapHeader(1);
+            packer.packInt(1);
             packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
             packer.packInt(schemaVersionMismatchException.expectedVersion());
         } else {
@@ -713,7 +713,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
-        int mapSize = unpacker.unpackMapHeader();
+        int mapSize = unpacker.unpackInt();
         for (int i = 0; i < mapSize; i++) {
             HandshakeExtension handshakeExtension = HandshakeExtension.fromKey(unpacker.unpackString());
             if (handshakeExtension != null) {

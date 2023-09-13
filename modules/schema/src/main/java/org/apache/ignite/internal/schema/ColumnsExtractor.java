@@ -20,15 +20,8 @@ package org.apache.ignite.internal.schema;
 /**
  * Class for extracting a subset of columns from {@code BinaryRow}s.
  */
+@FunctionalInterface
 public interface ColumnsExtractor {
-    /**
-     * Extracts a subset of columns from a given {@code BinaryRow}, that only contains a key.
-     *
-     * @param keyOnlyRow Row that only contains a key.
-     * @return Subset of columns, packed into a {@code BinaryTuple}.
-     */
-    BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow);
-
     /**
      * Extracts a subset of columns from a given {@code BinaryRow}.
      *

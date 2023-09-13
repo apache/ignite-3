@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -33,7 +32,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -48,6 +46,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -307,9 +306,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static RuntimeException convertDdlException(Throwable e) {
-        if (e instanceof CompletionException) {
-            e = e.getCause();
-        }
+        e = ExceptionUtils.unwrapCause(e);
 
         if (e instanceof ConfigurationChangeException) {
             assert e.getCause() != null;
@@ -374,6 +371,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     msg.code(),
                     msg.message()
             );
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Query remote fragment execution failed [nodeName={}, queryId={}, fragmentId={}, originalMessage={}]",
+                        nodeName, e.queryId(), e.fragmentId(), e.getMessage());
+            }
 
             dqm.onError(e);
         }
@@ -866,7 +867,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                         var finalStepFut = cancelResult.whenComplete((r, e) -> {
                             if (e != null) {
-                                Throwable ex = unwrapCause(e);
+                                Throwable ex = ExceptionUtils.unwrapCause(e);
 
                                 LOG.warn("Fragment closing processed with errors: [queryId={}]", ex, ctx.queryId());
                             }
@@ -892,7 +893,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private CompletableFuture<Void> closeLocalFragments() {
-            ExecutionCancelledException ex = new ExecutionCancelledException();
+            QueryCancelledException ex = new QueryCancelledException();
 
             List<CompletableFuture<?>> localFragmentCompletions = new ArrayList<>();
             for (AbstractNode<?> node : localFragments) {
@@ -950,13 +951,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         /**
          * Synchronously closes the tree's execution iterator.
          *
-         * @param cancel Forces execution to terminate with {@link ExecutionCancelledException}.
+         * @param cancel Forces execution to terminate with {@link QueryCancelledException}.
          * @return Completable future that should run asynchronously.
          */
         private CompletableFuture<Void> closeExecNode(boolean cancel) {
             CompletableFuture<Void> start = new CompletableFuture<>();
 
-            if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
+            if (!root.completeExceptionally(new QueryCancelledException()) && !root.isCompletedExceptionally()) {
                 AsyncRootNode<RowT, List<Object>> node = root.getNow(null);
 
                 if (!cancel) {
@@ -965,7 +966,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return start.thenCompose(v -> closeFut);
                 }
 
-                node.onError(new ExecutionCancelledException());
+                node.onError(new QueryCancelledException());
             }
 
             return start;

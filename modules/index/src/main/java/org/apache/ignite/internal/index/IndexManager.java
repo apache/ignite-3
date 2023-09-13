@@ -530,11 +530,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         @Override
-        public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
-            return converter(keyOnlyRow).extractColumnsFromKeyOnlyRow(keyOnlyRow);
-        }
-
-        @Override
         public BinaryTuple extractColumns(BinaryRow row) {
             return converter(row).extractColumns(row);
         }
@@ -603,11 +598,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             private VersionedConverter(int version, ColumnsExtractor delegate) {
                 this.version = version;
                 this.delegate = delegate;
-            }
-
-            @Override
-            public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
-                return delegate.extractColumnsFromKeyOnlyRow(keyOnlyRow);
             }
 
             @Override
