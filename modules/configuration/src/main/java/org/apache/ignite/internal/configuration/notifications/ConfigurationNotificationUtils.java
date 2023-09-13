@@ -118,29 +118,39 @@ class ConfigurationNotificationUtils {
      * @param anyConfig  New {@link NamedListConfiguration#any "any"} configuration.
      * @return Merged {@link NamedListConfiguration#any "any"} configurations.
      */
-    static Iterator<DynamicConfiguration<InnerNode, ?>> mergeAnyConfigs(
-            Iterator<DynamicConfiguration<InnerNode, ?>> anyConfigs,
+    static Iterable<DynamicConfiguration<InnerNode, ?>> mergeAnyConfigs(
+            Iterable<DynamicConfiguration<InnerNode, ?>> anyConfigs,
             @Nullable DynamicConfiguration<InnerNode, ?> anyConfig
     ) {
-        return new Iterator<>() {
-            @Override
-            public boolean hasNext() {
-                return anyConfigs.hasNext() || anyConfig != null;
+        if (anyConfig == null) {
+            return anyConfigs;
+        }
 
-            }
+        return () -> {
+            Iterator<DynamicConfiguration<InnerNode, ?>> innerIterator = anyConfigs.iterator();
 
-            @Override
-            public DynamicConfiguration<InnerNode, ?> next() {
-                if (anyConfigs.hasNext()) {
-                    return anyConfigs.next();
+            return new Iterator<>() {
+                boolean finished = false;
+                @Override
+                public boolean hasNext() {
+                    return innerIterator.hasNext() || finished;
                 }
 
-                if (anyConfig == null) {
-                    throw new NoSuchElementException();
-                }
+                @Override
+                public DynamicConfiguration<InnerNode, ?> next() {
+                    if (finished) {
+                        throw new NoSuchElementException();
+                    }
 
-                return anyConfig;
-            }
+                    if (innerIterator.hasNext()) {
+                        return innerIterator.next();
+                    }
+
+                    finished = true;
+
+                    return anyConfig;
+                }
+            };
         };
     }
 }

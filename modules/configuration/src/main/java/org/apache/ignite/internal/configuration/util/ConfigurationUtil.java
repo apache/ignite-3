@@ -890,115 +890,119 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Map iterable via provided mapper function. Filter all {@code null} mapped values.
+     * Maps iterable via provided mapper function. Filter all {@code null} mapped values.
      *
-     * @param iterator Basic iterator.
+     * @param iterable Basic iterable.
      * @param mapper Conversion function.
-     * @param <T1> Base type of the collection.
+     * @param <T1> Base type of the iterable.
      * @param <T2> Type for view.
      * @return Mapped iterable.
      */
-    public static <T1, T2> Iterator<T2> mapIterator(
-            @Nullable Iterator<? extends T1> iterator,
+    public static <T1, T2> Iterable<T2> mapIterable(
+            @Nullable Iterable<? extends T1> iterable,
             @Nullable Function<? super T1, ? extends T2> mapper
     ) {
-        if (iterator == null) {
-            return Collections.emptyIterator();
+        if (iterable == null) {
+            return Collections.emptyList();
         }
 
         if (mapper == null) {
-            return (Iterator<T2>) iterator;
+            return (Iterable<T2>) iterable;
         }
 
-        return new Iterator<>() {
-            @Nullable
-            private T2 next;
+        return () -> {
+            Iterator<? extends T1> innerIterator = iterable.iterator();
+            return new Iterator<>() {
+                @Nullable
+                private T2 next;
 
-            @Override
-            public boolean hasNext() {
-                if (!iterator.hasNext()) {
+                @Override
+                public boolean hasNext() {
+                    while (innerIterator.hasNext()) {
+                        next = mapper.apply(innerIterator.next());
+                        if (next != null) {
+                            return true;
+                        }
+                    }
                     return false;
                 }
 
-                if (next == null) {
-                    next = mapper.apply(iterator.next());
+                @Override
+                public T2 next() {
                     if (next == null) {
-                        return hasNext();
+                        throw new NoSuchElementException();
                     }
+                    T2 result = next;
+                    next = null;
+                    return result;
                 }
-
-                return true;
-            }
-
-            @Override
-            public T2 next() {
-                if (next == null) {
-                    throw new NoSuchElementException();
-                }
-                T2 result = next;
-                next = null;
-                return result;
-            }
+            };
         };
     }
 
     /**
-     * Map iterator via provided mapper function. Filter all {@code null} mapped values.
+     * Maps iterable via provided mapper function.
      *
-     * @param iterator Basic iterator.
+     * @param iterable Basic iterable.
      * @param mapper Conversion function.
-     * @param predicate Predicate to apply to each element of basic collection.
-     * @param <T1> Base type of the collection.
+     * @param predicate Predicate to apply to each element of basic iterable.
+     * @param <T1> Base type of the iterable.
      * @param <T2> Type for view.
-     * @return Read-only collection view.
+     * @return Mapped iterable.
      */
-    public static <T1, T2> Iterator<T2> mapIterator(
-            @Nullable Iterator<? extends T1> iterator,
+    public static <T1, T2> Iterable<T2> mapIterable(
+            @Nullable Iterable<? extends T1> iterable,
             @Nullable Function<? super T1, ? extends T2> mapper,
             @Nullable Predicate<? super T1> predicate
     ) {
-        if (iterator == null) {
-            return Collections.emptyIterator();
+        if (iterable == null) {
+            return Collections.emptyList();
         }
 
         if (mapper == null && predicate == null) {
-            return (Iterator<T2>) iterator;
+            return (Iterable<T2>) iterable;
         }
 
-        return new Iterator<>() {
-            @Nullable
-            T1 current = advance();
-
-            /** {@inheritDoc} */
+        return new Iterable<>() {
             @Override
-            public boolean hasNext() {
-                return current != NO_NEXT_ELEMENT;
-            }
+            public Iterator<T2> iterator() {
+                Iterator<? extends T1> innerIterator = iterable.iterator();
+                return new Iterator<>() {
+                    @Nullable
+                    T1 current = advance();
 
-            /** {@inheritDoc} */
-            @Override
-            public T2 next() {
-                T1 current = this.current;
-
-                if (current == NO_NEXT_ELEMENT) {
-                    throw new NoSuchElementException();
-                }
-
-                this.current = advance();
-
-                return mapper == null ? (T2) current : mapper.apply(current);
-            }
-
-            private @Nullable T1 advance() {
-                while (iterator.hasNext()) {
-                    T1 next = iterator.next();
-
-                    if (predicate == null || predicate.test(next)) {
-                        return next;
+                    /** {@inheritDoc} */
+                    @Override
+                    public boolean hasNext() {
+                        return current != NO_NEXT_ELEMENT;
                     }
-                }
 
-                return (T1) NO_NEXT_ELEMENT;
+                    /** {@inheritDoc} */
+                    @Override
+                    public T2 next() {
+                        T1 current = this.current;
+
+                        if (current == NO_NEXT_ELEMENT) {
+                            throw new NoSuchElementException();
+                        }
+
+                        this.current = advance();
+
+                        return mapper == null ? (T2) current : mapper.apply(current);
+                    }
+
+                    private @Nullable T1 advance() {
+                        while (innerIterator.hasNext()) {
+                            T1 next = innerIterator.next();
+
+                            if (predicate == null || predicate.test(next)) {
+                                return next;
+                            }
+                        }
+
+                        return (T1) NO_NEXT_ELEMENT;
+                    }
+                };
             }
         };
     }

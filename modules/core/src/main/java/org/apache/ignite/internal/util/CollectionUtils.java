@@ -310,7 +310,7 @@ public final class CollectionUtils {
      * @param <T> Type of the elements.
      * @return Concatenation of iterators.
      */
-    public static <T> Iterator<T> concat(@Nullable Collection<Iterator<? extends T>> iterators) {
+    public static <T> Iterator<T> concat(@Nullable Iterable<Iterator<? extends T>> iterators) {
         if (iterators == null) {
             return emptyIterator();
         }

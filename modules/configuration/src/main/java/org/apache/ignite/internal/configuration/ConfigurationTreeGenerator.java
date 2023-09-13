@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mapIterable;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
@@ -167,7 +168,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
     ) {
         Set<Class<?>> allSchemas = new HashSet<>();
 
-        allSchemas.addAll(collectSchemas(() -> ConfigurationUtil.mapIterator(rootKeys.iterator(), RootKey::schemaClass)));
+        allSchemas.addAll(collectSchemas(mapIterable(rootKeys, RootKey::schemaClass)));
         allSchemas.addAll(collectSchemas(internalSchemaExtensions));
         allSchemas.addAll(collectSchemas(polymorphicSchemaExtensions));
 

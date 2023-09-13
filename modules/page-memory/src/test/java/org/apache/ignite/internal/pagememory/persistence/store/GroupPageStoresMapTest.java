@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -168,7 +169,7 @@ public class GroupPageStoresMapTest extends BaseIgniteAbstractTest {
 
     @Test
     void testGetAll() {
-        assertThat(groupPageStoresMap.getAll(), empty());
+        assertThat(groupPageStoresMap.getAll().collect(toList()), empty());
 
         FilePageStore filePageStore0 = mock(FilePageStore.class);
         FilePageStore filePageStore1 = mock(FilePageStore.class);
@@ -196,7 +197,7 @@ public class GroupPageStoresMapTest extends BaseIgniteAbstractTest {
 
         groupPageStoresMap.clear();
 
-        assertThat(groupPageStoresMap.getAll(), empty());
+        assertThat(groupPageStoresMap.getAll().collect(toList()), empty());
     }
 
     @Test
@@ -238,9 +239,9 @@ public class GroupPageStoresMapTest extends BaseIgniteAbstractTest {
     }
 
     private static <T extends PageStore> Collection<TestGroupPartitionPageStore<T>> getAll(
-            Collection<GroupPartitionPageStore<T>> groupPartitionPageStores
+            Stream<GroupPartitionPageStore<T>> groupPartitionPageStores
     ) {
-        return groupPartitionPageStores.stream()
+        return groupPartitionPageStores
                 .map(TestGroupPartitionPageStore::of)
                 .collect(toList());
     }

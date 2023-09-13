@@ -317,7 +317,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /**
      * Returns view for all page stores of all groups.
      */
-    public Collection<GroupPartitionPageStore<FilePageStore>> allPageStores() {
+    public Stream<GroupPartitionPageStore<FilePageStore>> allPageStores() {
         return groupPageStores.getAll();
     }
 
@@ -357,7 +357,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param cleanFiles Delete files.
      */
     void stopAllGroupFilePageStores(boolean cleanFiles) {
-        List<FilePageStore> partitionPageStores = groupPageStores.getAll().stream()
+        List<FilePageStore> partitionPageStores = groupPageStores.getAll()
                 .map(GroupPartitionPageStore::pageStore)
                 .collect(toList());
 
