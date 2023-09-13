@@ -133,7 +133,7 @@ class ConfigurationNotificationUtils {
                 boolean finished = false;
                 @Override
                 public boolean hasNext() {
-                    return innerIterator.hasNext() || finished;
+                    return innerIterator.hasNext() || !finished;
                 }
 
                 @Override
