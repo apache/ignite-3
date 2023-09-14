@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
+import org.apache.ignite.internal.catalog.IndexExistsValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,10 +48,10 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
     public void testAddIndex() {
         tryToCreateIndex(TABLE_NAME, INDEX_NAME, true);
 
-        IgniteTestUtils.assertThrows(
-                IndexAlreadyExistsException.class,
+        assertThrowsWithCause(
                 () -> tryToCreateIndex(TABLE_NAME, INDEX_NAME, true),
-                String.format("Index already exists [name=\"%s\".\"%s\"]", DEFAULT_SCHEMA_NAME, INDEX_NAME)
+                IndexExistsValidationException.class,
+                String.format("Index with name '%s.%s' already exists", DEFAULT_SCHEMA_NAME, INDEX_NAME)
         );
 
         tryToCreateIndex(TABLE_NAME, INDEX_NAME, false);
@@ -65,10 +65,10 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
         tryToDropIndex(INDEX_NAME, true);
 
         // Let's check the drop on a non-existent index.
-        IgniteTestUtils.assertThrows(
-                IndexNotFoundException.class,
+        assertThrowsWithCause(
                 () -> tryToDropIndex(INDEX_NAME, true),
-                String.format("Index does not exist [name=\"%s\".\"%s\"]", DEFAULT_SCHEMA_NAME, INDEX_NAME)
+                IndexNotFoundValidationException.class,
+                String.format("Index with name '%s.%s' not found", DEFAULT_SCHEMA_NAME, INDEX_NAME)
         );
 
         tryToCreateIndex(TABLE_NAME, INDEX_NAME, false);
