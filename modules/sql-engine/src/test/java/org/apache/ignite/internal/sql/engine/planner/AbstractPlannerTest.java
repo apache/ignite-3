@@ -35,6 +35,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -745,6 +746,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public TestTableDescriptor(Supplier<IgniteDistribution> distribution, RelDataType rowType) {
             this.distributionSupp = distribution;
             this.rowType = rowType;
+        }
+
+        @Override
+        public Iterator<ColumnDescriptor> iterator() {
+            throw new UnsupportedOperationException();
         }
 
         /** {@inheritDoc} */

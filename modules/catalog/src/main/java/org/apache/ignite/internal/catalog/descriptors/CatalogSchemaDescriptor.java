@@ -36,11 +36,14 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
 
     private final CatalogTableDescriptor[] tables;
     private final CatalogIndexDescriptor[] indexes;
+    private final CatalogSystemViewDescriptor[] systemViews;
 
     @IgniteToStringExclude
     private transient Map<String, CatalogTableDescriptor> tablesMap;
     @IgniteToStringExclude
     private transient Map<String, CatalogIndexDescriptor> indexesMap;
+    @IgniteToStringExclude
+    private Map<String, CatalogSystemViewDescriptor> systemViewsMap;
 
     /**
      * Constructor.
@@ -50,21 +53,16 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
      * @param tables Tables description.
      * @param indexes Indexes description.
      */
-    public CatalogSchemaDescriptor(int id, String name, CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes) {
+    public CatalogSchemaDescriptor(int id, String name,
+            CatalogTableDescriptor[] tables,
+            CatalogIndexDescriptor[] indexes,
+            CatalogSystemViewDescriptor[] systemViews) {
         super(id, Type.SCHEMA, name);
         this.tables = Objects.requireNonNull(tables, "tables");
         this.indexes = Objects.requireNonNull(indexes, "indexes");
+        this.systemViews = Objects.requireNonNull(systemViews, "systemViews");
 
         rebuildMaps();
-    }
-
-    private CatalogSchemaDescriptor(int id, String name, int version, CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes,
-            Map<String, CatalogTableDescriptor> tablesMap, Map<String, CatalogIndexDescriptor> indexesMap) {
-        super(id, Type.SCHEMA, name);
-        this.tables = Objects.requireNonNull(tables, "tables");
-        this.indexes = Objects.requireNonNull(indexes, "indexes");
-        this.tablesMap = tablesMap;
-        this.indexesMap = indexesMap;
     }
 
     public CatalogTableDescriptor[] tables() {
@@ -75,12 +73,20 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         return indexes;
     }
 
+    public CatalogSystemViewDescriptor[] systemViews() {
+        return systemViews;
+    }
+
     public @Nullable CatalogTableDescriptor table(String name) {
         return tablesMap.get(name);
     }
 
     public @Nullable CatalogIndexDescriptor index(String name) {
         return indexesMap.get(name);
+    }
+
+    public @Nullable CatalogSystemViewDescriptor systemView(String name) {
+        return systemViewsMap.get(name);
     }
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
@@ -92,6 +98,8 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private void rebuildMaps() {
         tablesMap = Arrays.stream(tables).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
         indexesMap = Arrays.stream(indexes).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
+        systemViewsMap = Arrays.stream(systemViews)
+                .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
     }
 
     /** {@inheritDoc} */

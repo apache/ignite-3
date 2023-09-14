@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -220,6 +221,25 @@ public class CatalogUtils {
         Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(source);
 
         return supportedTransitions != null && supportedTransitions.contains(target);
+    }
+
+    /**
+     * Returns a list of schemas, replacing any schema with {@code newSchema} if its id equal to {@code newSchema.id()}.
+     *
+     * @param newSchema A schema.
+     * @param schemas A list of schemas.
+     * @return A List of schemas.
+     */
+    public static List<CatalogSchemaDescriptor> replaceSchema(CatalogSchemaDescriptor newSchema,
+            Collection<CatalogSchemaDescriptor> schemas) {
+
+        return schemas.stream().map(s -> {
+            if (Objects.equals(s.id(), newSchema.id())) {
+                return newSchema;
+            } else {
+                return s;
+            }
+        }).collect(toList());
     }
 
     private static int defaultPrecision(ColumnType columnType) {

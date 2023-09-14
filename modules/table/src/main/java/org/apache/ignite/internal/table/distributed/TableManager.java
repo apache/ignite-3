@@ -149,6 +149,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnaps
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.DirectCatalogTables;
+import org.apache.ignite.internal.table.distributed.replicator.CatalogTablesWithIdConversion;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
@@ -494,7 +495,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         inBusyLock(busyLock, () -> {
             mvGc.start();
 
-            lowWatermark.start();
+        lowWatermark.start();
 
             startTables();
 

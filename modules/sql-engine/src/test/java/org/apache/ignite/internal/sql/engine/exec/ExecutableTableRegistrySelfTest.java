@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -151,6 +153,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
+            when(descriptor.iterator()).thenReturn(List.<ColumnDescriptor>of().iterator());
 
             return registry.getTable(tableId, tableVersion, descriptor);
         }

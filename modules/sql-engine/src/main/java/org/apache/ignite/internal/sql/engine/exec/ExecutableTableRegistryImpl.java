@@ -37,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableManager;
 
-
 /**
  * Implementation of {@link ExecutableTableRegistry}.
  */
@@ -106,12 +105,14 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         return f.thenApply((table) -> {
             SchemaRegistry schemaRegistry = table.getValue();
             SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
-            TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
+            TableRowConverterFactory converterFactory = requiredColumns -> new TableRowConverterImpl(
+                    schemaRegistry, schemaDescriptor, tableDescriptor, requiredColumns
+            );
             InternalTable internalTable = table.getKey();
-            ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
+            ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory, tableDescriptor);
 
             UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
-                    replicaService, clock, rowConverter, schemaDescriptor);
+                    replicaService, clock, converterFactory.create(null), schemaDescriptor);
 
             return new ExecutableTableImpl(internalTable, scannableTable, updatableTable);
         });

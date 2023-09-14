@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableOrIndexExistsWithGivenName;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
@@ -66,7 +67,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        ensureNoTableOrIndexExistsWithGivenName(schema, indexName);
+        ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
         CatalogTableDescriptor table = tableOrThrow(schema, tableName);
 
@@ -84,7 +85,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         }
 
         return List.of(
-                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id())),
+                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id()), schemaName),
                 new ObjectIdGenUpdateEntry(1)
         );
     }

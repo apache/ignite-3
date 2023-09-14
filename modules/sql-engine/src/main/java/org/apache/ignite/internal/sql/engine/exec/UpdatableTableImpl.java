@@ -279,7 +279,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                         List<RowT> conflictRows = new ArrayList<>(binaryRows.size());
 
                         for (BinaryRow row : binaryRows) {
-                            conflictRows.add(rowConverter.toRow(ectx, row, rowFactory, null));
+                            conflictRows.add(rowConverter.toRow(ectx, row, rowFactory));
                         }
 
                         return conflictRows;

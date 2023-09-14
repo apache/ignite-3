@@ -43,6 +43,7 @@ import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -124,11 +125,21 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
-        CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
+        CatalogSchemaDescriptor publicSchema = new CatalogSchemaDescriptor(
                 objectIdGen++,
                 DEFAULT_SCHEMA_NAME,
                 new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0]
+                new CatalogIndexDescriptor[0],
+                new CatalogSystemViewDescriptor[0]
+        );
+
+        // TODO: IGNITE-19082 Move system schema objects initialization to cluster init procedure.
+        CatalogSchemaDescriptor systemSchema = new CatalogSchemaDescriptor(
+                objectIdGen++,
+                SYSTEM_SCHEMA_NAME,
+                new CatalogTableDescriptor[0],
+                new CatalogIndexDescriptor[0],
+                new CatalogSystemViewDescriptor[0]
         );
 
         CatalogZoneDescriptor defaultZone = fromParams(
@@ -136,7 +147,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 CreateZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).build()
         );
 
-        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(schemaPublic)));
+        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema)));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 

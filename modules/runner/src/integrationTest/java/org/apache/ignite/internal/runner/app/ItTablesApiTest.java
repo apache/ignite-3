@@ -39,6 +39,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;

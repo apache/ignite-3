@@ -53,6 +53,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
@@ -69,6 +70,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 
 /**
  * Tests for {@link CatalogSqlSchemaManager}.
@@ -496,8 +498,9 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
             CatalogTableDescriptor[] tablesArray = tableDescriptors.values().toArray(new CatalogTableDescriptor[0]);
             CatalogIndexDescriptor[] indexesArray = indexDescriptorMap.values().toArray(new CatalogIndexDescriptor[0]);
+            CatalogSystemViewDescriptor[] systemViewsArray = new CatalogSystemViewDescriptor[0];
 
-            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, tablesArray, indexesArray);
+            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, tablesArray, indexesArray, systemViewsArray);
         }
     }
 
