@@ -21,10 +21,10 @@ import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.util.HexStringUtils.hexInt;
+import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
+import static org.apache.ignite.internal.util.HexStringUtils.toHexString;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
-import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
-import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
 import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
 
 import java.io.Closeable;
