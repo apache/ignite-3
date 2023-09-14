@@ -46,11 +46,11 @@ public class ClientTablePartitionAssignmentGetRequest {
 
         return tables.assignmentsAsync(tableId).thenAccept(assignment -> {
             if (assignment == null) {
-                out.packArrayHeader(0);
+                out.packInt(0);
                 return;
             }
 
-            out.packArrayHeader(assignment.size());
+            out.packInt(assignment.size());
 
             for (String leaderNodeId : assignment) {
                 out.packString(leaderNodeId);

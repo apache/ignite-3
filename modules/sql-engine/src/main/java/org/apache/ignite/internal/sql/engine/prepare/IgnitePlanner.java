@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.RelOptCluster;
@@ -62,12 +63,18 @@ import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexExecutor;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlDataTypeSpec;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
+import org.apache.calcite.sql.SqlOrderBy;
+import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.validate.SqlNonNullableAccessors;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
@@ -231,17 +238,91 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
-     * Validates a SQL statement.
+     * Validates a SQL statement and tries to build aliases for appropriate column names.
      *
      * @param sqlNode Root node of the SQL parse tree.
      * @return Validated node, its validated type and type's origins.
      */
-    public ValidationResult validateAndGetTypeMetadata(SqlNode sqlNode) {
+    ValidationResult validateAndGetTypeMetadata(SqlNode sqlNode) {
+        List<SqlNode> selectItems = null;
+        List<SqlNode> selectItemsNoStar = null;
+        SqlNode sqlNode0 = sqlNode instanceof SqlOrderBy ? ((SqlOrderBy) sqlNode).query : sqlNode;
+
+        boolean starFound = false;
+
+        if (sqlNode0 instanceof SqlSelect) {
+            selectItems = SqlNonNullableAccessors.getSelectList((SqlSelect) sqlNode0);
+            selectItemsNoStar = new ArrayList<>(selectItems.size());
+
+            for (SqlNode node : selectItems) {
+                if (node instanceof SqlIdentifier) {
+                    SqlIdentifier id = (SqlIdentifier) node;
+                    if (id.isStar()) {
+                        starFound = true;
+                    }
+                } else {
+                    if (node instanceof SqlBasicCall) {
+                        SqlBasicCall node0 = (SqlBasicCall) node;
+                        if (!identAsIdent(node0)) {
+                            selectItemsNoStar.add(node);
+                        }
+                    } else {
+                        selectItemsNoStar.add(node);
+                    }
+                }
+            }
+        }
+
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
         List<List<String>> origins = validator().getFieldOrigins(validatedNode);
 
-        return new ValidationResult(validatedNode, type, origins);
+        List<String> derived = null;
+        if (validatedNode instanceof SqlSelect && selectItems != null && !selectItemsNoStar.isEmpty()) {
+            derived = new ArrayList<>(selectItems.size());
+
+            if (starFound) {
+                SqlNodeList expandedItems = ((SqlSelect) validatedNode).getSelectList();
+
+                int resolved = 0;
+                for (SqlNode node : expandedItems) {
+                    if (node instanceof SqlIdentifier) {
+                        derived.add(null);
+
+                        continue;
+                    }
+
+                    if (node instanceof SqlBasicCall) {
+                        SqlBasicCall node0 = (SqlBasicCall) node;
+
+                        // case like: "select *, *" second star columns will be transformed into SqlBasicCall and AS
+                        if (identAsIdent(node0)) {
+                            derived.add(null);
+
+                            continue;
+                        }
+                    }
+
+                    Objects.checkIndex(resolved, selectItemsNoStar.size());
+                    derived.add(validator().deriveAlias(selectItemsNoStar.get(resolved), resolved));
+                    ++resolved;
+                }
+            } else {
+                int cnt = 0;
+
+                for (SqlNode node : selectItems) {
+                    derived.add(validator().deriveAlias(node, cnt++));
+                }
+            }
+        }
+
+        return new ValidationResult(validatedNode, type, origins, derived == null ? List.of() : derived);
+    }
+
+    private boolean identAsIdent(SqlBasicCall node) {
+        return node.operandCount() == 2 && node.getKind() == SqlKind.AS
+                && node.operand(0) instanceof SqlIdentifier
+                && node.operand(1) instanceof SqlIdentifier;
     }
 
     /** {@inheritDoc} */

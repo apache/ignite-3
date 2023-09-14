@@ -22,8 +22,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
 
 /**
- * ValidationResult.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * ValidationResult holder.
+ * Transfer intermediate validation results.
  */
 public class ValidationResult {
     private final SqlNode sqlNode;
@@ -32,17 +32,21 @@ public class ValidationResult {
 
     private final List<List<String>> origins;
 
+    private final List<String> aliases;
+
     /**
      * Constructor.
      *
      * @param sqlNode  Validated SQL node.
      * @param dataType Validated type.
      * @param origins  Type fields provenance.
+     * @param aliases  Derived column names.
      */
-    public ValidationResult(SqlNode sqlNode, RelDataType dataType, List<List<String>> origins) {
+    ValidationResult(SqlNode sqlNode, RelDataType dataType, List<List<String>> origins, List<String> aliases) {
         this.sqlNode = sqlNode;
         this.dataType = dataType;
         this.origins = origins;
+        this.aliases = aliases;
     }
 
     /**
@@ -64,5 +68,10 @@ public class ValidationResult {
      */
     public List<List<String>> origins() {
         return origins;
+    }
+
+    /** Return alternatively derived column names. */
+    public List<String> aliases() {
+        return aliases;
     }
 }

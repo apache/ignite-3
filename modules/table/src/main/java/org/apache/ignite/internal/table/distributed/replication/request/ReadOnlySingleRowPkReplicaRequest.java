@@ -15,10 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.UpdateProducer;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
-abstract class AbstractCatalogCommand implements CatalogCommand, UpdateProducer {
+/**
+ * Read only single row replica request.
+ */
+@Transferable(TableMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST)
+public interface ReadOnlySingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadOnlyReplicaRequest {
 }

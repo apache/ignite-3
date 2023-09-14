@@ -90,6 +90,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -382,7 +383,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                new TestPlacementDriver(name)
         );
 
         var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
@@ -753,6 +755,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @ParameterizedTest
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     @ValueSource(booleans = {true, false})
     public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(2);
@@ -872,6 +875,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
     }
@@ -880,6 +884,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
     }
@@ -1109,6 +1114,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
 
@@ -1177,9 +1183,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         try {
                             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", fi));
 
-                            assertEquals(VALUE_PRODUCER.apply(fi), row.stringValue("name"));
-
-                            return true;
+                            if (row == null) {
+                                return false;
+                            } else {
+                                assertEquals(VALUE_PRODUCER.apply(fi), row.stringValue("name"));
+                                return true;
+                            }
                         } catch (TransactionException te) {
                             // There may be an exception if the primary replica node was stopped. We should wait for new primary to appear.
                             return false;

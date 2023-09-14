@@ -116,9 +116,9 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestGetAllMultiplePages()
+        public async Task TestGetAllMultiplePages([Values(1, 2, 3, 4, 5, 6)] int pageSize)
         {
-            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: pageSize);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
             var rows = await resultSet.ToListAsync();
 
@@ -311,8 +311,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(0, columns[1].Scale);
             Assert.AreEqual(10, columns[1].Precision);
 
-            // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
-            // Assert.AreEqual("ID + 1", columns[2].Name);
+            Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);
 
             // Update data.

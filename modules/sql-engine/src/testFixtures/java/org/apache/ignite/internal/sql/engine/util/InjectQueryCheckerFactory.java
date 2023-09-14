@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.sql.engine.util;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Read only multi row replica request.
+ * Annotation for injecting query checker factory instances into tests.
+ *
+ * <p>This annotation should be used on either fields or method parameters of the {@link QueryCheckerFactory} type.
+ *
+ * @see QueryCheckerExtension
  */
-@Transferable(TableMessageGroup.RO_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadOnlyMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadOnlyReplicaRequest {
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+public @interface InjectQueryCheckerFactory {
 }

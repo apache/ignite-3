@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -29,8 +28,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.storage.RowId;
@@ -45,19 +42,14 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageTest<HashIndexStorage, StorageHashIndexDescriptor> {
     @Override
     protected HashIndexStorage createIndexStorage(String name, ColumnType... columnTypes) {
-        CreateHashIndexParams createHashIndexParams = CreateHashIndexParams.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .indexName(name)
-                .columns(Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList()))
-                .build();
-
         CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
-        CatalogHashIndexDescriptor catalogHashIndexDescriptor = CatalogUtils.fromParams(
+        CatalogHashIndexDescriptor catalogHashIndexDescriptor = new CatalogHashIndexDescriptor(
                 catalogId.getAndIncrement(),
+                name,
                 catalogTableDescriptor.id(),
-                createHashIndexParams
+                false,
+                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
         );
 
         when(catalogService.index(eq(name), anyLong())).thenReturn(catalogHashIndexDescriptor);

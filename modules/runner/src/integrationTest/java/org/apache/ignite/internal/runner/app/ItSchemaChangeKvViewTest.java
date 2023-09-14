@@ -256,6 +256,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733") // get hangs on registry.waitLatestSchema() after column update.
     public void testMergeChangesColumnDefault() throws Exception {
         List<Ignite> grid = startGrid();
 

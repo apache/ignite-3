@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.List;
 
 /**
- * Read only single row replica request.
+ * Tests to verify validation of {@link CreateHashIndexCommand}.
  */
-@Transferable(TableMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST)
-public interface ReadOnlySingleRowReplicaRequest extends SingleRowReplicaRequest, ReadOnlyReplicaRequest {
+public class CreateHashIndexCommandValidationTest extends CreateAbstractIndexCommandValidationTest {
+    @Override
+    protected <T extends AbstractCreateIndexCommandBuilder<T>> T prefilledBuilder() {
+        return (T) CreateHashIndexCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of("VAL"));
+    }
 }

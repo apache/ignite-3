@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.sql.engine.util;
 
-/** DROP INDEX statement. */
-public class DropIndexParams extends AbstractCreateIndexCommandParams {
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
+import org.apache.ignite.sql.ColumnMetadata;
 
-    private DropIndexParams() {
-        // No-op.
-    }
-
-    /** Parameters builder. */
-    public static class Builder extends AbstractIndexBuilder<DropIndexParams, Builder> {
-        private Builder() {
-            super(new DropIndexParams());
-        }
-    }
+/**
+ * Column metadata matcher interface.
+ */
+@FunctionalInterface
+public interface ColumnMatcher {
+    /** Validates column metadata. */
+    void check(ColumnMetadata columnMetadata);
 }

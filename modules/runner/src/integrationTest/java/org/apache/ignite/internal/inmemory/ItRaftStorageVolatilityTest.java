@@ -20,6 +20,7 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -33,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -218,26 +220,24 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void logSpillsOutToDisk() {
-        node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
-            cfg.changeVolatileRaft(change -> {
-                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
-            });
-        });
-
         createTableWithMaxOneInMemoryEntryAllowed("PERSON");
 
         executeSql("INSERT INTO PERSON(ID, NAME) VALUES (1, 'JOHN')");
         executeSql("INSERT INTO PERSON(ID, NAME) VALUES (2, 'JANE')");
     }
 
+    @SuppressWarnings("resource")
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        String zoneName = "zone1";
+        CompletableFuture<Void> configUpdateFuture = node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
+            cfg.changeVolatileRaft(change -> {
+                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
+            });
+        });
+        assertThat(configUpdateFuture, willCompleteSuccessfully());
 
-        executeSql(String.format("CREATE ZONE \"%s\" ENGINE aimem", zoneName));
-
-        executeSql(String.format(
-                "CREATE TABLE \"%s\"(id INTEGER PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='%s'",
-                tableName, zoneName
-        ));
+        cluster.doInSession(0, session -> {
+            session.execute(null, "create zone zone1 engine aimem with partitions=1, replicas=1");
+            session.execute(null, "create table " + tableName + " (id int primary key, name varchar) with primary_zone='ZONE1'");
+        });
     }
 }

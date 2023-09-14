@@ -79,6 +79,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -108,6 +109,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -181,7 +183,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Meta storage manager. */
     @Mock
-    MetaStorageManager msm;
+    private MetaStorageManager msm;
 
     /** Mock cluster service. */
     @Mock
@@ -259,9 +261,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
-
         tblManagerFut = new CompletableFuture<>();
+
+        mockMetastore();
     }
 
     @AfterEach
@@ -287,8 +289,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     public void testPreconfiguredTable() throws Exception {
         when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
-
-        mockMetastore();
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
@@ -555,8 +555,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(completedFuture(null));
 
-        mockMetastore();
-
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
@@ -598,6 +596,10 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
         when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(completedFuture(null));
         when(msm.get(any())).thenReturn(completedFuture(null));
+
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+
+        when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }
 
     /**
@@ -645,8 +647,6 @@ public class TableManagerTest extends IgniteAbstractTest {
             affinityServiceMock.when(() -> AffinityUtils.calculateAssignments(any(), anyInt(), anyInt()))
                     .thenReturn(assignment);
         }
-
-        mockMetastore();
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
@@ -733,7 +733,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 catalogManager,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                new TestPlacementDriver(NODE_NAME)
         ) {
 
             @Override

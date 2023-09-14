@@ -39,6 +39,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     private final int zoneId;
 
+    private final int pkIndexId;
+
     private final int tableVersion;
 
     private final List<CatalogTableColumnDescriptor> columns;
@@ -52,6 +54,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * Constructor.
      *
      * @param id Table id.
+     * @param pkIndexId Primary key index id.
      * @param name Table name.
      * @param zoneId Distribution zone ID.
      * @param tableVersion Version of the table.
@@ -61,6 +64,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      */
     public CatalogTableDescriptor(
             int id,
+            int pkIndexId,
             String name,
             int zoneId,
             int tableVersion,
@@ -70,6 +74,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     ) {
         super(id, Type.TABLE, name);
 
+        this.pkIndexId = pkIndexId;
         this.zoneId = zoneId;
         this.tableVersion = tableVersion;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
@@ -94,6 +99,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     public int zoneId() {
         return zoneId;
+    }
+
+    public int primaryKeyIndexId() {
+        return pkIndexId;
     }
 
     public int tableVersion() {

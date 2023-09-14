@@ -84,6 +84,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-distribution-zones')))
+    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-catalog')))

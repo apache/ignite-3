@@ -40,8 +40,8 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
+import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -162,8 +162,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         });
 
         assertThat(
-                catalogManager.createIndex(
-                        CreateSortedIndexParams.builder()
+                catalogManager.execute(
+                        CreateSortedIndexCommand.builder()
                                 .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName(indexName)
                                 .tableName(TABLE_NAME)
@@ -183,7 +183,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(holder.get().indexDescriptor().name(), equalTo(indexName));
 
         assertThat(
-                catalogManager.dropIndex(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
+                catalogManager.execute(DropIndexCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
                 willBe(nullValue())
         );
 

@@ -26,10 +26,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.IndexExistsValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
@@ -44,8 +44,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.sql.SqlException;
 
 /** DDL commands handler. */
@@ -170,24 +168,13 @@ public class DdlCommandHandler {
 
     /** Handles create index command. */
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
-        return catalogCreateIndexAsync(cmd)
-                .handle(handleModificationResult(cmd.ifNotExists(), IndexAlreadyExistsException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifNotExists(), IndexExistsValidationException.class));
     }
 
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
-        return catalogManager.dropIndex(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifNotExists(), IndexNotFoundException.class));
-    }
-
-    private CompletableFuture<Void> catalogCreateIndexAsync(CreateIndexCommand cmd) {
-        switch (cmd.type()) {
-            case HASH:
-                return catalogManager.createIndex((CreateHashIndexParams) DdlToCatalogCommandConverter.convert(cmd));
-            case SORTED:
-                return catalogManager.createIndex((CreateSortedIndexParams) DdlToCatalogCommandConverter.convert(cmd));
-            default:
-                throw new IllegalArgumentException("Unknown index type: " + cmd.type());
-        }
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifNotExists(), IndexNotFoundValidationException.class));
     }
 }

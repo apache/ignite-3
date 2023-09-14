@@ -274,7 +274,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
 
-            return new MultiStepPlan(SqlQueryType.QUERY, fragments, resultSetMetadata(validated.dataType(), validated.origins()));
+            return new MultiStepPlan(SqlQueryType.QUERY, fragments,
+                    resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
@@ -318,7 +319,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private ResultSetMetadata resultSetMetadata(
             RelDataType rowType,
-            @Nullable List<List<String>> origins
+            @Nullable List<List<String>> origins,
+            List<String> aliases
     ) {
         return new LazyResultSetMetadata(
                 () -> {
@@ -326,9 +328,10 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
                     for (int i = 0; i < rowType.getFieldCount(); ++i) {
                         RelDataTypeField fld = rowType.getFieldList().get(i);
+                        String alias = aliases.size() > i ? aliases.get(i) : null;
 
                         ColumnMetadataImpl fldMeta = new ColumnMetadataImpl(
-                                fld.getName(),
+                                alias != null ? alias : fld.getName(),
                                 TypeUtils.columnType(fld.getType()),
                                 fld.getType().getPrecision(),
                                 fld.getType().getScale(),

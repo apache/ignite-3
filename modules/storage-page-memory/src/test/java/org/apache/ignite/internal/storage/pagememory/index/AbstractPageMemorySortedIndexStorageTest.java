@@ -17,17 +17,12 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 
-import java.util.List;
-import java.util.Random;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -45,8 +40,6 @@ import org.junit.jupiter.api.Test;
 abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
 
-    private final Random random = new Random();
-
     /**
      * Initializes the internal structures needed for tests.
      *
@@ -63,15 +56,7 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
 
     @Test
     void testWithStringsLargerThanMaximumInlineSize() {
-        CreateSortedIndexParams createSortedIndexParams = CreateSortedIndexParams.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .indexName("TEST_INDEX")
-                .columns(List.of(columnName(ColumnType.INT32), columnName(ColumnType.STRING)))
-                .collations(List.of(ASC_NULLS_FIRST, ASC_NULLS_FIRST))
-                .build();
-
-        SortedIndexStorage index = createIndexStorage(createSortedIndexParams);
+        SortedIndexStorage index = createIndexStorage("TEST_INDEX", ColumnType.INT32, ColumnType.STRING);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
@@ -93,15 +78,7 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
 
     @Test
     void testFragmentedIndexColumns() {
-        CreateSortedIndexParams createSortedIndexParams = CreateSortedIndexParams.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .indexName("TEST_INDEX")
-                .columns(List.of(columnName(ColumnType.INT32), columnName(ColumnType.STRING)))
-                .collations(List.of(ASC_NULLS_FIRST, ASC_NULLS_FIRST))
-                .build();
-
-        SortedIndexStorage index = createIndexStorage(createSortedIndexParams);
+        SortedIndexStorage index = createIndexStorage("TEST_INDEX", ColumnType.INT32, ColumnType.STRING);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
