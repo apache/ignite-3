@@ -67,6 +67,7 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringBuilder;
@@ -1176,6 +1177,26 @@ public class IgniteUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Stops all ignite components.
+     *
+     * @param components Array of ignite components to close.
+     * @throws Exception If failed to stop.
+     */
+    public static void stopAll(IgniteComponent... components) throws Exception {
+        stopAll(Arrays.stream(components));
+    }
+
+    /**
+     * Stops all ignite components.
+     *
+     * @param components Stream of ignite components to close.
+     * @throws Exception If failed to stop.
+     */
+    public static void stopAll(Stream<? extends IgniteComponent> components) throws Exception {
+        closeAll(components.filter(Objects::nonNull).map(component -> component::stop));
     }
 
     /**

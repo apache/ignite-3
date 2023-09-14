@@ -19,11 +19,11 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -36,7 +36,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -56,7 +55,7 @@ public class TestTable implements IgniteTable {
     private static final AtomicInteger ID = new AtomicInteger();
 
     private final int id = ID.incrementAndGet();
-    private final Map<String, IgniteIndex> indexes = new HashMap<>();
+    private final Map<String, IgniteIndex> indexes;
 
     private final String name;
     private final double rowCnt;
@@ -68,26 +67,25 @@ public class TestTable implements IgniteTable {
     public TestTable(
             TableDescriptor descriptor,
             String name,
-            double rowCnt
+            double rowCnt,
+            List<IgniteIndex> indexes
     ) {
-        this.descriptor = descriptor;
-        this.name = name;
-        this.rowCnt = rowCnt;
-
-        dataProviders = Collections.emptyMap();
+        this(descriptor, name, rowCnt, indexes, Map.of());
     }
 
     /** Constructor. */
     public TestTable(
             TableDescriptor descriptor,
             String name,
-            Map<String, DataProvider<?>> dataProviders,
-            double rowCnt
+            double rowCnt,
+            List<IgniteIndex> indexList,
+            Map<String, DataProvider<?>> dataProviders
     ) {
         this.descriptor = descriptor;
         this.name = name;
         this.rowCnt = rowCnt;
         this.dataProviders = dataProviders;
+        indexes = indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity()));
     }
 
     /**
@@ -129,19 +127,6 @@ public class TestTable implements IgniteTable {
             @Nullable ImmutableBitSet requiredColumns
     ) {
         return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTbl, proj, cond, requiredColumns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteLogicalIndexScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTbl,
-            String idxName,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
-    ) {
-        return IgniteLogicalIndexScan.create(cluster, cluster.traitSet(), relOptTbl, idxName, proj, cond, requiredColumns);
     }
 
     /** {@inheritDoc} */
@@ -194,25 +179,7 @@ public class TestTable implements IgniteTable {
     /** {@inheritDoc} */
     @Override
     public Map<String, IgniteIndex> indexes() {
-        return Collections.unmodifiableMap(indexes);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addIndex(IgniteIndex idxTbl) {
-        indexes.put(idxTbl.name(), idxTbl);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteIndex getIndex(String idxName) {
-        return indexes.get(idxName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeIndex(String idxName) {
-        throw new AssertionError();
+        return indexes;
     }
 
     /** {@inheritDoc} */

@@ -23,7 +23,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
@@ -37,6 +36,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
@@ -85,6 +86,7 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -105,10 +107,10 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.TablePartitionId;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -135,24 +137,13 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
-import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageChange;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
@@ -162,6 +153,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -624,7 +616,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         byte[] bytesPendingAssignments = ByteUtils.toBytes(pendingAssignments);
         byte[] bytesPlannedAssignments = ByteUtils.toBytes(plannedAssignments);
 
-        TablePartitionId partId = new TablePartitionId(1, 0);
+        Node node0 = getNode(0);
+
+        TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
@@ -634,7 +628,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         msEntries.put(partAssignmentsPendingKey, bytesPendingAssignments);
         msEntries.put(partAssignmentsPlannedKey, bytesPlannedAssignments);
 
-        getNode(0).metaStorageManager.putAll(msEntries).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
+        node0.metaStorageManager.putAll(msEntries).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
     }
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
@@ -745,13 +739,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
-        private final SchemaManager schemaManager;
+        private final CatalogSchemaManager schemaManager;
 
         private final CatalogManager catalogManager;
 
         private final ClockWaiter clockWaiter;
 
-        private List<IgniteComponent> nodeComponents;
+        private final List<IgniteComponent> nodeComponents = new CopyOnWriteArrayList<>();
 
         private final ConfigurationTreeGenerator nodeCfgGenerator;
 
@@ -764,6 +758,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private CompletableFuture<Void> deployWatchesFut;
+
+        /** Hybrid clock. */
+        private final HybridClock hybridClock = new HybridClockImpl();
+
+        /** Index manager. */
+        private final IndexManager indexManager;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -798,8 +798,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             lockManager = new HeapLockManager();
-
-            HybridClock hybridClock = new HybridClockImpl();
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
@@ -867,19 +865,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
-                            TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
-                    List.of(ExtendedTableConfigurationSchema.class),
+                    List.of(),
                     List.of(
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
                             UnsafeMemoryAllocatorConfigurationSchema.class,
                             PersistentPageMemoryDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
-                            ConstantValueDefaultConfigurationSchema.class,
-                            FunctionCallDefaultConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
                             TestDataStorageConfigurationSchema.class
                     )
             );
@@ -887,8 +879,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
-                            TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     cfgStorage,
@@ -901,10 +891,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
 
-            TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
-            DistributionZonesConfiguration zonesCfg = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
-
             GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
@@ -916,19 +902,20 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             Path storagePath = dir.resolve("storage");
 
             dataStorageMgr = new DataStorageManager(
-                    zonesCfg,
                     dataStorageModules.createStorageEngines(
                             name,
                             clusterConfigRegistry,
                             dir.resolve("storage"),
-                            null));
+                            null
+                    )
+            );
 
             baselineMgr = new BaselineManager(
                     clusterCfgMgr,
                     metaStorageManager,
                     clusterService);
 
-            clockWaiter = new ClockWaiter("test", hybridClock);
+            clockWaiter = new ClockWaiter(name, hybridClock);
 
             LongSupplier delayDurationMsSupplier = () -> 10L;
 
@@ -938,25 +925,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     delayDurationMsSupplier
             );
 
-            schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
+            schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageManager);
 
             var schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
             distributionZoneManager = new DistributionZoneManager(
+                    name,
                     registry,
-                    zonesCfg,
-                    tablesCfg,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,
-                    name
+                    catalogManager
             );
 
             tableManager = new TableManager(
                     name,
                     registry,
-                    tablesCfg,
-                    zonesCfg,
                     gcConfig,
                     clusterService,
                     raftManager,
@@ -975,7 +959,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,
                     vaultManager,
-                    cmgManager,
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
@@ -1016,14 +999,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             });
                 }
             };
+
+            indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageManager, registry);
         }
 
         /**
          * Starts the created components.
          */
         void start() {
-            nodeComponents = new CopyOnWriteArrayList<>();
-
             List<IgniteComponent> firstComponents = List.of(
                     vaultManager,
                     nodeCfgMgr,
@@ -1048,7 +1031,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         baselineMgr,
                         dataStorageMgr,
                         schemaManager,
-                        tableManager
+                        tableManager,
+                        indexManager
                 );
 
                 secondComponents.forEach(IgniteComponent::start);
@@ -1238,39 +1222,35 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testDataStorage) {
-        DistributionZonesTestUtil.createZone(
-                node.distributionZoneManager,
+        DistributionZonesTestUtil.createZoneWithDataStorage(
+                node.catalogManager,
                 zoneName,
                 partitions,
                 replicas,
-                testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null
+                testDataStorage ? TestStorageEngine.ENGINE_NAME : null
         );
     }
 
     private static void alterZone(Node node, String zoneName, int replicas) {
-        alterZoneReplicas(node.distributionZoneManager, zoneName, replicas);
+        DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
     private static void createTable(Node node, String zoneName, String tableName) {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        CompletableFuture<Table> createTableFuture = node.tableManager.createTableAsync(
-                tableName,
+        TableTestUtils.createTable(
+                node.catalogManager,
+                DEFAULT_SCHEMA_NAME,
                 zoneName,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                tableName,
+                List.of(
+                        ColumnParams.builder().name("key").type(INT64).build(),
+                        ColumnParams.builder().name("val").type(INT32).nullable(true).build()
+                ),
+                List.of("key")
         );
-
-        assertThat(createTableFuture, willCompleteSuccessfully());
     }
 
     private static @Nullable Integer getTableId(Node node, String tableName) {
-        TableConfiguration tableConfig = node.clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
-                .get(tableName);
-
-        return tableConfig == null ? null : tableConfig.id().value();
+        return TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
     }
 
     private Node getNode(int nodeIndex) {

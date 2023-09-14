@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,11 +39,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -60,7 +54,6 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -85,10 +78,6 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtilUpdateAssignmentsTest.class);
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
-
-    private ConfigurationTreeGenerator generator;
-
-    private ConfigurationManager clusterCfgMgr;
 
     private ClusterService clusterService;
 
@@ -120,23 +109,9 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        generator = new ConfigurationTreeGenerator(
-                List.of(DistributionZonesConfiguration.KEY),
-                List.of(),
-                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
-        );
-        clusterCfgMgr = new ConfigurationManager(
-                List.of(DistributionZonesConfiguration.KEY),
-                new TestConfigurationStorage(DISTRIBUTED),
-                generator,
-                new TestConfigurationValidator()
-        );
-
         clusterService = mock(ClusterService.class);
 
         metaStorageManager = mock(MetaStorageManager.class);
-
-        clusterCfgMgr.start();
 
         AtomicLong raftIndex = new AtomicLong();
 
@@ -160,19 +135,16 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
 
                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
-                        /** {@inheritDoc} */
                         @Override
                         public long index() {
                             return commandIndex;
                         }
 
-                        /** {@inheritDoc} */
                         @Override
                         public WriteCommand command() {
                             return (WriteCommand) cmd;
                         }
 
-                        /** {@inheritDoc} */
                         @Override
                         public void result(@Nullable Serializable r) {
                             if (r instanceof Throwable) {
@@ -211,12 +183,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
-        clusterCfgMgr.stop();
-
+    public void tearDown() {
         keyValueStorage.close();
-
-        generator.close();
     }
 
     /**

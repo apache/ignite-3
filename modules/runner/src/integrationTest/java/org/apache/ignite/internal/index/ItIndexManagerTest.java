@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
@@ -28,7 +28,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -40,7 +39,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
-    /** {@inheritDoc} */
     @Override
     protected int nodes() {
         return 1;
@@ -53,12 +51,16 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> pkCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
-        sql("CREATE TABLE tname (c1 INT PRIMARY KEY, c2 INT, c3 INT)");
+        String tableName = "TNAME";
 
-        TableImpl table = (TableImpl) ignite.tables().table("tname");
+        sql(String.format("CREATE TABLE %s (c1 INT PRIMARY KEY, c2 INT, c3 INT)", tableName));
+
+        TableImpl table = (TableImpl) ignite.tables().table(tableName);
 
         {
-            IndexEventParameters parameters = await(pkCreatedFuture);
+            assertThat(pkCreatedFuture, willCompleteSuccessfully());
+
+            IndexEventParameters parameters = pkCreatedFuture.join();
 
             assertThat(parameters, notNullValue());
             assertThat(parameters.tableId(), equalTo(table.tableId()));
@@ -68,39 +70,39 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
-        await(indexManager.createIndexAsync(
-                "PUBLIC",
-                "INAME",
-                "TNAME",
-                true,
-                tableIndexChange -> tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")
-                ));
+        String indexName = "INAME";
+
+        sql(String.format("CREATE INDEX %s ON %s (c3, c2)", indexName, tableName));
 
         int createdIndexId;
         {
-            IndexEventParameters parameters = await(indexCreatedFuture);
+            assertThat(indexCreatedFuture, willCompleteSuccessfully());
+
+            IndexEventParameters parameters = indexCreatedFuture.join();
 
             assertThat(parameters, notNullValue());
             assertThat(parameters.tableId(), equalTo(table.tableId()));
             assertThat(parameters.indexDescriptor().columns(), hasItems("C3", "C2"));
-            assertThat(parameters.indexDescriptor().name(), equalTo("INAME"));
+            assertThat(parameters.indexDescriptor().name(), equalTo(indexName));
 
             createdIndexId = parameters.indexId();
         }
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
-        await(indexManager.dropIndexAsync("PUBLIC", "INAME", true));
+        sql(String.format("DROP INDEX %s", indexName));
 
         {
-            IndexEventParameters params = await(indexDroppedFuture);
+            assertThat(indexDroppedFuture, willCompleteSuccessfully());
+
+            IndexEventParameters params = indexDroppedFuture.join();
 
             assertThat(params, notNullValue());
             assertThat(params.indexId(), equalTo(createdIndexId));
         }
     }
 
-    private CompletableFuture<IndexEventParameters> registerListener(IndexManager indexManager, IndexEvent event) {
+    private static CompletableFuture<IndexEventParameters> registerListener(IndexManager indexManager, IndexEvent event) {
         CompletableFuture<IndexEventParameters> paramFuture = new CompletableFuture<>();
 
         indexManager.listen(event, (param, th) -> {

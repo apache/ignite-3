@@ -999,8 +999,8 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     public void testScanBooleanField() {
         try {
             sql("CREATE TABLE t(i INTEGER PRIMARY KEY, b BOOLEAN)");
-            sql("INSERT INTO t VALUES (0, TRUE), (1, TRUE), (2, FALSE), (3, FALSE), (4, null)");
             sql("CREATE INDEX t_idx ON t(b)");
+            sql("INSERT INTO t VALUES (0, TRUE), (1, TRUE), (2, FALSE), (3, FALSE), (4, null)");
 
             assertQuery("SELECT i FROM t WHERE b = TRUE")
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))

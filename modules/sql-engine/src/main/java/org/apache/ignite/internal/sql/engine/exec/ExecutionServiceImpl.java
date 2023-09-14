@@ -242,13 +242,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, long schemaVersion, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, @Nullable String schema, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schema, (int) schemaVersion))
+                                .defaultSchema(sqlSchemaManager.schema(schema, schemaVersion))
                                 .build()
                 )
                 .logger(LOG)
@@ -645,7 +645,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan notMappedPlan) {
-            CompletableFuture<MultiStepPlan> f = mapFragments(notMappedPlan);
+            Iterable<IgniteRel> fragmentRoots = TransformingIterator.newIterable(notMappedPlan.fragments(), Fragment::root);
+
+            IgniteSchema igniteSchema = ctx.schema().unwrap(IgniteSchema.class);
+
+            CompletableFuture<ResolvedDependencies> depsFut = dependencyResolver.resolveDependencies(fragmentRoots, igniteSchema);
+
+            CompletableFuture<MultiStepPlan> f = depsFut.thenCompose(deps -> mapFragments(notMappedPlan, deps));
 
             f.whenCompleteAsync((plan, mappingErr) -> {
                 if (mappingErr != null) {
@@ -801,7 +807,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 @Override
                 public IgniteRel visit(IgniteTableModify rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
+
                     List<NodeWithTerm> assignments = fragment.mapping().updatingTableAssignments();
+
+                    assert assignments != null : "Table assignments must be available";
 
                     enlist(tableId, assignments);
 
@@ -827,6 +836,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
+
                     List<NodeWithTerm> assignments = fragment.mapping().findGroup(rel.sourceId()).assignments().stream()
                             .map(l -> l.get(0))
                             .collect(Collectors.toList());
@@ -836,19 +846,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }.visit(fragment.root());
         }
 
-        private CompletableFuture<MultiStepPlan> mapFragments(MultiStepPlan plan) {
-            Iterable<IgniteRel> fragments = TransformingIterator.newIterable(plan.fragments(), (f) -> f.root());
+        private CompletableFuture<MultiStepPlan> mapFragments(MultiStepPlan plan, ResolvedDependencies deps) {
+            return fetchColocationGroups(deps).thenApply(colocationGroups -> {
+                MappingQueryContext mappingCtx = new MappingQueryContext(localNode.name(), mappingSrvc);
+                List<Fragment> mappedFragments = FragmentMapping.mapFragments(mappingCtx, plan.fragments(), colocationGroups);
 
-            CompletableFuture<ResolvedDependencies> fut = dependencyResolver.resolveDependencies(fragments,
-                    ctx.schema().unwrap(IgniteSchema.class));
-
-            return fut.thenCompose(deps -> {
-                return fetchColocationGroups(deps).thenApply(colocationGroups -> {
-                    MappingQueryContext mappingCtx = new MappingQueryContext(localNode.name(), mappingSrvc);
-                    List<Fragment> mappedFragments = FragmentMapping.mapFragments(mappingCtx, plan.fragments(), colocationGroups);
-
-                    return plan.replaceFragments(mappedFragments);
-                });
+                return plan.replaceFragments(mappedFragments);
             });
         }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -27,9 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -80,7 +79,7 @@ import org.apache.ignite.network.TopologyService;
  */
 public class TestNode implements LifecycleAware {
     private final String nodeName;
-    private final SchemaPlus schema;
+    private final SqlSchemaManager schemaManager;
     private final PrepareService prepareService;
     private final ExecutionService executionService;
     private final ParserService parserService;
@@ -103,7 +102,7 @@ public class TestNode implements LifecycleAware {
         this.nodeName = nodeName;
         var ps = new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT, mock(MetricManager.class));
         this.prepareService = registerService(ps);
-        this.schema = schemaManager.schema(CatalogService.DEFAULT_SCHEMA_NAME, -1);
+        this.schemaManager = schemaManager;
 
         TopologyService topologyService = clusterService.topologyService();
         MessagingService messagingService = clusterService.messagingService();
@@ -148,7 +147,7 @@ public class TestNode implements LifecycleAware {
                     @Override
                     public Node<Object[]> visit(IgniteIndexScan rel) {
                         TestTable tbl = rel.getTable().unwrap(TestTable.class);
-                        TestIndex idx = (TestIndex) tbl.getIndex(rel.indexName());
+                        TestIndex idx = (TestIndex) tbl.indexes().get(rel.indexName());
 
                         DataProvider<Object[]> dataProvider = idx.dataProvider(ctx.localNode().name());
 
@@ -225,7 +224,7 @@ public class TestNode implements LifecycleAware {
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
+                                .defaultSchema(schemaManager.schema(DEFAULT_SCHEMA_NAME, Long.MAX_VALUE))
                                 .build()
                 )
                 .build();

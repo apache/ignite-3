@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -48,9 +47,7 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
-            RocksDbStorageEngineConfiguration rocksDbEngineConfig,
-            @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig
+            RocksDbStorageEngineConfiguration rocksDbEngineConfig
     ) {
         engine = new RocksDbStorageEngine("test", rocksDbEngineConfig, workDir);
 
@@ -58,12 +55,12 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
 
         tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageIndexDescriptorSupplier(catalogService)
         );
 
         tableStorage.start();
 
-        initialize(tableStorage, tablesConfig);
+        initialize(tableStorage);
     }
 
     @AfterEach

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZoneWithAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
@@ -40,29 +40,22 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -71,53 +64,32 @@ import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests distribution zones configuration changes and reaction to that changes.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
     private static final String NEW_ZONE_NAME = "zone2";
 
-    private static final Set<NodeWithAttributes> nodes = Set.of(new NodeWithAttributes("name1", "name1", Collections.emptyMap()));
+    private static final Set<NodeWithAttributes> nodes = Set.of(new NodeWithAttributes("name1", "name1", emptyMap()));
 
     private DistributionZoneManager distributionZoneManager;
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
-    private ConfigurationTreeGenerator generator;
-
-    private ConfigurationManager clusterCfgMgr;
-
     private VaultManager vaultMgr;
 
     private StandaloneMetaStorageManager metaStorageManager;
 
-    @InjectConfiguration
-    private TablesConfiguration tablesConfiguration;
+    private final HybridClock clock = new HybridClockImpl();
 
-    private DistributionZonesConfiguration zonesConfiguration;
+    private CatalogManager catalogManager;
 
     @BeforeEach
     public void setUp() {
         String nodeName = "test";
-
-        generator = new ConfigurationTreeGenerator(
-                List.of(DistributionZonesConfiguration.KEY),
-                List.of(),
-                List.of(TestPersistStorageConfigurationSchema.class)
-        );
-        clusterCfgMgr = new ConfigurationManager(
-                List.of(DistributionZonesConfiguration.KEY),
-                new TestConfigurationStorage(DISTRIBUTED),
-                generator,
-                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
-        );
-
-        zonesConfiguration = clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
 
         // Mock logical topology for distribution zone.
         vaultMgr = new VaultManager(new InMemoryVaultService());
@@ -148,22 +120,23 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
+        catalogManager = CatalogTestUtils.createTestCatalogManager(nodeName, new HybridClockImpl(), metaStorageManager);
+
         distributionZoneManager = new DistributionZoneManager(
+                nodeName,
                 revisionUpdater,
-                zonesConfiguration,
-                tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
-                nodeName
+                catalogManager
         );
 
         vaultMgr.start();
-        clusterCfgMgr.start();
         metaStorageManager.start();
+        catalogManager.start();
         distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         clearInvocations(keyValueStorage);
     }
@@ -172,10 +145,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 distributionZoneManager == null ? null : distributionZoneManager::stop,
+                catalogManager == null ? null : catalogManager::stop,
                 metaStorageManager == null ? null : metaStorageManager::stop,
-                clusterCfgMgr == null ? null : clusterCfgMgr::stop,
-                vaultMgr == null ? null : vaultMgr::stop,
-                generator == null ? null : generator::close
+                vaultMgr == null ? null : vaultMgr::stop
         );
     }
 
@@ -215,9 +187,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         int zoneId2 = getZoneId(NEW_ZONE_NAME);
 
         assertZoneScaleUpChangeTriggerKey(2L, zoneId, keyValueStorage);
-        assertZoneScaleUpChangeTriggerKey(3L, zoneId2, keyValueStorage);
-        assertZonesChangeTriggerKey(2, zoneId, keyValueStorage);
-        assertZonesChangeTriggerKey(3, zoneId2, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(4L, zoneId2, keyValueStorage);
+        assertZonesChangeTriggerKey(2L, zoneId, keyValueStorage);
+        assertZonesChangeTriggerKey(4L, zoneId2, keyValueStorage);
     }
 
     @Test
@@ -236,14 +208,14 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     }
 
     private void createZone(String zoneName) {
-        DistributionZonesTestUtil.createZone(distributionZoneManager, zoneName, null, null, null);
+        DistributionZonesTestUtil.createZone(catalogManager, zoneName, null, null, null);
     }
 
     private void dropZone(String zoneName) {
-        DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
+        DistributionZonesTestUtil.dropZone(catalogManager, zoneName);
     }
 
     private int getZoneId(String zoneName) {
-        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfiguration, zoneName);
+        return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
     }
 }

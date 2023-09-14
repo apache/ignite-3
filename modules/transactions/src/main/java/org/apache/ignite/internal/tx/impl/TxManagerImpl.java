@@ -42,7 +42,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -174,13 +173,14 @@ public class TxManagerImpl implements TxManager {
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp() {
-        HybridTimestamp now = clock.now();
+        return clock.now();
 
-        return new HybridTimestamp(now.getPhysical()
-                - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
-                - HybridTimestamp.CLOCK_SKEW,
-                0
-        );
+        // TODO: IGNITE-20378 Fix it
+        // return new HybridTimestamp(now.getPhysical()
+        //         - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+        //         - HybridTimestamp.CLOCK_SKEW,
+        //         0
+        // );
     }
 
     @Override

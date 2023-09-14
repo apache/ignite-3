@@ -46,6 +46,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -55,8 +57,6 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
@@ -72,7 +72,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -742,14 +741,15 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * Gets an index id.
      */
     private static int getSortedIndexId() {
-        return getSortedIndexConfig(CLUSTER_NODES.get(0)).id().value();
-    }
+        CatalogManager catalogManager = ((IgniteImpl) CLUSTER_NODES.get(0)).catalogManager();
 
-    private static @Nullable TableIndexConfiguration getSortedIndexConfig(Ignite node) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(SORTED_IDX.toUpperCase());
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        return catalogManager.indexes(catalogVersion).stream()
+                .filter(index -> SORTED_IDX.equalsIgnoreCase(index.name()))
+                .mapToInt(CatalogObjectDescriptor::id)
+                .findFirst()
+                .getAsInt();
     }
 
     /**

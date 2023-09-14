@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.junit.jupiter.api.BeforeEach;

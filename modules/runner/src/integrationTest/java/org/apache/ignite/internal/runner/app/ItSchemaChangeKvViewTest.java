@@ -21,9 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.Serializable;
 import java.util.List;
-import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.table.KeyValueView;
@@ -125,7 +123,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check rename column from table schema.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733") // get hangs on registry.waitLatestSchema() after column update.
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20315")
     public void testRenameColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
@@ -270,13 +268,13 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
 
         kvView.put(null, Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
+        changeDefault(grid, colName, "newDefault");
         addColumn(grid, "val VARCHAR DEFAULT 'newDefault'");
 
         kvView.put(null, Tuple.create().set("key", 2L), Tuple.create().set("valInt", 222));
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "brandNewDefault");
-        changeDefault(grid, "val", (Supplier<Object> & Serializable) () -> "brandNewDefault");
+        changeDefault(grid, colName, "brandNewDefault");
+        changeDefault(grid, "val", "brandNewDefault");
 
         kvView.put(null, Tuple.create().set("key", 3L), Tuple.create().set("valInt", 333));
 
