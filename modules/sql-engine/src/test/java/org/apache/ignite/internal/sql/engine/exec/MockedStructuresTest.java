@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -38,6 +40,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -264,8 +267,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         mockVault();
         mockMetastore();
 
+        var revisionListeners = new ArrayList<LongFunction<CompletableFuture<?>>>();
+
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> {
-            await(function.apply(0L));
+            revisionListeners.add(function);
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
                 log.info("Notify about revision: {}", newStorageRevision);
@@ -344,6 +349,12 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         );
 
         queryProc.start();
+
+        CompletableFuture<?>[] initialRevisionNotificationFutures = revisionListeners.stream()
+                .map(f -> f.apply(0))
+                .toArray(CompletableFuture[]::new);
+
+        assertThat(allOf(initialRevisionNotificationFutures), willCompleteSuccessfully());
 
         dstZnsCfg.defaultDistributionZone().change(ch -> ch.changeDataStorage(d -> d.convert(RocksDbDataStorageChange.class)))
                 .get(1, TimeUnit.SECONDS);
@@ -430,7 +441,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String tableName = getCurrentMethodName(testInfo).toUpperCase();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) ",
-                 tableName);
+                tableName);
 
         readFirst(sql(newTblSql));
 
@@ -458,7 +469,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         Throwable exception = assertThrows(
                 Throwable.class,
                 () -> readFirst(sql(String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                                + "with primary_zone='%s'", tableName, nonExistZone)))
+                        + "with primary_zone='%s'", tableName, nonExistZone)))
         );
 
         assertTrue(IgniteTestUtils.hasCause(exception.getCause(), DistributionZoneNotFoundException.class, null));
