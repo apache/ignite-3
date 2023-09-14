@@ -40,19 +40,17 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
-import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Event;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -63,15 +61,15 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
-import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
+import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.schema.CatalogSqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
@@ -88,7 +86,6 @@ import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
-import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -104,7 +101,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * SqlQueryProcessor.
+ *  SqlQueryProcessor.
  *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SqlQueryProcessor implements QueryProcessor {
@@ -117,6 +114,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Size of the table access cache. */
     private static final int TABLE_CACHE_SIZE = 1024;
+
+    /** Number of the schemas in cache. */
+    private static final int SCHEMA_CACHE_SIZE = 128;
 
     /** Session expiration check period in milliseconds. */
     private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
@@ -147,9 +147,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final IndexManager indexManager;
 
-    private final SchemaManager schemaManager;
-
-    private final Consumer<LongFunction<CompletableFuture<?>>> registry;
+    private final CatalogSchemaManager schemaManager;
 
     private final DataStorageManager dataStorageManager;
 
@@ -173,9 +171,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager sqlSchemaManager;
 
-    /** Distribution zones manager. */
-    private final DistributionZoneManager distributionZoneManager;
-
     /** Clock. */
     private final HybridClock clock;
 
@@ -194,27 +189,29 @@ public class SqlQueryProcessor implements QueryProcessor {
             ClusterService clusterSrvc,
             TableManager tableManager,
             IndexManager indexManager,
-            SchemaManager schemaManager,
+            CatalogSchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
             CatalogManager catalogManager,
             MetricManager metricManager
     ) {
-        this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
-        this.distributionZoneManager = distributionZoneManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
+
+        sqlSchemaManager = new CatalogSqlSchemaManager(
+                catalogManager,
+                SCHEMA_CACHE_SIZE
+        );
     }
 
     /** {@inheritDoc} */
@@ -250,30 +247,13 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(
-                tableManager,
-                schemaManager,
-                registry,
-                busyLock
-        );
-
-        sqlSchemaManager.registerListener(prepareSvc);
-
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandlerWrapper(
-                distributionZoneManager,
-                tableManager,
-                indexManager,
-                dataStorageManager,
-                catalogManager
-        );
+        var ddlCommandHandler = new DdlCommandHandler(catalogManager);
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
-
-        sqlSchemaManager.registerListener(executableTableRegistry);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -291,15 +271,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
 
         this.executionSrvc = executionSrvc;
-
-        registerTableListener(TableEvent.CREATE, new TableCreatedListener(sqlSchemaManager));
-        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(sqlSchemaManager));
-        registerTableListener(TableEvent.DROP, new TableDroppedListener(sqlSchemaManager));
-
-        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(sqlSchemaManager));
-        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(sqlSchemaManager));
-
-        this.sqlSchemaManager = sqlSchemaManager;
 
         services.forEach(LifecycleAware::start);
     }
@@ -384,18 +355,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         services.add(service);
 
         return service;
-    }
-
-    private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
-        evtLsnrs.add(Pair.of(evt, lsnr));
-
-        tableManager.listen(evt, lsnr);
-    }
-
-    private void registerIndexListener(IndexEvent evt, AbstractIndexEventListener lsnr) {
-        evtLsnrs.add(Pair.of(evt, lsnr));
-
-        indexManager.listen(evt, lsnr);
     }
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
@@ -549,113 +508,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     @TestOnly
     public MetricManager metricManager() {
         return metricManager;
-    }
-
-    private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
-        protected final SqlSchemaManagerImpl schemaHolder;
-
-        private AbstractTableEventListener(SqlSchemaManagerImpl schemaHolder) {
-            this.schemaHolder = schemaHolder;
-        }
-    }
-
-    private abstract static class AbstractIndexEventListener implements EventListener<IndexEventParameters> {
-        protected final SqlSchemaManagerImpl schemaHolder;
-
-        private AbstractIndexEventListener(SqlSchemaManagerImpl schemaHolder) {
-            this.schemaHolder = schemaHolder;
-        }
-    }
-
-    private static class TableCreatedListener extends AbstractTableEventListener {
-        private TableCreatedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onTableCreated(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            DEFAULT_SCHEMA_NAME,
-                            parameters.tableId(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
-    }
-
-    private static class TableUpdatedListener extends AbstractTableEventListener {
-        private TableUpdatedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onTableUpdated(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            DEFAULT_SCHEMA_NAME,
-                            parameters.tableId(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
-    }
-
-    private static class TableDroppedListener extends AbstractTableEventListener {
-        private TableDroppedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onTableDropped(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            DEFAULT_SCHEMA_NAME,
-                            parameters.tableId(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
-    }
-
-    private static class IndexDroppedListener extends AbstractIndexEventListener {
-        private IndexDroppedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(IndexEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onIndexDropped(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            DEFAULT_SCHEMA_NAME,
-                            parameters.tableId(),
-                            parameters.indexId(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
-    }
-
-    private static class IndexCreatedListener extends AbstractIndexEventListener {
-        private IndexCreatedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(IndexEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onIndexCreated(
-                            parameters.tableId(),
-                            parameters.indexId(),
-                            parameters.indexDescriptor(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
     }
 
     /** Performs additional validation of a parsed statement. **/

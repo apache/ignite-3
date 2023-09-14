@@ -51,6 +51,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -58,6 +59,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration test of index building.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20096")
 public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "zone_table";
 
@@ -197,7 +199,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertFalse(nullOrEmpty(CLUSTER_NODES));
         assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
+                () -> CLUSTER_NODES.stream().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
     }

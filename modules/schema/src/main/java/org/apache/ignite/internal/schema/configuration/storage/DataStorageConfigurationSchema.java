@@ -23,6 +23,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 /**
  * Configuration schema for data storage.
  */
+// TODO: IGNITE-20263 Get rid of
 @PolymorphicConfig
 public class DataStorageConfigurationSchema {
     /** Name of data storage. */

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.testframework;
 
 import static java.lang.Thread.sleep;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.invoke.MethodHandles;
@@ -56,7 +58,9 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Utility class for tests.
@@ -248,6 +252,28 @@ public final class IgniteTestUtils {
         }
 
         return null;
+    }
+
+    /**
+     * Checks whether runnable throws exception, which is itself of a specified class.
+     *
+     * @param cls Expected exception class.
+     * @param run Runnable to check.
+     * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrows(
+            Class<? extends Throwable> cls,
+            Executable run,
+            @Nullable String errorMessageFragment
+    ) {
+        Throwable throwable = Assertions.assertThrows(cls, run);
+
+        if (errorMessageFragment != null) {
+            assertThat(throwable.getMessage(), containsString(errorMessageFragment));
+        }
+
+        return throwable;
     }
 
     /**

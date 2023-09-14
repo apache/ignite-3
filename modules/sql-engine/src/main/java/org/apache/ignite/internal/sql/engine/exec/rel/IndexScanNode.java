@@ -25,12 +25,15 @@ import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -58,6 +61,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     private final @Nullable RangeIterable<RowT> rangeConditions;
 
     private final @Nullable Comparator<RowT> comp;
+
+    private final List<String> columns;
 
     /**
      * Constructor.
@@ -96,6 +101,12 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         this.rangeConditions = rangeConditions;
         this.comp = comp;
         this.factory = rowFactory;
+
+        columns = schemaIndex.collation().getFieldCollations().stream()
+                .map(RelFieldCollation::getFieldIndex)
+                .map(tableDescriptor::columnDescriptor)
+                .map(ColumnDescriptor::name)
+                .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
@@ -124,7 +135,6 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private Publisher<RowT> partitionPublisher(PartitionWithTerm partWithTerm, @Nullable RangeCondition<RowT> cond) {
         int indexId = schemaIndex.id();
-        List<String> columns = schemaIndex.columns();
         ExecutionContext<RowT> ctx = context();
 
         switch (schemaIndex.type()) {

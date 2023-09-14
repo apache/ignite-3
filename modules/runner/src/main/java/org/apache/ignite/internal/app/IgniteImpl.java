@@ -81,7 +81,6 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -116,9 +115,8 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
@@ -274,7 +272,7 @@ public class IgniteImpl implements Ignite {
     private final DataStorageManager dataStorageMgr;
 
     /** Schema manager. */
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     /** Metric manager. */
     private final MetricManager metricManager;
@@ -296,6 +294,7 @@ public class IgniteImpl implements Ignite {
     private final RestAddressReporter restAddressReporter;
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
     private final CatalogManager catalogManager;
 
     private final AuthenticationManager authenticationManager;
@@ -455,10 +454,6 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
-
-        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
                 new HoconPresentation(clusterCfgMgr.configurationRegistry())
@@ -499,25 +494,12 @@ public class IgniteImpl implements Ignite {
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
-                zonesConfig,
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterConfigRegistry,
                         storagePath,
                         longJvmPauseDetector
                 )
-        );
-
-        schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
-
-        distributionZoneManager = new DistributionZoneManager(
-                registry,
-                zonesConfig,
-                tablesConfig,
-                metaStorageMgr,
-                logicalTopologyService,
-                vaultMgr,
-                name
         );
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
@@ -541,11 +523,20 @@ public class IgniteImpl implements Ignite {
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
+        schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageMgr);
+
+        distributionZoneManager = new DistributionZoneManager(
+                name,
+                registry,
+                metaStorageMgr,
+                logicalTopologyService,
+                vaultMgr,
+                catalogManager
+        );
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
-                tablesConfig,
-                zonesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,
@@ -564,7 +555,6 @@ public class IgniteImpl implements Ignite {
                 outgoingSnapshotsManager,
                 topologyAwareRaftGroupServiceFactory,
                 vaultMgr,
-                cmgMgr,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
@@ -572,7 +562,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver()
         );
 
-        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -581,7 +571,6 @@ public class IgniteImpl implements Ignite {
                 indexManager,
                 schemaManager,
                 dataStorageMgr,
-                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
@@ -1103,41 +1092,25 @@ public class IgniteImpl implements Ignite {
         ((DefaultMessagingService) clusterSvc.messagingService()).stopDroppingMessages();
     }
 
-    /**
-     * Returns the node's hybrid clock.
-     *
-     * @return Hybrid clock.
-     */
+    /** Returns the node's hybrid clock. */
     @TestOnly
     public HybridClock clock() {
         return clock;
     }
 
-    /**
-     * Returns the node's transaction manager.
-     *
-     * @return Transaction manager.
-     */
+    /** Returns the node's transaction manager. */
     @TestOnly
     public TxManager txManager() {
         return txManager;
     }
 
-    /**
-     * Returns the node's placement driver service.
-     *
-     * @return Placement driver service
-     */
+    /** Returns the node's placement driver service. */
     @TestOnly
     public PlacementDriver placementDriver() {
         return placementDriverMgr.placementDriver();
     }
 
-    /**
-     * Returns the CatalogManager.
-     *
-     * @return Catalog manager.
-     */
+    /** Returns the node's catalog manager. */
     @TestOnly
     public CatalogManager catalogManager() {
         return catalogManager;

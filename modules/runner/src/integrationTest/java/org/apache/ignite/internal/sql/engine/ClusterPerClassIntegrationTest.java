@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.apache.ignite.internal.table.TableTestUtils.getTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -54,11 +53,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
@@ -238,14 +232,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Returns table index configuration of the given index at the given node, or {@code null} if no such index exists.
+     * Returns table index descriptor of the given index at the given node, or {@code null} if no such index exists.
      *
-     * @param node  A node.
-     * @param indexName  An index.
-     * @return  An index configuration.
+     * @param node Node.
+     * @param indexName Index name.
      */
-    public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return getTablesConfiguration(node).indexes().get(indexName.toUpperCase());
+    public static @Nullable CatalogIndexDescriptor getIndexDescriptor(Ignite node, String indexName) {
+        IgniteImpl nodeImpl = (IgniteImpl) node;
+
+        return nodeImpl.catalogManager().index(indexName, nodeImpl.clock().nowLong());
     }
 
     /**
@@ -477,7 +472,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             InternalTable internalTable = tableImpl.internalTable();
 
             assertTrue(
-                    waitForCondition(() -> getIndexConfiguration(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
+                    waitForCondition(() -> getIndexDescriptor(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
                     String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
             );
 
@@ -491,15 +486,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     continue;
                 }
 
-                TableView tableView = getTableConfiguration(clusterNode, tableName).value();
-                TableIndexView indexView = getIndexConfiguration(clusterNode, indexName).value();
-
-                CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-                CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
+                CatalogTableDescriptor tableDescriptor = getTableDescriptor(clusterNode, tableName);
+                CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(clusterNode, indexName);
 
                 IndexStorage index = internalTable.storage().getOrCreateIndex(
                         partitionId,
-                        StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor)
+                        StorageIndexDescriptor.create(tableDescriptor, indexDescriptor)
                 );
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
@@ -510,16 +502,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
         return partitionIdToNodes;
     }
-
-    /**
-     * Returns tables configuration.
-     *
-     * @param node Node.
-     */
-    public static TablesConfiguration getTablesConfiguration(Ignite node) {
-        return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
-    }
-
 
     /**
      * Returns internal  {@code SqlQueryProcessor} for first cluster node.
@@ -579,25 +561,26 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Returns the index ID from the configuration, {@code null} if there is no index configuration.
+     * Returns the index ID from the catalog, {@code null} if there is no index.
      *
      * @param node Node.
      * @param indexName Index name.
      */
     static @Nullable Integer indexId(Ignite node, String indexName) {
-        TableIndexConfiguration indexConfig = getIndexConfiguration(node, indexName);
+        CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, indexName);
 
-        return indexConfig == null ? null : indexConfig.id().value();
+        return indexDescriptor == null ? null : indexDescriptor.id();
     }
 
     /**
-     * Returns table configuration of the given table at the given node, or {@code null} if no such table exists.
+     * Returns table descriptor of the given table at the given node, or {@code null} if no such table exists.
      *
      * @param node Node.
      * @param tableName Table name.
-     * @return Table configuration.
      */
-    private static @Nullable TableConfiguration getTableConfiguration(Ignite node, String tableName) {
-        return getTablesConfiguration(node).tables().get(tableName.toUpperCase());
+    private static @Nullable CatalogTableDescriptor getTableDescriptor(Ignite node, String tableName) {
+        IgniteImpl nodeImpl = (IgniteImpl) node;
+
+        return getTable(nodeImpl.catalogManager(), tableName, nodeImpl.clock().nowLong());
     }
 }

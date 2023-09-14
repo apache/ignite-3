@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.po
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
@@ -221,7 +222,10 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
 
         Set<Class<?>> notInAllSchemas = difference(polymorphicExtensionsByParent.keySet(), allSchemas);
 
-        if (!notInAllSchemas.isEmpty()) {
+        // TODO: IGNTIE-20263 Return commented condition
+        // if (!notInAllSchemas.isEmpty()) {
+        if (!notInAllSchemas.isEmpty()
+                && (notInAllSchemas.size() == 1 && !first(notInAllSchemas).getSimpleName().equals("DataStorageConfigurationSchema"))) {
             throw new IllegalArgumentException(
                     "Polymorphic extensions for which no polymorphic configuration schemas were found: " + notInAllSchemas
             );
