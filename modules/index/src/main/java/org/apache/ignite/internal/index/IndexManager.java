@@ -224,10 +224,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         int tableId = table.id();
         int indexId = index.id();
 
-        LOG.info(
-                "Creating local index: name={}, id={}, tableId={}, token={}",
-                index.name(), indexId, tableId, causalityToken
-        );
+        if (LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Creating local index: name={}, id={}, tableId={}, token={}",
+                    index.name(), indexId, tableId, causalityToken
+            );
+        }
 
         CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
 
