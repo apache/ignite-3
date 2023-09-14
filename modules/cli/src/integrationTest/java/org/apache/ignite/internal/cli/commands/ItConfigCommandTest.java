@@ -57,12 +57,11 @@ public class ItConfigCommandTest extends AbstractCliTest {
         CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, null, workDir);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(nodeName)
                 .metaStorageNodeNames(List.of(nodeName))
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(nodeName, initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 

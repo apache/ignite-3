@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
@@ -217,7 +218,12 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         String name = nodes.get(0).name();
 
-        nodes.get(0).cmgManager.initCluster(List.of(name), List.of(name), "test");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(name))
+                .clusterName("test")
+                .build();
+
+        nodes.get(0).cmgManager.initCluster(initParameters);
 
         for (Node node : nodes) {
             assertThat(node.metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());

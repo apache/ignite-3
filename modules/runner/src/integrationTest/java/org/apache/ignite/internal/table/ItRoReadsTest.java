@@ -119,12 +119,11 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         String metaStorageNodeName = testNodeName(testInfo, nodes() - 1);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNodeName, initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 

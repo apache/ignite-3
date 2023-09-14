@@ -62,37 +62,34 @@ public class ItClusterInitTest extends IgniteAbstractTest {
         String nodeName = nodesByName.keySet().iterator().next();
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(nodeName)
                 .metaStorageNodeNames(List.of(nodeName))
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(nodeName, initParameters);
 
         assertThat(allOf(nodesByName.values().toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
 
         // init is idempotent
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(nodeName, initParameters);
 
         InitParameters initParametersWithWrongNodesList1 = InitParameters.builder()
-                .destinationNodeName(nodeName)
                 .metaStorageNodeNames(nodesByName.keySet())
                 .clusterName("cluster")
                 .build();
 
         // init should fail if the list of nodes is different
-        Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(initParametersWithWrongNodesList1));
+        Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, initParametersWithWrongNodesList1));
 
         assertThat(e.getMessage(), containsString("Init CMG request denied, reason: CMG node names do not match."));
 
         InitParameters initParametersWithWrongNodesList2 = InitParameters.builder()
-                .destinationNodeName(nodeName)
                 .metaStorageNodeNames(List.of(nodeName))
                 .clusterName("new name")
                 .build();
 
         // init should fail if cluster names are different
-        e = assertThrows(InitException.class, () -> IgnitionManager.init(initParametersWithWrongNodesList2));
+        e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, initParametersWithWrongNodesList2));
 
         assertThat(e.getMessage(), containsString("Init CMG request denied, reason: Cluster names do not match."));
     }

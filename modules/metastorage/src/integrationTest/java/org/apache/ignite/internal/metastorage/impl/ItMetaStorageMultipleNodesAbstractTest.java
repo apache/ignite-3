@@ -43,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
@@ -260,7 +261,12 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
     void testLearnerJoin(TestInfo testInfo) throws NodeStoppingException {
         Node firstNode = startNode(testInfo);
 
-        firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(firstNode.name()))
+                .clusterName("test")
+                .build();
+
+        firstNode.cmgManager.initCluster(initParameters);
 
         firstNode.waitWatches();
 
@@ -324,7 +330,12 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         Node firstNode = startNode(testInfo);
         Node secondNode = startNode(testInfo);
 
-        firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(firstNode.name()))
+                .clusterName("test")
+                .build();
+
+        firstNode.cmgManager.initCluster(initParameters);
 
         firstNode.waitWatches();
         secondNode.waitWatches();
@@ -351,7 +362,12 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         Node firstNode = startNode(testInfo);
         Node secondNode = startNode(testInfo);
 
-        firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(firstNode.name()))
+                .clusterName("test")
+                .build();
+
+        firstNode.cmgManager.initCluster(initParameters);
 
         assertThat(allOf(firstNode.cmgManager.onJoinReady(), secondNode.cmgManager.onJoinReady()), willCompleteSuccessfully());
 
@@ -394,7 +410,13 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             followers.add(secondNode.name());
         }
 
-        firstNode.cmgManager.initCluster(followers, List.of(firstNode.name()), "test");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(followers)
+                .cmgNodeNames(List.of(firstNode.name()))
+                .clusterName("test")
+                .build();
+
+        firstNode.cmgManager.initCluster(initParameters);
 
         ClusterTimeImpl firstNodeTime = (ClusterTimeImpl) firstNode.metaStorageManager.clusterTime();
         ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
@@ -478,7 +500,13 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         List<String> followers = List.of(firstNode.name(), secondNode.name());
 
-        firstNode.cmgManager.initCluster(followers, List.of(firstNode.name()), "test");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(followers)
+                .cmgNodeNames(List.of(firstNode.name()))
+                .clusterName("test")
+                .build();
+
+        firstNode.cmgManager.initCluster(initParameters);
 
         ClusterTimeImpl firstNodeTime = (ClusterTimeImpl) firstNode.metaStorageManager.clusterTime();
         ClusterTimeImpl secondNodeTime = (ClusterTimeImpl) secondNode.metaStorageManager.clusterTime();
@@ -529,7 +557,12 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         Node firstNode = startNode(testInfo);
         Node secondNode = startNode(testInfo);
 
-        firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(firstNode.name()))
+                .clusterName("test")
+                .build();
+
+        firstNode.cmgManager.initCluster(initParameters);
 
         assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
         assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
@@ -559,7 +592,13 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         Node firstNode = startNode(testInfo);
         Node secondNode = startNode(testInfo);
 
-        firstNode.cmgManager.initCluster(List.of(firstNode.name(), secondNode.name()), List.of(firstNode.name()), "test");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(firstNode.name(), secondNode.name()))
+                .cmgNodeNames(List.of(firstNode.name()))
+                .clusterName("test")
+                .build();
+
+        firstNode.cmgManager.initCluster(initParameters);
 
         assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
         assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());

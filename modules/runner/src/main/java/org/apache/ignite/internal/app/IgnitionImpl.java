@@ -134,8 +134,7 @@ public class IgnitionImpl implements Ignition {
     }
 
     @Override
-    public void init(InitParameters parameters) {
-        String nodeName = parameters.nodeName();
+    public void init(String nodeName, InitParameters parameters) {
         IgniteImpl node = readyForInitNodes.get(nodeName);
 
         if (node == null) {
@@ -143,11 +142,7 @@ public class IgnitionImpl implements Ignition {
         }
 
         try {
-            node.init(parameters.metaStorageNodeNames(),
-                    parameters.cmgNodeNames(),
-                    parameters.clusterName(),
-                    parameters.clusterConfiguration()
-            );
+            node.init(parameters);
         } catch (NodeStoppingException e) {
             throw new IgniteException("Node stop detected during init", e);
         }

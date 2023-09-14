@@ -24,10 +24,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Initialization parameters. */
 public class InitParameters {
-
-    /** Name of the node that the initialization request will be sent to. */
-    private final String destinationNodeName;
-
     /** Names of nodes that will host the Meta Storage <b>and</b> the CMG. */
     private final Collection<String> metaStorageNodeNames;
 
@@ -43,26 +39,21 @@ public class InitParameters {
     /**
      * Constructor.
      *
-     * @param destinationNodeName Name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @param cmgNodeNames Names of nodes that will host the CMG.
      * @param clusterName Human-readable name of the cluster.
      * @param clusterConfiguration Cluster configuration.
      */
     InitParameters(
-            String destinationNodeName,
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
             @Nullable String clusterConfiguration
     ) {
-
-        Objects.requireNonNull(destinationNodeName);
         Objects.requireNonNull(metaStorageNodeNames);
         Objects.requireNonNull(cmgNodeNames);
         Objects.requireNonNull(clusterName);
 
-        this.destinationNodeName = destinationNodeName;
         this.metaStorageNodeNames = List.copyOf(metaStorageNodeNames);
         this.cmgNodeNames = List.copyOf(cmgNodeNames);
         this.clusterName = clusterName;
@@ -71,10 +62,6 @@ public class InitParameters {
 
     public static InitParametersBuilder builder() {
         return new InitParametersBuilder();
-    }
-
-    public String nodeName() {
-        return destinationNodeName;
     }
 
     public Collection<String> metaStorageNodeNames() {

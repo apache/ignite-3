@@ -38,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
@@ -166,38 +167,15 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Initializes the cluster that this node is present in.
      *
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
-     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
-     * @param clusterName Human-readable name of the cluster.
+     * @param parameters Initialization parameters.
      */
-    public void initCluster(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName
-    ) throws NodeStoppingException {
-        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, null);
-    }
-
-    /**
-     * Initializes the cluster that this node is present in.
-     *
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
-     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
-     * @param clusterName Human-readable name of the cluster.
-     * @param clusterConfiguration Cluster configuration.
-     */
-    public void initCluster(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName,
-            @Nullable String clusterConfiguration
-    ) throws NodeStoppingException {
+    public void initCluster(InitParameters parameters) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration).get();
+            clusterInitializer.initCluster(parameters).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 

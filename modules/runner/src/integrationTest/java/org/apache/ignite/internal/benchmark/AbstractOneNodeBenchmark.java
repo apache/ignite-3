@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
@@ -78,13 +79,13 @@ public class AbstractOneNodeBenchmark {
 
         var fut =  TestIgnitionManager.start(NODE_NAME, config, workDir.resolve(NODE_NAME));
 
-        TestIgnitionManager.init(new InitParametersBuilder()
+        InitParameters initParameters = new InitParametersBuilder()
                 .clusterName("cluster")
-                .destinationNodeName(NODE_NAME)
                 .cmgNodeNames(List.of(NODE_NAME))
                 .metaStorageNodeNames(List.of(NODE_NAME))
-                .build()
-        );
+                .build();
+
+        TestIgnitionManager.init(NODE_NAME, initParameters);
 
         clusterNode = (IgniteImpl) fut.join();
 

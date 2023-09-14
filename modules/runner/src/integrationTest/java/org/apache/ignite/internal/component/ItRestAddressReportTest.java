@@ -72,12 +72,11 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
 
         // And init cluster
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(NODE_NAME)
                 .metaStorageNodeNames(List.of(NODE_NAME))
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(NODE_NAME, initParameters);
 
         // Then node is started
         assertThat(ign, willCompleteSuccessfully());

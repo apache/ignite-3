@@ -513,11 +513,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             String nodeName = CLUSTER_NODES_NAMES.get(0);
 
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
                     .metaStorageNodeNames(List.of(nodeName))
                     .clusterName("cluster")
                     .build();
-            TestIgnitionManager.init(initParameters);
+
+            TestIgnitionManager.init(nodeName, initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -574,11 +574,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             String nodeName = CLUSTER_NODES_NAMES.get(0);
 
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
                     .metaStorageNodeNames(List.of(nodeName))
                     .clusterName("cluster")
                     .build();
-            TestIgnitionManager.init(initParameters);
+
+            TestIgnitionManager.init(nodeName, initParameters);
         }
 
         return futures.stream()

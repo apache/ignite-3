@@ -99,20 +99,21 @@ public class IgnitionManager {
     /**
      * Initializes the cluster the specified node belongs to.
      *
+     * @param nodeName Name of the node that the initialization request will be sent to.
      * @param parameters initialization parameters.
      * @throws IgniteException If the given node has not been started or has been stopped.
      * @throws NullPointerException If any of the parameters are null.
      * @throws IllegalArgumentException If {@code metaStorageNodeNames} is empty or contains blank strings.
      * @throws IllegalArgumentException If {@code cmgNodeNames} contains blank strings.
      * @throws IllegalArgumentException If {@code clusterName} is blank.
-     * @see Ignition#init(InitParameters)
+     * @see Ignition#init(String, InitParameters)
      */
-    public static synchronized void init(InitParameters parameters) {
+    public static synchronized void init(String nodeName, InitParameters parameters) {
         if (ignition == null) {
             throw new IgniteException("Ignition service has not been started");
         }
 
-        ignition.init(parameters);
+        ignition.init(nodeName, parameters);
     }
 
     private static synchronized Ignition loadIgnitionService(@Nullable ClassLoader clsLdr) {

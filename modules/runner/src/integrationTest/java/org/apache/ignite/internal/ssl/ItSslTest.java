@@ -512,12 +512,11 @@ public class ItSslTest extends IgniteIntegrationTest {
         String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageAndCmgNodeName)
                 .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageAndCmgNodeName, initParameters);
 
         // First node will initialize the cluster with single node successfully since the second node can't connect to it.
         assertThat(node1, willCompleteSuccessfully());

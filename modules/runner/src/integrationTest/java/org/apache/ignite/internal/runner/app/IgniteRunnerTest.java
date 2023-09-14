@@ -57,12 +57,11 @@ public class IgniteRunnerTest extends IgniteIntegrationTest {
         );
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(NODE_NAME)
                 .metaStorageNodeNames(List.of(NODE_NAME))
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        IgnitionManager.init(NODE_NAME, initParameters);
 
         assertThat(ign, willCompleteSuccessfully());
     }

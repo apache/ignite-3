@@ -108,12 +108,11 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         if (CLUSTER_NODES.isEmpty()) {
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
                     .metaStorageNodeNames(List.of(nodeName))
                     .clusterName("cluster")
                     .build();
 
-            TestIgnitionManager.init(initParameters);
+            TestIgnitionManager.init(nodeName, initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());

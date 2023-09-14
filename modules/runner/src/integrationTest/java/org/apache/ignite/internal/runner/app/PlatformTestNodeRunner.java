@@ -260,11 +260,11 @@ public class PlatformTestNodeRunner {
         String metaStorageNodeName = nodeCfg.keySet().iterator().next();
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster")
                 .build();
-        TestIgnitionManager.init(initParameters);
+
+        TestIgnitionManager.init(metaStorageNodeName, initParameters);
 
         System.out.println("Initialization complete");
 

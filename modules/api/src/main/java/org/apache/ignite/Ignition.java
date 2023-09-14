@@ -83,9 +83,10 @@ public interface Ignition {
      * <p>Cluster Management Group (CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
      * validating incoming nodes and maintaining logical topology.
      *
-     * @param parameters initialization parameters.
+     * @param nodeName Name of the node that the initialization request will be sent to.
+     * @param parameters Initialization parameters.
      * @throws IgniteException If the given node has not been started or has been stopped.
      * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
      */
-    void init(InitParameters parameters);
+    void init(String nodeName, InitParameters parameters);
 }

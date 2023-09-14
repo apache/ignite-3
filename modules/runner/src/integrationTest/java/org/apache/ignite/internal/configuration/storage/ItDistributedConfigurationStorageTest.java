@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
@@ -217,7 +218,12 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         try {
             node.start();
 
-            node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
+            InitParameters initParameters = InitParameters.builder()
+                    .metaStorageNodeNames(List.of(node.name()))
+                    .clusterName("cluster")
+                    .build();
+
+            node.cmgManager.initCluster(initParameters);
 
             node.waitWatches();
 

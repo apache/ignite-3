@@ -184,12 +184,11 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
                 .metaStorageNodeNames(List.of(metaStorageNode))
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNode, initParameters);
 
         await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
 

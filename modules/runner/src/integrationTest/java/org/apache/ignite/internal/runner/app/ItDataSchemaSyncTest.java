@@ -117,12 +117,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
                 .metaStorageNodeNames(List.of(metaStorageNode))
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNode, initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

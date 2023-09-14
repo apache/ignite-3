@@ -198,13 +198,12 @@ public class Cluster {
         List<String> metaStorageAndCmgNodeNames = Arrays.stream(cmgNodes).mapToObj(i -> testNodeName(testInfo, i)).collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
-                .destinationNodeName(metaStorageAndCmgNodeNames.get(0))
                 .metaStorageNodeNames(metaStorageAndCmgNodeNames)
                 .clusterName("cluster");
 
         initParametersConfigurator.accept(builder);
 
-        TestIgnitionManager.init(builder.build());
+        TestIgnitionManager.init(metaStorageAndCmgNodeNames.get(0), builder.build());
 
         for (CompletableFuture<IgniteImpl> future : futures) {
             assertThat(future, willCompleteSuccessfully());

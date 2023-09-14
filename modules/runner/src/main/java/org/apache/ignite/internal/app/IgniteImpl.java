@@ -36,6 +36,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
@@ -986,19 +987,10 @@ public class IgniteImpl implements Ignite {
     /**
      * Initializes the cluster that this node is present in.
      *
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
-     * @param cmgNodeNames         names of nodes that will host the CMG.
-     * @param clusterName Human-readable name of a cluster.
-     * @param clusterConfiguration cluster configuration, that will be applied after init.
-     * @throws NodeStoppingException If node stopping intention was detected.
+     * @param parameters Initialization parameters.
      */
-    public void init(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName,
-            String clusterConfiguration
-    ) throws NodeStoppingException {
-        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
+    public void init(InitParameters parameters) throws NodeStoppingException {
+        cmgMgr.initCluster(parameters);
     }
 
     /**

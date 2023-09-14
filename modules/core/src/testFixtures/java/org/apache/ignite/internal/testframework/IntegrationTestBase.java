@@ -122,13 +122,12 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
     protected void initializeCluster(String metaStorageNodeName) {
         InitParametersBuilder builder = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster");
 
         configureInitParameters(builder);
 
-        TestIgnitionManager.init(builder.build());
+        TestIgnitionManager.init(metaStorageNodeName, builder.build());
 
         awaitClusterInitialized();
     }

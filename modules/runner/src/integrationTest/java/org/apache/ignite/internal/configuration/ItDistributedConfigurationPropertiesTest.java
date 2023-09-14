@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -297,7 +298,12 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::start)
                 .toArray(CompletableFuture[]::new);
 
-        firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(firstNode.name()))
+                .clusterName("cluster")
+                .build();
+
+        firstNode.cmgManager.initCluster(initParameters);
 
         assertThat(allOf(startFutures), willCompleteSuccessfully());
 

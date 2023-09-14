@@ -23,6 +23,7 @@ import jakarta.inject.Named;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -85,12 +86,14 @@ public class ClusterManagementController implements ClusterManagementApi {
         }
 
         return validateConfiguration(initCommand.clusterConfiguration())
-                .thenCompose(ignored -> clusterInitializer.initCluster(
-                        initCommand.metaStorageNodes(),
-                        initCommand.cmgNodes(),
-                        initCommand.clusterName(),
-                        initCommand.clusterConfiguration()
-                ))
+                .thenApply(ignored -> InitParameters.builder()
+                        .metaStorageNodeNames(initCommand.metaStorageNodes())
+                        .cmgNodeNames(initCommand.cmgNodes())
+                        .clusterName(initCommand.clusterName())
+                        .clusterConfiguration(initCommand.clusterConfiguration())
+                        .build()
+                )
+                .thenCompose(clusterInitializer::initCluster)
                 .exceptionally(ex -> {
                     throw mapException(ex);
                 });

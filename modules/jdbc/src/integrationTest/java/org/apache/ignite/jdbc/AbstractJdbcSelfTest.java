@@ -82,12 +82,11 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
         CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(nodeName)
                 .metaStorageNodeNames(List.of(nodeName))
                 .clusterName("cluster")
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(nodeName, initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 

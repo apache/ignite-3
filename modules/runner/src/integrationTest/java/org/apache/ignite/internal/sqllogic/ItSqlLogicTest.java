@@ -331,11 +331,10 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         String metaStorageNodeName = NODE_NAME_PREFIX + "0";
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster")
                 .build();
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(metaStorageNodeName, initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

@@ -78,6 +78,7 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -274,7 +275,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Node node0 = getNode(0);
         Node node2 = getNode(2);
 
-        node0.cmgManager.initCluster(List.of(node2.name), List.of(node2.name), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(node0.name))
+                .clusterName("cluster")
+                .build();
+
+        node0.cmgManager.initCluster(initParameters);
 
         nodes.forEach(Node::waitWatches);
 

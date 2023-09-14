@@ -172,11 +172,11 @@ class ItIgnitionTest extends IgniteIntegrationTest {
 
         if (startedNodes.isEmpty()) {
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
                     .metaStorageNodeNames(List.of(nodeName))
                     .clusterName("cluster")
                     .build();
-            IgnitionManager.init(initParameters);
+
+            IgnitionManager.init(nodeName, initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());

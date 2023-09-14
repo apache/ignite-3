@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -34,11 +35,9 @@ import org.apache.ignite.internal.cluster.management.network.messages.InitComple
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.util.StringUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for performing cluster initialization.
@@ -60,51 +59,14 @@ public class ClusterInitializer {
     /**
      * Initializes the cluster that this node is present in.
      *
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage. Cannot be empty.
-     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
-     * metaStorageNodeNames} will be used instead.
-     * @param clusterName Human-readable name of the cluster.
+     * @param parameters Initialization parameters.
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> initCluster(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName
-    ) {
-        return initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, null);
-    }
-
-    /**
-     * Initializes the cluster that this node is present in.
-     *
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage. Cannot be empty.
-     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
-     * metaStorageNodeNames} will be used instead.
-     * @param clusterName Human-readable name of the cluster.
-     * @param clusterConfiguration Cluster configuration.
-     * @return Future that represents the state of the operation.
-     */
-    public CompletableFuture<Void> initCluster(
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName,
-            @Nullable String clusterConfiguration
-    ) {
-        if (metaStorageNodeNames.isEmpty()) {
-            throw new IllegalArgumentException("Meta Storage node names list must not be empty");
-        }
-
-        if (metaStorageNodeNames.stream().anyMatch(StringUtils::nullOrBlank)) {
-            throw new IllegalArgumentException("Meta Storage node names must not contain blank strings: " + metaStorageNodeNames);
-        }
-
-        if (!cmgNodeNames.isEmpty() && cmgNodeNames.stream().anyMatch(StringUtils::nullOrBlank)) {
-            throw new IllegalArgumentException("CMG node names must not contain blank strings: " + cmgNodeNames);
-        }
-
-        if (clusterName.isBlank()) {
-            throw new IllegalArgumentException("Cluster name must not be empty");
-        }
+    public CompletableFuture<Void> initCluster(InitParameters parameters) {
+        Collection<String> metaStorageNodeNames = parameters.metaStorageNodeNames();
+        Collection<String> cmgNodeNames = parameters.cmgNodeNames();
+        String clusterName = parameters.clusterName();
+        String clusterConfiguration = parameters.clusterConfiguration();
 
         try {
             Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());

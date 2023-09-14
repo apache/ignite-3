@@ -40,6 +40,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -186,22 +187,37 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
 
         // non-existent node
+        InitParameters initParametersWithNonExistentNode = InitParameters.builder()
+                .metaStorageNodeNames(List.of("wrong"))
+                .clusterName("cluster")
+                .build();
+
         assertThrowsWithCause(
-                () -> clusterManager.initCluster(List.of("wrong"), List.of(), "cluster"),
+                () -> clusterManager.initCluster(initParametersWithNonExistentNode),
                 InitException.class,
                 "Node \"wrong\" is not present in the physical topology"
         );
 
         // successful init
-        clusterManager.initCluster(List.of(cluster.get(0).name()), List.of(), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(cluster.get(0).name()))
+                .clusterName("cluster")
+                .build();
+
+        clusterManager.initCluster(initParameters);
 
         for (MockNode node : cluster) {
             assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
         }
 
         // different node
+        InitParameters initParametersWithDifferentNode = InitParameters.builder()
+                .metaStorageNodeNames(List.of(cluster.get(1).name()))
+                .clusterName("cluster")
+                .build();
+
         assertThrowsWithCause(
-                () -> clusterManager.initCluster(List.of(cluster.get(1).name()), List.of(), "cluster"),
+                () -> clusterManager.initCluster(initParametersWithDifferentNode),
                 InitException.class,
                 "Init CMG request denied, reason: CMG node names do not match."
         );
@@ -308,11 +324,12 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         // Initialize the cluster again, but with a different name. It is expected that the second node will try to join the CMG
         // and will be rejected.
-        cluster.get(0).clusterManager().initCluster(
-                Arrays.asList(cmgNodes),
-                Arrays.asList(cmgNodes),
-                "cluster2"
-        );
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(List.of(cluster.get(0).name()))
+                .clusterName("cluster2")
+                .build();
+
+        cluster.get(0).clusterManager().initCluster(initParameters);
 
         assertThrowsWithCause(
                 () -> cluster.get(1).clusterManager().joinFuture().get(10, TimeUnit.SECONDS),
@@ -510,12 +527,14 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
             String[] cmgNodes,
             @Nullable String clusterConfiguration
     ) throws NodeStoppingException {
-        cluster.get(0).clusterManager().initCluster(
-                Arrays.asList(metaStorageNodes),
-                Arrays.asList(cmgNodes),
-                "cluster",
-                clusterConfiguration
-        );
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodeNames(Arrays.asList(metaStorageNodes))
+                .cmgNodeNames(Arrays.asList(cmgNodes))
+                .clusterName("cluster")
+                .clusterConfiguration(clusterConfiguration)
+                .build();
+
+        cluster.get(0).clusterManager().initCluster(initParameters);
 
         for (MockNode node : cluster) {
             assertThat(node.startFuture(), willCompleteSuccessfully());

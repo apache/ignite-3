@@ -55,12 +55,11 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
         );
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(TEST_NODE_NAME)
                 .metaStorageNodeNames(List.of(TEST_NODE_NAME))
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        IgnitionManager.init(TEST_NODE_NAME, initParameters);
 
         assertThat(igniteFuture, willCompleteSuccessfully());
 

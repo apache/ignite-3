@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -93,11 +94,13 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                 .thenReturn(initCompleteMessage());
 
         // check that leaders are different in case different node IDs are provided
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
-                List.of(metastorageNode.name()),
-                List.of(cmgNode.name()),
-                "cluster"
-        );
+        InitParameters params = InitParameters.builder()
+                .metaStorageNodeNames(List.of(metastorageNode.name()))
+                .cmgNodeNames(List.of(cmgNode.name()))
+                .clusterName("cluster")
+                .build();
+
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(params);
 
         verify(messagingService).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService, never()).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
@@ -120,11 +123,12 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
                 .thenReturn(initCompleteMessage());
 
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
-                List.of(metastorageNode.name()),
-                List.of(),
-                "cluster"
-        );
+        InitParameters params = InitParameters.builder()
+                .metaStorageNodeNames(List.of(metastorageNode.name()))
+                .clusterName("cluster")
+                .build();
+
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(params);
 
         verify(messagingService).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService, never()).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
@@ -154,11 +158,13 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
         when(messagingService.send(any(ClusterNode.class), any(CancelInitMessage.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
-                List.of(metastorageNode.name()),
-                List.of(cmgNode.name()),
-                "cluster"
-        );
+        InitParameters params = InitParameters.builder()
+                .metaStorageNodeNames(List.of(metastorageNode.name()))
+                .cmgNodeNames(List.of(cmgNode.name()))
+                .clusterName("cluster")
+                .build();
+
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(params);
 
         InternalInitException e = assertFutureThrows(InternalInitException.class, initFuture);
 
@@ -187,11 +193,13 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
                     return CompletableFuture.completedFuture(response);
                 });
 
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
-                List.of(metastorageNode.name()),
-                List.of(cmgNode.name()),
-                "cluster"
-        );
+        InitParameters params = InitParameters.builder()
+                .metaStorageNodeNames(List.of(metastorageNode.name()))
+                .cmgNodeNames(List.of(cmgNode.name()))
+                .clusterName("cluster")
+                .build();
+
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(params);
 
         InternalInitException e = assertFutureThrows(InternalInitException.class, initFuture);
 
@@ -208,25 +216,19 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests that providing no nodes for the initialization throws an error.
-     */
-    @Test
-    void testInitIllegalArguments() {
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of(), List.of(), "cluster"));
-
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of(" "), List.of("bar"), "cluster"));
-
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of("foo"), List.of(" "), "cluster"));
-
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of("foo"), List.of("bar"), " "));
-    }
-
-    /**
      * Tests that if some nodes are not present in the topology, an error is thrown.
      */
     @Test
     void testUnresolvableNode() {
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of("foo"), List.of("bar"), "cluster");
+        InitParameters params = InitParameters.builder()
+                .metaStorageNodeNames(List.of("foo"))
+                .cmgNodeNames(List.of("bar"))
+                .clusterName("cluster")
+                .build();
+
+        when(topologyService.getByConsistentId(any())).thenReturn(null);
+
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(params);
 
         IllegalArgumentException e = assertFutureThrows(IllegalArgumentException.class, initFuture);
 

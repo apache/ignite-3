@@ -90,17 +90,17 @@ public class TestIgnitionManager {
      * Initializes a cluster using test defaults for cluster configuration values that are not
      * specified explicitly.
      *
+     * @param nodeName Name of the node that the initialization request will be sent to.
      * @param parameters Init parameters.
-     * @see IgnitionManager#init(InitParameters)
+     * @see IgnitionManager#init(String, InitParameters)
      */
-    public static void init(InitParameters parameters) {
-        IgnitionManager.init(applyTestDefaultsToClusterConfig(parameters));
+    public static void init(String nodeName, InitParameters parameters) {
+        IgnitionManager.init(nodeName, applyTestDefaultsToClusterConfig(parameters));
     }
 
     private static InitParameters applyTestDefaultsToClusterConfig(InitParameters params) {
         InitParametersBuilder builder = new InitParametersBuilder()
                 .clusterName(params.clusterName())
-                .destinationNodeName(params.nodeName())
                 .metaStorageNodeNames(params.metaStorageNodeNames())
                 .cmgNodeNames(params.cmgNodeNames());
 
