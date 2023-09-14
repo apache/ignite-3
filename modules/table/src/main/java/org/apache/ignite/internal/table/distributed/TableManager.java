@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
-import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
@@ -398,14 +397,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    private final TableIdRegistry tableIdTranslator = new TableIdRegistry();
+    /** Versioned value used only at manager startup to correctly fire table creation events. */
+    private final IncrementalVersionedValue<Void> startVv;
 
-    /**
-     * Future that represents the state of Rebalance recovery.
-     *
-     * <p>Until it is done, Meta Storage Watch processing of new Rebalance-related events should be blocked.
-     */
-    private final CompletableFuture<Void> recoveryFuture = new CompletableFuture<>();
+    private final TableIdRegistry tableIdTranslator = new TableIdRegistry();
 
     /**
      * Creates a new table manager.
@@ -541,6 +536,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
+
+        startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
@@ -549,9 +546,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         lowWatermark.start();
 
-        metaStorageMgr.recoveryFinishedFuture()
-                .thenComposeAsync(this::performRebalanceOnRecovery, ioExecutor)
-                .whenComplete(copyStateTo(recoveryFuture));
+        CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
+
+        assert recoveryFinishFuture.isDone();
+
+        long recoveryRevision = recoveryFinishFuture.join();
+
+        startVv.update(recoveryRevision, (v, e) -> performRebalanceOnRecovery(recoveryRevision));
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -2251,11 +2252,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    return executeAfterRecovery(() -> {
-                        Entry newEntry = evt.entryEvent().newEntry();
+                    Entry newEntry = evt.entryEvent().newEntry();
 
-                        return handleChangePendingAssignmentEvent(newEntry, evt.revision());
-                    });
+                    return handleChangePendingAssignmentEvent(newEntry, evt.revision());
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -2266,14 +2265,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 LOG.warn("Unable to process pending assignments event", e);
             }
         };
-    }
-
-    private <T> CompletableFuture<T> executeAfterRecovery(Supplier<CompletableFuture<T>> action) {
-        if (recoveryFuture.isDone()) {
-            return action.get();
-        } else {
-            return recoveryFuture.thenCompose(v -> action.get());
-        }
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
@@ -2521,7 +2512,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    return executeAfterRecovery(() -> handleChangeStableAssignmentEvent(evt));
+                    return handleChangeStableAssignmentEvent(evt);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -2548,38 +2539,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    return executeAfterRecovery(() -> {
-                        byte[] key = evt.entryEvent().newEntry().key();
+                    byte[] key = evt.entryEvent().newEntry().key();
 
-                        int partitionId = extractPartitionNumber(key);
-                        int tableId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
+                    int partitionId = extractPartitionNumber(key);
+                    int tableId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
 
-                        TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
+                    TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
-                        return tablesById(evt.revision())
-                                .thenCompose(tables -> {
-                                    if (!busyLock.enterBusy()) {
-                                        return failedFuture(new NodeStoppingException());
-                                    }
+                    return tablesById(evt.revision())
+                            .thenCompose(tables -> {
+                                if (!busyLock.enterBusy()) {
+                                    return failedFuture(new NodeStoppingException());
+                                }
 
-                                    try {
-                                        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId);
+                                try {
+                                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId);
 
-                                        assert tableDescriptor != null : replicaGrpId;
+                                    assert tableDescriptor != null : replicaGrpId;
 
-                                        return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
-                                                .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
-                                                        metaStorageMgr,
-                                                        dataNodes,
-                                                        getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
-                                                        replicaGrpId,
-                                                        evt
-                                                ));
-                                    } finally {
-                                        busyLock.leaveBusy();
-                                    }
-                                });
-                    });
+                                    return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
+                                            .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
+                                                    metaStorageMgr,
+                                                    dataNodes,
+                                                    getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
+                                                    replicaGrpId,
+                                                    evt
+                                            ));
+                                } finally {
+                                    busyLock.leaveBusy();
+                                }
+                            });
                 } finally {
                     busyLock.leaveBusy();
                 }
