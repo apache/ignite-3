@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -60,7 +61,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog emptyCatalog() {
-        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0]);
+        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithTable(String name) {
@@ -121,7 +122,9 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return catalog;
     }
 
-    private static Catalog catalog(CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes) {
+    private static Catalog catalog(CatalogTableDescriptor[] tables,
+            CatalogIndexDescriptor[] indexes,
+            CatalogSystemViewDescriptor[] systemViews) {
         return new Catalog(
                 1,
                 0L,
@@ -131,7 +134,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         0,
                         SCHEMA_NAME,
                         tables,
-                        indexes
+                        indexes,
+                        systemViews
                 ))
         );
     }

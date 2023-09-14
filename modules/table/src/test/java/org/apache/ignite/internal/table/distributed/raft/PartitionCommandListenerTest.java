@@ -82,6 +82,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -146,7 +148,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     /** Primary index. */
     private final TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
             1,
-            new TestHashIndexStorage(PARTITION_ID, null),
+            new TestHashIndexStorage(
+                    PARTITION_ID,
+                    new StorageHashIndexDescriptor(1, List.of(new StorageHashIndexColumnDescriptor("key", NativeTypes.INT32, false)))
+            ),
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -287,7 +288,7 @@ public class BinaryTupleSchema {
      * @param index Field index to read.
      * @return An Object representation of the value.
      */
-    public Object value(BinaryTupleReader tuple, int index) {
+    public Object value(InternalTuple tuple, int index) {
         Element element = element(index);
 
         switch (element.typeSpec) {

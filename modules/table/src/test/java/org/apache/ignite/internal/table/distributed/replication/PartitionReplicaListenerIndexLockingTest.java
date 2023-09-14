@@ -69,6 +69,8 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
@@ -137,7 +139,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     @BeforeAll
     public static void beforeAll(
             @InjectConfiguration GcConfiguration gcConfig,
-            @InjectConfiguration("mock.tables.foo.primaryKey.columns: [id]") TablesConfiguration tablesConfig
+            @InjectConfiguration TablesConfiguration tablesConfig
     ) {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
@@ -154,9 +156,14 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         row2HashKeyConverter = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
+        StorageHashIndexDescriptor pkIndexDescriptor = new StorageHashIndexDescriptor(
+                PK_INDEX_ID,
+                List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false))
+        );
+
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 PK_INDEX_ID,
-                new TestHashIndexStorage(PART_ID, null),
+                new TestHashIndexStorage(PART_ID, pkIndexDescriptor),
                 row2HashKeyConverter
         );
         pkStorage = new Lazy<>(() -> hashIndexStorage);
