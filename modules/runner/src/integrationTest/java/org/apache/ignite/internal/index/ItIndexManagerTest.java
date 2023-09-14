@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -46,14 +45,14 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void eventsAreFiredWhenIndexesCreatedAndDropped() {
-        Ignite ignite = CLUSTER_NODES.get(0);
-        IndexManager indexManager = ((IgniteImpl) ignite).indexManager();
+        IgniteImpl ignite = (IgniteImpl) CLUSTER_NODES.get(0);
+        IndexManager indexManager = ignite.indexManager();
 
         CompletableFuture<IndexEventParameters> pkCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
         String tableName = "TNAME";
 
-        int catalogVersion = ((IgniteImpl) ignite).catalogManager().latestCatalogVersion();
+        int catalogVersion = ignite.catalogManager().latestCatalogVersion();
 
         sql(String.format("CREATE TABLE %s (c1 INT PRIMARY KEY, c2 INT, c3 INT)", tableName));
 
