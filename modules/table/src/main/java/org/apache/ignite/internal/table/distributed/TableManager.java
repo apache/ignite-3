@@ -495,15 +495,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             lowWatermark.start();
 
-            startTables();
-
             CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
             assert recoveryFinishFuture.isDone();
 
             long recoveryRevision = recoveryFinishFuture.join();
 
-            startVv.update(recoveryRevision, (v, e) -> performRebalanceOnRecovery(recoveryRevision));
+            startTables(recoveryRevision);
+
+            performRebalanceOnRecovery(recoveryRevision);
 
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -531,10 +531,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
     }
 
-    private CompletableFuture<Void> performRebalanceOnRecovery(long revision) {
+    private void performRebalanceOnRecovery(long recoveryRevision) {
+        CompletableFuture<Void> pendingAssignmentsRecoveryFuture;
+
         var prefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
 
-        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, revision)) {
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, recoveryRevision)) {
             CompletableFuture<?>[] futures = cursor.stream()
                     .map(pendingAssignmentEntry -> {
                         if (LOG.isInfoEnabled()) {
@@ -548,11 +550,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         // 'handleChangePendingAssignmentEvent' accesses some Versioned Values that only store values starting with
                         // tokens equal to Meta Storage recovery revision. In other words, if the entry has a lower revision than the
                         // recovery revision, there will never be a Versioned Value corresponding to its revision.
-                        return handleChangePendingAssignmentEvent(pendingAssignmentEntry, revision);
+                        return handleChangePendingAssignmentEvent(pendingAssignmentEntry, recoveryRevision);
                     })
                     .toArray(CompletableFuture[]::new);
 
-            return allOf(futures)
+            pendingAssignmentsRecoveryFuture = allOf(futures)
                     // Simply log any errors, we don't want to block watch processing.
                     .exceptionally(e -> {
                         LOG.error("Error when performing pending assignments recovery", e);
@@ -560,6 +562,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return null;
                     });
         }
+
+        startVv.update(recoveryRevision, (v, e) -> pendingAssignmentsRecoveryFuture);
     }
 
     /**
@@ -2357,23 +2361,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
     }
 
-    private void startTables() {
-        CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
-
-        assert recoveryFinishFuture.isDone();
-
+    private void startTables(long recoveryRevision) {
         int catalogVersion = catalogService.latestCatalogVersion();
-        long causalityToken = recoveryFinishFuture.join();
 
         List<CompletableFuture<?>> startTableFutures = new ArrayList<>();
 
         // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from volt and metastore
         for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
-            startTableFutures.add(createTableLocally(causalityToken, catalogVersion, tableDescriptor));
+            startTableFutures.add(createTableLocally(recoveryRevision, catalogVersion, tableDescriptor));
         }
 
         // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
-        startVv.update(causalityToken, (unused, throwable) -> allOf(startTableFutures.toArray(CompletableFuture[]::new)))
+        startVv.update(recoveryRevision, (unused, throwable) -> allOf(startTableFutures.toArray(CompletableFuture[]::new)))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
                         LOG.error("Error starting tables", throwable);
