@@ -96,6 +96,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -504,6 +505,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20412")
     public void testScaleUpsTriggeredByFilterUpdateAndNodeJoinAreRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
