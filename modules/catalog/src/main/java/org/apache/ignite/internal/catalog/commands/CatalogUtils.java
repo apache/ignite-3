@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;

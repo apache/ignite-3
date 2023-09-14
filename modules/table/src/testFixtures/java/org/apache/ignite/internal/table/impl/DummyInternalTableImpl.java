@@ -112,8 +112,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
 
-    public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
-
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.
     // We subtract (ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + HybridTimestamp.CLOCK_SKEW) = (1000 + 7) = 1007

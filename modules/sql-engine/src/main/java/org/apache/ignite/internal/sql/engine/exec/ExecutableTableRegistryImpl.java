@@ -78,22 +78,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         tableCache.clear();
     }
 
-    private CompletableFuture<ExecutableTable> loadTable(String tableName, TableDescriptor tableDescriptor) {
-        return tableManager.tableAsyncInternal(tableName.toUpperCase())
-                .thenApply(table -> {
-                    InternalTable internalTable = table.internalTable();
-                    SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(table.tableId());
-                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
-                    TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
-                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
-
-                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(table.tableId(), tableDescriptor, internalTable.partitions(),
-                            replicaService, clock, rowConverter, schemaDescriptor);
-
-                    return new ExecutableTableImpl(internalTable, scannableTable, updatableTable);
-                });
-    }
-
     private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
         CompletableFuture<Map.Entry<InternalTable, SchemaRegistry>> f = tableManager.tableAsync(tableId)
                 .thenApply(table -> {

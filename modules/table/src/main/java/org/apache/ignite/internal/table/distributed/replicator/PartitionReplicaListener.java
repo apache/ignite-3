@@ -281,7 +281,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param indexBuilder Index builder.
      * @param catalogService Catalog service.
      * @param placementDriver Placement driver.
-     * @param placementDriver Placement driver.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,

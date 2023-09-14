@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.sc
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
