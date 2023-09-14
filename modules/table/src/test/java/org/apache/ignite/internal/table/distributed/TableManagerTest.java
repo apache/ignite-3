@@ -261,8 +261,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
-
         tblManagerFut = new CompletableFuture<>();
 
         mockMetastore();
@@ -599,7 +597,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(completedFuture(null));
         when(msm.get(any())).thenReturn(completedFuture(null));
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(0L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
 
         when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }
