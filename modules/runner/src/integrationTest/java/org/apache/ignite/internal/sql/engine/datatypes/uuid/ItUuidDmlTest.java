@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
@@ -28,7 +26,7 @@ import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseDmlDataTypeTest
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -40,11 +38,8 @@ public class ItUuidDmlTest extends BaseDmlDataTypeTest<UUID> {
     @ParameterizedTest
     @MethodSource("convertedFrom")
     public void testInsertFromDynamicParameterFromConvertible(TestTypeArguments arguments) {
-        var t = assertThrows(IgniteException.class, () -> {
-            runSql("INSERT INTO t VALUES (1, ?)", arguments.argValue(0));
-        });
-
-        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Values passed to VALUES operator must have compatible types",
+                () -> runSql("INSERT INTO t VALUES (1, ?)", arguments.argValue(0)));
     }
 
     /** {@code UPDATE} is not allowed for dynamic parameter of compatible type. */
@@ -54,17 +49,12 @@ public class ItUuidDmlTest extends BaseDmlDataTypeTest<UUID> {
         String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
         runSql(insert);
 
-        var t = assertThrows(IgniteException.class, () -> {
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Dynamic parameter requires adding explicit type cast", () -> {
             checkQuery("UPDATE t SET test_key = ? WHERE id=1")
                     .withParams(arguments.argValue(0))
                     .returns(1L)
                     .check();
         });
-
-        String error = format("Dynamic parameter requires adding explicit type cast",
-                testTypeSpec.typeName());
-
-        assertThat(t.getMessage(), containsString(error));
     }
 
     /** Type mismatch in {@code INSERT}s {@code VALUES}.*/
@@ -72,9 +62,8 @@ public class ItUuidDmlTest extends BaseDmlDataTypeTest<UUID> {
     @MethodSource("convertedFrom")
     public void testDisallowMismatchTypesOnInsert(TestTypeArguments arguments) {
         var query = format("INSERT INTO t (id, test_key) VALUES (10, null), (20, {})", arguments.valueExpr(0));
-        var t = assertThrows(IgniteException.class, () -> runSql(query));
-
-        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Values passed to VALUES operator must have compatible types",
+                () -> runSql(query));
     }
 
     /**
@@ -86,8 +75,8 @@ public class ItUuidDmlTest extends BaseDmlDataTypeTest<UUID> {
         Object value1 = arguments.argValue(0);
 
         var query = "INSERT INTO t (id, test_key) VALUES (1, null), (2, ?)";
-        var t = assertThrows(IgniteException.class, () -> runSql(query, value1));
-        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Values passed to VALUES operator must have compatible types",
+                () -> runSql(query, value1));
     }
 
     /** {@inheritDoc} **/
