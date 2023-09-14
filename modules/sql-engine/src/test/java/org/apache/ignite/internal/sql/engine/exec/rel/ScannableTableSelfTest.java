@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -53,7 +55,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -855,7 +856,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         static int toFlags(Bound lower, Bound upper) {
             if (lower == NONE && upper == NONE) {
-                return SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
+                return LESS_OR_EQUAL | GREATER_OR_EQUAL;
             } else {
                 int flags = 0;
                 flags |= lower.bit(true);
@@ -867,7 +868,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         int bit(boolean lower) {
             switch (this) {
                 case INCLUSIVE:
-                    return lower ? SortedIndex.INCLUDE_LEFT : SortedIndex.INCLUDE_RIGHT;
+                    return lower ? LESS_OR_EQUAL : GREATER_OR_EQUAL;
                 case EXCLUSIVE:
                 case NONE:
                     return 0;

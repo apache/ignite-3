@@ -20,7 +20,7 @@ package org.apache.ignite.internal.index;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +53,8 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         String tableName = "TNAME";
 
+        int catalogVersion = ((IgniteImpl) ignite).catalogManager().latestCatalogVersion();
+
         sql(String.format("CREATE TABLE %s (c1 INT PRIMARY KEY, c2 INT, c3 INT)", tableName));
 
         TableImpl table = (TableImpl) ignite.tables().table(tableName);
@@ -64,8 +66,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
             assertThat(parameters, notNullValue());
             assertThat(parameters.tableId(), equalTo(table.tableId()));
-            assertThat(parameters.indexDescriptor().columns(), hasItems("C1"));
-            assertThat(parameters.indexDescriptor().name(), equalTo("TNAME_PK"));
+            assertThat(parameters.catalogVersion(), greaterThan(catalogVersion));
         }
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
@@ -82,8 +83,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
             assertThat(parameters, notNullValue());
             assertThat(parameters.tableId(), equalTo(table.tableId()));
-            assertThat(parameters.indexDescriptor().columns(), hasItems("C3", "C2"));
-            assertThat(parameters.indexDescriptor().name(), equalTo(indexName));
+            assertThat(parameters.catalogVersion(), greaterThan(catalogVersion));
 
             createdIndexId = parameters.indexId();
         }

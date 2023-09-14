@@ -29,11 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
@@ -155,10 +151,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         int tableId = parameters.tableId();
 
         long causalityToken = parameters.causalityToken();
+        int catalogVersion = parameters.catalogVersion();
 
         if (!busyLock.enterBusy()) {
             fireEvent(IndexEvent.DROP,
-                    new IndexEventParameters(causalityToken, tableId, indexId),
+                    new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId),
                     new NodeStoppingException()
             );
 
@@ -175,7 +172,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
                         return fireEvent(
                                 IndexEvent.DROP,
-                                new IndexEventParameters(causalityToken, tableId, indexId)
+                                new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId)
                         );
                     })
                     .thenApply(unused -> false);
@@ -189,11 +186,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
         CatalogIndexDescriptor index = parameters.indexDescriptor();
 
+        int indexId = index.id();
+        int tableId = index.tableId();
+
         long causalityToken = parameters.causalityToken();
+        int catalogVersion = parameters.catalogVersion();
 
         if (!busyLock.enterBusy()) {
-            fireEvent(IndexEvent.CREATE,
-                    new IndexEventParameters(causalityToken, index.tableId(), index.id()),
+            fireEvent(
+                    IndexEvent.CREATE,
+                    new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId),
                     new NodeStoppingException()
             );
 
@@ -201,11 +203,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor table = catalogManager.table(index.tableId(), parameters.catalogVersion());
+            CatalogTableDescriptor table = catalogManager.table(tableId, catalogVersion);
 
-            assert table != null : "tableId=" + index.tableId() + ", indexId=" + index.id();
+            assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
 
-            return createIndexLocally(causalityToken, table, index).thenApply(unused -> false);
+            return createIndexLocally(causalityToken, catalogVersion, table, index).thenApply(unused -> false);
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -215,22 +217,21 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private CompletableFuture<Void> createIndexLocally(
             long causalityToken,
+            int catalogVersion,
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index
     ) {
         int tableId = table.id();
         int indexId = index.id();
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info(
-                    "Creating local index: name={}, id={}, tableId={}, token={}",
-                    index.name(), indexId, tableId, causalityToken
-            );
-        }
+        LOG.info(
+                "Creating local index: name={}, id={}, tableId={}, token={}",
+                index.name(), indexId, tableId, causalityToken
+        );
 
-        CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, tableId);
+        CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
 
-        CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken, tableId);
+        CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken);
 
         return allOf(fireCreateIndexEventFuture, registerIndexFuture);
     }
@@ -328,54 +329,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
     }
 
-    /**
-     * Converts a catalog index descriptor to an event index descriptor.
-     *
-     * @param descriptor Catalog index descriptor.
-     */
-    private static IndexDescriptor toEventIndexDescriptor(CatalogIndexDescriptor descriptor) {
-        if (descriptor instanceof CatalogHashIndexDescriptor) {
-            return toEventHashIndexDescriptor(((CatalogHashIndexDescriptor) descriptor));
-        }
-
-        if (descriptor instanceof CatalogSortedIndexDescriptor) {
-            return toEventSortedIndexDescriptor(((CatalogSortedIndexDescriptor) descriptor));
-        }
-
-        throw new IllegalArgumentException("Unknown index type: " + descriptor);
-    }
-
-    /**
-     * Converts a catalog hash index descriptor to an event hash index descriptor.
-     *
-     * @param descriptor Catalog hash index descriptor.
-     */
-    private static IndexDescriptor toEventHashIndexDescriptor(CatalogHashIndexDescriptor descriptor) {
-        return new IndexDescriptor(descriptor.name(), descriptor.columns());
-    }
-
-    /**
-     * Converts a catalog sorted index descriptor to an event sorted index descriptor.
-     *
-     * @param descriptor Catalog sorted index descriptor.
-     */
-    private static SortedIndexDescriptor toEventSortedIndexDescriptor(CatalogSortedIndexDescriptor descriptor) {
-        List<String> columns = new ArrayList<>(descriptor.columns().size());
-        List<ColumnCollation> collations = new ArrayList<>(descriptor.columns().size());
-
-        for (CatalogIndexColumnDescriptor column : descriptor.columns()) {
-            columns.add(column.name());
-
-            collations.add(toEventCollation(column.collation()));
-        }
-
-        return new SortedIndexDescriptor(descriptor.name(), columns, collations);
-    }
-
-    private static ColumnCollation toEventCollation(CatalogColumnCollation collation) {
-        return ColumnCollation.get(collation.asc(), collation.nullsFirst());
-    }
-
     private void startIndexes() {
         CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -393,9 +346,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             assert table != null : "tableId=" + tableId + ", indexId=" + index.id();
 
-            CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, tableId);
+            CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
 
-            CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken, tableId);
+            CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken);
 
             startIndexFutures.add(allOf(fireCreateIndexEventFuture, registerIndexFuture));
         }
@@ -405,9 +358,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     if (throwable != null) {
                         LOG.error("Error starting indexes", throwable);
                     } else {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Indexes started successfully");
-                        }
+                        LOG.debug("Indexes started successfully");
                     }
                 });
     }
@@ -415,18 +366,19 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<Void> registerIndex(
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index,
-            long causalityToken,
-            int configTableId
+            long causalityToken
     ) {
-        // TODO: IGNITE-19712 Listen to assignment changes and start new index storages.
-        CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, configTableId);
+        int tableId = index.tableId();
 
-        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, configTableId);
+        // TODO: IGNITE-19712 Listen to assignment changes and start new index storages.
+        CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, tableId);
+
+        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
 
         return tablePartitionFuture.thenAcceptBoth(schemaRegistryFuture, (partitionSet, schemaRegistry) -> {
-            TableImpl tableImpl = tableManager.getTable(configTableId);
+            TableImpl tableImpl = tableManager.getTable(tableId);
 
-            assert tableImpl != null : "tableId=" + configTableId + ", indexId=" + index.id();
+            assert tableImpl != null : "tableId=" + tableId + ", indexId=" + index.id();
 
             var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
 
@@ -461,11 +413,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<?> fireCreateIndexEvent(
             CatalogIndexDescriptor index,
             long causalityToken,
-            int configTableId
+            int catalogVersion
     ) {
-        return fireEvent(
-                IndexEvent.CREATE,
-                new IndexEventParameters(causalityToken, configTableId, index.id(), toEventIndexDescriptor(index))
-        );
+        return fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, catalogVersion, index.tableId(), index.id()));
     }
 }

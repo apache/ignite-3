@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
+
 import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -100,15 +102,15 @@ public class ScannableTableImpl implements ScannableTable {
         int flags = 0;
 
         if (cond == null) {
-            flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
+            flags = LESS_OR_EQUAL | GREATER_OR_EQUAL;
             lower = null;
             upper = null;
         } else {
             lower = toBinaryTuplePrefix(ctx, indexRowSchema, cond.lower(), rowFactory);
             upper = toBinaryTuplePrefix(ctx, indexRowSchema, cond.upper(), rowFactory);
 
-            flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
-            flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
+            flags |= (cond.lowerInclude()) ? LESS_OR_EQUAL : 0;
+            flags |= (cond.upperInclude()) ? GREATER_OR_EQUAL : 0;
         }
 
         if (txAttributes.readOnly()) {

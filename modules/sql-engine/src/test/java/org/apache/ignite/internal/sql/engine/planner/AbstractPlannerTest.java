@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -40,7 +39,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -55,9 +53,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
-import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistribution;
-import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.calcite.rel.core.TableScan;
@@ -77,15 +73,6 @@ import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.index.Index;
-import org.apache.ignite.internal.index.IndexDescriptor;
-import org.apache.ignite.internal.index.SortedIndex;
-import org.apache.ignite.internal.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -116,9 +103,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteStringBuilder;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -886,152 +871,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public Object defaultValue() {
             throw new AssertionError();
-        }
-    }
-
-    static class TestSortedIndex implements SortedIndex {
-        private final int id = 1;
-
-        private final int tableId = 1;
-
-        private final SortedIndexDescriptor descriptor;
-
-        public static TestSortedIndex create(RelCollation collation, String name, IgniteTable table) {
-            List<String> columns = new ArrayList<>();
-            List<ColumnCollation> collations = new ArrayList<>();
-            TableDescriptor tableDescriptor = table.descriptor();
-
-            for (var fieldCollation : collation.getFieldCollations()) {
-                columns.add(tableDescriptor.columnDescriptor(fieldCollation.getFieldIndex()).name());
-                collations.add(ColumnCollation.get(
-                        !fieldCollation.getDirection().isDescending(),
-                        fieldCollation.nullDirection == NullDirection.FIRST
-                ));
-            }
-
-            var descriptor = new SortedIndexDescriptor(name, columns, collations);
-
-            return new TestSortedIndex(descriptor);
-        }
-
-        public TestSortedIndex(SortedIndexDescriptor descriptor) {
-            this.descriptor = descriptor;
-        }
-
-        @Override
-        public int id() {
-            return id;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String name() {
-            return descriptor.name();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int tableId() {
-            return tableId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SortedIndexDescriptor descriptor() {
-            return descriptor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
-                @Nullable BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient,
-                @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public Publisher<BinaryRow> scan(int partId, UUID txId, PrimaryReplica recipient, @Nullable BinaryTuplePrefix leftBound,
-                @Nullable BinaryTuplePrefix rightBound, int flags, @Nullable BitSet columnsToInclude) {
-            throw new AssertionError("Should not be called");
-        }
-    }
-
-    /** Test Hash index implementation. */
-    public static class TestHashIndex implements Index<IndexDescriptor> {
-        private final int id = 1;
-
-        private int tableId = 1;
-
-        private final IndexDescriptor descriptor;
-
-        /** Create index. */
-        public static TestHashIndex create(List<String> indexedColumns, String name, int tableId) {
-            var descriptor = new IndexDescriptor(name, indexedColumns);
-
-            TestHashIndex idx = new TestHashIndex(descriptor);
-
-            idx.tableId = tableId;
-
-            return idx;
-        }
-
-        /** Create index. */
-        public static TestHashIndex create(List<String> indexedColumns, String name) {
-            var descriptor = new IndexDescriptor(name, indexedColumns);
-
-            return new TestHashIndex(descriptor);
-        }
-
-        TestHashIndex(IndexDescriptor descriptor) {
-            this.descriptor = descriptor;
-        }
-
-        @Override
-        public int id() {
-            return id;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String name() {
-            return descriptor.name();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int tableId() {
-            return tableId;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IndexDescriptor descriptor() {
-            return descriptor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
-                @Nullable BitSet columns) {
-            throw new AssertionError("Should not be called");
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
-            throw new AssertionError("Should not be called");
         }
     }
 
