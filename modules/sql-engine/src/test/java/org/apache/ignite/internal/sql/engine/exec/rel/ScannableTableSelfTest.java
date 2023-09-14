@@ -868,7 +868,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         int bit(boolean lower) {
             switch (this) {
                 case INCLUSIVE:
-                    return lower ? LESS_OR_EQUAL : GREATER_OR_EQUAL;
+                    return lower ? GREATER_OR_EQUAL : LESS_OR_EQUAL;
                 case EXCLUSIVE:
                 case NONE:
                     return 0;

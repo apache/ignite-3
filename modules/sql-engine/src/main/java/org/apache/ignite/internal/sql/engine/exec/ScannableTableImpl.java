@@ -109,8 +109,8 @@ public class ScannableTableImpl implements ScannableTable {
             lower = toBinaryTuplePrefix(ctx, indexRowSchema, cond.lower(), rowFactory);
             upper = toBinaryTuplePrefix(ctx, indexRowSchema, cond.upper(), rowFactory);
 
-            flags |= (cond.lowerInclude()) ? LESS_OR_EQUAL : 0;
-            flags |= (cond.upperInclude()) ? GREATER_OR_EQUAL : 0;
+            flags |= (cond.lowerInclude()) ? GREATER_OR_EQUAL : 0;
+            flags |= (cond.upperInclude()) ? LESS_OR_EQUAL : 0;
         }
 
         if (txAttributes.readOnly()) {
