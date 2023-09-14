@@ -2287,9 +2287,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     try {
+                        TableImpl table = tables.get(tblId);
+
+                        // Table can be null only recovery, because we use a revision from the future. See comment inside
+                        // performRebalanceOnRecovery.
+                        if (table == null) {
+                            if (LOG.isInfoEnabled()) {
+                                LOG.info("Skipping Pending Assignments update, because table {} does not exist", tblId);
+                            }
+
+                            return CompletableFuture.<Void>completedFuture(null);
+                        }
+
                         return handleChangePendingAssignmentEvent(
                                 replicaGrpId,
-                                tables.get(tblId),
+                                table,
                                 pendingAssignmentsEntry,
                                 stableAssignmentsEntry,
                                 revision

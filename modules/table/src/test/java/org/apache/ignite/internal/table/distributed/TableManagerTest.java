@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
@@ -210,18 +211,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private volatile TxStateTableStorage txStateTableStorage;
 
-    /**
-     * Revision listener holder. It uses for the test configurations:
-     * <ul>
-     * <li>{@link TableManagerTest#fieldRevisionListenerHolder},</li>
-     * <li>{@link TableManagerTest#tblsCfg}.</li>
-     * </ul>
-     */
-    @InjectRevisionListenerHolder
-    private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
-
     /** Revision updater. */
     private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
+
+    private final List<LongFunction<CompletableFuture<?>>> revisionListeners = new ArrayList<>();
 
     /** Tables configuration. */
     @InjectConfiguration
@@ -260,7 +253,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     private CompletableFuture<TableManager> tblManagerFut;
 
     @BeforeEach
-    void before() throws NodeStoppingException {
+    void before(@InjectRevisionListenerHolder ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder)
+            throws NodeStoppingException {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
         TopologyService topologyService = mock(TopologyService.class);
@@ -269,7 +263,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> {
-            assertThat(function.apply(0L), willCompleteSuccessfully());
+            revisionListeners.add(function);
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
                 log.info("Notify about revision: {}", newStorageRevision);
@@ -449,8 +443,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
-     * components will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the components
+     * will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -469,8 +463,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
-     * components will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the components
+     * will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -489,8 +483,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
-     * components will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the components
+     * will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -509,8 +503,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the
-     * components will not prevent stopping other components.
+     * Checks that all RAFT nodes will be stopped when Table manager is stopping and an exception that was thrown by one of the components
+     * will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
@@ -616,8 +610,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Emulates a situation, when either a TX state storage or partition storage were stopped in a middle of a rebalance. We then expect
      * that these storages get cleared upon startup.
      *
-     * @param isTxStorageUnderRebalance When {@code true} - TX state storage is emulated as being under rebalance, when {@code false} -
-     *         partition storage is emulated instead.
+     * @param isTxStorageUnderRebalance When {@code true} - TX state storage is emulated as being under rebalance, when
+     *         {@code false} - partition storage is emulated instead.
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
@@ -801,7 +795,6 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param tblManagerFut Future to wrap Table manager.
      * @param tableStorageDecorator Table storage spy decorator.
      * @param txStateTableStorageDecorator Tx state table storage spy decorator.
-     *
      * @return Table manager.
      */
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, Consumer<MvTableStorage> tableStorageDecorator,
@@ -867,6 +860,12 @@ public class TableManagerTest extends IgniteAbstractTest {
         sm.start();
 
         tableManager.start();
+
+        CompletableFuture<?>[] initialRevisionNotificationFutures = revisionListeners.stream()
+                .map(f -> f.apply(0))
+                .toArray(CompletableFuture[]::new);
+
+        assertThat(allOf(initialRevisionNotificationFutures), willCompleteSuccessfully());
 
         tblManagerFut.complete(tableManager);
 
