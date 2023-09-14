@@ -72,7 +72,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
      * cannot execute without waiting for schemas). This method tests this scenario.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20394")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20410")
     void laggingSchemasPreventPartitionDataReplication() throws Exception {
         createTestTableWith3Replicas();
 
