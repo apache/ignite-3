@@ -30,7 +30,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -43,7 +42,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.internal.util.Lazy;
@@ -199,7 +198,7 @@ public class TransactionStateResolver {
         } else if (localMeta.txState() == FINISHING) {
             assert localMeta instanceof TxStateMetaFinishing;
 
-            ((TxStateMetaFinishing) localMeta).future().whenComplete((v, e) -> {
+            ((TxStateMetaFinishing) localMeta).txFinishFuture().whenComplete((v, e) -> {
                 if (e == null) {
                     txMetaFuture.complete(v);
                 } else {
@@ -243,7 +242,7 @@ public class TransactionStateResolver {
             HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
-        TxStateReplicaRequest request = FACTORY.txStateReplicaRequest()
+        TxStateCommitPartitionRequest request = FACTORY.txStateCommitPartitionRequest()
                 .groupId(commitGrpId)
                 .readTimestampLong(timestamp.longValue())
                 .txId(txId)
@@ -280,7 +279,11 @@ public class TransactionStateResolver {
      * @param replicaGrp Replication group id.
      * @param request Request.
      */
-    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, ReplicationGroupId replicaGrp, TxStateReplicaRequest request) {
+    private void sendAndRetry(
+            CompletableFuture<TransactionMeta> resFut,
+            ReplicationGroupId replicaGrp,
+            TxStateCommitPartitionRequest request
+    ) {
         ClusterNode nodeToSend = primaryReplicaMapping.get(replicaGrp).stream()
                 .map(clusterNodeResolver)
                 .filter(Objects::nonNull)
@@ -345,25 +348,7 @@ public class TransactionStateResolver {
 
             TxStateMetaFinishing txStateMetaFinishing = (TxStateMetaFinishing) txStateMeta;
 
-            AtomicReference<CompletableFuture<TransactionMeta>> futRef = new AtomicReference<>();
-
-            txStateFutures.computeIfAbsent(txId, k -> {
-                TxStateMeta meta = txManager.stateMeta(txId);
-
-                if (meta != null && meta.txState() != FINISHING) {
-                    futRef.set(completedFuture(meta));
-
-                    return null;
-                }
-
-                futRef.set(txStateMetaFinishing.future());
-
-                return futRef.get();
-            });
-
-            futRef.get().whenComplete((v, e) -> txStateFutures.remove(txId));
-
-            return futRef.get();
+            return txStateMetaFinishing.txFinishFuture();
         } else {
             return completedFuture(txStateMeta);
         }

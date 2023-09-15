@@ -19,11 +19,11 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Response for the {@link TxStateReplicaRequest}. Can contain either the consistent ID of the Partition Group leader, which should be
+ * Response for the {@link TxStateCommitPartitionRequest}. Can contain either the consistent ID of the Partition Group leader, which should be
  * queried for the TX Meta, or the TX Meta itself.
  */
 public class LeaderOrTxState implements Serializable {

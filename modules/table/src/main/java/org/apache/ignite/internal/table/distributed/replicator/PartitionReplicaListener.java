@@ -140,7 +140,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
@@ -333,8 +333,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public CompletableFuture<?> invoke(ReplicaRequest request, String senderId) {
-        if (request instanceof TxStateReplicaRequest) {
-            return processTxStateReplicaRequest((TxStateReplicaRequest) request);
+        if (request instanceof TxStateCommitPartitionRequest) {
+            return processTxStateReplicaRequest((TxStateCommitPartitionRequest) request);
         }
 
         return ensureReplicaIsPrimary(request).thenCompose(isPrimary -> processRequest(request, isPrimary, senderId));
@@ -421,7 +421,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Transaction state request.
      * @return Result future.
      */
-    private CompletableFuture<LeaderOrTxState> processTxStateReplicaRequest(TxStateReplicaRequest request) {
+    private CompletableFuture<LeaderOrTxState> processTxStateReplicaRequest(TxStateCommitPartitionRequest request) {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(primaryReplica -> {
                     if (isLocalPeer(primaryReplica.getLeaseholder())) {
@@ -440,7 +440,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txStateReq Transaction state request.
      * @return Future to transaction state meta or {@code null}.
      */
-    private CompletableFuture<TxMeta> getTxStateConcurrently(TxStateReplicaRequest txStateReq) {
+    private CompletableFuture<TxMeta> getTxStateConcurrently(TxStateCommitPartitionRequest txStateReq) {
         CompletableFuture<TxMeta> txStateFut = new CompletableFuture<>();
 
         txTimestampUpdateMap.compute(txStateReq.txId(), (uuid, fut) -> {

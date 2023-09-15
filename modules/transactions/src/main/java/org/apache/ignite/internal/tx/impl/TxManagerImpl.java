@@ -239,7 +239,7 @@ public class TxManagerImpl implements TxManager {
         updateTxMeta(
                 txId,
                 old -> finishRequestNeeded
-                    ? new TxStateMetaFinishing(old.txCoordinatorId(), commitTimestamp, new CompletableFuture<>())
+                    ? new TxStateMetaFinishing(old.txCoordinatorId(), commitTimestamp)
                     : new TxStateMeta(ABORTED, old.txCoordinatorId(), commitTimestamp)
         );
 
@@ -269,7 +269,7 @@ public class TxManagerImpl implements TxManager {
                         assert old instanceof TxStateMetaFinishing;
 
                         TxStateMeta newMeta = new TxStateMeta(commit ? COMMITED : ABORTED, old.txCoordinatorId(), old.commitTimestamp());
-                        ((TxStateMetaFinishing) old).future().complete(newMeta);
+                        ((TxStateMetaFinishing) old).txFinishFuture().complete(newMeta);
 
                         return newMeta;
                     });

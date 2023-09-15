@@ -59,9 +59,6 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Topology members map from the consistent id to the cluster node. */
     private final ConcurrentMap<String, ClusterNode> consistentIdToMemberMap = new ConcurrentHashMap<>();
 
-    /** Topology members map from the non-consistent id to the cluster node. */
-    private final ConcurrentMap<String, ClusterNode> idToMemberMap = new ConcurrentHashMap<>();
-
     /**
      * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.
      *
@@ -83,18 +80,13 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         if (event.isAdded()) {
             members.put(member.address(), member);
             consistentIdToMemberMap.put(member.name(), member);
-            idToMemberMap.put(member.id(), member);
 
             LOG.info("Node joined [node={}]", member);
 
             fireAppearedEvent(member);
         } else if (event.isUpdated()) {
             members.put(member.address(), member);
-            ClusterNode previousMember = consistentIdToMemberMap.put(member.name(), member);
-            if (previousMember != null) {
-                idToMemberMap.remove(previousMember.id());
-            }
-            idToMemberMap.put(member.id(), member);
+            consistentIdToMemberMap.put(member.name(), member);
         } else if (event.isRemoved() || event.isLeaving()) {
             // We treat LEAVING as 'node left' because the node will not be back and we don't want to wait for the suspicion timeout.
 
@@ -120,8 +112,6 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                 }
             });
 
-            idToMemberMap.remove(member.id());
-
             fireDisappearedEvent(member);
         }
 
@@ -138,11 +128,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     void updateLocalMetadata(@Nullable NodeMetadata metadata) {
         ClusterNode node = fromMember(cluster.member(), metadata);
         members.put(node.address(), node);
-        ClusterNode previousMember = consistentIdToMemberMap.put(node.name(), node);
-        if (previousMember != null) {
-            idToMemberMap.remove(previousMember.id());
-        }
-        idToMemberMap.put(node.id(), node);
+        consistentIdToMemberMap.put(node.name(), node);
     }
 
     /**
@@ -199,7 +185,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** {@inheritDoc} */
     @Override
     public @Nullable ClusterNode getById(String id) {
-        return idToMemberMap.get(id);
+        return consistentIdToMemberMap.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
     }
 
     /**

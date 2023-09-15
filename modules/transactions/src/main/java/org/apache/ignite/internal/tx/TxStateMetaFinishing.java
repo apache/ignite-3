@@ -29,20 +29,16 @@ public class TxStateMetaFinishing extends TxStateMeta {
     private static final long serialVersionUID = 9122953981654023665L;
 
     /** Future that is completed after the state of corresponding transaction changes to final state. */
-    private final CompletableFuture<TransactionMeta> future;
+    private final CompletableFuture<TransactionMeta> txFinishFuture = new CompletableFuture<>();
 
     /**
      * Constructor.
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitTimestamp Commit timestamp.
-     * @param future Future that is completed after the state of corresponding transaction changes to final state.
      */
-    public TxStateMetaFinishing(String txCoordinatorId, @Nullable HybridTimestamp commitTimestamp,
-            CompletableFuture<TransactionMeta> future) {
+    public TxStateMetaFinishing(String txCoordinatorId, @Nullable HybridTimestamp commitTimestamp) {
         super(TxState.FINISHING, txCoordinatorId, commitTimestamp);
-
-        this.future = future;
     }
 
     /**
@@ -50,7 +46,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
      *
      * @return Future that is completed after the state of corresponding transaction changes to final state.
      */
-    public CompletableFuture<TransactionMeta> future() {
-        return future;
+    public CompletableFuture<TransactionMeta> txFinishFuture() {
+        return txFinishFuture;
     }
 }

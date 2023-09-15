@@ -116,7 +116,6 @@ public class ClusterServiceFactory {
         private final ClusterNode localMember;
         private final Map<String, ClusterNode> allMembers;
         private final Map<NetworkAddress, ClusterNode> allMembersByAddress;
-        private final Map<String, ClusterNode> allMembersByid;
 
         private LocalTopologyService(String localMember, List<String> allMembers) {
             this.allMembers = allMembers.stream()
@@ -130,10 +129,8 @@ public class ClusterServiceFactory {
             }
 
             this.allMembersByAddress = new HashMap<>();
-            this.allMembersByid = new HashMap<>();
 
             this.allMembers.forEach((ignored, member) -> allMembersByAddress.put(member.address(), member));
-            this.allMembers.forEach((ignored, member) -> allMembersByid.put(member.id(), member));
         }
 
         private static ClusterNode nodeFromName(String name) {
@@ -166,7 +163,7 @@ public class ClusterServiceFactory {
 
         @Override
         public @Nullable ClusterNode getById(String id) {
-            return allMembersByid.get(id);
+            return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
         }
     }
 

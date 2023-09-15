@@ -523,7 +523,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testTxStateReplicaRequestEmptyState() throws Exception {
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(grpId)
                 .readTimestampLong(clock.nowLong())
                 .txId(newTxId())
@@ -543,7 +543,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         HybridTimestamp readTimestamp = clock.now();
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(grpId)
                 .readTimestampLong(readTimestamp.longValue())
                 .txId(txId)
@@ -564,7 +564,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testTxStateReplicaRequestMissLeaderMiss() throws Exception {
         localLeader = false;
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(grpId)
                 .readTimestampLong(clock.nowLong())
                 .txId(newTxId())
