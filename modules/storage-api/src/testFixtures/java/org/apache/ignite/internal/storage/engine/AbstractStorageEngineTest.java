@@ -62,7 +62,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     protected abstract StorageEngine createEngine();
 
     /**
-     * Tests that explicitly flushed data remeins persistent on the device, when the engine is restarted.
+     * Tests that explicitly flushed data remains persistent on the device, when the engine is restarted.
      */
     @Test
     void testRestartAfterFlush() throws Exception {
