@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.event;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -24,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,15 +38,31 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
 
     @Override
     public void listen(T evt, EventListener<? extends P> listener) {
-        listenersByEvent.computeIfAbsent(evt, evtKey -> new CopyOnWriteArrayList<>()).add((EventListener<P>) listener);
+        listenersByEvent.compute(evt, (evt0, listeners) -> {
+            List<EventListener<P>> newListeners;
+
+            if (listeners == null) {
+                newListeners = new ArrayList<>(1);
+            } else {
+                newListeners = new ArrayList<>(listeners.size() + 1);
+
+                newListeners.addAll(listeners);
+            }
+
+            newListeners.add((EventListener<P>) listener);
+
+            return unmodifiableList(newListeners);
+        });
     }
 
     @Override
     public void removeListener(T evt, EventListener<? extends P> listener) {
         listenersByEvent.computeIfPresent(evt, (evt0, listeners) -> {
-            listeners.remove(listener);
+            var newListeners = new ArrayList<>(listeners);
 
-            return listeners.isEmpty() ? null : listeners;
+            newListeners.remove(listener);
+
+            return newListeners.isEmpty() ? null : unmodifiableList(newListeners);
         });
     }
 
@@ -65,20 +81,20 @@ public abstract class AbstractEventProducer<T extends Event, P extends EventPara
             return completedFuture(null);
         }
 
-        List<CompletableFuture<?>> futures = new ArrayList<>();
+        CompletableFuture<?>[] futures = new CompletableFuture[listeners.size()];
 
-        for (EventListener<P> listener : listeners) {
-            CompletableFuture<?> future = listener.notify(params, err)
+        for (int i = 0; i < listeners.size(); i++) {
+            EventListener<P> listener = listeners.get(i);
+
+            futures[i] = listener.notify(params, err)
                     .thenAccept(remove -> {
                         if (remove) {
                             removeListener(evt, listener);
                         }
                     });
-
-            futures.add(future);
         }
 
-        return allOf(futures.toArray(new CompletableFuture[0]));
+        return allOf(futures);
     }
 
     /**
