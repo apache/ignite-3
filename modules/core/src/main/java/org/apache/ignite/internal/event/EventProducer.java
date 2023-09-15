@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.event;
 
-/** Allows to {@link #listen add} and {@link #removeListener remove} event listeners that the component will fire. */
+/** Allows to {@link #listen add} and {@link #removeListener remove} event listeners that the component will produce. */
 public interface EventProducer<T extends Event, P extends EventParameters> {
     /**
-     * Registers an event listener. When the event predicate returns true it would never invoke after, otherwise this predicate would
-     * receive an event again.
+     * Registers an event listener. If {@link EventListener#notify} returns {@code true}, it would never be invoked again.
      *
      * @param evt Event.
      * @param listener Listener.

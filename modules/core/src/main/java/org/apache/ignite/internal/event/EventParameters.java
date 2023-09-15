@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.event;
 
-/** Event parameters. This type passed to the {@link EventListener#notify(EventParameters, Throwable)}. */
+/** Event parameters. This type is passed to the {@link EventListener#notify(EventParameters, Throwable)}. */
 public abstract class EventParameters {
     private final long causalityToken;
 

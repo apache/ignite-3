@@ -20,17 +20,17 @@ package org.apache.ignite.internal.event;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
-/** The listener handles events from a event producer. */
+/** A listener that handles events from an event producer. */
 @FunctionalInterface
 public interface EventListener<P extends EventParameters> {
     /**
      * Notifies the listener about an event.
      *
-     * @param parameters Parameters provide a properties of the event.
-     * @param exception  Exception which is happened during the event produced or {@code null}.
-     * @return Completable future, which is completed when event handling is finished. The {@code True} value of the future
-     *     means that the event is handled and a listener will be removed, {@code false} is the listener will stay listen.
-     *     This future must not be completed with {@code null} value.
+     * @param parameters Properties of the event.
+     * @param exception Exception which has happened when producing the event or {@code null}.
+     * @return Completable future, which is completed when event handling is finished. The {@code true} value of the future means that the
+     *         event has been handled and a listener will be removed, {@code false} is that the listener will continue listening. This
+     *         future will never be completed with {@code null} value.
      */
     CompletableFuture<Boolean> notify(P parameters, @Nullable Throwable exception);
 }

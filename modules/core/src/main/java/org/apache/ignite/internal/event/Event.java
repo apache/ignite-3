@@ -17,6 +17,6 @@
 
 package org.apache.ignite.internal.event;
 
-/** The event which is produced by a component. */
+/** An event which is produced by a component. */
 public interface Event {
 }

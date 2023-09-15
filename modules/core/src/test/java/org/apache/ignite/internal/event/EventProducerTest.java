@@ -19,10 +19,10 @@ package org.apache.ignite.internal.event;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -33,8 +33,7 @@ import org.junit.jupiter.api.Test;
 public class EventProducerTest {
     @Test
     public void simpleAsyncTest() {
-        AbstractEventProducer<TestEvent, TestEventParameters> producer = new AbstractEventProducer<>() {
-        };
+        AbstractEventProducer<TestEvent, TestEventParameters> producer = new AbstractEventProducer<>() {};
 
         CompletableFuture<Boolean> future = new CompletableFuture<>();
 
@@ -42,7 +41,7 @@ public class EventProducerTest {
 
         CompletableFuture<?> eventHandleFuture = producer.fireEvent(TestEvent.TEST, new TestEventParameters(0L));
 
-        assertThat(eventHandleFuture, willTimeoutFast());
+        assertFalse(eventHandleFuture.isDone());
 
         future.complete(true);
 
@@ -81,18 +80,18 @@ public class EventProducerTest {
         CompletableFuture<Void> toRemoveFuture = new CompletableFuture<>();
 
         for (int i = 0; i < listenersCount; i++) {
-            EventListener<TestEventParameters> listener = i == listenerIndexToRemove
-                    ? createEventListener(
-                    (p, e) -> {
-                        toRemoveFuture.complete(null);
-
-                        return completedFuture(false);
-                    }
-            )
-                    : createEventListener((p, e) -> completedFuture(false));
+            EventListener<TestEventParameters> listener;
 
             if (i == listenerIndexToRemove) {
+                listener = createEventListener((p, e) -> {
+                    toRemoveFuture.complete(null);
+
+                    return completedFuture(false);
+                });
+
                 listenerToRemove = listener;
+            } else {
+                listener = createEventListener((p, e) -> completedFuture(false));
             }
 
             producer.listen(TestEvent.TEST, listener);
