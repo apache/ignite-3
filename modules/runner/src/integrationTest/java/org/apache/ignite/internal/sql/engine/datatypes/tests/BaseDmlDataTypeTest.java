@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.stream.Stream;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -98,8 +96,8 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         Object value1 = arguments.argValue(0);
 
         var query = "INSERT INTO t (id, test_key) VALUES (1, 'str'), (2, ?)";
-        var t = assertThrows(IgniteException.class, () -> runSql(query, value1));
-        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Values passed to VALUES operator must have compatible types",
+                () -> runSql(query, value1));
     }
 
     private Stream<TestTypeArguments<T>> dml() {

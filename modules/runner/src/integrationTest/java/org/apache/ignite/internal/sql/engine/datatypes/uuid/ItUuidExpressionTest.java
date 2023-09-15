@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
@@ -28,8 +26,7 @@ import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataT
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.lang.IgniteException;
-import org.hamcrest.Matchers;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,15 +56,13 @@ public class ItUuidExpressionTest extends BaseExpressionDataTypeTest<UUID> {
     /** Invalid {@code UUID} string in literal parameter. */
     @Test
     public void testInvalidUuidString() {
-        IgniteException t = assertThrows(IgniteException.class, () -> runSql("SELECT '000000'::UUID"));
-        assertThat(t.getMessage(), containsString("Invalid UUID string"));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Invalid UUID string", () -> runSql("SELECT '000000'::UUID"));
     }
 
     /** Invalid {@code UUID} string in dynamic parameter. */
     @Test
     public void testInvalidUuidStringInDynamicParams() {
-        IgniteException t = assertThrows(IgniteException.class, () -> runSql("SELECT ?::UUID", "00000"));
-        assertThat(t.getMessage(), containsString("Invalid UUID string"));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Invalid UUID string: 00000", () -> runSql("SELECT ?::UUID", "00000"));
     }
 
     /**
@@ -76,11 +71,8 @@ public class ItUuidExpressionTest extends BaseExpressionDataTypeTest<UUID> {
     @ParameterizedTest
     @MethodSource("convertedFrom")
     public void testCoalesceMissingTypesIsIllegal(TestTypeArguments arguments) {
-        IgniteException t = assertThrows(IgniteException.class, () -> {
-            checkQuery(format("SELECT COALESCE($0, {})", arguments.valueExpr(0))).check();
-        });
-
-        assertThat(t.getMessage(), Matchers.containsString("Illegal mixing of types in CASE or COALESCE statement"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal mixing of types in CASE or COALESCE statement",
+                () -> checkQuery(format("SELECT COALESCE($0, {})", arguments.valueExpr(0))).check());
     }
 
     /** Data type from string. **/

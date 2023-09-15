@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
@@ -28,7 +26,8 @@ import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseQueryDataTypeTe
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -36,6 +35,10 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for {@code SELECT} operations for {@link UuidType UUID data type}.
  */
 public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
+    @Override
+    protected int nodes() {
+        return 1;
+    }
 
     /**
      * {@code UUID} vs type that can not be casted to {@code UUID}.
@@ -45,9 +48,9 @@ public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
     public void testInvalidComparisonOperation(String opSql) {
         String query = format("SELECT * FROM t WHERE test_key {} 1", opSql);
 
-        IgniteException t = assertThrows(IgniteException.class, () -> checkQuery(query).check());
         String error = format("Values passed to {} operator must have compatible types", opSql);
-        assertThat(t.getMessage(), containsString(error));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, error, () -> checkQuery(query).check());
     }
 
     /** Test for equality predicate with dynamic parameter of compatible type is illegal. */
@@ -58,15 +61,15 @@ public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
 
-        var err = assertThrows(IgniteException.class, () -> {
+        Executable qry = () -> {
             checkQuery("SELECT id FROM t where test_key = ? ORDER BY id")
                     .withParams(arguments.argValue(0))
                     .returns(1)
                     .returns(3)
                     .check();
-        });
+        };
 
-        assertThat(err.getMessage(), containsString("Values passed to = operator must have compatible types"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Values passed to = operator must have compatible types", qry);
     }
 
     /** {@inheritDoc} **/
