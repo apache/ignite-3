@@ -30,7 +30,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.HexStringUtils;
 
 /**
  * Utility class to convert object to and from human readable string representation.
@@ -66,9 +66,9 @@ public final class ValueSerializationHelper {
             case UUID:
                 return defaultValue.toString();
             case BYTES:
-                return IgniteUtils.toHexString((byte[]) defaultValue);
+                return HexStringUtils.toHexString((byte[]) defaultValue);
             case BITMASK:
-                return IgniteUtils.toHexString(((BitSet) defaultValue).toByteArray());
+                return HexStringUtils.toHexString(((BitSet) defaultValue).toByteArray());
             default:
                 throw new IllegalStateException("Unknown type [type=" + type + ']');
         }
@@ -120,9 +120,9 @@ public final class ValueSerializationHelper {
             case UUID:
                 return UUID.fromString(defaultValue);
             case BYTES:
-                return IgniteUtils.fromHexString(defaultValue);
+                return HexStringUtils.fromHexString(defaultValue);
             case BITMASK:
-                return BitSet.valueOf(IgniteUtils.fromHexString(defaultValue));
+                return BitSet.valueOf(HexStringUtils.fromHexString(defaultValue));
             default:
                 throw new IllegalStateException("Unknown type [type=" + type + ']');
         }

@@ -15,12 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.event;
 
-/**
- * The event cas which is produced by event producer component.
- *
- * @see Producer#fireEvent(Event, EventParameters, Throwable)
- */
-public interface Event {
+/** Allows to {@link #listen add} and {@link #removeListener remove} event listeners that the component will produce. */
+public interface EventProducer<T extends Event, P extends EventParameters> {
+    /**
+     * Registers an event listener. If {@link EventListener#notify} returns {@code true}, it would never be invoked again.
+     *
+     * @param evt Event.
+     * @param listener Listener.
+     */
+    void listen(T evt, EventListener<? extends P> listener);
+
+    /**
+     * Removes a listener associated with the event.
+     *
+     * @param evt Event.
+     * @param listener Listener.
+     */
+    void removeListener(T evt, EventListener<? extends P> listener);
 }

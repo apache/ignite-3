@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.event;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.event.Event;
 
 /**
  * Table management events.
