@@ -23,6 +23,7 @@ import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.internal.network.message.TraceableMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
@@ -89,4 +90,9 @@ public class NetworkMessageTypes {
      * Type for {@link ClassDescriptorListMessage}.
      */
     public static final short CLASS_DESCRIPTOR_LIST_MESSAGE = 10;
+
+    /**
+     * Type for {@link TraceableMessage}.
+     */
+    public static final short TRACEABLE_MESSAGE = 11;
 }

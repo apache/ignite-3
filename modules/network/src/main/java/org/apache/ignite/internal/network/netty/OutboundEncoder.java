@@ -29,6 +29,8 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
+import org.apache.ignite.internal.network.message.TraceableMessage;
+import org.apache.ignite.internal.network.message.TraceableMessageImpl;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
@@ -68,6 +70,9 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         /** Network message. */
         private final NetworkMessage msg;
 
+        /** Traceable message. */
+        private final TraceableMessage traceableMsg;
+
         /** Message serializer. */
         private final MessageSerializer<NetworkMessage> serializer;
 
@@ -82,6 +87,9 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         /** Whether the message was fully written. */
         private boolean finished = false;
         private boolean descriptorsFinished = false;
+
+        /** Whether the traceable message was fully written. */
+        private boolean traceableFinished;
 
         /**
          * Constructor.
@@ -109,6 +117,14 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                 descriptors = null;
                 descriptorSerializer = null;
                 descriptorsFinished = true;
+            }
+
+            if (outObject.traceHeaders().isEmpty()) {
+                traceableMsg = null;
+                traceableFinished = true;
+            } else {
+                traceableMsg = TraceableMessageImpl.builder().headers(outObject.traceHeaders()).build();
+                traceableFinished = false;
             }
 
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
@@ -147,7 +163,9 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             writer.setBuffer(byteBuffer);
 
             while (byteBuffer.hasRemaining()) {
-                if (!descriptorsFinished) {
+                if (!traceableFinished) {
+                    traceableFinished = serializer.writeMessage(traceableMsg, writer);
+                } else if (!descriptorsFinished) {
                     descriptorsFinished = descriptorSerializer.writeMessage(descriptors, writer);
                     if (descriptorsFinished) {
                         for (ClassDescriptorMessage classDescriptorMessage : descriptors.messages()) {

@@ -45,13 +45,15 @@ public class DemoAutoConfigurationCustomizerProvider implements AutoConfiguratio
     /** {@inheritDoc} */
     @Override
     public void customize(AutoConfigurationCustomizer autoConfiguration) {
-        autoConfiguration.addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIncludedMethods)
+        autoConfiguration
+                .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIncludedMethods)
                 .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIgniteExecutors)
                 .addSamplerCustomizer(DemoAutoConfigurationCustomizerProvider::customizeSampler);
     }
 
     private static Map<String, String> customizeIgniteExecutors(ConfigProperties configProperties) {
-        return Map.of("otel.instrumentation.executors.include", "org.apache.ignite.internal.thread.StripedThreadPoolExecutor, "
+        return Map.of("otel.instrumentation.executors.include",
+                "org.apache.ignite.internal.thread.StripedThreadPoolExecutor, "
                 + "org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor");
 
     }

@@ -69,13 +69,23 @@ public class TransactionsExample {
                 Statement stmt = conn.createStatement()
         ) {
             stmt.executeUpdate(
-                    "CREATE TABLE accounts ("
-                            + "accountNumber INT PRIMARY KEY,"
-                            + "firstName     VARCHAR,"
-                            + "lastName      VARCHAR,"
-                            + "balance       DOUBLE)"
+                    "CREATE TABLE IF NOT EXISTS accounts ("
+                        + "accountNumber INT PRIMARY KEY,"
+                        + "firstName     VARCHAR,"
+                        + "lastName      VARCHAR,"
+                        + "balance       DOUBLE)"
+            );
+            stmt.executeUpdate(
+                    "DELETE FROM accounts"
+            );
+
+            stmt.executeUpdate(
+                    "INSERT INTO accounts(accountNumber, firstName, lastName, balance) values (1, '1', '1', 1.0),\n"
+                        + " (1026, '1', '1', 1.0)"
             );
         }
+
+        System.exit(0);
 
         //--------------------------------------------------------------------------------------
         //

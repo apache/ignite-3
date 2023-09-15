@@ -76,8 +76,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     /** {@inheritDoc} */
     @WithSpan
     @Override
-    public void execute(@SpanAttribute("qryId") UUID qryId, @SpanAttribute("fragmentId") long fragmentId,
-            @SpanAttribute("qryTask") Runnable qryTask) {
+    public void execute(@SpanAttribute("qryId") UUID qryId, @SpanAttribute("fragmentId") long fragmentId, Runnable qryTask) {
         int commandIdx = hash(qryId, fragmentId);
         stripedThreadPoolExecutor.execute(
                 () -> {

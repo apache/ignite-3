@@ -50,23 +50,28 @@ public class StartNodeExample {
         boolean activate = Boolean.parseBoolean(args[2]);
 
         CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
+                "ignite-node-0",
+                Path.of("examples", "config", configFileName),
+                Path.of("examples", "work", nodeName)
+        );
+
+        CompletableFuture<Ignite> igniteFuture2 = IgnitionManager.start(
                 nodeName,
                 Path.of("examples", "config", configFileName),
                 Path.of("examples", "work", nodeName)
         );
 
-        if (activate) {
-            InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(/*"ignite-node-0",*/ nodeName))
-                    .clusterName("cluster")
-                    .build();
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(/*"ignite-node-0",*/ nodeName))
+                .clusterName("cluster")
+                .build();
 
-            IgnitionManager.init(initParameters);
-        }
+        IgnitionManager.init(initParameters);
 
         // We can call without a timeout, since the future is guaranteed to be completed above.
         IgniteImpl ignite = (IgniteImpl) igniteFuture.join();
+        IgniteImpl ignite2 = (IgniteImpl) igniteFuture2.join();
 
         TimeUnit.HOURS.sleep(3);
     }

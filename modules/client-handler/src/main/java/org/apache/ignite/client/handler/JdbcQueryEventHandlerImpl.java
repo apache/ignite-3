@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import io.opentelemetry.context.Context;
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.io.PrintWriter;
@@ -146,8 +147,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
-    public CompletableFuture<? extends Response> queryAsync(long connectionId, JdbcQueryExecuteRequest req) {
+    public CompletableFuture<? extends Response> queryAsync(
+            @SpanAttribute("connectionId") long connectionId,
+            @SpanAttribute("req") JdbcQueryExecuteRequest req
+    ) {
         if (req.pageSize() <= 0) {
             return CompletableFuture.completedFuture(new JdbcQueryExecuteResult(Response.STATUS_FAILED,
                     "Invalid fetch size [fetchSize=" + req.pageSize() + ']'));

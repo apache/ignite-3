@@ -29,6 +29,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.direct.DirectMarshallingUtils;
 import org.apache.ignite.internal.network.direct.DirectMessageReader;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
+import org.apache.ignite.internal.network.message.TraceableMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
@@ -114,6 +115,9 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
                     NetworkMessage message = msg.getMessage();
 
+                    if (message instanceof TraceableMessage) {
+                        LOG.error(">>>> DONE {}", message);
+                    }
                     if (message instanceof ClassDescriptorListMessage) {
                         onClassDescriptorMessage((ClassDescriptorListMessage) message);
                     } else {

@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.otel.ext.instrumentation;
+package org.apache.ignite.otel.ext.instrumentation.netty;
 
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static java.util.Collections.singletonList;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.javaagent.extension.instrumentation.InstrumentationModule;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
-import io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers;
 import java.util.List;
-import net.bytebuddy.matcher.ElementMatcher;
+import net.bytebuddy.matcher.ElementMatcher.Junction;
 
 /**
  * This is a demo instrumentation which hooks into servlet invocation and modifies the http response.
  */
 @AutoService(InstrumentationModule.class)
-public final class JdbcQueryEventHandlerInstrumentationModule extends InstrumentationModule {
-    public JdbcQueryEventHandlerInstrumentationModule() {
-        super("ignite3-demo", "jdbc-handler");
+public class NettySenderInstrumentationModule extends InstrumentationModule {
+    public NettySenderInstrumentationModule() {
+        super("netty", "netty-4.1");
     }
 
     /**
@@ -44,15 +44,18 @@ public final class JdbcQueryEventHandlerInstrumentationModule extends Instrument
         return 1;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public ElementMatcher.Junction<ClassLoader> classLoaderMatcher() {
-        return AgentElementMatchers.hasClassesNamed("org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl");
+    public Junction<ClassLoader> classLoaderMatcher() {
+        return hasClassesNamed("org.apache.ignite.internal.network.netty.NettySender");
     }
 
-    /** {@inheritDoc} */
     @Override
     public List<TypeInstrumentation> typeInstrumentations() {
-        return singletonList(new JdbcQueryEventHandlerInstrumentation());
+        return singletonList(new NettySenderInstrumentation());
+    }
+
+    @Override
+    public List<String> getAdditionalHelperClassNames() {
+        return singletonList(NettySenderSingletons.class.getName());
     }
 }
