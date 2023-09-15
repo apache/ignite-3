@@ -60,7 +60,7 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.event.EventProducer;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -73,7 +73,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Catalog service implementation.
  */
-public class CatalogManagerImpl extends EventProducer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
+public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
 
     /** Safe time to wait before new Catalog version activation. */

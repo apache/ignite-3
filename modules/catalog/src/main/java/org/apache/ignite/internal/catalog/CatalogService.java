@@ -25,7 +25,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.event.EventProducerListener;
+import org.apache.ignite.internal.event.EventProducer;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>TBD: events
  */
-public interface CatalogService extends EventProducerListener<CatalogEvent, CatalogEventParameters> {
+public interface CatalogService extends EventProducer<CatalogEvent, CatalogEventParameters> {
     String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     String SYSTEM_SCHEMA_NAME = "SYSTEM";

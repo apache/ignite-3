@@ -29,11 +29,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import org.junit.jupiter.api.Test;
 
-/** For {@link EventProducer} testing. */
+/** For {@link AbstractEventProducer} testing. */
 public class EventProducerTest {
     @Test
     public void simpleAsyncTest() {
-        EventProducer<TestEvent, TestEventParameters> producer = new EventProducer<>() {
+        AbstractEventProducer<TestEvent, TestEventParameters> producer = new AbstractEventProducer<>() {
         };
 
         CompletableFuture<Boolean> future = new CompletableFuture<>();
@@ -51,7 +51,7 @@ public class EventProducerTest {
 
     @Test
     public void stopListenTest() {
-        EventProducer<TestEvent, TestEventParameters> producer = new EventProducer<>() {};
+        AbstractEventProducer<TestEvent, TestEventParameters> producer = new AbstractEventProducer<>() {};
 
         final int stopListenAfterCount = 5;
         final int fireEventCount = stopListenAfterCount * 2;
@@ -72,7 +72,7 @@ public class EventProducerTest {
 
     @Test
     public void parallelTest() {
-        EventProducer<TestEvent, TestEventParameters> producer = new EventProducer<>() {};
+        AbstractEventProducer<TestEvent, TestEventParameters> producer = new AbstractEventProducer<>() {};
 
         final int listenersCount = 10_000;
         final int listenerIndexToRemove = 10;

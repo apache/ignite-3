@@ -17,78 +17,22 @@
 
 package org.apache.ignite.internal.event;
 
-import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import org.jetbrains.annotations.Nullable;
-
-/**
- * Event producer.
- *
- * <p>Allows to {@link #listen add} and {@link #removeListener remove} event listeners for events, as well as
- * {@link #fireEvent fire events}.</p>
- */
-public abstract class EventProducer<T extends Event, P extends EventParameters> implements EventProducerListener<T, P> {
-    private final ConcurrentHashMap<T, List<EventListener<P>>> listenersByEvent = new ConcurrentHashMap<>();
-
-    @Override
-    public void listen(T evt, EventListener<? extends P> listener) {
-        listenersByEvent.computeIfAbsent(evt, evtKey -> new CopyOnWriteArrayList<>()).add((EventListener<P>) listener);
-    }
-
-    @Override
-    public void removeListener(T evt, EventListener<? extends P> listener) {
-        listenersByEvent.computeIfPresent(evt, (evt0, listeners) -> {
-            listeners.remove(listener);
-
-            return listeners.isEmpty() ? null : listeners;
-        });
-    }
-
+/** Allows to {@link #listen add} and {@link #removeListener remove} event listeners that the component will fire. */
+public interface EventProducer<T extends Event, P extends EventParameters> {
     /**
-     * Notifies every listener that subscribed before.
+     * Registers an event listener. When the event predicate returns true it would never invoke after, otherwise this predicate would
+     * receive an event again.
      *
      * @param evt Event.
-     * @param params Event parameters.
-     * @param err Exception when it was happened, or {@code null} otherwise.
-     * @return Completable future which is completed when event handling is complete.
+     * @param listener Listener.
      */
-    protected CompletableFuture<Void> fireEvent(T evt, P params, @Nullable Throwable err) {
-        List<EventListener<P>> listeners = listenersByEvent.get(evt);
-
-        if (listeners == null) {
-            return completedFuture(null);
-        }
-
-        List<CompletableFuture<?>> futures = new ArrayList<>();
-
-        for (EventListener<P> listener : listeners) {
-            CompletableFuture<?> future = listener.notify(params, err)
-                    .thenAccept(remove -> {
-                        if (remove) {
-                            removeListener(evt, listener);
-                        }
-                    });
-
-            futures.add(future);
-        }
-
-        return allOf(futures.toArray(new CompletableFuture[0]));
-    }
+    void listen(T evt, EventListener<? extends P> listener);
 
     /**
-     * Notifies every listener that subscribed before.
+     * Removes a listener associated with the event.
      *
      * @param evt Event.
-     * @param params Event parameters.
-     * @return Completable future which is completed when event handling is complete.
+     * @param listener Listener.
      */
-    protected CompletableFuture<Void> fireEvent(T evt, P params) {
-        return fireEvent(evt, params, null);
-    }
+    void removeListener(T evt, EventListener<? extends P> listener);
 }

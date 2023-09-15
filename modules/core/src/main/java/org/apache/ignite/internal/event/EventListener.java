@@ -20,7 +20,7 @@ package org.apache.ignite.internal.event;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
-/** The listener handles events from a {@link EventProducer event producer}. */
+/** The listener handles events from a event producer. */
 @FunctionalInterface
 public interface EventListener<P extends EventParameters> {
     /**
