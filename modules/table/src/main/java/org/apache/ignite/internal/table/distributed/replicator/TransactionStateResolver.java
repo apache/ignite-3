@@ -219,20 +219,33 @@ public class TransactionStateResolver {
             HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
-        ClusterNode coordinator = clusterNodeResolverById.apply(coordinatorId);
-
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
+
+        ClusterNode coordinator = clusterNodeResolverById.apply(coordinatorId);
 
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.
             resolveTxStateFromCommitPartition(txId, commitGrpId, timestamp, txMetaFuture);
         } else {
+            CompletableFuture<TransactionMeta> coordinatorTxMetaFuture = new CompletableFuture<>();
+
+            coordinatorTxMetaFuture.whenComplete((v, e) -> {
+                assert v != null : "Unexpected result from transaction coordinator: unknown transaction state [txId=" + txId
+                        + ", transactionCoordinator=" + coordinator + ']';
+
+                if (e == null) {
+                    txMetaFuture.complete(v);
+                } else {
+                    txMetaFuture.completeExceptionally(e);
+                }
+            });
+
             TxStateRequest request = FACTORY.txStateRequest()
                     .readTimestampLong(timestamp.longValue())
                     .txId(txId)
                     .build();
 
-            sendAndRetry(txMetaFuture, coordinator, request);
+            sendAndRetry(coordinatorTxMetaFuture, coordinator, request);
         }
     }
 
@@ -255,7 +268,7 @@ public class TransactionStateResolver {
 
     private void updateLocalTxMapAfterDistributedStateResolved(UUID txId, CompletableFuture<TransactionMeta> future) {
         future.thenAccept(txMeta -> {
-            if (txMeta instanceof TxStateMeta) {
+            if (txMeta != null && txMeta instanceof TxStateMeta) {
                 txManager.updateTxMeta(txId, old -> (TxStateMeta) txMeta);
             }
         });
