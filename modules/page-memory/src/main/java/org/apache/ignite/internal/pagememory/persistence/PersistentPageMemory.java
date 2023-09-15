@@ -1230,6 +1230,7 @@ public class PersistentPageMemory implements PageMemory {
 
         if (dirty) {
             assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+            assert pageIndex(pageId.pageId()) != 0;
 
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());

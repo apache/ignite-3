@@ -212,13 +212,30 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     private void lastAppliedBusy(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        updateMeta((lastCheckpointId, meta) -> meta.lastApplied(lastCheckpointId, lastAppliedIndex, lastAppliedTerm));
+    }
+
+    /**
+     * Closure interface for {@link #update(UUID, PartitionMeta)}.
+     */
+    @FunctionalInterface
+    private interface MetaUpdateClosure {
+        void update(UUID lastCheckpointId, PartitionMeta meta);
+    }
+
+    /**
+     * Updates partition meta. Hides all the necessary boilderplate in a single place.
+     */
+    private void updateMeta(MetaUpdateClosure closure) {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        meta.lastApplied(lastCheckpointId, lastAppliedIndex, lastAppliedTerm);
+        closure.update(lastCheckpointId, meta);
+
+        checkpointManager.markPartitionAsDirty(tableStorage.dataRegion(), tableStorage.getTableId(), partitionId);
     }
 
     @Override
@@ -262,30 +279,27 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     private void committedGroupConfigurationBusy(byte[] groupConfigBytes) {
-        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+        updateMeta((lastCheckpointId, meta) -> {
+            replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
 
-        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-        UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
+            try {
+                if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                    long configPageId = blobStorage.addBlob(groupConfigBytes);
 
-        replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
-
-        try {
-            if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                long configPageId = blobStorage.addBlob(groupConfigBytes);
-
-                meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
-            } else {
-                blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
+                    meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
+                } else {
+                    blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
+                }
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException(
+                        "Cannot save committed group configuration: [tableId={}, partitionId={}]",
+                        e,
+                        tableStorage.getTableId(), partitionId
+                );
+            } finally {
+                replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
             }
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    "Cannot save committed group configuration: [tableId={}, partitionId={}]",
-                    e,
-                    tableStorage.getTableId(), partitionId
-            );
-        } finally {
-            replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
-        }
+        });
     }
 
     @Override
