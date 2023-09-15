@@ -115,9 +115,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     }
 
     @BeforeEach
-    protected void beforeTest(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, WORK_DIR);
-
+    protected void setUpBase() throws Exception {
         conn.setAutoCommit(true);
 
         stmt = conn.createStatement();
@@ -127,14 +125,12 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    protected void afterTest(TestInfo testInfo) throws Exception {
+    protected void tearDownBase() throws Exception {
         if (stmt != null) {
             stmt.close();
 
             assert stmt.isClosed();
         }
-
-        tearDownBase(testInfo);
     }
 
     /**

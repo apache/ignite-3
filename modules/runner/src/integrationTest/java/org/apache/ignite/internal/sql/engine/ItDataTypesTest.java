@@ -126,7 +126,10 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(Set.of(101), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Column 'C2' does not allow NULLs",
+                () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
     }
 
     /**

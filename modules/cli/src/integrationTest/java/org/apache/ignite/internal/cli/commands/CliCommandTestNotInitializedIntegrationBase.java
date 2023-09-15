@@ -80,16 +80,8 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     @Inject
     private EventListeningActivationPoint eventListeningActivationPoint;
 
-    /**
-     * Invokes before the test will start.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
-    @Override
     @BeforeEach
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
+    public void setUp() {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));

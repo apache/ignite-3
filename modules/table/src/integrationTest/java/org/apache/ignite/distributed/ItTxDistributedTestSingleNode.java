@@ -32,7 +32,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
@@ -56,9 +55,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
-    protected static final int ACC_TABLE_ID = 1;
+    protected static int ACC_TABLE_ID = 0;
 
-    protected static final int CUST_TABLE_ID = 2;
+    protected static int CUST_TABLE_ID = 1;
 
     protected static final String ACC_TABLE_NAME = "accounts";
 
@@ -70,9 +69,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     @InjectConfiguration
     private static GcConfiguration gcConfig;
-
-    @InjectConfiguration("mock.tables.foo {}")
-    private static TablesConfiguration tablesConfig;
 
     /**
      * Returns a count of nodes.
@@ -117,14 +113,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /**
      * Initialize the test state.
      */
-    @Override
     @BeforeEach
     public void before() throws Exception {
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
                 gcConfig,
-                tablesConfig,
                 workDir,
                 nodes(),
                 replicas(),

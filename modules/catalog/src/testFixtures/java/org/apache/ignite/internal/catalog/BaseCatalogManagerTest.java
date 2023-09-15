@@ -27,12 +27,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -99,78 +101,72 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    protected static CreateHashIndexParams createHashIndexParams(
+    protected static CatalogCommand createHashIndexCommand(
             String indexName,
             boolean uniq,
             @Nullable List<String> indexColumns
     ) {
-        CreateHashIndexParams.Builder builder = CreateHashIndexParams.builder()
+        return CreateHashIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(TABLE_NAME)
-                .indexName(indexName);
-
-        builder.unique(uniq);
-
-        if (indexColumns != null) {
-            builder.columns(indexColumns);
-        }
-
-        return builder.build();
+                .indexName(indexName)
+                .unique(uniq)
+                .columns(indexColumns)
+                .build();
     }
 
-    protected static CreateHashIndexParams createHashIndexParams(
+    protected static CatalogCommand createHashIndexCommand(
             String indexName,
             @Nullable List<String> indexColumns
     ) {
-        return createHashIndexParams(indexName, false, indexColumns);
+        return createHashIndexCommand(indexName, false, indexColumns);
     }
 
-    protected static CreateSortedIndexParams createSortedIndexParams(
+    protected static CatalogCommand createSortedIndexCommand(
             String indexName,
-            boolean uniq,
+            boolean unique,
             @Nullable List<String> indexColumns,
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
-        CreateSortedIndexParams.Builder builder = CreateSortedIndexParams.builder()
+        return CreateSortedIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(TABLE_NAME)
-                .indexName(indexName);
-
-        builder.unique(uniq);
-
-        if (indexColumns != null) {
-            builder.columns(indexColumns);
-        }
-
-        if (columnsCollations != null) {
-            builder.collations(columnsCollations);
-        }
-
-        return builder.build();
+                .indexName(indexName)
+                .unique(unique)
+                .columns(indexColumns)
+                .collations(columnsCollations)
+                .build();
     }
 
-    protected static CreateSortedIndexParams createSortedIndexParams(
+    protected static CatalogCommand createSortedIndexCommand(
             String indexName,
             @Nullable List<String> indexColumns,
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
-        return createSortedIndexParams(indexName, false, indexColumns, columnsCollations);
+        return createSortedIndexCommand(indexName, false, indexColumns, columnsCollations);
     }
 
-    protected CatalogCommand createTableCommand(
+    protected static CatalogCommand createTableCommand(
             String tableName,
             List<ColumnParams> columns,
             List<String> primaryKeys,
             @Nullable List<String> colocationColumns
     ) {
-        return manager.createTableCommandBuilder()
+        return createTableCommandBuilder(tableName, columns, primaryKeys, colocationColumns)
+                .build();
+    }
+
+    protected static CreateTableCommandBuilder createTableCommandBuilder(String tableName,
+            List<ColumnParams> columns,
+            List<String> primaryKeys, @Nullable List<String> colocationColumns) {
+
+        return CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(columns)
                 .primaryKeyColumns(primaryKeys)
-                .colocationColumns(colocationColumns)
-                .build();
+                .colocationColumns(colocationColumns);
     }
 
     protected static ColumnParams columnParams(String name, ColumnType type) {
@@ -189,15 +185,15 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return ColumnParams.builder().name(name).nullable(nullable).type(type);
     }
 
-    protected static DropTableParams dropTableParams(String tableName) {
-        return DropTableParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
+    protected static CatalogCommand dropTableCommand(String tableName) {
+        return DropTableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
     }
 
-    protected static AlterTableDropColumnParams dropColumnParams(String... columns) {
-        return AlterTableDropColumnParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(Set.of(columns)).build();
+    protected static CatalogCommand dropColumnParams(String... columns) {
+        return AlterTableDropColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(Set.of(columns)).build();
     }
 
-    protected static AlterTableAddColumnParams addColumnParams(ColumnParams... columns) {
-        return AlterTableAddColumnParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(List.of(columns)).build();
+    protected static CatalogCommand addColumnParams(ColumnParams... columns) {
+        return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(List.of(columns)).build();
     }
 }

@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.BeforeAll;
@@ -62,16 +61,6 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         schemas.add(publicSchema);
         schemas.add(otherSchema);
-    }
-
-    private static IgniteSchema createSchema(String schemaName, TestTable... tables) {
-        IgniteSchema schema = new IgniteSchema(schemaName);
-
-        for (TestTable table : tables) {
-            schema.addTable(table);
-        }
-
-        return schema;
     }
 
     @Test

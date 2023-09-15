@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.fromBytes;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.toBytes;
+import static org.apache.ignite.lang.util.StringUtils.incrementLastChar;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -221,15 +222,6 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Long> lastRevision() {
         return vaultMgr.get(VERSION_KEY)
                 .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
-    }
-
-    /**
-     * Increments the last character of the given string.
-     */
-    private static String incrementLastChar(String str) {
-        char lastChar = str.charAt(str.length() - 1);
-
-        return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {

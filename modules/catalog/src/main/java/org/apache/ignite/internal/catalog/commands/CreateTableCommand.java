@@ -19,9 +19,8 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableOrIndexExistsWithGivenName;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
@@ -43,28 +42,22 @@ import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that adds a new table to the catalog.
  */
-public class CreateTableCommand extends AbstractCatalogCommand {
-    /** Schema name where this new table will be created. */
-    private final String schemaName;
+public class CreateTableCommand extends AbstractTableCommand {
+    /** Returns builder to create a command to create a new table. */
+    public static CreateTableCommandBuilder builder() {
+        return new Builder();
+    }
 
-    /** Table name. */
-    private final String tableName;
-
-    /** Primary key columns. */
     private final List<String> primaryKeyColumns;
 
-    /** Colocation columns. */
     private final List<String> colocationColumns;
 
-    /** Columns. */
     private final List<ColumnParams> columns;
 
-    /** Distribution zone name. */
     private final String zoneName;
 
     /**
@@ -76,7 +69,7 @@ public class CreateTableCommand extends AbstractCatalogCommand {
      *      Should be subset of columns in param `columns`.
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.
-     * @param columns List of the columns containing by the table. There is should be at least one column.
+     * @param columns List of the columns containing by the table. There should be at least one column.
      * @param zoneName Name of the zone to create table in. Should not be null or blank.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
@@ -88,8 +81,8 @@ public class CreateTableCommand extends AbstractCatalogCommand {
             List<ColumnParams> columns,
             String zoneName
     ) throws CatalogValidationException {
-        this.tableName = tableName;
-        this.schemaName = schemaName;
+        super(schemaName, tableName);
+
         this.primaryKeyColumns = copyOrNull(primaryKeyColumns);
         this.colocationColumns = copyOrNull(colocationColumns);
         this.columns = copyOrNull(columns);
@@ -102,7 +95,7 @@ public class CreateTableCommand extends AbstractCatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        ensureNoTableOrIndexExistsWithGivenName(schema, tableName);
+        ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
 
@@ -112,6 +105,7 @@ public class CreateTableCommand extends AbstractCatalogCommand {
 
         CatalogTableDescriptor table = new CatalogTableDescriptor(
                 tableId,
+                pkIndexId,
                 tableName,
                 zone.id(),
                 CatalogTableDescriptor.INITIAL_TABLE_VERSION,
@@ -122,7 +116,7 @@ public class CreateTableCommand extends AbstractCatalogCommand {
 
         String indexName = tableName + "_PK";
 
-        ensureNoTableOrIndexExistsWithGivenName(schema, indexName);
+        ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
         CatalogHashIndexDescriptor pkIndex = new CatalogHashIndexDescriptor(
                 pkIndexId,
@@ -133,16 +127,13 @@ public class CreateTableCommand extends AbstractCatalogCommand {
         );
 
         return List.of(
-                new NewTableEntry(table),
-                new NewIndexEntry(pkIndex),
+                new NewTableEntry(table, schemaName),
+                new NewIndexEntry(pkIndex, schemaName),
                 new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
         );
     }
 
     private void validate() {
-        validateIdentifier(schemaName, "Name of the schema");
-        validateIdentifier(tableName, "Name of the table");
-
         if (nullOrEmpty(columns)) {
             throw new CatalogValidationException("Table should have at least one column");
         }
@@ -193,18 +184,18 @@ public class CreateTableCommand extends AbstractCatalogCommand {
     /**
      * Implementation of {@link CreateTableCommandBuilder}.
      */
-    public static class Builder implements CreateTableCommandBuilder {
-        private @Nullable List<ColumnParams> columns;
+    private static class Builder implements CreateTableCommandBuilder {
+        private List<ColumnParams> columns;
 
-        private @Nullable String schemaName;
+        private String schemaName;
 
-        private @Nullable String tableName;
+        private String tableName;
 
-        private @Nullable List<String> primaryKeyColumns;
+        private List<String> primaryKeyColumns;
 
-        private @Nullable List<String> colocationColumns;
+        private List<String> colocationColumns;
 
-        private @Nullable String zoneName;
+        private String zoneName;
 
         @Override
         public CreateTableCommandBuilder schemaName(String schemaName) {
@@ -248,7 +239,6 @@ public class CreateTableCommand extends AbstractCatalogCommand {
             return this;
         }
 
-        @SuppressWarnings("DataFlowIssue") // params are validated in constructor
         @Override
         public CatalogCommand build() {
             String zoneName = requireNonNullElse(this.zoneName, CatalogService.DEFAULT_ZONE_NAME);

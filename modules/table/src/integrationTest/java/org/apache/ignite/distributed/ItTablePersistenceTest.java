@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -40,12 +41,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
@@ -56,12 +58,12 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowImpl;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -83,7 +85,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -113,14 +115,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
+    private static final String NODE_NAME = "node1";
+
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
-
-    @InjectConfiguration("mock.tables.foo = {}")
-    private TablesConfiguration tablesCfg;
-
-    @InjectConfiguration("mock.partitions = 1")
-    private DistributionZoneConfiguration zoneCfg;
 
     @InjectConfiguration
     private GcConfiguration gcConfig;
@@ -134,7 +132,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
+    private static final ColumnsExtractor PK_EXTRACTOR = BinaryRowConverter.keyExtractor(SCHEMA);
+
+    private static final Row FIRST_VALUE_PK = createKeyRow(1);
+
     private static final Row FIRST_VALUE = createKeyValueRow(1, 1);
+
+    private static final Row SECOND_VALUE_PK = createKeyRow(2);
 
     private static final Row SECOND_VALUE = createKeyValueRow(2, 2);
 
@@ -156,7 +160,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     private final ReplicaService replicaService = mock(ReplicaService.class);
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
-            -> new ClusterNodeImpl("node1", "node1", new NetworkAddress(addr, 3333));
+            -> new ClusterNodeImpl(NODE_NAME, NODE_NAME, new NetworkAddress(addr, 3333));
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
@@ -217,7 +221,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 new TestTxStateTableStorage(),
                 replicaService,
                 hybridClock,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                new TestPlacementDriver(NODE_NAME)
         );
 
         closeables.add(() -> table.close());
@@ -231,8 +236,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         when(partitionReplicaListener.invoke(any(), any())).thenAnswer(invocationOnMock -> {
             ReplicaRequest req = invocationOnMock.getArgument(0);
 
-            if (req instanceof ReadWriteSingleRowReplicaRequest) {
-                ReadWriteSingleRowReplicaRequest req0 = (ReadWriteSingleRowReplicaRequest) req;
+            if (req instanceof ReadWriteSingleRowPkReplicaRequest) {
+                ReadWriteSingleRowPkReplicaRequest req0 = (ReadWriteSingleRowPkReplicaRequest) req;
 
                 if (req0.requestType() == RequestType.RW_GET) {
                     List<JraftServerImpl> servers = servers();
@@ -252,22 +257,35 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
 
-                    Map<BinaryRow, RowId> primaryIndex = rowsToRowIds(partitionStorage);
-                    RowId rowId = primaryIndex.get(req0.binaryRow());
+                    Map<ByteBuffer, RowId> primaryIndex = pkIndex(partitionStorage);
+                    RowId rowId = primaryIndex.get(req0.primaryKey());
+
+                    if (rowId == null) {
+                        return completedFuture(null);
+                    }
 
                     BinaryRow row = partitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
                     return completedFuture(row);
-                }
+                } else if (req0.requestType() == RequestType.RW_DELETE) {
+                    UpdateCommand cmd = msgFactory.updateCommand()
+                            .txId(req0.transactionId())
+                            .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
+                            .rowUuid(new RowId(0).uuid())
+                            .safeTimeLong(hybridClock.nowLong())
+                            .txCoordinatorId(UUID.randomUUID().toString())
+                            .build();
 
-                // Non-null binary row if UPSERT, otherwise it's implied that request type is DELETE.
-                BinaryRowMessage binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRowMessage() : null;
+                    return service.run(cmd);
+                }
+            } else if (req instanceof ReadWriteSingleRowReplicaRequest) {
+                ReadWriteSingleRowReplicaRequest req0 = (ReadWriteSingleRowReplicaRequest) req;
 
                 UpdateCommand cmd = msgFactory.updateCommand()
                         .txId(req0.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
-                        .rowMessage(binaryRow)
+                        .rowMessage(req0.binaryRowMessage())
                         .safeTimeLong(hybridClock.nowLong())
                         .txCoordinatorId(UUID.randomUUID().toString())
                         .build();
@@ -308,7 +326,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception {
         // Remove the first key
-        table.delete(FIRST_VALUE, null).get();
+        table.delete(FIRST_VALUE_PK, null).get();
 
         // Put deleted data again
         table.upsert(FIRST_VALUE, null).get();
@@ -324,7 +342,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public void afterSnapshot(RaftGroupService service) throws Exception {
         table.upsert(SECOND_VALUE, null).get();
 
-        assertNotNull(table.get(SECOND_VALUE, null).join());
+        assertNotNull(table.get(SECOND_VALUE_PK, null).join());
     }
 
     @Override
@@ -332,11 +350,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
 
         return () -> {
-            Map<BinaryRow, RowId> primaryIndex = rowsToRowIds(storage);
+            Map<ByteBuffer, RowId> primaryIndex = pkIndex(storage);
 
-            Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
+            Row pk = interactedAfterSnapshot ? SECOND_VALUE_PK : FIRST_VALUE_PK;
 
-            RowId rowId = primaryIndex.get(new BinaryRowImpl(value.schemaVersion(), value.tupleSlice()));
+            RowId rowId = primaryIndex.get(pk.byteBuffer());
 
             if (rowId == null) {
                 return false;
@@ -348,12 +366,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 return false;
             }
 
+            Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
+
             return value.tupleSlice().equals(read.binaryRow().tupleSlice());
         };
     }
 
-    private static Map<BinaryRow, RowId> rowsToRowIds(MvPartitionStorage storage) {
-        Map<BinaryRow, RowId> result = new HashMap<>();
+    private static Map<ByteBuffer, RowId> pkIndex(MvPartitionStorage storage) {
+        Map<ByteBuffer, RowId> result = new HashMap<>();
 
         RowId rowId = storage.closestRowId(RowId.lowestRowId(0));
 
@@ -361,7 +381,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             BinaryRow binaryRow = storage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
             if (binaryRow != null) {
-                result.put(binaryRow, rowId);
+                result.put(PK_EXTRACTOR.extractColumns(binaryRow).byteBuffer(), rowId);
             }
 
             RowId incremented = rowId.increment();
@@ -390,11 +410,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     RocksDbStorageEngine storageEngine = new RocksDbStorageEngine("test", engineConfig, path);
                     storageEngine.start();
 
-                    zoneCfg.dataStorage().change(ds -> ds.convert(storageEngine.name())).join();
-
                     MvTableStorage mvTableStorage = storageEngine.createMvTable(
                             new StorageTableDescriptor(1, 1, DEFAULT_DATA_REGION_NAME),
-                            new StorageIndexDescriptorSupplier(tablesCfg)
+                            new StorageIndexDescriptorSupplier(mock(CatalogService.class))
                     );
                     mvTableStorage.start();
 
@@ -477,6 +495,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         rowBuilder.appendLong(value);
 
         return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
+    }
+
+    private static Row createKeyRow(long id) {
+        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA);
+
+        rowBuilder.appendLong(id);
+
+        return Row.wrapKeyOnlyBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     private static MvPartitionStorage getOrCreateMvPartition(MvTableStorage tableStorage, int partitionId) {

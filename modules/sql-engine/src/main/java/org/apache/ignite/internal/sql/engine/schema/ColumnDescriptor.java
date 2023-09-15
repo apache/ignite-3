@@ -39,9 +39,6 @@ public interface ColumnDescriptor {
     /** Returns 0-based index of the column according to a schema defined by a user. */
     int logicalIndex();
 
-    /** Returns 0-based index of the column according to an actual row layout defined by a storage. */
-    int physicalIndex();
-
     /** Returns the type of this column in a storage. */
     NativeType physicalType();
 

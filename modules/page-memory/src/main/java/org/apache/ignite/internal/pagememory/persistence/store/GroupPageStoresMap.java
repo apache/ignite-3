@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,8 +88,8 @@ public class GroupPageStoresMap<T extends PageStore> {
     /**
      * Returns a view of all page stores of all groups.
      */
-    public Collection<GroupPartitionPageStore<T>> getAll() {
-        return CollectionUtils.viewReadOnly(groupPartitionIdPageStore.entrySet(), GroupPartitionPageStore::new);
+    public Stream<GroupPartitionPageStore<T>> getAll() {
+        return groupPartitionIdPageStore.entrySet().stream().map(GroupPartitionPageStore::new);
     }
 
     /**

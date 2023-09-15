@@ -41,7 +41,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Various DML tests.
@@ -53,18 +52,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         return 3;
     }
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void dropTables() {
         dropAllTables();
-
-        super.tearDownBase(testInfo);
     }
 
     @Test
@@ -130,6 +120,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         var ex = assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
 
@@ -180,6 +171,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         SqlException ex = assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
                 () -> sql(insertStatement)
         );
 
@@ -407,7 +399,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
-        SqlException ex = assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, () -> sql(
+        SqlException ex = assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
+                () -> sql(
                         "MERGE INTO test2 USING test1 ON test1.a = test2.a "
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
@@ -674,7 +669,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT b FROM test").returns("4").check();
 
         sql("DELETE FROM test WHERE a = 0");
-        assertQuery("SELECT d FROM test").returnNothing();
+        assertQuery("SELECT d FROM test").returnNothing().check();
     }
 
     private static void checkDuplicatePk(IgniteException ex) {

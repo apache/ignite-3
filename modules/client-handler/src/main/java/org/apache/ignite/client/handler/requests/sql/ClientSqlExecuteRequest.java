@@ -193,12 +193,12 @@ public class ClientSqlExecuteRequest {
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
         // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
         if (meta == null || meta.columns() == null) {
-            out.packArrayHeader(0);
+            out.packInt(0);
             return;
         }
 
         List<ColumnMetadata> cols = meta.columns();
-        out.packArrayHeader(cols.size());
+        out.packInt(cols.size());
 
         // In many cases there are multiple columns from the same table.
         // Schema is the same for all columns in most cases.
@@ -211,7 +211,7 @@ public class ClientSqlExecuteRequest {
             ColumnOrigin origin = col.origin();
 
             int fieldsNum = origin == null ? 6 : 9;
-            out.packArrayHeader(fieldsNum);
+            out.packInt(fieldsNum);
 
             out.packString(col.name());
             out.packBoolean(col.nullable());

@@ -58,7 +58,6 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.framework.TestStatistic;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -602,18 +601,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTbl, proj, cond, requiredColumns);
         }
 
-        @Override
-        public IgniteLogicalIndexScan toRel(
-                RelOptCluster cluster,
-                RelOptTable relOptTbl,
-                String idxName,
-                @Nullable List<RexNode> proj,
-                @Nullable RexNode cond,
-                @Nullable ImmutableBitSet requiredColumns
-        ) {
-            return IgniteLogicalIndexScan.create(cluster, cluster.traitSet(), relOptTbl, idxName, proj, cond, requiredColumns);
-        }
-
         /** {@inheritDoc} */
         @Override
         public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
@@ -663,21 +650,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         @Override
         public Map<String, IgniteIndex> indexes() {
             return Map.of();
-        }
-
-        @Override
-        public void addIndex(IgniteIndex idxTbl) {
-            throw new AssertionError();
-        }
-
-        @Override
-        public IgniteIndex getIndex(String idxName) {
-            throw new AssertionError();
-        }
-
-        @Override
-        public void removeIndex(String idxName) {
-            throw new AssertionError();
         }
 
         @Override

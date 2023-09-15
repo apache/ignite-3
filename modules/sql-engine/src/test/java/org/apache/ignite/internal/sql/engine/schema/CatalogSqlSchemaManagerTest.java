@@ -53,6 +53,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
@@ -69,6 +70,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 
 /**
  * Tests for {@link CatalogSqlSchemaManager}.
@@ -101,7 +103,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         assertEquals(testSchema.name, schema.getName());
         assertEquals(testSchema.version, schema.version());
@@ -158,9 +160,9 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
-        IgniteSchemaTable table = getTable(schema, testTable);
+        IgniteTable table = getTable(schema, testTable);
 
         assertEquals(testTable.id, table.id());
         assertEquals(schema.version(), table.version());
@@ -169,12 +171,10 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         ColumnDescriptor c1 = table.descriptor().columnDescriptor(0);
         assertEquals(0, c1.logicalIndex());
-        assertEquals(0, c1.physicalIndex());
         assertTrue(c1.nullable());
 
         ColumnDescriptor c2 = table.descriptor().columnDescriptor(1);
         assertEquals(1, c2.logicalIndex());
-        assertEquals(1, c2.physicalIndex());
         assertFalse(c2.nullable());
 
         if (hasNativeType) {
@@ -199,7 +199,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         {
             SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-            IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+            IgniteSchema schema = unwrapSchema(schemaPlus);
 
             assertEquals(DEFAULT_SCHEMA_NAME, schema.getName());
             assertEquals(testSchema.version, schema.version());
@@ -207,7 +207,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         {
             SchemaPlus schemaPlus = sqlSchemaManager.schema(null, testSchema.timestamp);
-            IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+            IgniteSchema schema = unwrapSchema(schemaPlus);
 
             assertEquals(DEFAULT_SCHEMA_NAME, schema.getName());
             assertEquals(testSchema.version, schema.version());
@@ -236,7 +236,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = getTable(schema, testTable);
 
@@ -276,7 +276,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
@@ -304,7 +304,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
@@ -338,7 +338,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
@@ -371,12 +371,12 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
-        IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
+        IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
-        IgniteSchemaIndex testIdx = table.getIndexes().get(testIndex.name);
+        IgniteIndex testIdx = table.indexes().get(testIndex.name);
 
         assertEquals(testIndex.name, testIdx.name());
         assertEquals(Type.HASH, testIdx.type());
@@ -415,12 +415,12 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
-        IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
+        IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
-        IgniteSchemaIndex testIdx = table.getIndexes().get(testIndex.name);
+        IgniteIndex testIdx = table.indexes().get(testIndex.name);
 
         assertEquals(testIndex.name, testIdx.name());
         assertEquals(Type.SORTED, testIdx.type());
@@ -436,16 +436,16 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         return new CatalogSqlSchemaManager(catalogManager, 200);
     }
 
-    private IgniteCatalogSchema unwrapSchema(SchemaPlus schemaPlus) {
-        IgniteCatalogSchema igniteSchema = schemaPlus.unwrap(IgniteCatalogSchema.class);
+    private IgniteSchema unwrapSchema(SchemaPlus schemaPlus) {
+        IgniteSchema igniteSchema = schemaPlus.unwrap(IgniteSchema.class);
         assertNotNull(igniteSchema);
         return igniteSchema;
     }
 
-    private static IgniteSchemaTable getTable(IgniteCatalogSchema schema, TestTable testTable) {
+    private static IgniteTable getTable(IgniteSchema schema, TestTable testTable) {
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
-        return (IgniteSchemaTable) table;
+        return table;
     }
 
     private static final class TestSchema {
@@ -498,8 +498,9 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
             CatalogTableDescriptor[] tablesArray = tableDescriptors.values().toArray(new CatalogTableDescriptor[0]);
             CatalogIndexDescriptor[] indexesArray = indexDescriptorMap.values().toArray(new CatalogIndexDescriptor[0]);
+            CatalogSystemViewDescriptor[] systemViewsArray = new CatalogSystemViewDescriptor[0];
 
-            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, tablesArray, indexesArray);
+            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, tablesArray, indexesArray, systemViewsArray);
         }
     }
 
@@ -577,6 +578,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
             return new CatalogTableDescriptor(
                     id,
+                    -1,
                     name,
                     zoneId,
                     CatalogTableDescriptor.INITIAL_TABLE_VERSION,

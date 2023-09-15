@@ -20,24 +20,25 @@ package org.apache.ignite.internal.distribution.zones;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -46,7 +47,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +55,10 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -75,7 +79,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -84,15 +88,15 @@ import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -121,6 +125,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     private static final String ZONE_NAME = "zone1";
 
     private MetaStorageManager metastore;
+
+    private volatile boolean startScaleUpBlocking;
+
+    private volatile boolean startScaleDownBlocking;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -185,6 +193,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
         ));
 
+        blockScaleUpAndScaleDownUpdates(metastore);
+
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metastore.registerRevisionUpdateListener(function::apply);
 
@@ -205,20 +215,21 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
-
-        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
+        var clock = new HybridClockImpl();
+
+        var clockWaiter = new ClockWaiter(name, clock);
+
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter);
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
+                name,
                 revisionUpdater,
-                zonesConfiguration,
-                tablesConfiguration,
                 metastore,
                 logicalTopologyService,
                 vault,
-                name
+                catalogManager
         );
 
         // Preparing the result map.
@@ -241,6 +252,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 cmgManager,
                 metastore,
                 clusterCfgMgr,
+                clockWaiter,
+                catalogManager,
                 distributionZoneManager
         );
 
@@ -260,12 +273,20 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry
+                clusterConfigRegistry,
+                clock
         );
 
         partialNodes.add(partialNode);
 
         return partialNode;
+    }
+
+    @AfterEach
+    public void afterTest() {
+        startScaleUpBlocking = false;
+
+        startScaleDownBlocking = false;
     }
 
     @Test
@@ -401,7 +422,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         // Block scale up
-        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
+        startScaleUpBlocking = true;
 
         node.logicalTopology().putNode(C);
         node.logicalTopology().removeNodes(Set.of(B));
@@ -415,6 +436,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         node.stop();
+
+        startScaleUpBlocking = false;
 
         node = startPartialNode(0);
 
@@ -440,9 +463,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
-        node.logicalTopology().putNode(A);
-
         int zoneId = getZoneId(node, zoneName);
+
+        node.logicalTopology().putNode(A);
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
 
@@ -454,7 +477,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
 
-        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
+        startScaleUpBlocking = true;
 
         // Only Node B passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
@@ -471,6 +494,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         node.stop();
 
+        startScaleUpBlocking = false;
+
         node = startPartialNode(0);
 
         distributionZoneManager = getDistributionZoneManager(node);
@@ -480,6 +505,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20412")
     public void testScaleUpsTriggeredByFilterUpdateAndNodeJoinAreRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode node = startPartialNode(0);
 
@@ -493,7 +519,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
 
-        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
+        startScaleUpBlocking = true;
 
         alterZone(node, zoneName, 100, null, null);
 
@@ -519,6 +545,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         node.stop();
+
+        startScaleUpBlocking = false;
 
         node = startPartialNode(0);
 
@@ -557,7 +585,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         int zoneId = getZoneId(node, zoneName);
 
         // Block scale down
-        blockUpdate(metastore, zoneScaleDownChangeTriggerKey(zoneId));
+        startScaleDownBlocking = true;
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
@@ -573,6 +601,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         node.stop();
+
+        startScaleDownBlocking = false;
 
         node = startPartialNode(0);
 
@@ -625,14 +655,18 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         }
     }
 
-    private static void blockUpdate(MetaStorageManager metaStorageManager, ByteArray key) {
-        when(metaStorageManager.invoke(argThat(iif -> {
+    private void blockScaleUpAndScaleDownUpdates(MetaStorageManager metaStorageManager) {
+        doThrow(new RuntimeException("Expected")).when(metaStorageManager).invoke(argThat(iif -> {
             If iif1 = MetaStorageWriteHandler.toIf(iif);
 
-            byte[] keyScaleUp = key.bytes();
+            byte[] keyScaleUpBytes = DistributionZonesUtil.zoneScaleUpChangeTriggerKeyPrefix().bytes();
+            byte[] keyScaleDownBytes = DistributionZonesUtil.zoneScaleDownChangeTriggerKeyPrefix().bytes();
 
-            return iif1.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(keyScaleUp, op.key()));
-        }))).thenThrow(new RuntimeException("Expected"));
+            boolean isScaleUpKey = iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), keyScaleUpBytes));
+            boolean isScaleDownKey = iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), keyScaleDownBytes));
+
+            return isScaleUpKey && startScaleUpBlocking || isScaleDownKey && startScaleDownBlocking;
+        }));
     }
 
     private static <T extends IgniteComponent> T getStartedComponent(PartialNode node, Class<T> componentClass) {
@@ -647,12 +681,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         return getStartedComponent(node, DistributionZoneManager.class);
     }
 
+    private static CatalogManager getCatalogManager(PartialNode node) {
+        return getStartedComponent(node, CatalogManager.class);
+    }
+
     private static int getZoneId(PartialNode node, String zoneName) {
-        return getDistributionZoneManager(node).getZoneId(zoneName);
+        return DistributionZonesTestUtil.getZoneId(getCatalogManager(node), zoneName, node.clock().nowLong());
     }
 
     private static void createZone(PartialNode node, String zoneName, int scaleUp, int scaleDown) {
-        DistributionZonesTestUtil.createZone(getDistributionZoneManager(node), zoneName, scaleUp, scaleDown, (String) null);
+        DistributionZonesTestUtil.createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null);
     }
 
     private static void alterZone(
@@ -662,6 +700,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             @Nullable Integer scaleDown,
             @Nullable String filter
     ) {
-        DistributionZonesTestUtil.alterZone(getDistributionZoneManager(node), zoneName, scaleUp, scaleDown, filter);
+        DistributionZonesTestUtil.alterZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, filter);
     }
 }

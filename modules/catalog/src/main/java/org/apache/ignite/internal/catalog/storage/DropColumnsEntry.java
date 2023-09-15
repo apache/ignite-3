@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -40,16 +39,19 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
     private final Set<String> columns;
+    private final String schemaName;
 
     /**
      * Constructs the object.
      *
      * @param tableId Table id.
      * @param columns Names of columns to drop.
+     * @param schemaName Schema name.
      */
-    public DropColumnsEntry(int tableId, Set<String> columns) {
+    public DropColumnsEntry(int tableId, Set<String> columns, String schemaName) {
         this.tableId = tableId;
         this.columns = columns;
+        this.schemaName = schemaName;
     }
 
     /** Returns table id. */
@@ -74,19 +76,20 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                List.of(new CatalogSchemaDescriptor(
+                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
                         schema.id(),
                         schema.name(),
                         Arrays.stream(schema.tables())
                                 .map(table -> table.id() == tableId ? new CatalogTableDescriptor(
                                         table.id(),
+                                        table.primaryKeyIndexId(),
                                         table.name(),
                                         table.zoneId(),
                                         table.tableVersion() + 1,
@@ -97,8 +100,9 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                                         table.colocationColumns()) : table
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
-                        schema.indexes()
-                ))
+                        schema.indexes(),
+                        schema.systemViews()
+                ), catalog.schemas())
         );
     }
 

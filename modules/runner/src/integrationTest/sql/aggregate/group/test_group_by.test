@@ -131,12 +131,17 @@ NULL	NULL
 2	2.000000
 3	3.000000
 
-# aliases can only be referenced in the GROUP BY as the root column: operations not allowed
-# CONTROVERSIAL: this query DOES work in SQLite
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18670
-statement error
-SELECT 1 AS k, SUM(i) FROM integers GROUP BY k+1 ORDER BY 2;
+# aliases can be referenced in group by <columns> clause.
+query II
+SELECT 1 AS k, SUM(i) FROM integers GROUP BY k+1 ORDER BY 2
+----
+1	6
+
+# aliases can be referenced in group by <grouping sets> clause.
+query II
+SELECT 1 AS k, SUM(i) FROM integers GROUP BY GROUPING SETS ((k+1)) ORDER BY 2
+----
+1	6
 
 # group by column refs should be recognized, even if one uses an explicit table specifier and the other does not
 query II

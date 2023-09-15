@@ -72,8 +72,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -116,8 +114,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
     MetaStorageManager msm;
 
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void tearDown() throws Exception {
         List<AutoCloseable> closeables = placementDriverManagers.values().stream().map(p -> (AutoCloseable) p::stop).collect(toList());
 
         closeAll(closeables);
@@ -125,8 +122,6 @@ public class ActiveActorTest extends IgniteAbstractTest {
         placementDriverManagers.clear();
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
-        super.tearDown(testInfo);
     }
 
     /**
@@ -159,7 +154,6 @@ public class ActiveActorTest extends IgniteAbstractTest {
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
                 nodeName,
                 msm,
-                new VaultManager(new InMemoryVaultService()),
                 GROUP_ID,
                 clusterService,
                 () -> completedFuture(placementDriverNodesNames),
@@ -435,6 +429,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
             int nodes,
             int clientPort
     ) {
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(0L));
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(true));
 
         List<NetworkAddress> addresses = getNetworkAddresses(nodes);

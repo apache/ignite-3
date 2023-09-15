@@ -52,6 +52,22 @@ public interface InternalTuple {
      * @param col Column index.
      * @return Column value.
      */
+    boolean booleanValue(int col);
+
+    /**
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     */
+    Boolean booleanValueBoxed(int col);
+
+    /**
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     */
     byte byteValue(int col);
 
     /**

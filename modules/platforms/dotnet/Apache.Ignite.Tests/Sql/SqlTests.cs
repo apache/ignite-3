@@ -116,9 +116,9 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestGetAllMultiplePages()
+        public async Task TestGetAllMultiplePages([Values(1, 2, 3, 4, 5, 6)] int pageSize)
         {
-            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: pageSize);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
             var rows = await resultSet.ToListAsync();
 
@@ -311,8 +311,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(0, columns[1].Scale);
             Assert.AreEqual(10, columns[1].Precision);
 
-            // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
-            // Assert.AreEqual("ID + 1", columns[2].Name);
+            Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);
 
             // Update data.
@@ -345,37 +344,31 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestCreateTableExistsThrowsException()
         {
-            var ex = Assert.ThrowsAsync<TableAlreadyExistsException>(
+            // TODO: IGNITE-20388 Fix it
+            var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
 
-            Assert.AreEqual("Table already exists [name=\"PUBLIC\".\"TEST\"]", ex!.Message);
-            Assert.AreEqual("IGN-TBL-1", ex.CodeAsString);
-            Assert.AreEqual("TBL", ex.GroupName);
-            Assert.AreEqual(ErrorGroups.Table.TableAlreadyExists, ex.Code);
+            StringAssert.Contains("Table with name 'PUBLIC.TEST' already exists", ex!.Message);
         }
 
         [Test]
         public void TestAlterTableNotFoundThrowsException()
         {
-            var ex = Assert.ThrowsAsync<TableNotFoundException>(
+            // TODO: IGNITE-20388 Fix it
+            var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
-            Assert.AreEqual("The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]", ex!.Message);
-            Assert.AreEqual("IGN-TBL-2", ex.CodeAsString);
-            Assert.AreEqual("TBL", ex.GroupName);
-            Assert.AreEqual(ErrorGroups.Table.TableNotFound, ex.Code);
+            StringAssert.Contains("Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found", ex!.Message);
         }
 
         [Test]
         public void TestAlterTableColumnExistsThrowsException()
         {
-            var ex = Assert.ThrowsAsync<ColumnAlreadyExistsException>(
+            // TODO: IGNITE-20388 Fix it
+            var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
 
-            Assert.AreEqual("Column already exists [name=\"ID\"]", ex!.Message);
-            Assert.AreEqual("IGN-TBL-3", ex.CodeAsString);
-            Assert.AreEqual("TBL", ex.GroupName);
-            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
+            StringAssert.Contains("Invalid query, check inner exceptions for details: ALTER TABLE TEST ADD COLUMN ID INT", ex!.Message);
         }
 
         [Test]

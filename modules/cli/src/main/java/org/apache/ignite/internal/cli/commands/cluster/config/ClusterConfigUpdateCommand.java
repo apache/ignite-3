@@ -22,10 +22,10 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.param.SpacedParameter;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -40,7 +40,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameter config;
+    private SpacedParameterMixin config;
 
     @Inject
     ClusterConfigUpdateCall call;

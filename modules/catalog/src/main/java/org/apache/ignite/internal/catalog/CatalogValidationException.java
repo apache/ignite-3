@@ -44,7 +44,7 @@ public class CatalogValidationException extends IgniteInternalException {
      * @param params Error message params.
      * @see IgniteStringFormatter#format(String, Object...)
      */
-    CatalogValidationException(int code, String messagePattern, Object... params) {
+    public CatalogValidationException(int code, String messagePattern, Object... params) {
         super(code, messagePattern, params);
     }
 

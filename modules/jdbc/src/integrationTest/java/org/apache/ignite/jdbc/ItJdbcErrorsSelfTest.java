@@ -33,6 +33,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -87,12 +88,11 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                             + "    BALANCE    DOUBLE)"
             );
 
-            SQLException ex = assertThrows(
+            IgniteTestUtils.assertThrows(
                     SQLException.class,
-                    () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)")
+                    () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)"),
+                    "Table with name 'PUBLIC.ACCOUNTS' already exists"
             );
-
-            assertThat(ex.getMessage(), containsString("Table already exists"));
         }
     }
 

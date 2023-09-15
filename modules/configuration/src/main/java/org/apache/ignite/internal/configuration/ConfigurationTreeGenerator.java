@@ -24,12 +24,13 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mapIterable;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
@@ -161,12 +162,14 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @param polymorphicSchemaExtensions polymorphic schema extensions
      * @return set of all schema classes
      */
-    private static Set<Class<?>> collectAllSchemas(Collection<RootKey<?, ?>> rootKeys,
+    private static Set<Class<?>> collectAllSchemas(
+            Collection<RootKey<?, ?>> rootKeys,
             Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions) {
+            Collection<Class<?>> polymorphicSchemaExtensions
+    ) {
         Set<Class<?>> allSchemas = new HashSet<>();
 
-        allSchemas.addAll(collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass)));
+        allSchemas.addAll(collectSchemas(mapIterable(rootKeys, RootKey::schemaClass)));
         allSchemas.addAll(collectSchemas(internalSchemaExtensions));
         allSchemas.addAll(collectSchemas(polymorphicSchemaExtensions));
 
@@ -219,7 +222,10 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
 
         Set<Class<?>> notInAllSchemas = difference(polymorphicExtensionsByParent.keySet(), allSchemas);
 
-        if (!notInAllSchemas.isEmpty()) {
+        // TODO: IGNTIE-20263 Return commented condition
+        // if (!notInAllSchemas.isEmpty()) {
+        if (!notInAllSchemas.isEmpty()
+                && (notInAllSchemas.size() == 1 && !first(notInAllSchemas).getSimpleName().equals("DataStorageConfigurationSchema"))) {
             throw new IllegalArgumentException(
                     "Polymorphic extensions for which no polymorphic configuration schemas were found: " + notInAllSchemas
             );

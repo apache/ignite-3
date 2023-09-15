@@ -39,7 +39,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -93,7 +92,6 @@ public class PlacementDriverManager implements IgniteComponent {
      *
      * @param nodeName Node name.
      * @param metaStorageMgr Meta Storage manager.
-     * @param vaultManager Vault manager.
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
      * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
@@ -105,7 +103,6 @@ public class PlacementDriverManager implements IgniteComponent {
     public PlacementDriverManager(
             String nodeName,
             MetaStorageManager metaStorageMgr,
-            VaultManager vaultManager,
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
             Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
@@ -122,11 +119,10 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
+        this.leaseTracker = new LeaseTracker(metaStorageMgr);
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,
-                vaultManager,
                 metaStorageMgr,
                 logicalTopologyService,
                 leaseTracker,
@@ -161,6 +157,8 @@ public class PlacementDriverManager implements IgniteComponent {
                         if (ex == null) {
                             raftClientFuture.complete(client);
                         } else {
+                            LOG.error("Placement driver initialization exception", ex);
+
                             raftClientFuture.completeExceptionally(ex);
                         }
                     });
@@ -230,5 +228,14 @@ public class PlacementDriverManager implements IgniteComponent {
     @TestOnly
     boolean isActiveActor() {
         return leaseUpdater.active();
+    }
+
+    /**
+     * Returns placement driver service.
+     *
+     * @return Placement driver service.
+     */
+    public PlacementDriver placementDriver() {
+        return leaseTracker;
     }
 }

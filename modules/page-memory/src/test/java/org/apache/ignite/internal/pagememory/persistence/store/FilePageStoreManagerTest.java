@@ -47,6 +47,7 @@ import static org.mockito.Mockito.verify;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -144,8 +145,9 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
                 assertThat(files.count(), is(0L));
             }
 
-            for (GroupPartitionPageStore<FilePageStore> filePageStore : manager.allPageStores()) {
-                filePageStore.pageStore().ensure();
+            Iterator<GroupPartitionPageStore<FilePageStore>> iterator = manager.allPageStores().iterator();
+            while (iterator.hasNext()) {
+                iterator.next().pageStore().ensure();
             }
 
             try (Stream<Path> files = Files.list(testGroupDir)) {
@@ -329,7 +331,7 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         manager.initialize(new GroupPartitionId(1, 0));
         manager.initialize(new GroupPartitionId(2, 0));
 
-        List<Path> allPageStoreFiles = manager.allPageStores().stream()
+        List<Path> allPageStoreFiles = manager.allPageStores()
                 .map(GroupPartitionPageStore::pageStore)
                 .map(FilePageStore::filePath)
                 .collect(toList());

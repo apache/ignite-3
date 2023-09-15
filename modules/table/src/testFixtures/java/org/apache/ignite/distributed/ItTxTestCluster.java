@@ -26,12 +26,16 @@ import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +51,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -57,6 +62,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -74,10 +81,11 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -91,8 +99,9 @@ import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -131,8 +140,6 @@ public class ItTxTestCluster {
     private final RaftConfiguration raftConfig;
 
     private final GcConfiguration gcConfig;
-
-    private final TablesConfiguration tablesConfig;
 
     private final Path workDir;
 
@@ -174,6 +181,8 @@ public class ItTxTestCluster {
 
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
+    protected PlacementDriver placementDriver;
+
     private ScheduledThreadPoolExecutor executor;
 
     protected IgniteTransactions igniteTransactions;
@@ -204,7 +213,6 @@ public class ItTxTestCluster {
             TestInfo testInfo,
             RaftConfiguration raftConfig,
             GcConfiguration gcConfig,
-            TablesConfiguration tablesConfig,
             Path workDir,
             int nodes,
             int replicas,
@@ -213,7 +221,6 @@ public class ItTxTestCluster {
     ) {
         this.raftConfig = raftConfig;
         this.gcConfig = gcConfig;
-        this.tablesConfig = tablesConfig;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -245,6 +252,8 @@ public class ItTxTestCluster {
         for (ClusterService node : cluster) {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
+
+        placementDriver = new TestPlacementDriver(cluster.get(0).nodeName());
 
         LOG.info("The cluster has been started");
 
@@ -387,24 +396,31 @@ public class ItTxTestCluster {
             TablePartitionId grpId = grpIds.get(p);
 
             for (String assignment : partAssignments) {
+                int partId = p;
+
                 var mvTableStorage = new TestMvTableStorage(tableId, DEFAULT_PARTITION_COUNT);
-                var mvPartStorage = new TestMvPartitionStorage(0);
+                var mvPartStorage = new TestMvPartitionStorage(partId);
                 var txStateStorage = txStateStorages.get(assignment);
-                var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
+                var transactionStateResolver = new TransactionStateResolver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
-                    placementDriver.updateAssignment(grpIds.get(part), assignments.get(part));
+                    transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
-
-                int partId = p;
 
                 int indexId = globalIndexId++;
 
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
+                StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
+
+                when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
+                        schemaDescriptor.keyColumns().columns().length,
+                        mock(StorageHashIndexColumnDescriptor.class)
+                ));
+
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
-                        new TestHashIndexStorage(partId, null),
+                        new TestHashIndexStorage(partId, pkIndexDescriptor),
                         row2Tuple
                 ));
 
@@ -438,8 +454,6 @@ public class ItTxTestCluster {
                         new RaftGroupEventsClientListener()
                 );
 
-                TxManager txManager = txManagers.get(assignment);
-
                 PartitionListener partitionListener = new PartitionListener(
                         txManagers.get(assignment),
                         partitionDataStorage,
@@ -459,6 +473,10 @@ public class ItTxTestCluster {
                         raftSvc -> {
                             try {
                                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+
+                                CatalogTables catalogTables = mock(CatalogTables.class);
+                                lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
                                         completedFuture(null),
@@ -476,7 +494,7 @@ public class ItTxTestCluster {
                                                 clocks.get(assignment),
                                                 safeTime,
                                                 txStateStorage,
-                                                placementDriver,
+                                                transactionStateResolver,
                                                 storageUpdateHandler,
                                                 new DummySchemas(schemaManager),
                                                 consistentIdToNode.apply(assignment),
@@ -484,7 +502,8 @@ public class ItTxTestCluster {
                                                 mock(IndexBuilder.class),
                                                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                                                 mock(CatalogService.class),
-                                                tablesConfig
+                                                catalogTables,
+                                                placementDriver
                                         ),
                                         raftSvc,
                                         storageIndexTracker
@@ -546,7 +565,8 @@ public class ItTxTestCluster {
                 mock(TxStateTableStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient ? clientClock : clocks.get(localNodeName),
-                timestampTracker
+                timestampTracker,
+                placementDriver
         ), new DummySchemaManagerImpl(schemaDescriptor), clientTxManager.lockManager());
     }
 

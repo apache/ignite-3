@@ -17,24 +17,19 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class for testing the {@link TestMvTableStorage} class.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class TestMvTableStorageTest extends AbstractMvTableStorageTest {
     @BeforeEach
-    void setUp(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
-        initialize(tablesConfig);
+    void setUp() {
+        initialize();
     }
 
     @Override

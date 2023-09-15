@@ -435,6 +435,17 @@ public class DirectMessageReader implements MessageReader {
         return val;
     }
 
+    @Override
+    public short readHeaderShort() {
+        DirectByteBufferStream stream = state.item().stream;
+
+        short val = stream.readShort();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
     /** {@inheritDoc} */
     @Nullable
     @Override

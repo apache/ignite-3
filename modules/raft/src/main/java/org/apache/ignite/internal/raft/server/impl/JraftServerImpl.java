@@ -508,6 +508,11 @@ public class JraftServerImpl implements RaftServer {
     }
 
     @Override
+    public boolean isStarted(RaftNodeId nodeId) {
+        return nodes.containsKey(nodeId);
+    }
+
+    @Override
     public CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId) {
         RaftGroupService jraftNode = nodes.entrySet().stream().filter(entry -> entry.getKey().groupId().equals(groupId))
                 .map(Entry::getValue).findAny().get();
