@@ -415,6 +415,7 @@ public class TxManagerImpl implements TxManager {
 
     /**
      * Creates final {@link TxStateMeta} for coordinator node.
+     *
      * @param commit Commit flag.
      * @param commitTimestamp Commit timestamp.
      * @return Transaction meta.

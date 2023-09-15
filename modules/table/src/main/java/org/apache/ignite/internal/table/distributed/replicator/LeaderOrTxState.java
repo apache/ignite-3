@@ -23,8 +23,8 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Response for the {@link TxStateCommitPartitionRequest}. Can contain either the consistent ID of the Partition Group leader, which should be
- * queried for the TX Meta, or the TX Meta itself.
+ * Response for the {@link TxStateCommitPartitionRequest}. Can contain either the consistent ID of the Partition Group leader, which should
+ * be queried for the TX Meta, or the TX Meta itself.
  */
 public class LeaderOrTxState implements Serializable {
     private static final long serialVersionUID = -3555591755828355117L;
