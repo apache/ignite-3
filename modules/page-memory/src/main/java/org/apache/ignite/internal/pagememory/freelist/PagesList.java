@@ -32,7 +32,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ArrayUtils.remove;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
@@ -2133,4 +2133,3 @@ public abstract class PagesList extends DataStructure {
         }
     }
 }
-

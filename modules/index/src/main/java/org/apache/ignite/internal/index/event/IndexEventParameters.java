@@ -17,74 +17,44 @@
 
 package org.apache.ignite.internal.index.event;
 
-import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.manager.EventParameters;
-import org.jetbrains.annotations.Nullable;
 
-/**
- * Index event parameters. There are properties which associate with a particular index.
- */
+/** Index event parameters. There are properties which associate with a particular index. */
 public class IndexEventParameters extends EventParameters {
-    /** Table identifier. */
     private final int tableId;
 
-    /** Index identifier. */
     private final int indexId;
 
-    /** Index instance. */
-    private final @Nullable IndexDescriptor indexDescriptor;
+    private final int catalogVersion;
 
     /**
      * Constructor.
      *
      * @param revision Causality token.
-     * @param tableId Table identifier.
-     * @param indexId Index identifier.
+     * @param catalogVersion Catalog version.
+     * @param tableId Table ID.
+     * @param indexId Index ID.
      */
-    public IndexEventParameters(long revision, int tableId, int indexId) {
-        this(revision, tableId, indexId, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param revision Causality token.
-     * @param tableId Table identifier.
-     * @param indexId Index identifier.
-     * @param indexDescriptor Index descriptor.
-     */
-    public IndexEventParameters(long revision, int tableId, int indexId, @Nullable IndexDescriptor indexDescriptor) {
+    public IndexEventParameters(long revision, int catalogVersion, int tableId, int indexId) {
         super(revision);
 
+        this.catalogVersion = catalogVersion;
         this.tableId = tableId;
         this.indexId = indexId;
-        this.indexDescriptor = indexDescriptor;
     }
 
-    /**
-     * Returns an identifier of the table this event relates to.
-     *
-     * @return An id of the table.
-     */
+    /** Returns table ID this event relates to. */
     public int tableId() {
         return tableId;
     }
 
-    /**
-     * Returns an identifier of the index this event relates to.
-     *
-     * @return An id of the index.
-     */
+    /** Returns index ID this event relates to. */
     public int indexId() {
         return indexId;
     }
 
-    /**
-     * Returns an index instance this event relates to.
-     *
-     * @return An index.
-     */
-    public @Nullable IndexDescriptor indexDescriptor() {
-        return indexDescriptor;
+    /** Returns catalog version this event relates to. */
+    public int catalogVersion() {
+        return catalogVersion;
     }
 }

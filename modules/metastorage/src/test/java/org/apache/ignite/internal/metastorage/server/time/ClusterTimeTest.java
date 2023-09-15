@@ -113,7 +113,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
      * Tests that {@link ClusterTimeImpl#adjust} re-schedules the idle time sync timer.
      */
     @Test
-    void testSchedulerProlongation(@InjectConfiguration("mock.idleSyncTimeInterval=50") MetaStorageConfiguration config) {
+    void testSchedulerProlongation(@InjectConfiguration("mock.idleSyncTimeInterval=250") MetaStorageConfiguration config) {
         assertDoesNotThrow(() -> clusterTime.adjust(clusterTime.now()));
 
         SyncTimeAction action = mock(SyncTimeAction.class);
@@ -122,12 +122,12 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
 
         clusterTime.startSafeTimeScheduler(action, config);
 
-        verify(action, after(30).never()).syncTime(any());
+        verify(action, after(150).never()).syncTime(any());
 
         clusterTime.adjust(clusterTime.now());
 
-        verify(action, after(30).never()).syncTime(any());
+        verify(action, after(150).never()).syncTime(any());
 
-        verify(action, after(50)).syncTime(any());
+        verify(action, after(250)).syncTime(any());
     }
 }

@@ -26,10 +26,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -57,7 +57,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
     private TableManager tableManager;
 
     @Mock
-    private SchemaManager schemaManager;
+    private CatalogSchemaManager schemaManager;
 
     @Mock
     private TableDescriptor descriptor;
@@ -147,6 +147,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
         CompletableFuture<ExecutableTable> getTable(int tableId) {
             TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager());
             int schemaVersion = 1;
+            int tableVersion = 1;
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
@@ -154,7 +155,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
             when(descriptor.iterator()).thenReturn(List.<ColumnDescriptor>of().iterator());
 
-            return registry.getTable(tableId, descriptor);
+            return registry.getTable(tableId, tableVersion, descriptor);
         }
     }
 }

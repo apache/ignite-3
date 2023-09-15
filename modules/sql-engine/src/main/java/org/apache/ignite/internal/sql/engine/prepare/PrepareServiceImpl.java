@@ -116,7 +116,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return new PrepareServiceImpl(
                 nodeName,
                 cacheSize,
-                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage),
+                new DdlSqlToCommandConverter(dataStorageFields, DataStorageManager::defaultDataStorage),
                 DEFAULT_PLANNER_TIMEOUT,
                 metricManager
         );
@@ -308,7 +308,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        long catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :

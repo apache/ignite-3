@@ -21,10 +21,13 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -34,8 +37,10 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
@@ -45,9 +50,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
@@ -56,7 +61,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundExce
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -65,6 +70,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -129,13 +135,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private final ConcurrentHashMap<Integer, CompletableFuture<Long>> zoneChangeFilterRevisions = new ConcurrentHashMap<>();
 
     /**
-     * Contains futures that is completed when the zone configuration listener receive the zone creation event with expected zone id.
+     * Contains futures that is completed when the zone catalog listener receive the zone creation event with expected zone.
      * Mapping of zone name -> future with event revision.
      */
     private final ConcurrentHashMap<String, CompletableFuture<Long>> createZoneRevisions = new ConcurrentHashMap<>();
 
     /**
-     * Contains futures that is completed when the zone configuration listener receive the zone dropping event with expected zone id.
+     * Contains futures that is completed when the zone catalog listener receive the zone dropping event with expected zone.
      * Mapping of zone id -> future with event revision.
      */
     private final ConcurrentHashMap<Integer, CompletableFuture<Long>> dropZoneRevisions = new ConcurrentHashMap<>();
@@ -145,21 +151,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), createMetastorageTopologyListener());
         metaStorageManager.registerPrefixWatch(zonesDataNodesPrefix(), createMetastorageDataNodesListener());
 
-        ConfigurationNamedListListener<DistributionZoneView> zonesConfigurationListener = new ZonesConfigurationListener();
-
-        zonesConfiguration.distributionZones().listenElements(zonesConfigurationListener);
-        zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
-        zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
-        zonesConfiguration.distributionZones().any().filter().listen(onUpdateFilter());
-
-        zonesConfiguration.defaultDistributionZone().listen(zonesConfigurationListener);
-        zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
-        zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
-        zonesConfiguration.defaultDistributionZone().filter().listen(onUpdateFilter());
+        addCatalogZoneEventListeners();
 
         distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     /**
@@ -571,7 +567,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         Set<String> dataNodes3 = distributionZoneManager.dataNodes(filterRevision1, zoneId).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
-
     }
 
     @Test
@@ -1092,7 +1087,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private long alterZoneScaleUpAndGetRevision(String zoneName, int scaleUp) throws Exception {
         CompletableFuture<Long> revisionFut = new CompletableFuture<>();
 
-        int zoneId = distributionZoneManager.getZoneId(zoneName);
+        int zoneId = getZoneId(zoneName);
 
         zoneScaleUpRevisions.put(zoneId, revisionFut);
 
@@ -1112,7 +1107,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private long alterZoneScaleDownAndGetRevision(String zoneName, int scaleDown) throws Exception {
         CompletableFuture<Long> revisionFut = new CompletableFuture<>();
 
-        int zoneId = distributionZoneManager.getZoneId(zoneName);
+        int zoneId = getZoneId(zoneName);
 
         zoneScaleDownRevisions.put(zoneId, revisionFut);
 
@@ -1132,7 +1127,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private long alterFilterAndGetRevision(String zoneName, String filter) throws Exception {
         CompletableFuture<Long> revisionFut = new CompletableFuture<>();
 
-        int zoneId = distributionZoneManager.getZoneId(zoneName);
+        int zoneId = getZoneId(zoneName);
 
         zoneChangeFilterRevisions.put(zoneId, revisionFut);
 
@@ -1170,7 +1165,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private long dropZoneAndGetRevision(String zoneName) throws Exception {
         CompletableFuture<Long> revisionFut = new CompletableFuture<>();
 
-        int zoneId = distributionZoneManager.getZoneId(zoneName);
+        int zoneId = getZoneId(ZONE_NAME);
 
         dropZoneRevisions.put(zoneId, revisionFut);
 
@@ -1195,88 +1190,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         zoneDataNodesRevisions.put(new IgniteBiTuple<>(zoneId, nodeNames), revisionFut);
 
         return revisionFut;
-    }
-
-    /**
-     * Creates a configuration listener which completes futures from {@code zoneScaleUpRevisions}
-     * when receives event with expected zone id.
-     *
-     * @return Configuration listener.
-     */
-    private ConfigurationListener<Integer> onUpdateScaleUp() {
-        return ctx -> {
-            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
-
-            if (zoneScaleUpRevisions.containsKey(zoneId)) {
-                zoneScaleUpRevisions.remove(zoneId).complete(ctx.storageRevision());
-            }
-
-            return completedFuture(null);
-        };
-    }
-
-    /**
-     * Creates a configuration listener which completes futures from {@code zoneScaleDownRevisions}
-     * when receives event with expected zone id.
-     *
-     * @return Configuration listener.
-     */
-    private ConfigurationListener<Integer> onUpdateScaleDown() {
-        return ctx -> {
-            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
-
-            if (zoneScaleDownRevisions.containsKey(zoneId)) {
-                zoneScaleDownRevisions.remove(zoneId).complete(ctx.storageRevision());
-            }
-
-            return completedFuture(null);
-        };
-    }
-
-    /**
-     * Creates a configuration listener which completes futures from {@code zoneChangeFilterRevisions}
-     * when receives event with expected zone id.
-     *
-     * @return Configuration listener.
-     */
-    private ConfigurationListener<String> onUpdateFilter() {
-        return ctx -> {
-            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
-
-            if (zoneChangeFilterRevisions.containsKey(zoneId)) {
-                zoneChangeFilterRevisions.remove(zoneId).complete(ctx.storageRevision());
-            }
-
-            return completedFuture(null);
-        };
-    }
-
-    /**
-     * A configuration listener which completes futures from {@code createZoneRevisions} and {@code dropZoneRevisions}
-     * when receives event with expected zone id.
-     */
-    private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
-        @Override
-        public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            CompletableFuture<Long> removed = createZoneRevisions.remove(ctx.newValue().name());
-
-            if (removed != null) {
-                removed.complete(ctx.storageRevision());
-            }
-
-            return completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            CompletableFuture<Long> removed = dropZoneRevisions.remove(ctx.oldValue().zoneId());
-
-            if (removed != null) {
-                removed.complete(ctx.storageRevision());
-            }
-
-            return completedFuture(null);
-        }
     }
 
     /**
@@ -1357,9 +1270,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
                 IgniteBiTuple<Integer, Set<String>> zoneDataNodesKey = new IgniteBiTuple<>(zoneId, nodeNames);
 
-                if (zoneDataNodesRevisions.containsKey(zoneDataNodesKey)) {
-                    zoneDataNodesRevisions.remove(zoneDataNodesKey).complete(revision);
-                }
+                completeRevisionFuture(zoneDataNodesRevisions.remove(zoneDataNodesKey), revision);
 
                 return completedFuture(null);
             }
@@ -1368,5 +1279,50 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             public void onError(Throwable e) {
             }
         };
+    }
+
+    private void addCatalogZoneEventListeners() {
+        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> {
+            String zoneName = ((CreateZoneEventParameters) parameters).zoneDescriptor().name();
+
+            completeRevisionFuture(createZoneRevisions.remove(zoneName), parameters.causalityToken());
+
+            return completedFuture(false);
+        });
+
+        catalogManager.listen(ZONE_DROP, (parameters, exception) -> {
+            completeRevisionFuture(dropZoneRevisions.remove(((DropZoneEventParameters) parameters).zoneId()), parameters.causalityToken());
+
+            return completedFuture(false);
+        });
+
+        catalogManager.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogManager) {
+            @Override
+            protected CompletableFuture<Void> onAutoAdjustScaleUpUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleUp) {
+                completeRevisionFuture(zoneScaleUpRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
+
+                return completedFuture(null);
+            }
+
+            @Override
+            protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
+                completeRevisionFuture(zoneScaleDownRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
+
+                return completedFuture(null);
+            }
+
+            @Override
+            protected CompletableFuture<Void> onFilterUpdate(AlterZoneEventParameters parameters, String oldFilter) {
+                completeRevisionFuture(zoneChangeFilterRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
+
+                return completedFuture(null);
+            }
+        });
+    }
+
+    private static void completeRevisionFuture(@Nullable CompletableFuture<Long> revisionFuture, long revision) {
+        if (revisionFuture != null) {
+            revisionFuture.complete(revision);
+        }
     }
 }

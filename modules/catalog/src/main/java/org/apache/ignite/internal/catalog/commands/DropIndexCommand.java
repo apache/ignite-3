@@ -59,7 +59,7 @@ public class DropIndexCommand extends AbstractIndexCommand {
 
         if (index == null) {
             throw new IndexNotFoundValidationException(
-                    format("Index with name 'PUBLIC.TEST' not found", schemaName, indexName));
+                    format("Index with name '{}.{}' not found", schemaName, indexName));
         }
 
         CatalogTableDescriptor table = catalog.table(index.tableId());

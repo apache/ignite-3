@@ -51,7 +51,7 @@ namespace Apache.Ignite.Tests
         protected const string TableTimeName = "TBL_TIME";
         protected const string TableTimestampName = "TBL_TIMESTAMP";
         protected const string TableNumberName = "TBL_NUMBER";
-        protected const string TableBytesName = "TBL_BYTES";
+        protected const string TableBytesName = "TBL_BYTE_ARRAY";
         protected const string TableBitmaskName = "TBL_BITMASK";
 
         protected const string KeyCol = "key";

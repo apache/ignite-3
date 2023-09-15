@@ -509,6 +509,11 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         listen(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
+    @Override
+    public void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
+        removeListener(evt, (EventListener<CatalogEventParameters>) closure);
+    }
+
     private static class BulkUpdateProducer implements UpdateProducer {
         private final List<? extends UpdateProducer> commands;
 

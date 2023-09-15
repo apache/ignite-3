@@ -64,7 +64,7 @@ public class TableRowConverterImpl implements TableRowConverter {
                 continue;
             }
 
-            mapping[currentIdx++] = column.physicalIndex();
+            mapping[currentIdx++] = schemaDescriptor.column(column.name()).schemaIndex();
         }
     }
 

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -214,13 +215,14 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * so returned partial node is started and ready to work.
      *
      * @param nodeCfgMgr Node configuration manager.
-     * @param clusterCfgMgr Cluster configuration manager..
+     * @param clusterCfgMgr Cluster configuration manager.
      * @param revisionCallback RevisionCallback Callback on storage revision update.
      * @param components Started components of a node.
      * @param localConfigurationGenerator Local configuration generator.
      * @param logicalTopology Logical topology.
-     * @param cfgStorage Distributed configuration storage..
-     * @param distributedConfigurationGenerator Distributes configuration generator..
+     * @param cfgStorage Distributed configuration storage.
+     * @param distributedConfigurationGenerator Distributes configuration generator.
+     * @param clock Hybrid clock.
      * @return Partial node.
      */
     public PartialNode partialNode(
@@ -233,7 +235,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             LogicalTopologyImpl logicalTopology,
             DistributedConfigurationStorage cfgStorage,
             ConfigurationTreeGenerator distributedConfigurationGenerator,
-            ConfigurationRegistry clusterConfigRegistry
+            ConfigurationRegistry clusterConfigRegistry,
+            HybridClock clock
     ) {
         CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -256,7 +259,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                 components,
                 List.of(localConfigurationGenerator, distributedConfigurationGenerator),
                 logicalTopology,
-                log
+                log,
+                clock
         );
     }
 
@@ -264,7 +268,6 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * Node with partially started components.
      */
     public static class PartialNode {
-
         private final List<IgniteComponent> startedComponents;
 
         private final List<ManuallyCloseable> closeables;
@@ -273,16 +276,20 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         private final IgniteLogger log;
 
+        private final HybridClock clock;
+
         PartialNode(
                 List<IgniteComponent> startedComponents,
                 List<ManuallyCloseable> closeables,
                 LogicalTopology logicalTopology,
-                IgniteLogger log
+                IgniteLogger log,
+                HybridClock clock
         ) {
             this.startedComponents = startedComponents;
             this.closeables = closeables;
             this.logicalTopology = logicalTopology;
             this.log = log;
+            this.clock = clock;
         }
 
         /**
@@ -324,6 +331,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         public LogicalTopology logicalTopology() {
             return logicalTopology;
+        }
+
+        public HybridClock clock() {
+            return clock;
         }
     }
 }

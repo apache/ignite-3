@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.registry;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
@@ -31,7 +32,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -157,7 +157,7 @@ public class UpgradingRowAdapterTest {
 
         var schemaRegistry = new SchemaRegistryImpl(
                 v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
-                () -> completedFuture(INITIAL_SCHEMA_VERSION),
+                () -> completedFuture(INITIAL_TABLE_VERSION),
                 schema
         );
 
