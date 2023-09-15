@@ -35,7 +35,6 @@ import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.jetbrains.annotations.Nullable;
@@ -105,18 +104,6 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     }
 
     /**
-     * Converts table into relational expression.
-     *
-     * @param cluster   Custer.
-     * @param relOptTbl Table.
-     * @param idxName   Index name.
-     * @return Table relational expression.
-     */
-    default IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        return toRel(cluster, relOptTbl, idxName, null, null, null);
-    }
-
-    /**
      * Converts table into table scan relational expression.
      */
     IgniteLogicalTableScan toRel(
@@ -126,18 +113,6 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
-    );
-
-    /**
-     * Converts table into index scan relational expression.
-     */
-    IgniteLogicalIndexScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTbl,
-            String idxName,
-            List<RexNode> proj,
-            RexNode condition,
-            ImmutableBitSet requiredCols
     );
 
     /**
@@ -193,26 +168,4 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      * @return Indexes for the current table.
      */
     Map<String, IgniteIndex> indexes();
-
-    /**
-     * Adds index to table.
-     *
-     * @param idxTbl Index table.
-     */
-    void addIndex(IgniteIndex idxTbl);
-
-    /**
-     * Returns index by its name.
-     *
-     * @param idxName Index name.
-     * @return Index.
-     */
-    IgniteIndex getIndex(String idxName);
-
-    /**
-     * Returns index name.
-     *
-     * @param idxName Index name.
-     */
-    void removeIndex(String idxName);
 }

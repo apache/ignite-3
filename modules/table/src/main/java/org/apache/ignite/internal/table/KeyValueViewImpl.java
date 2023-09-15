@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -90,7 +92,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshallValue);
+        return convertToPublicFuture(tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshallValue));
     }
 
     /** {@inheritDoc} */
@@ -106,7 +108,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r)));
+        return convertToPublicFuture(tbl.get(keyRow, (InternalTransaction) tx)
+                .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r))));
     }
 
     /** {@inheritDoc} */
@@ -122,7 +125,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, V defaultValue) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalNullableValue(r), defaultValue));
+        return convertToPublicFuture(tbl.get(keyRow, (InternalTransaction) tx)
+                .thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalNullableValue(r), defaultValue)));
     }
 
     /** {@inheritDoc} */
@@ -138,7 +142,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keys));
 
-        return tbl.getAll(rows, (InternalTransaction) tx).thenApply(this::unmarshalPairs);
+        return convertToPublicFuture(tbl.getAll(rows, (InternalTransaction) tx).thenApply(this::unmarshalPairs));
     }
 
     /** {@inheritDoc} */
@@ -154,7 +158,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
+        return convertToPublicFuture(tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull));
     }
 
     /** {@inheritDoc} */
@@ -170,7 +174,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
 
-        return tbl.upsert(row, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.upsert(row, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -186,7 +190,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<K, V> pairs) {
         Collection<BinaryRowEx> rows = marshalPairs(Objects.requireNonNull(pairs).entrySet());
 
-        return tbl.upsertAll(rows, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.upsertAll(rows, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -203,7 +207,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return tbl.getAndUpsert(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshallValue);
+        return convertToPublicFuture(tbl.getAndUpsert(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshallValue));
     }
 
     /** {@inheritDoc} */
@@ -219,8 +223,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
 
-        return tbl.getAndUpsert(row, (InternalTransaction) tx)
-                       .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r)));
+        return convertToPublicFuture(tbl.getAndUpsert(row, (InternalTransaction) tx)
+                       .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r))));
     }
 
     /** {@inheritDoc} */
@@ -236,7 +240,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
 
-        return tbl.insert(row, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.insert(row, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -259,7 +263,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key));
 
-        return tbl.delete(row, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.delete(row, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -268,7 +272,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
 
-        return tbl.deleteExact(row, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.deleteExact(row, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -284,7 +288,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keys));
 
-        return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(this::unmarshalKeys);
+        return convertToPublicFuture(tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(this::unmarshalKeys));
     }
 
     /** {@inheritDoc} */
@@ -300,7 +304,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.getAndDelete(keyRow, (InternalTransaction) tx).thenApply(this::unmarshallValue);
+        return convertToPublicFuture(tbl.getAndDelete(keyRow, (InternalTransaction) tx).thenApply(this::unmarshallValue));
     }
 
     /** {@inheritDoc} */
@@ -316,8 +320,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
 
-        return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
-                       .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r)));
+        return convertToPublicFuture(tbl.getAndDelete(keyRow, (InternalTransaction) tx)
+                       .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r))));
     }
 
     /** {@inheritDoc} */
@@ -340,7 +344,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
 
-        return tbl.replace(row, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.replace(row, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -352,7 +356,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         BinaryRowEx oldRow = marshal(key, oldVal);
         BinaryRowEx newRow = marshal(key, newVal);
 
-        return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.replace(oldRow, newRow, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -369,7 +373,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshallValue);
+        return convertToPublicFuture(tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshallValue));
     }
 
     /** {@inheritDoc} */
@@ -385,8 +389,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
 
-        return tbl.getAndReplace(row, (InternalTransaction) tx)
-                       .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r)));
+        return convertToPublicFuture(tbl.getAndReplace(row, (InternalTransaction) tx)
+                       .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r))));
     }
 
     /**
@@ -403,7 +407,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         // TODO: Cache marshaller for schema version or upgrade row?
 
-        return this.marsh = marshallerFactory.apply(schemaReg.schema(schemaVersion));
+        SchemaRegistry registry = rowConverter.registry();
+        return this.marsh = marshallerFactory.apply(registry.schema(schemaVersion));
     }
 
     /**
@@ -412,7 +417,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Marshaller.
      */
     private KvMarshaller<K, V> marshaller() {
-        return marshaller(schemaReg.lastSchemaVersion());
+        SchemaRegistry registry = rowConverter.registry();
+        return marshaller(registry.lastSchemaVersion());
     }
 
     /**
@@ -521,7 +527,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         List<K> keys = new ArrayList<>(rows.size());
 
         try {
-            for (Row row : schemaReg.resolveKeys(rows)) {
+            for (Row row : rowConverter.resolveKeys(rows)) {
                 if (row != null) {
                     keys.add(marsh.unmarshalKey(row));
                 }
@@ -545,7 +551,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return null;
         }
 
-        Row row = schemaReg.resolve(binaryRow);
+        Row row = rowConverter.resolveRow(binaryRow);
 
         KvMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
 
@@ -573,7 +579,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         Map<K, V> pairs = IgniteUtils.newHashMap(rows.size());
 
         try {
-            for (Row row : schemaReg.resolve(rows)) {
+            for (Row row : rowConverter.resolveRows(rows)) {
                 if (row != null) {
                     pairs.put(marsh.unmarshalKey(row), marsh.unmarshalValue(row));
                 }
@@ -602,7 +608,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         V v = unmarshalNullableValue(binaryRow);
 
         if (v == null) {
-            throw new UnexpectedNullValueException("use `getNullable` sibling method instead.");
+            throw new UnexpectedNullValueException("Got unexpected null value: use `getNullable` sibling method instead.");
         }
 
         return v;
@@ -614,8 +620,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
-        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
+        var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(rowConverter.registry(), tbl.partitions(), marshaller());
+        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items)
+                -> convertToPublicFuture(this.tbl.upsertAll(marshalPairs(items), partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

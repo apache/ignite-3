@@ -444,7 +444,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
         if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
-            int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackMapHeader();
+            int extSize;
+            extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
             int expectedSchemaVersion = -1;
 
             for (int i = 0; i < extSize; i++) {
@@ -571,7 +572,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         IgniteClientAuthenticator authenticator = cfg.clientConfiguration().authenticator();
 
         if (authenticator != null) {
-            req.packMapHeader(3); // Extensions.
+            // Extensions.
+            req.packInt(3);
 
             req.packString(HandshakeExtension.AUTHENTICATION_TYPE.key());
             req.packString(authenticator.type());
@@ -582,7 +584,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             req.packString(HandshakeExtension.AUTHENTICATION_SECRET.key());
             packAuthnObj(req, authenticator.secret());
         } else {
-            req.packMapHeader(0); // Extensions.
+            // Extensions.
+            req.packInt(0);
         }
 
         return write(req);
@@ -613,7 +616,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValues(featuresLen);
 
-            var extensionsLen = unpacker.unpackMapHeader();
+            var extensionsLen = unpacker.unpackInt();
             unpacker.skipValues(extensionsLen);
 
             protocolCtx = new ProtocolContext(

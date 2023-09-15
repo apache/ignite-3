@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.future;
 
+import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.ArrayDeque;
@@ -457,17 +459,9 @@ public class OrderingFuture<T> {
     public CompletableFuture<T> toCompletableFuture() {
         CompletableFuture<T> completableFuture = new CompletableFuture<>();
 
-        this.whenComplete((res, ex) -> completeCompletableFuture(completableFuture, res, ex));
+        this.whenComplete(copyStateTo(completableFuture));
 
         return completableFuture;
-    }
-
-    private static <T> void completeCompletableFuture(CompletableFuture<T> future, T result, Throwable ex) {
-        if (ex != null) {
-            future.completeExceptionally(ex);
-        } else {
-            future.complete(result);
-        }
     }
 
     /**
@@ -547,7 +541,11 @@ public class OrderingFuture<T> {
 
         @Override
         public void accept(U mapRes, Throwable mapEx) {
-            completeCompletableFuture(resultFuture, mapRes, mapEx);
+            if (mapEx != null) {
+                resultFuture.completeExceptionally(mapEx);
+            } else {
+                resultFuture.complete(mapRes);
+            }
         }
     }
 

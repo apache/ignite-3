@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -38,13 +37,17 @@ public class NewTableEntry implements UpdateEntry, Fireable {
 
     private final CatalogTableDescriptor descriptor;
 
+    private final String schemaName;
+
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a table to add.
+     * @param schemaName A schema name.
      */
-    public NewTableEntry(CatalogTableDescriptor descriptor) {
+    public NewTableEntry(CatalogTableDescriptor descriptor, String schemaName) {
         this.descriptor = descriptor;
+        this.schemaName = schemaName;
     }
 
     /** Returns descriptor of a table to add. */
@@ -64,19 +67,22 @@ public class NewTableEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+
+        List<CatalogSchemaDescriptor> schemas = CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
+                schema.id(),
+                schema.name(),
+                ArrayUtils.concat(schema.tables(), descriptor),
+                schema.indexes(),
+                schema.systemViews()
+        ), catalog.schemas());
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                List.of(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        ArrayUtils.concat(schema.tables(), descriptor),
-                        schema.indexes()
-                ))
+                schemas
         );
     }
 

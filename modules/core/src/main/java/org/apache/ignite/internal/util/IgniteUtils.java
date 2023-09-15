@@ -57,6 +57,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -66,9 +67,9 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
@@ -77,8 +78,6 @@ import org.jetbrains.annotations.Nullable;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
-    /** Byte bit-mask. */
-    private static final int MASK = 0xf;
 
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
@@ -183,8 +182,8 @@ public class IgniteUtils {
      * Creates new {@link HashMap} with expected size.
      *
      * @param expSize Expected size of the created map.
-     * @param <K>     Type of the map's keys.
-     * @param <V>     Type of the map's values.
+     * @param <K> Type of the map's keys.
+     * @param <V> Type of the map's values.
      * @return New map.
      */
     public static <K, V> HashMap<K, V> newHashMap(int expSize) {
@@ -195,8 +194,8 @@ public class IgniteUtils {
      * Creates new {@link LinkedHashMap} with expected size.
      *
      * @param expSize Expected size of created map.
-     * @param <K>     Type of the map's keys.
-     * @param <V>     Type of the map's values.
+     * @param <K> Type of the map's keys.
+     * @param <V> Type of the map's values.
      * @return New map.
      */
     public static <K, V> LinkedHashMap<K, V> newLinkedHashMap(int expSize) {
@@ -249,125 +248,6 @@ public class IgniteUtils {
         int val = (int) (key ^ (key >>> 32));
 
         return hash(val);
-    }
-
-    /**
-     * Converts byte array to hex string.
-     *
-     * @param arr Array of bytes.
-     * @return Hex string.
-     */
-    public static String toHexString(byte[] arr) {
-        return toHexString(arr, Integer.MAX_VALUE);
-    }
-
-    /**
-     * Converts byte array to hex string.
-     *
-     * @param arr    Array of bytes.
-     * @param maxLen Maximum length of result string. Rounds down to a power of two.
-     * @return Hex string.
-     */
-    public static String toHexString(byte[] arr, int maxLen) {
-        assert maxLen >= 0 : "maxLem must be not negative.";
-
-        int capacity = Math.min(arr.length << 1, maxLen);
-
-        int lim = capacity >> 1;
-
-        StringBuilder sb = new StringBuilder(capacity);
-
-        for (int i = 0; i < lim; i++) {
-            addByteAsHex(sb, arr[i]);
-        }
-
-        return sb.toString().toUpperCase();
-    }
-
-    /**
-     * Returns hex representation of memory region.
-     *
-     * @param addr Pointer in memory.
-     * @param len How much byte to read.
-     */
-    public static String toHexString(long addr, int len) {
-        StringBuilder sb = new StringBuilder(len * 2);
-
-        for (int i = 0; i < len; i++) {
-            // Can not use getLong because on little-endian it produces wrong result.
-            addByteAsHex(sb, GridUnsafe.getByte(addr + i));
-        }
-
-        return sb.toString();
-    }
-
-    /**
-     * Returns hex representation of memory region.
-     *
-     * @param buf Buffer which content should be converted to string.
-     */
-    public static String toHexString(ByteBuffer buf) {
-        StringBuilder sb = new StringBuilder(buf.capacity() * 2);
-
-        for (int i = buf.position(); i < buf.limit(); i++) {
-            // Can not use getLong because on little-endian it produces wrong result.
-            addByteAsHex(sb, buf.get(i));
-        }
-
-        return sb.toString();
-    }
-
-    /**
-     * Returns byte array represented by given hex string.
-     *
-     * @param s String containing a hex representation of bytes.
-     * @return A byte array.
-     */
-    public static byte[] fromHexString(String s) {
-        var len = s.length();
-
-        assert (len & 1) == 0 : "length should be even";
-
-        var data = new byte[len / 2];
-
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i + 1), 16));
-        }
-
-        return data;
-    }
-
-    /**
-     * Appends {@code byte} in hexadecimal format.
-     *
-     * @param sb String builder.
-     * @param b  Byte to add in hexadecimal format.
-     */
-    private static void addByteAsHex(StringBuilder sb, byte b) {
-        sb.append(Integer.toHexString(MASK & b >>> 4)).append(Integer.toHexString(MASK & b));
-    }
-
-    /**
-     * Returns a hex string representation of the given long value.
-     *
-     * @param val Value to convert to string.
-     * @return Hex string.
-     */
-    //TODO IGNITE-16350 Consider renaming or moving into other class.
-    public static String hexLong(long val) {
-        return new IgniteStringBuilder(16).appendHex(val).toString();
-    }
-
-    /**
-     * Returns a hex string representation of the given integer value.
-     *
-     * @param val Value to convert to string.
-     * @return Hex string.
-     */
-    //TODO IGNITE-16350 Consider renaming or moving into other class.
-    public static String hexInt(int val) {
-        return new IgniteStringBuilder(8).appendHex(val).toString();
     }
 
     /**
@@ -446,7 +326,7 @@ public class IgniteUtils {
      * Gets class for provided name. Accepts primitive types names.
      *
      * @param clsName Class name.
-     * @param ldr     Class loader.
+     * @param ldr Class loader.
      * @return Class.
      * @throws ClassNotFoundException If class not found.
      */
@@ -457,8 +337,8 @@ public class IgniteUtils {
     /**
      * Gets class for provided name. Accepts primitive types names.
      *
-     * @param clsName   Class name.
-     * @param ldr       Class loader.
+     * @param clsName Class name.
+     * @param ldr Class loader.
      * @param clsFilter Predicate to filter class names.
      * @return Class.
      * @throws ClassNotFoundException If class not found.
@@ -466,7 +346,7 @@ public class IgniteUtils {
     public static Class<?> forName(
             String clsName,
             @Nullable ClassLoader ldr,
-            Predicate<String> clsFilter
+            @Nullable Predicate<String> clsFilter
     ) throws ClassNotFoundException {
         assert clsName != null;
 
@@ -599,7 +479,7 @@ public class IgniteUtils {
      *
      * @param service the {@code ExecutorService} to shut down
      * @param timeout the maximum time to wait for the {@code ExecutorService} to terminate
-     * @param unit    the time unit of the timeout argument
+     * @param unit the time unit of the timeout argument
      */
     public static void shutdownAndAwaitTermination(ExecutorService service, long timeout, TimeUnit unit) {
         long halfTimeoutNanos = unit.toNanos(timeout) / 2;
@@ -671,9 +551,8 @@ public class IgniteUtils {
     }
 
     /**
-     * Closes all provided objects. If any of the {@link ManuallyCloseable#close} methods throw an exception,
-     * only the first thrown exception will be propagated to the caller, after all other objects are closed,
-     * similar to the try-with-resources block.
+     * Closes all provided objects. If any of the {@link ManuallyCloseable#close} methods throw an exception, only the first thrown
+     * exception will be propagated to the caller, after all other objects are closed, similar to the try-with-resources block.
      *
      * @param closeables Stream of objects to close.
      * @throws Exception If failed to close.
@@ -731,6 +610,7 @@ public class IgniteUtils {
      * @param msg Message to print with the stack.
      * @deprecated Calls to this method should never be committed to master.
      */
+    @Deprecated
     public static void dumpStack(IgniteLogger log, String msg, Object... params) {
         String reason = "Dumping stack";
 
@@ -750,7 +630,7 @@ public class IgniteUtils {
      *
      * @param sourcePath The path to the file to move.
      * @param targetPath The path to the target file.
-     * @param log        Optional logger.
+     * @param log Optional logger.
      * @return The path to the target file.
      * @throws IOException If the source file cannot be moved to the target.
      */
@@ -765,7 +645,7 @@ public class IgniteUtils {
 
         try {
             success = Files.move(sourcePath, targetPath, StandardCopyOption.ATOMIC_MOVE);
-        } catch (final IOException e) {
+        } catch (IOException e) {
             // If it falls here that can mean many things. Either that the atomic move is not supported,
             // or something wrong happened. Anyway, let's try to be over-diagnosing
             if (log != null) {
@@ -782,7 +662,7 @@ public class IgniteUtils {
 
             try {
                 success = Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-            } catch (final IOException e1) {
+            } catch (IOException e1) {
                 e1.addSuppressed(e);
 
                 if (log != null) {
@@ -794,7 +674,7 @@ public class IgniteUtils {
 
                 try {
                     Files.deleteIfExists(sourcePath);
-                } catch (final IOException e2) {
+                } catch (IOException e2) {
                     e2.addSuppressed(e1);
 
                     if (log != null) {
@@ -932,7 +812,7 @@ public class IgniteUtils {
      * @param busyLock Component's busy lock.
      * @param fn Function to run.
      * @return Future returned from the {@code fn}, or future with the {@link NodeStoppingException} if
-     *      {@link IgniteSpinBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
+     *         {@link IgniteSpinBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
      */
     public static <T> CompletableFuture<T> inBusyLockAsync(IgniteSpinBusyLock busyLock, Supplier<CompletableFuture<T>> fn) {
         if (!busyLock.enterBusy()) {
@@ -979,8 +859,8 @@ public class IgniteUtils {
     }
 
     /**
-     * Cancels the future and runs a consumer on future's result if it was completed before the cancellation.
-     * Does nothing if future is cancelled or completed exceptionally.
+     * Cancels the future and runs a consumer on future's result if it was completed before the cancellation. Does nothing if future is
+     * cancelled or completed exceptionally.
      *
      * @param future Future.
      * @param consumer Consumer that accepts future's result.
@@ -1068,7 +948,8 @@ public class IgniteUtils {
      * Retries operation until it succeeds or fails with exception that is different than the given.
      *
      * @param operation Operation.
-     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be stopped.
+     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be
+     *         stopped.
      * @param executor Executor to make retry in.
      * @return Future that is completed when operation is successful or failed with other exception than the given.
      */
@@ -1088,7 +969,8 @@ public class IgniteUtils {
      * Retries operation until it succeeds or fails with exception that is different than the given.
      *
      * @param operation Operation.
-     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be stopped.
+     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be
+     *         stopped.
      * @param executor Executor to make retry in.
      * @param fut Future that is completed when operation is successful or failed with other exception than the given.
      */
@@ -1174,5 +1056,43 @@ public class IgniteUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Stops all ignite components.
+     *
+     * @param components Array of ignite components to close.
+     * @throws Exception If failed to stop.
+     */
+    public static void stopAll(IgniteComponent... components) throws Exception {
+        stopAll(Arrays.stream(components));
+    }
+
+    /**
+     * Stops all ignite components.
+     *
+     * @param components Stream of ignite components to close.
+     * @throws Exception If failed to stop.
+     */
+    public static void stopAll(Stream<? extends IgniteComponent> components) throws Exception {
+        closeAll(components.filter(Objects::nonNull).map(component -> component::stop));
+    }
+
+    /**
+     * Creates a consumer that, when passed to a {@link CompletableFuture#whenComplete} call, will copy the outcome (either successful or
+     * not) of the target future to the given future.
+     *
+     * @param future Future to copy the outcome to.
+     * @param <T> Future result type.
+     * @return Consumer for transferring a future outcome to another future.
+     */
+    public static <T> BiConsumer<T, Throwable> copyStateTo(CompletableFuture<? super T> future) {
+        return (v, e) -> {
+            if (e != null) {
+                future.completeExceptionally(e);
+            } else {
+                future.complete(v);
+            }
+        };
     }
 }

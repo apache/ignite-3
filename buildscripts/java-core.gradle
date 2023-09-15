@@ -29,8 +29,6 @@ java {
 }
 
 test {
-    ignoreFailures = true
-
     finalizedBy(jacocoTestReport)
 }
 

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -59,14 +58,13 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
-            RocksDbStorageEngineConfiguration rocksDbEngineConfig,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
+            RocksDbStorageEngineConfiguration rocksDbEngineConfig
     ) {
         engine = new RocksDbStorageEngine("test", rocksDbEngineConfig, workDir);
 
         engine.start();
 
-        initialize(tablesConfig);
+        initialize();
     }
 
     @Override
@@ -81,7 +79,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     protected MvTableStorage createMvTableStorage() {
         return engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageIndexDescriptorSupplier(catalogService)
         );
     }
 

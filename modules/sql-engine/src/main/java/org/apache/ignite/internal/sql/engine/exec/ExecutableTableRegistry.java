@@ -29,8 +29,9 @@ public interface ExecutableTableRegistry {
      * Returns an table that can be used for both read and write operations.
      *
      * @param tableId Table Id.
+     * @param tableVersion Table version.
      * @param tableDescriptor Table descriptor.
      * @return An operation that returns executable table.
      */
-    CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor);
+    CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor);
 }

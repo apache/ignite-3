@@ -64,7 +64,6 @@ dependencies {
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
     testImplementation libs.awaitility
-    testImplementation libs.slf4j.log4j
 
     testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-configuration')
@@ -74,8 +73,6 @@ dependencies {
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.slf4j.log4j
-
     integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
 
     integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")

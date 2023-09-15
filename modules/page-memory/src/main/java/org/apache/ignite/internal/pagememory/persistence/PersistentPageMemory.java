@@ -50,11 +50,11 @@ import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
+import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
+import static org.apache.ignite.internal.util.HexStringUtils.toHexString;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
-import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
 import static org.apache.ignite.internal.util.OffheapReadWriteLock.TAG_LOCK_ALWAYS;
 
 import java.nio.ByteBuffer;

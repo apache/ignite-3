@@ -35,7 +35,7 @@ class ClientSqlCommon {
 
         List<ColumnMetadata> cols = meta.columns();
 
-        out.packArrayHeader(asyncResultSet.currentPageSize());
+        out.packInt(asyncResultSet.currentPageSize());
 
         for (SqlRow row : asyncResultSet.currentPage()) {
             // TODO IGNITE-18922 Avoid conversion, copy BinaryTuple from SQL to client.

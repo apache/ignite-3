@@ -190,7 +190,7 @@ public class Compactor extends IgniteWorker {
     void doCompaction() {
         while (true) {
             // Let's collect one delta file for each partition.
-            Queue<DeltaFileForCompaction> queue = filePageStoreManager.allPageStores().stream()
+            Queue<DeltaFileForCompaction> queue = filePageStoreManager.allPageStores()
                     .map(groupPartitionFilePageStore -> {
                         DeltaFilePageStoreIo deltaFileToCompaction = groupPartitionFilePageStore.pageStore().getDeltaFileToCompaction();
 

@@ -230,12 +230,18 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
-                !cmd.full(),
-                () -> storage.lastApplied(commandIndex, commandTerm),
-                cmd.full() ? cmd.safeTime() : null
-        );
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
+        synchronized (safeTime) {
+            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
+                        !cmd.full(),
+                        () -> storage.lastApplied(commandIndex, commandTerm),
+                        cmd.full() ? cmd.safeTime() : null
+                );
+            }
 
+            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+        }
         replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
@@ -252,11 +258,18 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
-                !cmd.full(),
-                () -> storage.lastApplied(commandIndex, commandTerm),
-                cmd.full() ? cmd.safeTime() : null
-        );
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
+        synchronized (safeTime) {
+            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
+                        !cmd.full(),
+                        () -> storage.lastApplied(commandIndex, commandTerm),
+                        cmd.full() ? cmd.safeTime() : null
+                );
+
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            }
+        }
 
         replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
@@ -383,6 +396,7 @@ public class PartitionListener implements RaftGroupListener {
                         new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
                 );
                 storage.lastApplied(config.index(), config.term());
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 
                 return null;
             });
@@ -415,6 +429,7 @@ public class PartitionListener implements RaftGroupListener {
         });
 
         txStateStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
+        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
 
         CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));

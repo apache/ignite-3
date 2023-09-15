@@ -160,6 +160,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-transactions'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-placement-driver-api'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
@@ -220,7 +221,7 @@ integrationTest {
 jar {
     manifest {
         attributes(
-            'Main-Class': 'org.apache.ignite.app.IgniteRunner'
+            'Main-Class': 'org.apache.ignite.internal.app.IgniteRunner'
         )
     }
 }

@@ -532,6 +532,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
+    public Cursor<Entry> prefixLocally(ByteArray keyPrefix, long revUpperBound) {
+        byte[] rangeStart = keyPrefix.bytes();
+        byte[] rangeEnd = storage.nextKey(rangeStart);
+
+        return storage.range(rangeStart, rangeEnd, revUpperBound);
+    }
+
+    @Override
     public HybridTimestamp timestampByRevision(long revision) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.Context;
@@ -44,7 +45,8 @@ public class QueryContext implements Context {
      */
     private QueryContext(Set<SqlQueryType> allowedQueries, Object[] params) {
         this.params = params;
-        this.allowedQueries = allowedQueries;
+        //use EnumSet to have the same order always
+        this.allowedQueries = EnumSet.copyOf(allowedQueries);
     }
 
     /** Returns a set of {@link SqlQueryType allowed query types}. **/

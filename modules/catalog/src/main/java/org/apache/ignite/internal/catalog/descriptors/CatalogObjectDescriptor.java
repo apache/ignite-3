@@ -59,10 +59,11 @@ public abstract class CatalogObjectDescriptor implements Serializable {
     }
 
     /** Catalog object type. */
-    enum Type {
+    public enum Type {
         SCHEMA,
         TABLE,
         INDEX,
-        ZONE
+        ZONE,
+        SYSTEM_VIEW
     }
 }

@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
@@ -115,7 +116,7 @@ public class ExchangeServiceImpl implements ExchangeService {
             traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
         }
 
-        if (!(traceableErr instanceof ExecutionCancelledException)) {
+        if (!(traceableErr instanceof QueryCancelledException)) {
             LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
             LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), error);

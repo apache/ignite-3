@@ -61,7 +61,7 @@ def tokens = [
         PACKAGE_NAME        : 'ignite3-db',
         PRODUCT_DISPLAY_NAME: 'Apache Ignite',
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
-        MAIN_CLASS          : 'org.apache.ignite.app.IgniteRunner',
+        MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
         VARS_FILE_NAME      : 'vars.env',
         BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
         SETUP_JAVA_FILE_NAME: 'setup-java.sh'
@@ -270,7 +270,7 @@ setupBuilder {
 
     // Actually a classpath
     mainJar = "lib\\*"
-    mainClass = "org.apache.ignite.app.IgniteRunner"
+    mainClass = "org.apache.ignite.internal.app.IgniteRunner"
 
     licenseFile = "$rootDir/LICENSE"
 

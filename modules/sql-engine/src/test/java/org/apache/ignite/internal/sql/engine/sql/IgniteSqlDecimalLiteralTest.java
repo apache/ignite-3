@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
@@ -88,7 +89,7 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
     public void testLiteralTypeMatch(String val) throws Exception {
         String query = format("SELECT {}, DECIMAL '{}'", val, val);
 
-        IgniteRel rel = physicalPlan(query, new IgniteSchema("PUBLIC"));
+        IgniteRel rel = physicalPlan(query, new IgniteSchema(DEFAULT_SCHEMA, 1, List.of()));
 
         RelDataType numericLitType = rel.getRowType().getFieldList().get(0).getType();
         RelDataType decimalLitType = rel.getRowType().getFieldList().get(1).getType();

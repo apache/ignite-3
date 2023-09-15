@@ -180,11 +180,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                         .addColumn("C4", Collation.DESC_NULLS_LAST)
                         .addColumn("C3", Collation.ASC_NULLS_FIRST)
                         .end())
-                .andThen(t -> t.sortedIndex()
-                        .name("C4_IDX")
-                        .addColumn("C4", Collation.ASC_NULLS_FIRST)
-                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
-                        .end())
         );
 
         assertBounds("SELECT * FROM TEST WHERE C4 > 1",

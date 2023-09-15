@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableOrIndexExistsWithGivenName;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
@@ -95,7 +95,7 @@ public class CreateTableCommand extends AbstractTableCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        ensureNoTableOrIndexExistsWithGivenName(schema, tableName);
+        ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
 
@@ -105,6 +105,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         CatalogTableDescriptor table = new CatalogTableDescriptor(
                 tableId,
+                pkIndexId,
                 tableName,
                 zone.id(),
                 CatalogTableDescriptor.INITIAL_TABLE_VERSION,
@@ -115,7 +116,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         String indexName = tableName + "_PK";
 
-        ensureNoTableOrIndexExistsWithGivenName(schema, indexName);
+        ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
         CatalogHashIndexDescriptor pkIndex = new CatalogHashIndexDescriptor(
                 pkIndexId,
@@ -126,8 +127,8 @@ public class CreateTableCommand extends AbstractTableCommand {
         );
 
         return List.of(
-                new NewTableEntry(table),
-                new NewIndexEntry(pkIndex),
+                new NewTableEntry(table, schemaName),
+                new NewIndexEntry(pkIndex, schemaName),
                 new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
         );
     }

@@ -40,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
 public interface CatalogService {
     String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
+    String SYSTEM_SCHEMA_NAME = "SYSTEM";
+
     String DEFAULT_ZONE_NAME = "Default";
 
     @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
@@ -89,4 +91,6 @@ public interface CatalogService {
     CompletableFuture<Void> catalogReadyFuture(int version);
 
     void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure);
+
+    void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure);
 }

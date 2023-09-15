@@ -117,7 +117,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return new PrepareServiceImpl(
                 nodeName,
                 cacheSize,
-                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage),
+                new DdlSqlToCommandConverter(dataStorageFields, DataStorageManager::defaultDataStorage),
                 DEFAULT_PLANNER_TIMEOUT,
                 metricManager
         );
@@ -190,7 +190,9 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return result.exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
                     if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
-                        throw new SqlException(PLANNING_TIMEOUT_ERR);
+                        throw new SqlException(
+                                PLANNING_TIMEOUT_ERR,
+                                "Planning of a query aborted due to planner timeout threshold is reached");
                     }
 
                     throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicException(th));
@@ -278,7 +280,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
 
-            return new MultiStepPlan(SqlQueryType.QUERY, fragments, resultSetMetadata(validated.dataType(), validated.origins()));
+            return new MultiStepPlan(SqlQueryType.QUERY, fragments,
+                    resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
@@ -312,7 +315,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        long catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :
@@ -323,7 +326,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private ResultSetMetadata resultSetMetadata(
             RelDataType rowType,
-            @Nullable List<List<String>> origins
+            @Nullable List<List<String>> origins,
+            List<String> aliases
     ) {
         return new LazyResultSetMetadata(
                 () -> {
@@ -331,9 +335,10 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
                     for (int i = 0; i < rowType.getFieldCount(); ++i) {
                         RelDataTypeField fld = rowType.getFieldList().get(i);
+                        String alias = aliases.size() > i ? aliases.get(i) : null;
 
                         ColumnMetadataImpl fldMeta = new ColumnMetadataImpl(
-                                fld.getName(),
+                                alias != null ? alias : fld.getName(),
                                 TypeUtils.columnType(fld.getType()),
                                 fld.getType().getPrecision(),
                                 fld.getType().getScale(),

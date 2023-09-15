@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import java.util.Objects;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -90,6 +91,25 @@ public class ColumnParams {
     /** Returns column length or {@code null} if not set. */
     public @Nullable Integer length() {
         return length;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ColumnParams that = (ColumnParams) o;
+        return nullable == that.nullable && Objects.equals(name, that.name) && type == that.type && Objects.equals(length,
+                that.length) && Objects.equals(precision, that.precision) && Objects.equals(scale, that.scale)
+                && Objects.equals(defaultValueDefinition, that.defaultValueDefinition);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, type, nullable, length, precision, scale, defaultValueDefinition);
     }
 
     /** Parameters builder. */

@@ -115,6 +115,13 @@ dependencies {
     integrationTestImplementation libs.hamcrest.optional
 }
 
+// Use the same logging implementation for ignite components and cli.
+configurations {
+    testImplementation.exclude group: "org.slf4j", module: "slf4j-jdk14"
+    testFixturesImplementation.exclude group: "org.slf4j", module: "slf4j-jdk14"
+    integrationTestImplementation.exclude group: "org.slf4j", module: "slf4j-jdk14"
+}
+
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
 task copyOpenapiDefinition(type: Copy) {

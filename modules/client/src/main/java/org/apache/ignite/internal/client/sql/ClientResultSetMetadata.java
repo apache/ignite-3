@@ -42,7 +42,7 @@ class ClientResultSetMetadata implements ResultSetMetadata {
      * @param unpacker Unpacker.
      */
     public ClientResultSetMetadata(ClientMessageUnpacker unpacker) {
-        var size = unpacker.unpackArrayHeader();
+        var size = unpacker.unpackInt();
         assert size > 0 : "ResultSetMetadata should not be empty.";
 
         var columns = new ArrayList<ColumnMetadata>(size);

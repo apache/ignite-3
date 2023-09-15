@@ -58,5 +58,5 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     /**
      * Return last schema version, just a stub, need to be removed after IGNITE-18733.
      */
-    long schemaVersion();
+    int schemaVersion();
 }

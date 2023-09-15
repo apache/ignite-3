@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,7 +38,6 @@ import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerI
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -79,7 +80,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec) {
         BinaryRowEx keyRow = marshalKey(Objects.requireNonNull(keyRec));
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return convertToPublicFuture(tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal));
     }
 
     @WithSpan
@@ -93,7 +94,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.getAll(marshalKeys(keyRecs), (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, true));
+        return convertToPublicFuture(tbl.getAll(marshalKeys(keyRecs), (InternalTransaction) tx)
+                .thenApply(binaryRows -> unmarshal(binaryRows, true)));
     }
 
     /** {@inheritDoc} */
@@ -109,7 +111,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, R rec) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.upsert(keyRow, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.upsert(keyRow, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -125,7 +127,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
-        return tbl.upsertAll(marshal(recs), (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.upsertAll(marshal(recs), (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -141,7 +143,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, R rec) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return convertToPublicFuture(tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal));
     }
 
     /** {@inheritDoc} */
@@ -157,7 +159,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, R rec) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.insert(keyRow, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.insert(keyRow, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -173,7 +175,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(recs));
 
-        return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
+        return convertToPublicFuture(tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false)));
     }
 
     /** {@inheritDoc} */
@@ -196,7 +198,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R rec) {
         BinaryRowEx newRow = marshal(Objects.requireNonNull(rec));
 
-        return tbl.replace(newRow, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.replace(newRow, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -206,7 +208,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         BinaryRowEx oldRow = marshal(Objects.requireNonNull(oldRec));
         BinaryRowEx newRow = marshal(Objects.requireNonNull(newRec));
 
-        return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.replace(oldRow, newRow, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -222,7 +224,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, R rec) {
         BinaryRowEx row = marshal(Objects.requireNonNull(rec));
 
-        return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return convertToPublicFuture(tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(this::unmarshal));
     }
 
     /** {@inheritDoc} */
@@ -238,7 +240,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, R keyRec) {
         BinaryRowEx row = marshalKey(Objects.requireNonNull(keyRec));
 
-        return tbl.delete(row, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.delete(row, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -254,7 +256,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R keyRec) {
         BinaryRowEx row = marshal(Objects.requireNonNull(keyRec));
 
-        return tbl.deleteExact(row, (InternalTransaction) tx);
+        return convertToPublicFuture(tbl.deleteExact(row, (InternalTransaction) tx));
     }
 
     /** {@inheritDoc} */
@@ -270,7 +272,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, R keyRec) {
         BinaryRowEx row = marshalKey(keyRec);
 
-        return tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(this::unmarshal);
+        return convertToPublicFuture(tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(this::unmarshal));
     }
 
     /** {@inheritDoc} */
@@ -286,7 +288,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
+        return convertToPublicFuture(tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false)));
     }
 
     /** {@inheritDoc} */
@@ -302,7 +304,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
-        return tbl.deleteAllExact(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, false));
+        return convertToPublicFuture(tbl.deleteAllExact(rows, (InternalTransaction) tx)
+                .thenApply(binaryRows -> unmarshal(binaryRows, false)));
     }
 
     /**
@@ -320,7 +323,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         // TODO: Cache marshaller for schema version or upgrade row?
 
-        return this.marsh = marshallerFactory.apply(schemaReg.schema(schemaVersion));
+        SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+        return this.marsh = marshallerFactory.apply(schema);
     }
 
     /**
@@ -329,6 +333,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Marshaller.
      */
     private RecordMarshaller<R> marshaller() {
+        SchemaRegistry schemaReg = rowConverter.registry();
         return marshaller(schemaReg.lastSchemaVersion());
     }
 
@@ -345,7 +350,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         try {
             return marsh.marshal(rec);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -370,7 +375,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
             return rows;
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -387,7 +392,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         try {
             return marsh.marshalKey(rec);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -412,7 +417,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
             return rows;
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -428,14 +433,14 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             return null;
         }
 
-        Row row = schemaReg.resolve(binaryRow);
+        Row row = rowConverter.resolveRow(binaryRow);
 
         RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
 
         try {
             return marshaller.unmarshal(row);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -457,7 +462,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         var recs = new ArrayList<R>(rows.size());
 
         try {
-            for (Row row : schemaReg.resolve(rows)) {
+            for (Row row : rowConverter.resolveRows(rows)) {
                 if (row != null) {
                     recs.add(marsh.unmarshal(row));
                 } else if (addNull) {
@@ -467,7 +472,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
             return recs;
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -477,8 +482,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
-        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
+        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(rowConverter.registry(), tbl.partitions(), marshaller());
+        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> this.tbl.upsertAll(marshal(items), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

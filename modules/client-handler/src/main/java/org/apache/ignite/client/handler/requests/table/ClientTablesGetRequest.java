@@ -38,7 +38,7 @@ public class ClientTablesGetRequest {
             IgniteTables igniteTables
     ) {
         return igniteTables.tablesAsync().thenAccept(tables -> {
-            out.packMapHeader(tables.size());
+            out.packInt(tables.size());
 
             for (var table : tables) {
                 var tableImpl = (TableImpl) table;

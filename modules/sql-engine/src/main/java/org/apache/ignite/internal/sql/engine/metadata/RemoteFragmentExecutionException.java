@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
 import java.util.UUID;
 import org.apache.ignite.lang.RemoteException;
 import org.jetbrains.annotations.Nullable;
@@ -54,10 +52,7 @@ public class RemoteFragmentExecutionException extends RemoteException {
             int code,
             @Nullable String message
     ) {
-        super(traceId, code,
-                format("Query remote fragment execution failed: nodeName={}, queryId={}, fragmentId={}, originalMessage={}",
-                        nodeName, queryId, fragmentId, message)
-        );
+        super(traceId, code, message);
 
         this.nodeName = nodeName;
         this.queryId = queryId;

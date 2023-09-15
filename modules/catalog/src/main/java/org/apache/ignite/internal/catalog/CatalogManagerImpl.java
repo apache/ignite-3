@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateHashIndexParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateSortedIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
@@ -39,27 +37,20 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
-import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.Fireable;
-import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -75,17 +66,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
-import org.apache.ignite.lang.ErrorGroups.Index;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.SchemaNotFoundException;
-import org.apache.ignite.lang.TableAlreadyExistsException;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -142,11 +125,21 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
-        CatalogSchemaDescriptor schemaPublic = new CatalogSchemaDescriptor(
+        CatalogSchemaDescriptor publicSchema = new CatalogSchemaDescriptor(
                 objectIdGen++,
                 DEFAULT_SCHEMA_NAME,
                 new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0]
+                new CatalogIndexDescriptor[0],
+                new CatalogSystemViewDescriptor[0]
+        );
+
+        // TODO: IGNITE-19082 Move system schema objects initialization to cluster init procedure.
+        CatalogSchemaDescriptor systemSchema = new CatalogSchemaDescriptor(
+                objectIdGen++,
+                SYSTEM_SCHEMA_NAME,
+                new CatalogTableDescriptor[0],
+                new CatalogIndexDescriptor[0],
+                new CatalogSystemViewDescriptor[0]
         );
 
         CatalogZoneDescriptor defaultZone = fromParams(
@@ -154,7 +147,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 CreateZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).build()
         );
 
-        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(schemaPublic)));
+        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema)));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
@@ -295,69 +288,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException {
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
-    }
-
-    @Override
-    public CompletableFuture<Void> createIndex(CreateHashIndexParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateCreateHashIndexParams(params);
-
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            ensureNoTableOrIndexExistsWithSameName(schema, params.indexName());
-
-            CatalogTableDescriptor table = getTable(schema, params.tableName());
-
-            validateIndexColumns(table, params);
-
-            CatalogHashIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
-
-            return List.of(
-                    new NewIndexEntry(index),
-                    new ObjectIdGenUpdateEntry(1)
-            );
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> createIndex(CreateSortedIndexParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateCreateSortedIndexParams(params);
-
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            ensureNoTableOrIndexExistsWithSameName(schema, params.indexName());
-
-            CatalogTableDescriptor table = getTable(schema, params.tableName());
-
-            validateIndexColumns(table, params);
-
-            CatalogSortedIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
-
-            return List.of(
-                    new NewIndexEntry(index),
-                    new ObjectIdGenUpdateEntry(1)
-            );
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> dropIndex(DropIndexParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateDropIndexParams(params);
-
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            CatalogIndexDescriptor index = schema.index(params.indexName());
-
-            if (index == null) {
-                throw new IndexNotFoundException(schema.name(), params.indexName());
-            }
-
-            return List.of(
-                    new DropIndexEntry(index.id(), index.tableId())
-            );
-        });
     }
 
     @Override
@@ -511,7 +441,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
-        public void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+        public CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             int version = update.version();
             Catalog catalog = catalogByVer.get(version - 1);
 
@@ -538,7 +468,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 }
             }
 
-            CompletableFuture.allOf(eventFutures.toArray(CompletableFuture[]::new))
+            return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
                             LOG.warn("Failed to apply catalog update.", err);
@@ -562,28 +492,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         );
     }
 
-    private static CatalogSchemaDescriptor getSchema(Catalog catalog, @Nullable String schemaName) {
-        schemaName = Objects.requireNonNullElse(schemaName, DEFAULT_SCHEMA_NAME);
-
-        CatalogSchemaDescriptor schema = catalog.schema(schemaName);
-
-        if (schema == null) {
-            throw new SchemaNotFoundException(schemaName);
-        }
-
-        return schema;
-    }
-
-    private static CatalogTableDescriptor getTable(CatalogSchemaDescriptor schema, String tableName) {
-        CatalogTableDescriptor table = schema.table(Objects.requireNonNull(tableName, "tableName"));
-
-        if (table == null) {
-            throw new TableNotFoundException(schema.name(), tableName);
-        }
-
-        return table;
-    }
-
     private static CatalogZoneDescriptor getZone(Catalog catalog, String zoneName) {
         zoneName = Objects.requireNonNull(zoneName, "zoneName");
 
@@ -601,30 +509,9 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         listen(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
-    private static void ensureNoTableOrIndexExistsWithSameName(CatalogSchemaDescriptor schema, String name) {
-        if (schema.index(name) != null) {
-            throw new IndexAlreadyExistsException(schema.name(), name);
-        }
-
-        if (schema.table(name) != null) {
-            throw new TableAlreadyExistsException(schema.name(), name);
-        }
-    }
-
-    private static void validateIndexColumns(CatalogTableDescriptor table, AbstractCreateIndexCommandParams params) {
-        validateColumnsExistInTable(table, params.columns());
-
-        if (params.unique() && !params.columns().containsAll(table.colocationColumns())) {
-            throw new IgniteException(Index.INVALID_INDEX_DEFINITION_ERR, "Unique index must include all colocation columns");
-        }
-    }
-
-    private static void validateColumnsExistInTable(CatalogTableDescriptor table, Collection<String> columns) {
-        for (String column : columns) {
-            if (table.columnDescriptor(column) == null) {
-                throw new ColumnNotFoundException(column);
-            }
-        }
+    @Override
+    public void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
+        removeListener(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
     private static class BulkUpdateProducer implements UpdateProducer {
