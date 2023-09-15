@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,7 +46,7 @@ public class EventProducerTest {
 
         future.complete(true);
 
-        assertThat(eventHandleFuture, willCompleteSuccessfully());
+        assertTrue(eventHandleFuture.isDone());
     }
 
     @Test
