@@ -15,12 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.event;
 
-/**
- * The event cas which is produced by event producer component.
- *
- * @see Producer#fireEvent(Event, EventParameters, Throwable)
- */
+/** The event which is produced by a component. */
 public interface Event {
 }

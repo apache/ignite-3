@@ -15,34 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.event;
 
-/**
- * Event parameters. This type passed to the event listener.
- *
- * @see Producer#fireEvent(Event, EventParameters, Throwable)
- */
-public abstract class EventParameters {
-    /** Causality token. */
-    private final long causalityToken;
+/** Allows to add/remove listeners of {@link EventProducer event producer}. */
+public interface EventProducerListener<T extends Event, P extends EventParameters> {
+    /**
+     * Registers an event listener. When the event predicate returns true it would never invoke after, otherwise this predicate would
+     * receive an event again.
+     *
+     * @param evt Event.
+     * @param listener Listener.
+     */
+    void listen(T evt, EventListener<? extends P> listener);
 
     /**
-     * Constructor.
+     * Removes a listener associated with the event.
      *
-     * @param causalityToken Causality token.
+     * @param evt Event.
+     * @param listener Listener.
      */
-    public EventParameters(long causalityToken) {
-        this.causalityToken = causalityToken;
-    }
-
-    /**
-     * Returns a causality token.
-     * The token is required for represent a causality dependency between several events.
-     * The earlier the event occurred, the lower the value of the token.
-     *
-     * @return Causality token.
-     */
-    public long causalityToken() {
-        return causalityToken;
-    }
+    void removeListener(T evt, EventListener<? extends P> listener);
 }

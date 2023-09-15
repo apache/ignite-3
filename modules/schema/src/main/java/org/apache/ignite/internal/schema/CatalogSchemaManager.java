@@ -45,10 +45,10 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
@@ -66,7 +66,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * This class services management of table schemas.
  */
-public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
+public class CatalogSchemaManager extends EventProducer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOGGER = Loggers.forClass(CatalogSchemaManager.class);
 
     /** Schema history key predicate part. */

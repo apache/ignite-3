@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.index.event;
 
-import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.internal.event.EventParameters;
 
 /** Index event parameters. There are properties which associate with a particular index. */
 public class IndexEventParameters extends EventParameters {

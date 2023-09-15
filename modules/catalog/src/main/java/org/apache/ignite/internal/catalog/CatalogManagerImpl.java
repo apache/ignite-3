@@ -60,11 +60,10 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
@@ -74,7 +73,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Catalog service implementation.
  */
-public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
+public class CatalogManagerImpl extends EventProducer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
 
     /** Safe time to wait before new Catalog version activation. */
@@ -502,16 +501,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         }
 
         return zone;
-    }
-
-    @Override
-    public void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
-        listen(evt, (EventListener<CatalogEventParameters>) closure);
-    }
-
-    @Override
-    public void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
-        removeListener(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
     private static class BulkUpdateProducer implements UpdateProducer {
