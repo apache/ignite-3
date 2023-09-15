@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_LEFT;
-import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_RIGHT;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -477,7 +477,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                         soredIndexId,
                         lowBound,
                         upperBound,
-                        INCLUDE_LEFT | INCLUDE_RIGHT,
+                        LESS_OR_EQUAL | GREATER_OR_EQUAL,
                         null
                 )
         );
@@ -503,7 +503,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                         soredIndexId,
                         lowBound,
                         upperBound,
-                        INCLUDE_LEFT | INCLUDE_RIGHT,
+                        LESS_OR_EQUAL | GREATER_OR_EQUAL,
                         null
                 )
         );
@@ -524,7 +524,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 soredIndexId,
                 lowBound,
                 upperBound,
-                INCLUDE_LEFT | INCLUDE_RIGHT,
+                LESS_OR_EQUAL | GREATER_OR_EQUAL,
                 null
         );
 

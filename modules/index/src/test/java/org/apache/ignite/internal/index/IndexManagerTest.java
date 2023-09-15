@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -161,6 +162,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
             return completedFuture(true);
         });
 
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
         assertThat(
                 catalogManager.execute(
                         CreateSortedIndexCommand.builder()
@@ -180,7 +183,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(index.id()));
         assertThat(holder.get().tableId(), equalTo(tableId));
-        assertThat(holder.get().indexDescriptor().name(), equalTo(indexName));
+        assertThat(holder.get().catalogVersion(), greaterThan(catalogVersion));
 
         assertThat(
                 catalogManager.execute(DropIndexCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
