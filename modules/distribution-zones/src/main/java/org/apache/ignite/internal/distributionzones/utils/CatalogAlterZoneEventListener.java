@@ -30,7 +30,7 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
-import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.event.EventListener;
 import org.jetbrains.annotations.Nullable;
 
 /**

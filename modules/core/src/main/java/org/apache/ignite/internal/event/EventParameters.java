@@ -15,26 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.event;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-
-/**
- * The exception notifies a listener when the listener was removed from queue and never receive a notification again.
- */
-public class ListenerRemovedException extends IgniteInternalCheckedException {
-    /**
-     * Default constructor.
-     */
-    public ListenerRemovedException() {
-    }
+/** Event parameters. This type is passed to the {@link EventListener#notify(EventParameters, Throwable)}. */
+public abstract class EventParameters {
+    private final long causalityToken;
 
     /**
      * Constructor.
      *
-     * @param cause The exception that was a cause which a listener is removed.
+     * @param causalityToken Causality token.
      */
-    public ListenerRemovedException(IgniteInternalCheckedException cause) {
-        super(cause);
+    public EventParameters(long causalityToken) {
+        this.causalityToken = causalityToken;
+    }
+
+    /**
+     * Returns a causality token.
+     * The token is required for represent a causality dependency between several events.
+     * The earlier the event occurred, the lower the value of the token.
+     */
+    public long causalityToken() {
+        return causalityToken;
     }
 }

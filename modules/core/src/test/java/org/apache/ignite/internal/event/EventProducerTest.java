@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.event;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,18 +28,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test of some implementation of {@link Producer} and {@link EventListener}.
- */
-public class ProducerTest {
+/** For {@link AbstractEventProducer} testing. */
+public class EventProducerTest {
     @Test
     public void simpleAsyncTest() {
-        Producer<TestEvent, TestEventParameters> producer = new Producer<>() {
-        };
+        AbstractEventProducer<TestEvent, TestEventParameters> producer = new AbstractEventProducer<>() {};
 
         CompletableFuture<Boolean> future = new CompletableFuture<>();
 
@@ -54,17 +51,14 @@ public class ProducerTest {
 
     @Test
     public void stopListenTest() {
-        Producer<TestEvent, TestEventParameters> producer = new Producer<>() {
-        };
+        AbstractEventProducer<TestEvent, TestEventParameters> producer = new AbstractEventProducer<>() {};
 
         final int stopListenAfterCount = 5;
         final int fireEventCount = stopListenAfterCount * 2;
         AtomicInteger listenConter = new AtomicInteger();
-        AtomicInteger removeCounter = new AtomicInteger();
 
         EventListener<TestEventParameters> listener = createEventListener(
-                (p, e) -> completedFuture(listenConter.incrementAndGet() == stopListenAfterCount),
-                t -> removeCounter.incrementAndGet()
+                (p, e) -> completedFuture(listenConter.incrementAndGet() == stopListenAfterCount)
         );
 
         producer.listen(TestEvent.TEST, listener);
@@ -74,89 +68,60 @@ public class ProducerTest {
         }
 
         assertEquals(stopListenAfterCount, listenConter.get());
-        assertEquals(0, removeCounter.get());
     }
 
     @Test
     public void parallelTest() {
-        Producer<TestEvent, TestEventParameters> producer = new Producer<>() {
-        };
+        AbstractEventProducer<TestEvent, TestEventParameters> producer = new AbstractEventProducer<>() {};
 
         final int listenersCount = 10_000;
         final int listenerIndexToRemove = 10;
         EventListener<TestEventParameters> listenerToRemove = null;
 
-        CompletableFuture toRemoveFuture = new CompletableFuture();
+        CompletableFuture<Void> toRemoveFuture = new CompletableFuture<>();
 
         for (int i = 0; i < listenersCount; i++) {
-            EventListener<TestEventParameters> listener = i == listenerIndexToRemove
-                    ? createEventListener(
-                        (p, e) -> {
-                            toRemoveFuture.complete(null);
-
-                            return completedFuture(false);
-                        },
-                        t -> {}
-                    )
-                    : createEventListener((p, e) -> completedFuture(false), t -> {});
+            EventListener<TestEventParameters> listener;
 
             if (i == listenerIndexToRemove) {
+                listener = createEventListener((p, e) -> {
+                    toRemoveFuture.complete(null);
+
+                    return completedFuture(false);
+                });
+
                 listenerToRemove = listener;
+            } else {
+                listener = createEventListener((p, e) -> completedFuture(false));
             }
 
             producer.listen(TestEvent.TEST, listener);
         }
 
-        CompletableFuture fireFuture = runAsync(() -> producer.fireEvent(TestEvent.TEST, new TestEventParameters(0L)).join());
+        CompletableFuture<Void> fireFuture = runAsync(() -> assertThat(
+                producer.fireEvent(TestEvent.TEST, new TestEventParameters(0L)),
+                willCompleteSuccessfully()
+        ));
 
-        toRemoveFuture.join();
+        assertThat(toRemoveFuture, willCompleteSuccessfully());
 
         producer.removeListener(TestEvent.TEST, listenerToRemove);
 
-        fireFuture.join();
-
-        assertFalse(fireFuture.isCompletedExceptionally());
+        assertThat(fireFuture, willCompleteSuccessfully());
     }
 
-    /**
-     * Create event listener.
-     *
-     * @param notify Notify action.
-     * @param remove Remove action.
-     * @return Listener.
-     */
-    private <T extends EventParameters> EventListener<T> createEventListener(
-            BiFunction<T, Throwable, CompletableFuture<Boolean>> notify,
-            Consumer<Throwable> remove
+    private static <T extends EventParameters> EventListener<T> createEventListener(
+            BiFunction<T, Throwable, CompletableFuture<Boolean>> notify
     ) {
-        return new EventListener<T>() {
-            @Override public CompletableFuture<Boolean> notify(T parameters, @Nullable Throwable exception) {
-                return notify.apply(parameters, exception);
-            }
-
-            @Override public void remove(Throwable throwable) {
-                remove.accept(throwable);
-            }
-        };
+        return notify::apply;
     }
 
-    /**
-     * Test event.
-     */
     private enum TestEvent implements Event {
         TEST
     }
 
-    /**
-     * Parameters for test event.
-     */
-    private class TestEventParameters extends EventParameters {
-        /**
-         * Constructor.
-         *
-         * @param causalityToken Causality token.
-         */
-        public TestEventParameters(long causalityToken) {
+    private static class TestEventParameters extends EventParameters {
+        private TestEventParameters(long causalityToken) {
             super(causalityToken);
         }
     }

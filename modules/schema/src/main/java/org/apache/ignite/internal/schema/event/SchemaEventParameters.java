@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.event;
 
-import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 
 /**

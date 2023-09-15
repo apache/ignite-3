@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.event.Event;
 
 /**
  * Catalog management events.

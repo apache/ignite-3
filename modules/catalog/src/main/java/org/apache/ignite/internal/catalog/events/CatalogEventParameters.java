@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.internal.event.EventParameters;
 
 /**
  * Base class for Catalog event parameters.

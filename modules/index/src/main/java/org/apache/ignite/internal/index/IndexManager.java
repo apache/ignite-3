@@ -34,12 +34,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -64,7 +64,7 @@ import org.apache.ignite.lang.NodeStoppingException;
  * as well as managing indexes' lifecycle.
  */
 // TODO: IGNITE-19082 Delete this class
-public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
+public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Schema manager. */
