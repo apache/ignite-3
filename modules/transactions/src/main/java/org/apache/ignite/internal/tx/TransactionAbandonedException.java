@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ABANDONED_ERR;
 
 import java.util.UUID;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception that is thrown when write intent can't be resolved because it has been created by a transaction that is now abandoned
@@ -29,19 +30,25 @@ import org.apache.ignite.tx.TransactionException;
 public class TransactionAbandonedException extends TransactionException {
     private final UUID abandonedTxId;
 
+    @Nullable
+    private final TransactionMeta transactionMeta;
+
     /**
      * Constructor.
      *
      * @param abandonedTxId ID of the transaction that is abandoned.
+     * @param transactionMeta Transaction meta that was able to be retrieved.
      */
-    public TransactionAbandonedException(UUID abandonedTxId) {
+    public TransactionAbandonedException(UUID abandonedTxId, @Nullable TransactionMeta transactionMeta) {
         super(UUID.randomUUID(), TX_ABANDONED_ERR, null);
 
         this.abandonedTxId = abandonedTxId;
+        this.transactionMeta = transactionMeta;
     }
 
     @Override
     public String getMessage() {
-        return "Operation failed due to abandoned transaction [abandonedTxId=" + abandonedTxId + ']';
+        return "Operation failed due to abandoned transaction [abandonedTxId=" + abandonedTxId
+                + ", transactionMeta=" + transactionMeta + ']';
     }
 }

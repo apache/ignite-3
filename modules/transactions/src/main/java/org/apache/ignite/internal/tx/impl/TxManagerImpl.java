@@ -47,12 +47,14 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -190,6 +192,36 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
+    public CompletableFuture<TransactionMeta> transactionMetaReadTimestampAware(
+            UUID txId,
+            HybridTimestamp readTimestamp,
+            TxStateStorage storage
+    ) {
+        AtomicReference<CompletableFuture<TransactionMeta>> txStateFutRef = new AtomicReference<>();
+
+        txStateMap.compute(txId, (k, v) -> {
+            TransactionMeta txMeta = v;
+
+            if (txMeta == null) {
+                txMeta = storage.get(txId);
+            }
+
+            if (txMeta != null && txMeta instanceof TxStateMetaFinishing) {
+                txStateFutRef.set(((TxStateMetaFinishing) txMeta).txFinishFuture());
+            } else {
+                // All future transactions will be committed after the resolution processed.
+                clock.update(readTimestamp);
+
+                txStateFutRef.set(completedFuture(txMeta));
+            }
+
+            return v;
+        });
+
+        return txStateFutRef.get();
+    }
+
+    @Override
     public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
         txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
@@ -231,19 +263,28 @@ public class TxManagerImpl implements TxManager {
     ) {
         assert groups != null;
 
+        // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
+        // with using read timestamp could see that this transaction is finishing, see #transactionMetaReadTimestampAware(txId, timestamp).
+        // None of them now are able to update node's clock with read timestamp and we can create the commit timestamp that is greater
+        // than all the read timestamps processed before.
+        // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
+        // state after the transaction is finished.
+        TxStateMetaFinishing finishingStateMeta = new TxStateMetaFinishing(localNodeId.get());
+        updateTxMeta(txId, old -> finishingStateMeta);
         HybridTimestamp commitTimestamp = commit ? clock.now() : null;
 
         // If there are no enlisted groups, just return - we already marked the tx as finished.
         boolean finishRequestNeeded = !groups.isEmpty();
 
-        updateTxMeta(
-                txId,
-                old -> finishRequestNeeded
-                    ? new TxStateMetaFinishing(old.txCoordinatorId(), commitTimestamp)
-                    : new TxStateMeta(ABORTED, old.txCoordinatorId(), commitTimestamp)
-        );
-
         if (!finishRequestNeeded) {
+            updateTxMeta(txId, old -> {
+                TxStateMeta finalStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+
+                finishingStateMeta.txFinishFuture().complete(finalStateMeta);
+
+                return finalStateMeta;
+            });
+
             return completedFuture(null);
         }
 
@@ -263,15 +304,18 @@ public class TxManagerImpl implements TxManager {
                 .thenRun(() -> {
                     updateTxMeta(txId, old -> {
                         if (isFinalState(old.txState())) {
+                            finishingStateMeta.txFinishFuture().complete(old);
+
                             return old;
                         }
 
                         assert old instanceof TxStateMetaFinishing;
 
-                        TxStateMeta newMeta = new TxStateMeta(commit ? COMMITED : ABORTED, old.txCoordinatorId(), old.commitTimestamp());
-                        ((TxStateMetaFinishing) old).txFinishFuture().complete(newMeta);
+                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
 
-                        return newMeta;
+                        finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+
+                        return finalTxStateMeta;
                     });
                 });
     }
@@ -367,5 +411,15 @@ public class TxManagerImpl implements TxManager {
         } finally {
             lowWatermarkReadWriteLock.writeLock().unlock();
         }
+    }
+
+    /**
+     * Creates final {@link TxStateMeta} for coordinator node.
+     * @param commit Commit flag.
+     * @param commitTimestamp Commit timestamp.
+     * @return Transaction meta.
+     */
+    private TxStateMeta coordinatorFinalTxStateMeta(boolean commit, HybridTimestamp commitTimestamp) {
+        return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId.get(), commitTimestamp);
     }
 }

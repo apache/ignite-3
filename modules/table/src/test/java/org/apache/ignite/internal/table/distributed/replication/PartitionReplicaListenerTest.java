@@ -154,6 +154,7 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -440,6 +441,22 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }).when(txManager).updateTxMeta(any(), any());
 
         doAnswer(invocation -> txStateMeta).when(txManager).stateMeta(any());
+        doAnswer(invocation -> {
+            UUID txId = invocation.getArgument(0);
+
+            TransactionMeta txMeta = txStateMeta;
+
+            if (txMeta == null) {
+                txMeta = txStateStorage.get(txId);
+            }
+
+            return completedFuture(txMeta);
+        }).when(txManager).transactionMetaReadTimestampAware(any(), any(), any());
+
+        doAnswer(invocation -> {
+            var resp = new TxMessagesFactory().txStateResponse().txStateMeta(txStateMeta).build();
+            return completedFuture(resp);
+        }).when(messagingService).invoke(any(ClusterNode.class), any(), anyLong());
 
         transactionStateResolver = new TransactionStateResolver(
                 mock(ReplicaService.class),
@@ -447,9 +464,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clock,
                 consistentId -> consistentId.equals(localNode.name()) ? localNode : anotherNode,
                 id -> id.equals(localNode.id()) ? localNode : anotherNode,
-                () -> localNode.id(),
                 messagingService
         );
+
+        transactionStateResolver.start();
 
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
@@ -551,7 +569,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         LeaderOrTxState tuple = (LeaderOrTxState) fut.get(1, TimeUnit.SECONDS);
 
-        TxMeta txMeta = tuple.txMeta();
+        TransactionMeta txMeta = tuple.txMeta();
         assertNotNull(txMeta);
         assertEquals(TxState.COMMITED, txMeta.txState());
         assertNotNull(txMeta.commitTimestamp());

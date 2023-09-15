@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction metadata interface.
  */
-public interface TransactionMeta {
+public interface TransactionMeta extends Serializable {
     /** Tx state. */
     TxState txState();
 

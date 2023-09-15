@@ -438,7 +438,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 clock,
                 clusterNodeResolver,
                 topologyService::getById,
-                () -> localNode().id(),
                 clusterService.messagingService()
         );
 

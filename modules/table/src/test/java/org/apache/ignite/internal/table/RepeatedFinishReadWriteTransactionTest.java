@@ -42,9 +42,11 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -247,6 +249,12 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
 
         @Override
         public @Nullable TxStateMeta stateMeta(UUID txId) {
+            return null;
+        }
+
+        @Override
+        public CompletableFuture<TransactionMeta> transactionMetaReadTimestampAware(UUID txId, HybridTimestamp readTimestamp,
+                TxStateStorage storage) {
             return null;
         }
 

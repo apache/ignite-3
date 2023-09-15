@@ -134,8 +134,8 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TransactionAbandonedException;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
@@ -213,11 +213,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
-
-    /**
-     * Map to control clock's update in the read only transactions concurrently with a commit timestamp.
-     */
-    private final ConcurrentHashMap<UUID, CompletableFuture<TxMeta>> txTimestampUpdateMap = new ConcurrentHashMap<>();
 
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
@@ -425,42 +420,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(primaryReplica -> {
                     if (isLocalPeer(primaryReplica.getLeaseholder())) {
-                        CompletableFuture<TxMeta> txStateFut = getTxStateConcurrently(request);
+                        CompletableFuture<TransactionMeta> txStateFut = txManager
+                                .transactionMetaReadTimestampAware(request.txId(), request.readTimestamp(), txStateStorage);
 
                         return txStateFut.thenApply(txMeta -> new LeaderOrTxState(null, txMeta));
                     } else {
                         return completedFuture(new LeaderOrTxState(primaryReplica.getLeaseholder(), null));
                     }
                 });
-    }
-
-    /**
-     * Gets a transaction state or {@code null}, if the transaction is not completed.
-     *
-     * @param txStateReq Transaction state request.
-     * @return Future to transaction state meta or {@code null}.
-     */
-    private CompletableFuture<TxMeta> getTxStateConcurrently(TxStateCommitPartitionRequest txStateReq) {
-        CompletableFuture<TxMeta> txStateFut = new CompletableFuture<>();
-
-        txTimestampUpdateMap.compute(txStateReq.txId(), (uuid, fut) -> {
-            if (fut != null) {
-                fut.thenAccept(txStateFut::complete);
-            } else {
-                TxMeta txMeta = txStateStorage.get(txStateReq.txId());
-
-                if (txMeta == null) {
-                    // All future transactions will be committed after the resolution processed.
-                    hybridClock.update(txStateReq.readTimestamp());
-                }
-
-                txStateFut.complete(txMeta);
-            }
-
-            return null;
-        });
-
-        return txStateFut;
     }
 
     /**
@@ -1233,10 +1200,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp commitTimestamp,
             String txCoordinatorId
     ) {
-        var fut = new CompletableFuture<TxMeta>();
-
-        txTimestampUpdateMap.put(txId, fut);
-
         HybridTimestamp currentTimestamp = hybridClock.now();
 
         return reliableCatalogVersionFor(currentTimestamp)
@@ -1263,11 +1226,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .whenComplete((o, throwable) -> {
                     TxState txState = commit ? COMMITED : ABORTED;
 
-                    fut.complete(new TxMeta(txState, aggregatedGroupIds, commitTimestamp));
-
                     markFinished(txId, txState, commitTimestamp);
-
-                    txTimestampUpdateMap.remove(txId);
                 });
     }
 
@@ -2531,20 +2490,20 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp timestamp
     ) {
         return transactionStateResolver.resolveTxState(txId, commitGrpId, timestamp).thenApply(txMeta -> {
-            if (txMeta == null) {
-                return true;
+            if (txMeta == null || txMeta.txState() == ABANDONED) {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-20427 make the null value returned from commit partition
+                // TODO more determined
+                throw new TransactionAbandonedException(txId, txMeta);
             } else if (txMeta.txState() == COMMITED) {
                 boolean readLatest = timestamp == null;
 
                 return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
             } else if (txMeta.txState() == ABORTED) {
                 return true;
-            } else if (txMeta.txState() == PENDING) {
-                return true;
             } else {
-                assert txMeta.txState() == ABANDONED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
+                assert txMeta.txState() == PENDING : "Unexpected transaction state [state=" + txMeta.txState() + ']';
 
-                throw new TransactionAbandonedException(txId);
+                return true;
             }
         });
     }

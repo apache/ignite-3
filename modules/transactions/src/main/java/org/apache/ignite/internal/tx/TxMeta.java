@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx;
 
 import static java.util.Collections.unmodifiableList;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -28,7 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Transaction meta. */
-public class TxMeta implements TransactionMeta, Serializable {
+public class TxMeta implements TransactionMeta {
     /** Serial version UID. */
     private static final long serialVersionUID = -172513482743911860L;
 

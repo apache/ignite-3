@@ -45,9 +45,9 @@ public class TxMessageGroup {
     public static final short TX_STATE_COMMIT_PARTITION_REQUEST = 3;
 
     /**
-     * Message type for {@link TxStateRequest}.
+     * Message type for {@link TxStateCoordinatorRequest}.
      */
-    public static final short TX_STATE_REQUEST = 4;
+    public static final short TX_STATE_COORDINATOR_REQUEST = 4;
 
     /**
      * Message type for {@link TxStateResponse}.

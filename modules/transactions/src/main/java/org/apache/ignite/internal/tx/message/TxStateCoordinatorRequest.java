@@ -27,8 +27,8 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Transaction state request.
  */
-@Transferable(TxMessageGroup.TX_STATE_REQUEST)
-public interface TxStateRequest extends NetworkMessage {
+@Transferable(TxMessageGroup.TX_STATE_COORDINATOR_REQUEST)
+public interface TxStateCoordinatorRequest extends NetworkMessage {
     UUID txId();
 
     long readTimestampLong();

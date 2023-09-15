@@ -35,10 +35,9 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * Constructor.
      *
      * @param txCoordinatorId Transaction coordinator id.
-     * @param commitTimestamp Commit timestamp.
      */
-    public TxStateMetaFinishing(String txCoordinatorId, @Nullable HybridTimestamp commitTimestamp) {
-        super(TxState.FINISHING, txCoordinatorId, commitTimestamp);
+    public TxStateMetaFinishing(String txCoordinatorId) {
+        super(TxState.FINISHING, txCoordinatorId, null);
     }
 
     /**
@@ -48,5 +47,10 @@ public class TxStateMetaFinishing extends TxStateMeta {
      */
     public CompletableFuture<TransactionMeta> txFinishFuture() {
         return txFinishFuture;
+    }
+
+    @Override
+    public @Nullable HybridTimestamp commitTimestamp() {
+        throw new UnsupportedOperationException("Can't get commit timestamp from FINISHING transaction state meta.");
     }
 }

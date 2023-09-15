@@ -415,7 +415,6 @@ public class ItTxTestCluster {
                         clocks.get(assignment),
                         consistentIdToNode,
                         idToNode,
-                        () -> clusterServices.get(assignment).topologyService().localMember().id(),
                         clusterServices.get(assignment).messagingService()
                 );
                 transactionStateResolver.start();
@@ -727,7 +726,6 @@ public class ItTxTestCluster {
                 clientClock,
                 consistentIdToNode,
                 idToNode,
-                localNodeIdSupplier,
                 client.messagingService()
         );
         clientTxStateResolver.start();

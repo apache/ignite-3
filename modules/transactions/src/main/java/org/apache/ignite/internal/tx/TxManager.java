@@ -25,6 +25,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -66,6 +67,19 @@ public interface TxManager extends IgniteComponent {
      * @return The state meta or null if the state is unknown.
      */
     @Nullable TxStateMeta stateMeta(UUID txId);
+
+    /**
+     * Returns transaction state meta with the given read timestamp awareness. This means that either this method returns non-final
+     * transaction state and this transaction will be finished with commit timestamp (if applicable) greater than the given read
+     * timestamp, or this method returns final transaction state with commit timestamp (if applicable) lesser than the given read
+     * timestamp.
+     *
+     * @param txId Transaction id.
+     * @param readTimestamp Read timestamp.
+     * @param storage Persistent transaction state storage, for the case if tx meta is not found in local map.
+     * @return Future that is completed with transaction meta once it's ready.
+     */
+    CompletableFuture<TransactionMeta> transactionMetaReadTimestampAware(UUID txId, HybridTimestamp readTimestamp, TxStateStorage storage);
 
     /**
      * Atomically changes the state meta of a transaction.

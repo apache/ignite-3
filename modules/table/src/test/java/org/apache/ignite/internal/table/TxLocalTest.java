@@ -113,9 +113,8 @@ public class TxLocalTest extends TxAbstractTest {
 
         doAnswer(invocationOnMock -> {
             UUID txId = invocationOnMock.getArgument(0);
-            ReplicationGroupId groupId = invocationOnMock.getArgument(1);
 
-            return completedFuture(tables.get(groupId).txStateStorage().getTxStateStorage(0).get(txId));
+            return completedFuture(txManager.stateMeta(txId));
         }).when(transactionStateResolver).resolveTxState(any(), any(), any());
 
         txManager = new TxManagerImpl(replicaSvc, lockManager, DummyInternalTableImpl.CLOCK, new TransactionIdGenerator(0xdeadbeef),

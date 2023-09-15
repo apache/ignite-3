@@ -31,7 +31,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -43,9 +42,8 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
-import org.apache.ignite.internal.tx.message.TxStateRequest;
+import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
-import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
@@ -78,8 +76,6 @@ public class TransactionStateResolver {
 
     private final Map<UUID, CompletableFuture<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
 
-    private final Lazy<String> localNodeId;
-
     private final TxManager txManager;
 
     private final HybridClock clock;
@@ -93,7 +89,8 @@ public class TransactionStateResolver {
      * @param txManager Transaction manager.
      * @param clock Node clock.
      * @param clusterNodeResolver Cluster node resolver.
-     * @param localNodeIdSupplier Local node id supplier.
+     * @param clusterNodeResolverById Cluster node resolver using non-consistent id.
+     * @param messagingService Messaging service.
      */
     public TransactionStateResolver(
             ReplicaService replicaService,
@@ -101,7 +98,6 @@ public class TransactionStateResolver {
             HybridClock clock,
             Function<String, ClusterNode> clusterNodeResolver,
             Function<String, ClusterNode> clusterNodeResolverById,
-            Supplier<String> localNodeIdSupplier,
             MessagingService messagingService
     ) {
         this.replicaService = replicaService;
@@ -109,17 +105,16 @@ public class TransactionStateResolver {
         this.clock = clock;
         this.clusterNodeResolver = clusterNodeResolver;
         this.clusterNodeResolverById = clusterNodeResolverById;
-        this.localNodeId = new Lazy<>(localNodeIdSupplier);
         this.messagingService = messagingService;
     }
 
     /**
-     * This should be called in order to allow the transaction state resolver to listen to {@link TxStateRequest} messages.
+     * This should be called in order to allow the transaction state resolver to listen to {@link TxStateCoordinatorRequest} messages.
      */
     public void start() {
         messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
-            if (msg instanceof TxStateRequest) {
-                TxStateRequest req = (TxStateRequest) msg;
+            if (msg instanceof TxStateCoordinatorRequest) {
+                TxStateCoordinatorRequest req = (TxStateCoordinatorRequest) msg;
 
                 processTxStateRequest(req)
                         .thenAccept(txStateMeta -> {
@@ -149,23 +144,21 @@ public class TransactionStateResolver {
     ) {
         TxStateMeta localMeta = txManager.stateMeta(txId);
 
-        if (localMeta != null) {
-            if (isFinalState(localMeta.txState())) {
-                return completedFuture(localMeta);
-            }
-
-            // If the local node is a tx coordinator:
-            // if tx state is FINISHING, we will have to wait for the actual finish, otherwise we can return the current state.
-            if (localNodeId.get().equals(localMeta.txCoordinatorId()) && localMeta.txState() != FINISHING) {
-                return completedFuture(localMeta);
-            }
+        if (localMeta != null && isFinalState(localMeta.txState())) {
+            return completedFuture(localMeta);
         }
 
-        CompletableFuture<TransactionMeta> future = txStateFutures.computeIfAbsent(txId, k -> new CompletableFuture<>());
+        CompletableFuture<TransactionMeta> future = txStateFutures.compute(txId, (k, v) -> {
+            if (v == null) {
+                v = new CompletableFuture<>();
+
+                resolveDistributiveTxState(txId, localMeta, commitGrpId, timestamp, v);
+            }
+
+            return v;
+        });
 
         future.whenComplete((v, e) -> txStateFutures.remove(txId));
-
-        resolveDistributiveTxState(txId, localMeta, commitGrpId, timestamp, future);
 
         return future;
     }
@@ -240,7 +233,7 @@ public class TransactionStateResolver {
                 }
             });
 
-            TxStateRequest request = FACTORY.txStateRequest()
+            TxStateCoordinatorRequest request = FACTORY.txStateCoordinatorRequest()
                     .readTimestampLong(timestamp.longValue())
                     .txId(txId)
                     .build();
@@ -332,7 +325,7 @@ public class TransactionStateResolver {
      * @param node Node to send to.
      * @param request Request.
      */
-    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, ClusterNode node, TxStateRequest request) {
+    private void sendAndRetry(CompletableFuture<TransactionMeta> resFut, ClusterNode node, TxStateCoordinatorRequest request) {
         messagingService.invoke(node, request, RPC_TIMEOUT).thenAccept(resp -> {
             assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
@@ -349,7 +342,7 @@ public class TransactionStateResolver {
      * @param request Request.
      * @return Future that should be completed with transaction state meta.
      */
-    private CompletableFuture<TransactionMeta> processTxStateRequest(TxStateRequest request) {
+    private CompletableFuture<TransactionMeta> processTxStateRequest(TxStateCoordinatorRequest request) {
         clock.update(request.readTimestamp());
 
         UUID txId = request.txId();
