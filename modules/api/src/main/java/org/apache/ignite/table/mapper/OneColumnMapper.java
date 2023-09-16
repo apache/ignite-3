@@ -43,5 +43,5 @@ public interface OneColumnMapper<ObjectT> extends Mapper<ObjectT> {
      *
      * @return Type converter or {@code null} if not set.
      */
-    @Nullable TypeConverter<ObjectT, ?> converter();
+    <ColumnT> @Nullable TypeConverter<ObjectT, ColumnT> converter();
 }

@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.marshaller.BinaryMode;
+import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
