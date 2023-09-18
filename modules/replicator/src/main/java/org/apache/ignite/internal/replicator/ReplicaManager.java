@@ -282,7 +282,8 @@ public class ReplicaManager implements IgniteComponent {
                         ClusterNode sender = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId);
 
                         if (sender != null) {
-                            clusterNetSvc.messagingService().weakSend(sender, msg0);
+                            // Using strong send here is important to avoid a reordering with a normal response.
+                            clusterNetSvc.messagingService().send(sender, msg0);
                         } else {
                             LOG.warn("Failed to send delayed response, recipient is off the cluster topology [msg={}]", msg0);
                         }

@@ -1629,7 +1629,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return updateAllCommand(request, rowIdsToDelete)
-                            .thenCompose(this::applyUpdateAllCommand)
+                            .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
                             .thenApply(res -> new CompletionResult(result, res));
                 });
             }
@@ -1669,7 +1669,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return updateAllCommand(request, rowIdsToDelete)
-                            .thenCompose(this::applyUpdateAllCommand)
+                            .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
                             .thenApply(res -> new CompletionResult(result, res));
                 });
             }
@@ -1732,7 +1732,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return allOf(insertLockFuts)
                             .thenCompose(ignored -> updateAllCommand(request, convertedMap))
-                            .thenCompose(this::applyUpdateAllCommand)
+                            .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
                             .thenApply(res -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> insertLockFut : insertLockFuts) {
@@ -1777,7 +1777,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return updateAllCommand(request, rowsToUpdate)
-                            .thenCompose(this::applyUpdateAllCommand)
+                            .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
                             .thenApply(res -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
@@ -1881,35 +1881,54 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cmd UpdateAll command.
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
-    private CompletableFuture<Object> applyUpdateAllCommand(UpdateAllCommand cmd) {
+    private CompletableFuture<Object> applyUpdateAllCommand(UpdateAllCommand cmd, boolean skipDelayedAck) {
         if (!cmd.full()) {
-            CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
-                // Currently result is always null on a successfull execution of a replication command.
-                // This check guaranties the result will never be lost.
-                if (res != null) {
-                    throw new IllegalStateException("Replication result is lost");
-                }
+            if (skipDelayedAck) {
+                storageUpdateHandler.handleUpdateAll(
+                        cmd.txId(),
+                        cmd.rowsToUpdate(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        rowIds -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
+                            if (v == null) {
+                                v = new TreeSet<>();
+                            }
 
-                // Set context for delayed response.
-                return cmd.txId();
-            });
+                            v.addAll(rowIds);
 
-            storageUpdateHandler.handleUpdateAll(
-                    cmd.txId(),
-                    cmd.rowsToUpdate(),
-                    cmd.tablePartitionId().asTablePartitionId(),
-                    rowIds -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                        if (v == null) {
-                            v = new TreeSet<>();
-                        }
+                            return v;
+                        }),
+                        null);
 
-                        v.addAll(rowIds);
+                return applyCmdWithExceptionHandling(cmd);
+            } else {
+                CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                    // Currently result is always null on a successfull execution of a replication command.
+                    // This check guaranties the result will never be lost.
+                    if (res != null) {
+                        throw new IllegalStateException("Replication result is lost");
+                    }
 
-                        return v;
-                    }),
-                    null);
+                    // Set context for delayed response.
+                    return cmd.txId();
+                });
 
-            return completedFuture(fut);
+                storageUpdateHandler.handleUpdateAll(
+                        cmd.txId(),
+                        cmd.rowsToUpdate(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        rowIds -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
+                            if (v == null) {
+                                v = new TreeSet<>();
+                            }
+
+                            v.addAll(rowIds);
+
+                            return v;
+                        }),
+                        null);
+
+                return completedFuture(fut);
+            }
         } else {
             return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
                 if (cmd.safeTime().compareTo(safeTime.current()) > 0) {

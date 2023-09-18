@@ -46,6 +46,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.CompletionResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -152,8 +153,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param txManager Transaction manager.
-     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
-     *                        by itself.
+     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
+     *         ReplicaService by itself.
      * @param placementDriver Placement driver.
      * @param schema Schema descriptor.
      */
@@ -184,8 +185,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
-     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
-     *                        by itself.
+     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
+     *         ReplicaService by itself.
      * @param placementDriver Placement driver.
      * @param schema Schema descriptor.
      */
@@ -222,7 +223,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
-            lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)))
+            lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)).thenApply(
+                            CompletionResult::result))
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
         }
 

@@ -28,7 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -84,6 +86,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -104,6 +107,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummySchemas;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -135,6 +139,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /**
  * Distributed transaction test using a single partition table.
@@ -276,10 +283,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             log.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 
-            clientReplicaSvc = new ReplicaService(
+            clientReplicaSvc = spy(new ReplicaService(
                     client.messagingService(),
                     clientClock
-            );
+            ));
 
             log.info("The client has been started");
         }
@@ -332,10 +339,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             log.info("Replica manager has been started, node=[" + node + ']');
 
-            ReplicaService replicaSvc = new ReplicaService(
+            ReplicaService replicaSvc = spy(new ReplicaService(
                     cluster.get(i).messagingService(),
                     clock
-            );
+            ));
 
             replicaServices.put(node.name(), replicaSvc);
 
@@ -725,8 +732,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     }
 
     /**
-     * Check the storage of partition is the same across all nodes.
-     * The checking is based on {@link MvPartitionStorage#lastAppliedIndex()} that is increased on all update storage operation.
+     * Check the storage of partition is the same across all nodes. The checking is based on {@link MvPartitionStorage#lastAppliedIndex()}
+     * that is increased on all update storage operation.
      * TODO: IGNITE-18869 The method must be updated when a proper way to compare storages will be implemented.
      *
      * @param table The table.
@@ -762,6 +769,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         }
 
         return true;
+    }
+
+    @Override
+    protected void injectFailureOnNextOperation(TableImpl accounts) {
+        InternalTable internalTable = accounts.internalTable();
+        ReplicaService replicaService = IgniteTestUtils.getFieldValue(internalTable, "replicaSvc");
+        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((ClusterNode) any(), any());
     }
 
     @Test

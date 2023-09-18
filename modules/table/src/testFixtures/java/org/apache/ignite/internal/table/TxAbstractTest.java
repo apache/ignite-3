@@ -50,10 +50,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -94,8 +91,6 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public abstract class TxAbstractTest extends IgniteAbstractTest {
-    private static final IgniteLogger LOGGER = Loggers.forClass(TxAbstractTest.class);
-
     protected static SchemaDescriptor ACCOUNTS_SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("accountNumber".toUpperCase(), NativeTypes.INT64, false)},
@@ -154,6 +149,46 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
         assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
         assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+    }
+
+    @Test
+    public void testRepeatedCommitRollbackAfterUpdateWithException() throws Exception {
+        injectFailureOnNextOperation(accounts);
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        CompletableFuture<Void> fut = accounts.recordView().upsertAsync(tx, makeValue(1, 100.));
+        assertThrows(Exception.class, () -> fut.join());
+
+        CompletableFuture<Void> fut0 = tx.commitAsync();
+        assertThrows(Exception.class, () -> fut0.join());
+
+        CompletableFuture<Void> fut1 = tx.rollbackAsync();
+        assertThrows(Exception.class, () -> fut1.join());
+
+        CompletableFuture<Void> fut2 = tx.commitAsync();
+        assertThrows(Exception.class, () -> fut2.join());
+    }
+
+    @Test
+    public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        accounts.recordView().upsert(tx, makeValue(1, 100.));
+
+        injectFailureOnNextOperation(accounts);
+
+        CompletableFuture<Void> fut = tx.rollbackAsync();
+        assertThrows(Exception.class, () -> fut.join());
+
+        CompletableFuture<Void> fut0 = tx.commitAsync();
+        assertThrows(Exception.class, () -> fut0.join());
+
+        CompletableFuture<Void> fut1 = tx.rollbackAsync();
+        assertThrows(Exception.class, () -> fut1.join());
+
+        CompletableFuture<Void> fut2 = tx.commitAsync();
+        assertThrows(Exception.class, () -> fut2.join());
     }
 
     @Test
@@ -917,13 +952,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testDeleteExact() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
-        LOGGER.info("DBG: step1");
-
         igniteTransactions.runInTransaction(tx -> {
             assertFalse(accounts.recordView().deleteExact(tx, makeValue(1, 200.)));
-            LOGGER.info("DBG: step2");
             assertTrue(accounts.recordView().deleteExact(tx, makeValue(1, 100.)));
-            LOGGER.info("DBG: step3");
         });
 
         Tuple actual = accounts.recordView().get(null, makeKey(1));
@@ -1979,22 +2010,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(1)));
         assertTrue(ex.getMessage().contains("Transaction is already finished."));
 
-        log.info("DBG: step1");
-
         ex = assertThrows(TransactionException.class, () -> accountsRv.delete(tx, makeKey(1)));
         assertTrue(ex.getMessage().contains("Failed to enlist"));
-
-        log.info("DBG: step2");
 
         ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(2)));
         assertTrue(ex.getMessage().contains("Transaction is already finished."));
 
-        log.info("DBG: step3");
-
         ex = assertThrows(TransactionException.class, () -> accountsRv.upsert(tx, makeValue(2, 300.)));
         assertTrue(ex.getMessage().contains("Failed to enlist"));
-
-        log.info("DBG: step4");
 
         assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
 
@@ -2008,4 +2031,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             assertThat(res, contains(null, null));
         }
     }
+
+    protected abstract void injectFailureOnNextOperation(TableImpl accounts);
 }

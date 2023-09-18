@@ -110,9 +110,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Lock to update and read the low watermark. */
     private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
 
-    /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     /**
      * The constructor.
      *
@@ -211,7 +208,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> finish( // TODO FIXME commit aborted, abort committed ???
+    public CompletableFuture<Void> finish(
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
@@ -243,7 +240,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
             TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
                 if (tuple0 == null) {
-                    return null;
+                    tuple0 = new TxContext(); // No writes enlisted.
                 }
 
                 if (tuple0.finishFut == null) {
@@ -254,12 +251,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 return tuple0;
             });
 
-            if (tuple == null) {
-                return CompletableFuture.completedFuture(null); // No writes enlisted.
-            }
-
             if (ref.get() != null) { // This is aborting thread.
-                return clo.apply(null).handle((ignored, err) -> {
+                clo.apply(null).handle((ignored, err) -> {
                     if (err == null) {
                         tuple.finishFut.complete(null);
                     } else {
@@ -267,16 +260,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     }
                     return null;
                 });
-            } else {
-                return tuple.finishFut;
             }
+
+            return tuple.finishFut;
         }
 
         // Wait for commit acks first, then proceed with the finish request.
         AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
-                return null;
+                tuple0 = new TxContext(); // No writes enlisted.
             }
 
             if (tuple0.finishFut == null) {
@@ -286,10 +279,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             return tuple0;
         });
-
-        if (tuple == null) {
-            return CompletableFuture.completedFuture(null); // No writes enlisted.
-        }
 
         if (ref.get() != null) { // This is committing thread.
             // All inflights have been completed before the finish.
@@ -305,9 +294,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 }
                 return null;
             });
-        } else {
-            return tuple.finishFut;
         }
+
+        return tuple.finishFut;
     }
 
     @Override
@@ -355,7 +344,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void stop() {
-        busyLock.block();
+        // No-op.
     }
 
     @Override
@@ -401,7 +390,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public boolean addInflight(@NotNull UUID txId) {
-
         boolean[] res = {true};
 
         txCtxMap.compute(txId, (uuid, tuple) -> {
@@ -420,14 +408,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return tuple;
         });
 
-        LOGGER.info("DBG: add {} {} {}", txId.toString(), txCtxMap.size(), this.hashCode());
+        //LOGGER.info("DBG: add {} {} {}", txId.toString(), txCtxMap.size(), this.hashCode());
 
         return res[0];
     }
 
     @Override
     public void removeInflight(@NotNull UUID txId) {
-
         TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
             assert ctx != null;
 
@@ -441,7 +428,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             tuple.waitRepFut.complete(null); // Avoid completion under lock.
         }
 
-        LOGGER.info("DBG: remove {} {}", txId.toString(), txCtxMap.size());
+        //LOGGER.info("DBG: remove {} {}", txId.toString(), txCtxMap.size());
     }
 
     @Override
@@ -457,10 +444,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         // Process directly sent response.
         ReplicaResponse request = (ReplicaResponse) message;
-
-        if (!busyLock.enterBusy()) {
-            return; // Just ignore.
-        }
 
         Object result = request.result();
 

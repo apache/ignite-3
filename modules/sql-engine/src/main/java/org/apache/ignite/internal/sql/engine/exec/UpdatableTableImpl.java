@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
@@ -176,6 +177,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_UPSERT_ALL)
                     .timestampLong(clock.nowLong())
+                    .skipDelayedAck(true)
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
@@ -237,7 +239,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
             NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
 
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+            ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
                     .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
@@ -245,6 +247,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_INSERT_ALL)
                     .timestampLong(clock.nowLong())
+                    .skipDelayedAck(true)
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request)
@@ -303,6 +306,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_DELETE_ALL)
                     .timestampLong(clock.nowLong())
+                    .skipDelayedAck(true)
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);

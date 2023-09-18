@@ -36,7 +36,13 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
     TablePartitionId commitPartitionId();
 
     /**
-     * Return {@code true} if this is a full transaction.
+     * Return {@code True} if this is a full transaction.
      */
     boolean full();
+
+    /**
+     * Disables delayed ack optimization.
+     * @return {@code True} to disable the delayed ack optimization.
+     */
+    boolean skipDelayedAck();
 }
