@@ -31,10 +31,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -169,11 +166,8 @@ public class LeaseTracker implements PlacementDriver {
 
                     LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
 
-                    Set<ReplicationGroupId> actualGroups = new HashSet<>();
-
                     for (Lease lease : leaseBatch.leases()) {
                         ReplicationGroupId grpId = lease.replicationGroupId();
-                        actualGroups.add(grpId);
 
                         leasesMap.put(grpId, lease);
 
@@ -181,15 +175,6 @@ public class LeaseTracker implements PlacementDriver {
                             primaryReplicaWaiters
                                     .computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                                     .update(lease.getExpirationTime(), lease);
-                        }
-                    }
-
-                    for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leasesMap.entrySet().iterator(); iterator.hasNext();) {
-                        Map.Entry<ReplicationGroupId, Lease> e = iterator.next();
-
-                        if (!actualGroups.contains(e.getKey())) {
-                            iterator.remove();
-                            tryRemoveTracker(e.getKey());
                         }
                     }
 
@@ -233,22 +218,6 @@ public class LeaseTracker implements PlacementDriver {
                             return null;
                         }
                     }));
-        });
-    }
-
-    /**
-     * Helper method that checks whether tracker for given groupId is present in {@code primaryReplicaWaiters} map, whether it's empty
-     * and removes it if it's true.
-     *
-     * @param groupId Replication group id.
-     */
-    private void tryRemoveTracker(ReplicationGroupId groupId) {
-        primaryReplicaWaiters.compute(groupId, (groupId0, tracker0) -> {
-            if (tracker0 != null && tracker0.isEmpty()) {
-                return null;
-            }
-
-            return tracker0;
         });
     }
 
