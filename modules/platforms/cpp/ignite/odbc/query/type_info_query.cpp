@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -119,25 +119,25 @@ type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_typ
     const std::string sch;
     const std::string tbl;
 
-    m_columns_meta.push_back(column_meta(sch, tbl, "TYPE_NAME",          ignite_type::STRING));
-    m_columns_meta.push_back(column_meta(sch, tbl, "DATA_TYPE",          ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "COLUMN_SIZE",        ignite_type::INT32));
-    m_columns_meta.push_back(column_meta(sch, tbl, "LITERAL_PREFIX",     ignite_type::STRING));
-    m_columns_meta.push_back(column_meta(sch, tbl, "LITERAL_SUFFIX",     ignite_type::STRING));
-    m_columns_meta.push_back(column_meta(sch, tbl, "CREATE_PARAMS",      ignite_type::STRING));
-    m_columns_meta.push_back(column_meta(sch, tbl, "NULLABLE",           ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "CASE_SENSITIVE",     ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "SEARCHABLE",         ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "UNSIGNED_ATTRIBUTE", ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "FIXED_PREC_SCALE",   ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "AUTO_UNIQUE_VALUE",  ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "LOCAL_TYPE_NAME",    ignite_type::STRING));
-    m_columns_meta.push_back(column_meta(sch, tbl, "MINIMUM_SCALE",      ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "MAXIMUM_SCALE",      ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "SQL_DATA_TYPE",      ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "SQL_DATETIME_SUB",   ignite_type::INT16));
-    m_columns_meta.push_back(column_meta(sch, tbl, "NUM_PREC_RADIX",     ignite_type::INT32));
-    m_columns_meta.push_back(column_meta(sch, tbl, "INTERVAL_PRECISION", ignite_type::INT16));
+    m_columns_meta.emplace_back(sch, tbl, "TYPE_NAME",          ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "DATA_TYPE",          ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "COLUMN_SIZE",        ignite_type::INT32);
+    m_columns_meta.emplace_back(sch, tbl, "LITERAL_PREFIX",     ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "LITERAL_SUFFIX",     ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "CREATE_PARAMS",      ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "NULLABLE",           ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "CASE_SENSITIVE",     ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "SEARCHABLE",         ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "UNSIGNED_ATTRIBUTE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "FIXED_PREC_SCALE",   ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "AUTO_UNIQUE_VALUE",  ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "LOCAL_TYPE_NAME",    ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "MINIMUM_SCALE",      ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "MAXIMUM_SCALE",      ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "SQL_DATA_TYPE",      ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "SQL_DATETIME_SUB",   ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "NUM_PREC_RADIX",     ignite_type::INT32);
+    m_columns_meta.emplace_back(sch, tbl, "INTERVAL_PRECISION", ignite_type::INT16);
 
     assert(is_sql_type_supported(sql_type) || sql_type == SQL_ALL_TYPES);
 
@@ -319,7 +319,7 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
         case result_column::MINIMUM_SCALE:
         case result_column::MAXIMUM_SCALE:
         {
-            buffer.put_int16(ignite_type_decimal_digits(current_type));
+            buffer.put_int16(std::int16_t(ignite_type_decimal_digits(current_type)));
 
             break;
         }
