@@ -278,8 +278,6 @@ public:
     }
 };
 
-// TODO IGNITE-19216 Implement type info fetching
-#ifdef MUTED
 TEST_F(meta_queries_test, test_get_type_info_all_types) {
     odbc_connect(get_basic_connection_string());
 
@@ -288,7 +286,6 @@ TEST_F(meta_queries_test, test_get_type_info_all_types) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
-#endif // MUTED
 
 TEST_F(meta_queries_test, date_type_column_attribute_curdate) {
     odbc_connect(get_basic_connection_string());
@@ -516,8 +513,6 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
 }
 #endif // MUTED
 
-// TODO: IGNITE-19216 Implement type info query.
-#ifdef MUTED
 TEST_F(meta_queries_test, get_data_with_get_type_info) {
     odbc_connect(get_basic_connection_string());
 
@@ -528,7 +523,6 @@ TEST_F(meta_queries_test, get_data_with_get_type_info) {
 
     check_single_row_result_set_with_get_data(m_statement);
 }
-#endif // MUTED
 
 TEST_F(meta_queries_test, get_data_with_tables) {
     odbc_connect(get_basic_connection_string());
