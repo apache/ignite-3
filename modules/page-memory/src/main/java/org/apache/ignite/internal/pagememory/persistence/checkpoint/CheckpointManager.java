@@ -237,6 +237,13 @@ public class CheckpointManager {
     }
 
     /**
+     * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
+     */
+    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
+        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId);
+    }
+
+    /**
      * Returns {@link true} if it is safe for all {@link DataRegion data regions} to update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.
