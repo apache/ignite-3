@@ -76,8 +76,11 @@ const char *statement_attr_id_to_string(long id) {
  */
 namespace sql_type_name {
 
-/** VARCHAR SQL type name constant. */
-const inline std::string VARCHAR("VARCHAR");
+/** BOOLEAN SQL type name constant. */
+const inline std::string BOOLEAN("BOOLEAN");
+
+/** TINYINT SQL type name constant. */
+const inline std::string TINYINT("TINYINT");
 
 /** SMALLINT SQL type name constant. */
 const inline std::string SMALLINT("SMALLINT");
@@ -85,45 +88,45 @@ const inline std::string SMALLINT("SMALLINT");
 /** INTEGER SQL type name constant. */
 const inline std::string INTEGER("INTEGER");
 
-/** DECIMAL SQL type name constant. */
-const inline std::string DECIMAL("DECIMAL");
+/** BIGINT SQL type name constant. */
+const inline std::string BIGINT("BIGINT");
 
 /** FLOAT SQL type name constant. */
-const inline std::string FLOAT("FLOAT");
+const inline std::string REAL("REAL");
 
 /** DOUBLE SQL type name constant. */
 const inline std::string DOUBLE("DOUBLE");
 
-/** BIT SQL type name constant. */
-const inline std::string BIT("BIT");
-
-/** TINYINT SQL type name constant. */
-const inline std::string TINYINT("TINYINT");
-
-/** BIGINT SQL type name constant. */
-const inline std::string BIGINT("BIGINT");
+/** VARCHAR SQL type name constant. */
+const inline std::string VARCHAR("VARCHAR");
 
 /** BINARY SQL type name constant. */
 const inline std::string BINARY("VARBINARY");
 
-/** DATE SQL type name constant. */
-const inline std::string DATE("DATE");
+/** TIME SQL type name constant. */
+const inline std::string TIME("TIME");
 
 /** TIMESTAMP SQL type name constant. */
 const inline std::string TIMESTAMP("TIMESTAMP");
 
-/** TIME SQL type name constant. */
-const inline std::string TIME("TIME");
+/** DATE SQL type name constant. */
+const inline std::string DATE("DATE");
 
-/** GUID SQL type name constant. */
-const inline std::string GUID("GUID");
+/** DECIMAL SQL type name constant. */
+const inline std::string DECIMAL("DECIMAL");
 
-}; // namespace sql_type_name
+/** UUID SQL type name constant. */
+const inline std::string UUID("UUID");
+
+} // namespace sql_type_name
 
 const std::string &ignite_type_to_sql_type_name(ignite_type typ) {
     switch (typ) {
-        case ignite_type::STRING:
-            return sql_type_name::VARCHAR;
+        case ignite_type::BOOLEAN:
+            return sql_type_name::BOOLEAN;
+
+        case ignite_type::INT8:
+            return sql_type_name::TINYINT;
 
         case ignite_type::INT16:
             return sql_type_name::SMALLINT;
@@ -134,24 +137,21 @@ const std::string &ignite_type_to_sql_type_name(ignite_type typ) {
         case ignite_type::INT64:
             return sql_type_name::BIGINT;
 
-        case ignite_type::DECIMAL:
-        case ignite_type::NUMBER:
-            return sql_type_name::DECIMAL;
-
         case ignite_type::FLOAT:
-            return sql_type_name::FLOAT;
+            return sql_type_name::REAL;
 
         case ignite_type::DOUBLE:
             return sql_type_name::DOUBLE;
 
-        case ignite_type::BOOLEAN:
-            return sql_type_name::BIT;
+        case ignite_type::STRING:
+            return sql_type_name::VARCHAR;
 
-        case ignite_type::INT8:
-            return sql_type_name::TINYINT;
+        case ignite_type::DECIMAL:
+        case ignite_type::NUMBER:
+            return sql_type_name::DECIMAL;
 
         case ignite_type::UUID:
-            return sql_type_name::GUID;
+            return sql_type_name::UUID;
 
         case ignite_type::DATE:
             return sql_type_name::DATE;
@@ -263,7 +263,7 @@ ignite_type sql_type_to_ignite_type(std::int16_t sql_type) {
             return ignite_type::DATE;
 
         case SQL_TYPE_TIMESTAMP:
-            return ignite_type::TIMESTAMP;
+            return ignite_type::DATETIME;
 
         case SQL_TYPE_TIME:
             return ignite_type::TIME;
@@ -405,14 +405,11 @@ std::int16_t ignite_type_to_sql_type(ignite_type typ) {
 }
 
 std::int16_t ignite_type_nullability(ignite_type typ) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
     UNUSED_VALUE(typ);
-
-    return SQL_NULLABLE_UNKNOWN;
+    return SQL_NULLABLE;
 }
 
 std::int32_t sql_type_display_size(std::int16_t type) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
     switch (type) {
         case SQL_VARCHAR:
         case SQL_CHAR:
@@ -465,26 +462,12 @@ std::int32_t sql_type_display_size(std::int16_t type) {
 }
 
 std::int32_t ignite_type_display_size(ignite_type typ) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
     std::int16_t sql_type = ignite_type_to_sql_type(typ);
-
     return sql_type_display_size(sql_type);
 }
 
 std::int32_t sql_type_column_size(std::int16_t type) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
     switch (type) {
-        case SQL_VARCHAR:
-        case SQL_CHAR:
-        case SQL_WCHAR:
-        case SQL_LONGVARBINARY:
-        case SQL_BINARY:
-        case SQL_VARBINARY:
-        case SQL_LONGVARCHAR:
-        case SQL_DECIMAL:
-        case SQL_NUMERIC:
-            return SQL_NO_TOTAL;
-
         case SQL_BIT:
             return 1;
 
@@ -519,20 +502,26 @@ std::int32_t sql_type_column_size(std::int16_t type) {
         case SQL_GUID:
             return 36;
 
+        case SQL_VARCHAR:
+        case SQL_CHAR:
+        case SQL_WCHAR:
+        case SQL_LONGVARBINARY:
+        case SQL_BINARY:
+        case SQL_VARBINARY:
+        case SQL_LONGVARCHAR:
+        case SQL_DECIMAL:
+        case SQL_NUMERIC:
         default:
             return SQL_NO_TOTAL;
     }
 }
 
-std::int32_t ignite_type_column_size(ignite_type typ) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
+std::int32_t ignite_type_max_column_size(ignite_type typ) {
     std::int16_t sql_type = ignite_type_to_sql_type(typ);
-
     return sql_type_column_size(sql_type);
 }
 
 std::int32_t sql_type_transfer_length(std::int16_t type) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
     switch (type) {
         case SQL_VARCHAR:
         case SQL_CHAR:
@@ -582,7 +571,6 @@ std::int32_t ignite_type_transfer_length(ignite_type typ) {
 }
 
 std::int32_t sql_type_num_precision_radix(std::int16_t type) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
     switch (type) {
         case SQL_REAL:
         case SQL_FLOAT:
@@ -640,6 +628,37 @@ bool is_ignite_type_unsigned(ignite_type typ) {
     std::int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return is_sql_type_unsigned(sql_type);
+}
+
+std::optional<std::string> ignite_type_literal_prefix(ignite_type typ) {
+    switch (typ) {
+        case ignite_type::STRING:
+            return "'";
+        case ignite_type::BYTE_ARRAY:
+            return "0x";
+        case ignite_type::DATE:
+            return "DATE '";
+        case ignite_type::TIME:
+            return "TIME '";
+        case ignite_type::TIMESTAMP:
+            return "TIMESTAMP '";
+        default:
+            break;
+    }
+    return {};
+}
+
+std::optional<std::string> ignite_type_literal_suffix(ignite_type typ) {
+    switch (typ) {
+        case ignite_type::STRING:
+        case ignite_type::DATE:
+        case ignite_type::TIME:
+        case ignite_type::TIMESTAMP:
+            return "'";
+        default:
+            break;
+    }
+    return {};
 }
 
 } // namespace ignite

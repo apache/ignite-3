@@ -111,6 +111,7 @@ enum class result_column
 
 namespace ignite
 {
+
 type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_type) :
     query(diag, query_type::TYPE_INFO)
 {
@@ -143,17 +144,25 @@ type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_typ
 
     if (sql_type == SQL_ALL_TYPES)
     {
-        m_types.push_back(ignite_type::STRING);
-        m_types.push_back(ignite_type::INT16);
-        m_types.push_back(ignite_type::INT32);
-        m_types.push_back(ignite_type::DECIMAL);
-        m_types.push_back(ignite_type::FLOAT);
-        m_types.push_back(ignite_type::DOUBLE);
         m_types.push_back(ignite_type::BOOLEAN);
         m_types.push_back(ignite_type::INT8);
+        m_types.push_back(ignite_type::INT16);
+        m_types.push_back(ignite_type::INT32);
         m_types.push_back(ignite_type::INT64);
+        m_types.push_back(ignite_type::FLOAT);
+        m_types.push_back(ignite_type::DOUBLE);
+        m_types.push_back(ignite_type::DECIMAL);
+        m_types.push_back(ignite_type::DATE);
+        m_types.push_back(ignite_type::TIME);
+        m_types.push_back(ignite_type::DATETIME);
+        m_types.push_back(ignite_type::TIMESTAMP);
         m_types.push_back(ignite_type::UUID);
+        m_types.push_back(ignite_type::BITMASK);
+        m_types.push_back(ignite_type::STRING);
         m_types.push_back(ignite_type::BYTE_ARRAY);
+        m_types.push_back(ignite_type::PERIOD);
+        m_types.push_back(ignite_type::DURATION);
+        m_types.push_back(ignite_type::NUMBER);
     }
     else
         m_types.push_back(sql_type_to_ignite_type(sql_type));
@@ -169,17 +178,10 @@ sql_result type_info_query::execute()
     return sql_result::AI_SUCCESS;
 }
 
-const column_meta_vector* type_info_query::get_meta()
+sql_result type_info_query::fetch_next_row(column_binding_map &column_bindings)
 {
-    return &m_columns_meta;
-}
-
-sql_result type_info_query::fetch_next_row(column_binding_map & columnBindings)
-{
-    if (!m_executed)
-    {
-        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not m_executed.");
-
+    if (!m_executed) {
+        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
         return sql_result::AI_ERROR;
     }
 
@@ -191,27 +193,21 @@ sql_result type_info_query::fetch_next_row(column_binding_map & columnBindings)
     if (m_cursor == m_types.end())
         return sql_result::AI_NO_DATA;
 
-    column_binding_map::iterator it;
-
-    for (it = columnBindings.begin(); it != columnBindings.end(); ++it)
-        get_column(it->first, it->second);
+    for (auto& pair : column_bindings)
+        get_column(pair.first, pair.second);
 
     return sql_result::AI_SUCCESS;
 }
 
 sql_result type_info_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer)
 {
-    if (!m_executed)
-    {
-        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not m_executed.");
-
+    if (!m_executed) {
+        m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
         return sql_result::AI_ERROR;
     }
 
-    if (m_cursor == m_types.end())
-    {
+    if (m_cursor == m_types.end()) {
         m_diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE, "Cursor has reached end of the result set.");
-
         return sql_result::AI_ERROR;
     }
 
@@ -236,36 +232,39 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
 
         case result_column::COLUMN_SIZE:
         {
-            buffer.put_int32(ignite_type_column_size(current_type));
+            buffer.put_int32(ignite_type_max_column_size(current_type));
 
             break;
         }
 
         case result_column::LITERAL_PREFIX:
         {
-            if (current_type == ignite_type::STRING)
-                buffer.put_string("'");
-            else if (current_type == ignite_type::BYTE_ARRAY)
-                buffer.put_string("0x");
-            else
+            auto prefix = ignite_type_literal_prefix(current_type);
+            if (!prefix)
                 buffer.put_null();
+            else
+                buffer.put_string(*prefix);
 
             break;
         }
 
         case result_column::LITERAL_SUFFIX:
         {
-            if (current_type == ignite_type::STRING)
-                buffer.put_string("'");
-            else
+            auto suffix = ignite_type_literal_suffix(current_type);
+            if (!suffix)
                 buffer.put_null();
+            else
+                buffer.put_string(*suffix);
 
             break;
         }
 
         case result_column::CREATE_PARAMS:
         {
-            buffer.put_null();
+            if (current_type == ignite_type::DECIMAL || current_type == ignite_type::NUMBER)
+                buffer.put_string("precision,scale");
+            else
+                buffer.put_null();
 
             break;
         }
@@ -359,21 +358,6 @@ sql_result type_info_query::close()
     m_executed = false;
 
     return sql_result::AI_SUCCESS;
-}
-
-bool type_info_query::is_data_available() const
-{
-    return m_cursor != m_types.end();
-}
-
-int64_t type_info_query::affected_rows() const
-{
-    return 0;
-}
-
-sql_result type_info_query::next_result_set()
-{
-    return sql_result::AI_NO_DATA;
 }
 
 } // namespace ignite

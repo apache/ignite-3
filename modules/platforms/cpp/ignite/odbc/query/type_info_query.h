@@ -52,7 +52,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector* get_meta() override;
+    const column_meta_vector* get_meta() override { return &m_columns_meta; }
 
     /**
      * Fetch next result row to application buffers.
@@ -82,21 +82,21 @@ public:
      *
      * @return True if data is available.
      */
-    bool is_data_available() const override;
+    bool is_data_available() const override { return m_cursor != m_types.end(); }
 
     /**
      * Get number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
-    std::int64_t affected_rows() const override;
+    std::int64_t affected_rows() const override { return 0; }
 
     /**
      * Move to the next result set.
      *
      * @return Operation result.
      */
-    sql_result next_result_set() override;
+    sql_result next_result_set() override { return sql_result::AI_NO_DATA; }
 
 private:
     /** Columns metadata. */

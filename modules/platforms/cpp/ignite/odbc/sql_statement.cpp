@@ -1007,12 +1007,15 @@ sql_result sql_statement::internal_describe_param(
     if (data_type)
         *data_type = ignite_type_to_sql_type(type);
 
+    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (param_size)
-        *param_size = ignite_type_column_size(type);
+        *param_size = ignite_type_max_column_size(type);
 
+    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (decimal_digits)
         *decimal_digits = int16_t(ignite_type_decimal_digits(type));
 
+    // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (nullable)
         *nullable = ignite_type_nullability(type);
 
