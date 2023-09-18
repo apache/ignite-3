@@ -44,6 +44,11 @@ public interface StorageEngine {
     void stop() throws StorageException;
 
     /**
+     * Whether the data is lost upon engine restart or not.
+     */
+    boolean isVolatile();
+
+    /**
      * Creates new table storage.
      *
      * @param tableDescriptor Table descriptor.

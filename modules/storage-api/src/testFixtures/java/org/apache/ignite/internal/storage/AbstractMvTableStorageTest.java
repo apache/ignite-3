@@ -434,7 +434,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
 
-        checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
 
         // Let's finish rebalancing.
@@ -459,7 +459,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsBeforeRebalanceStart);
         checkForPresenceRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
 
-        checkLastApplied(mvPartitionStorage, 10, 10, 20);
+        checkLastApplied(mvPartitionStorage, 10, 20);
         checkRaftGroupConfigs(raftGroupConfig, mvPartitionStorage.committedGroupConfiguration());
     }
 
@@ -493,7 +493,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
 
-        checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
         // Let's abort rebalancing.
 
@@ -506,7 +506,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsBeforeRebalanceStart);
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
 
-        checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        checkLastApplied(mvPartitionStorage, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
     }
 
@@ -609,11 +609,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             // Let's check the repositories: they should be empty.
             checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-            checkLastApplied(mvPartitionStorage, 0, 0, 0);
+            checkLastApplied(mvPartitionStorage, 0, 0);
         } else {
             checkForPresenceRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-            checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+            checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
         }
     }
 
@@ -631,7 +631,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Let's check the cleanup for an empty partition.
         assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully());
 
-        checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        checkLastApplied(mvPartitionStorage, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
 
         // Let's fill the storages and clean them.
@@ -655,7 +655,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Let's clear the storages and check them out.
         assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully());
 
-        checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        checkLastApplied(mvPartitionStorage, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
 
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
@@ -912,7 +912,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private void checkMvPartitionStorageMethodsAfterStartRebalance(MvPartitionStorage storage) {
-        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
         assertNull(storage.committedGroupConfiguration());
 
@@ -1056,7 +1056,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static void checkLastApplied(
             MvPartitionStorage storage,
             long expLastAppliedIndex,
-            long expPersistentIndex,
             long expLastAppliedTerm
     ) {
         assertEquals(expLastAppliedIndex, storage.lastAppliedIndex());
