@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.placementdriver.event;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.event.Event;
 
 /** Primary replica management events. */
 public enum PrimaryReplicaEvent implements Event {
-    /** This event is fired when the replica becomes primary. */
-    BECOME_PRIMARY,
-
-    /** This event is fired when the replica ceases to be primary. */
-    STOP_BEING_PRIMARY;
+    /** This event is fired when a replica becomes primary or when the primary replica changes for a replication group. */
+    REPLICA_BECOME_PRIMARY;
 }

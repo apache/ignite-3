@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -106,7 +108,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         revisionTracker = new PendingComparableValuesTracker<>(-1L);
 
-        placementDriver = new LeaseTracker(metastore);
+        placementDriver = new LeaseTracker(
+                (LongFunction<CompletableFuture<?>> function) -> metastore.registerRevisionUpdateListener(function::apply),
+                metastore
+        );
 
         metastore.registerRevisionUpdateListener(rev -> {
             revisionTracker.update(rev, null);
@@ -123,9 +128,11 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        placementDriver.stopTrack();
-        metastore.stop();
-        vault.stop();
+        IgniteUtils.closeAll(
+                placementDriver == null ? null : placementDriver::stopTrack,
+                metastore == null ? null : metastore::stop,
+                vault == null ? null : vault::stop
+        );
     }
 
     /**

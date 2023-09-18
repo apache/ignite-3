@@ -37,12 +37,14 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -53,6 +55,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -68,6 +71,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -192,6 +196,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         placementDriverManager = new PlacementDriverManager(
                 nodeName,
+                (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply),
                 metaStorageManager,
                 MetastorageGroupId.INSTANCE,
                 clusterService,
@@ -207,6 +212,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         anotherClusterService.start();
         raftManager.start();
         metaStorageManager.start();
+
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
         placementDriverManager.start();
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
@@ -247,18 +255,18 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     }
 
     private void stopPlacementDriverManager() throws Exception {
-        placementDriverManager.beforeNodeStop();
-        metaStorageManager.beforeNodeStop();
-        raftManager.beforeNodeStop();
-        clusterService.beforeNodeStop();
-        vaultManager.beforeNodeStop();
+        List<IgniteComponent> igniteComponents = List.of(
+                placementDriverManager,
+                metaStorageManager,
+                raftManager,
+                clusterService,
+                anotherClusterService,
+                vaultManager
+        );
 
-        placementDriverManager.stop();
-        metaStorageManager.stop();
-        raftManager.stop();
-        anotherClusterService.stop();
-        clusterService.stop();
-        vaultManager.stop();
+        IgniteUtils.closeAll(igniteComponents.stream().filter(Objects::nonNull).map(component -> component::beforeNodeStop));
+
+        IgniteUtils.stopAll(igniteComponents.stream());
     }
 
     @Test

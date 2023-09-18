@@ -20,24 +20,32 @@ package org.apache.ignite.internal.placementdriver.leases;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.REPLICA_BECOME_PRIMARY;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.LongFunction;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -48,6 +56,8 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
@@ -56,7 +66,7 @@ import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker
  * Class tracks cluster leases in memory.
  * At first, the class state recoveries from Vault, then updates on watch's listener.
  */
-public class LeaseTracker implements PlacementDriver {
+public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements PlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseTracker.class);
 
@@ -79,13 +89,19 @@ public class LeaseTracker implements PlacementDriver {
     /** Listener to update a leases cache. */
     private final UpdateListener updateListener = new UpdateListener();
 
+    /** Versioned value used only at manager startup to correctly fire table creation events. */
+    private final IncrementalVersionedValue<Void> startVv;
+
     /**
      * Constructor.
      *
+     * @param registry Registry for versioned values.
      * @param msManager Meta storage manager.
      */
-    public LeaseTracker(MetaStorageManager msManager) {
+    public LeaseTracker(Consumer<LongFunction<CompletableFuture<?>>> registry, MetaStorageManager msManager) {
         this.msManager = msManager;
+
+        startVv = new IncrementalVersionedValue<>(registry);
     }
 
     /** Recoveries state from Vault and subscribers on further updates. */
@@ -93,33 +109,13 @@ public class LeaseTracker implements PlacementDriver {
         inBusyLock(busyLock, () -> {
             msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
-            msManager.recoveryFinishedFuture().thenAccept(recoveryRevision -> {
-                Entry entry = msManager.getLocally(PLACEMENTDRIVER_LEASES_KEY, recoveryRevision);
+            CompletableFuture<Long> recoveryFinishedFuture = msManager.recoveryFinishedFuture();
 
-                Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
+            assert recoveryFinishedFuture.isDone();
 
-                byte[] leasesBytes;
+            long recoveryRevision = recoveryFinishedFuture.join();
 
-                if (entry.empty() || entry.tombstone()) {
-                    leasesBytes = BYTE_EMPTY_ARRAY;
-                } else {
-                    leasesBytes = entry.value();
-
-                    LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
-
-                    leaseBatch.leases().forEach(lease -> {
-                        leasesMap.put(lease.replicationGroupId(), lease);
-
-                        if (lease.isAccepted()) {
-                            getOrCreatePrimaryReplicaWaiter(lease.replicationGroupId()).update(lease.getExpirationTime(), lease);
-                        }
-                    });
-                }
-
-                leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
-
-                LOG.info("Leases cache recovered [leases={}]", leases);
-            });
+            loadLeasesBusy(recoveryRevision);
         });
     }
 
@@ -161,6 +157,8 @@ public class LeaseTracker implements PlacementDriver {
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             return inBusyLockAsync(busyLock, () -> {
+                List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
+
                 for (EntryEvent entry : event.entryEvents()) {
                     Entry msEntry = entry.newEntry();
 
@@ -181,6 +179,8 @@ public class LeaseTracker implements PlacementDriver {
                             primaryReplicaWaiters
                                     .computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                                     .update(lease.getExpirationTime(), lease);
+
+                            fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
                         }
                     }
 
@@ -196,12 +196,13 @@ public class LeaseTracker implements PlacementDriver {
                     LeaseTracker.this.leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
                 }
 
-                return completedFuture(null);
+                return allOf(fireEventFutures.toArray(CompletableFuture[]::new));
             });
         }
 
         @Override
         public void onError(Throwable e) {
+            LOG.warn("Unable to process update leases event", e);
         }
     }
 
@@ -256,5 +257,49 @@ public class LeaseTracker implements PlacementDriver {
             ReplicationGroupId groupId
     ) {
         return primaryReplicaWaiters.computeIfAbsent(groupId, key -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE));
+    }
+
+    private void loadLeasesBusy(long recoveryRevision) {
+        Entry entry = msManager.getLocally(PLACEMENTDRIVER_LEASES_KEY, recoveryRevision);
+
+        if (entry.empty() || entry.tombstone()) {
+            leases = new Leases(Map.of(), BYTE_EMPTY_ARRAY);
+        } else {
+            byte[] leasesBytes = entry.value();
+
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
+
+            Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
+
+            List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
+
+            leaseBatch.leases().forEach(lease -> {
+                leasesMap.put(lease.replicationGroupId(), lease);
+
+                if (lease.isAccepted()) {
+                    getOrCreatePrimaryReplicaWaiter(lease.replicationGroupId()).update(lease.getExpirationTime(), lease);
+
+                    fireEventFutures.add(fireEventReplicaBecomePrimary(recoveryRevision, lease));
+                }
+            });
+
+            leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
+
+            // Forces to wait until recovery is complete before the metastore watches is deployed to avoid races with other components.
+            startVv.update(recoveryRevision, (unused, throwable) -> allOf(fireEventFutures.toArray(CompletableFuture[]::new)))
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            LOG.error("Error fire events", throwable);
+                        } else {
+                            LOG.debug("Events fired successfully");
+                        }
+                    });
+        }
+
+        LOG.info("Leases cache recovered [leases={}]", leases);
+    }
+
+    private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
+        return fireEvent(REPLICA_BECOME_PRIMARY, new PrimaryReplicaEventParameters(causalityToken, lease.replicationGroupId(), lease));
     }
 }

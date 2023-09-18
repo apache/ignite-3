@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -91,6 +92,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * Constructor.
      *
      * @param nodeName Node name.
+     * @param registry Registry for versioned values.
      * @param metaStorageMgr Meta Storage manager.
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
@@ -102,6 +104,7 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     public PlacementDriverManager(
             String nodeName,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             MetaStorageManager metaStorageMgr,
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
@@ -119,7 +122,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(metaStorageMgr);
+        this.leaseTracker = new LeaseTracker(registry, metaStorageMgr);
+
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,

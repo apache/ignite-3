@@ -17,26 +17,37 @@
 
 package org.apache.ignite.internal.placementdriver.event;
 
-import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /** Primary replica event parameters. There are properties which associate with a concrete primary replica. */
 public class PrimaryReplicaEventParameters extends EventParameters {
     private final ReplicationGroupId groupId;
 
+    private final ReplicaMeta meta;
+
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
+     * @param groupId Replication group ID.
+     * @param meta Replica lease meta.
      */
-    public PrimaryReplicaEventParameters(long causalityToken, ReplicationGroupId groupId) {
+    public PrimaryReplicaEventParameters(long causalityToken, ReplicationGroupId groupId, ReplicaMeta meta) {
         super(causalityToken);
 
         this.groupId = groupId;
+        this.meta = meta;
     }
 
-    /** Replication group id. */
+    /** Replication group ID. */
     public ReplicationGroupId groupId() {
         return groupId;
+    }
+
+    /** Returns replica lease meta. */
+    public ReplicaMeta meta() {
+        return meta;
     }
 }
