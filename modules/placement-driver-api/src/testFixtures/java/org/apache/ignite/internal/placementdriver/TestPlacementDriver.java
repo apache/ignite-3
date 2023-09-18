@@ -51,11 +51,11 @@ public class TestPlacementDriver implements PlacementDriver {
 
     @Override
     public void listen(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
-        // TODO: IGNITE-20422 подумать над реализаций и нужна ли
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void removeListener(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
-        // TODO: IGNITE-20422 подумать над реализаций и нужна ли
+        throw new UnsupportedOperationException();
     }
 }

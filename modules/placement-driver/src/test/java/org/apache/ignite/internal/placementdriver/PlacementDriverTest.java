@@ -21,14 +21,20 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
+import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.REPLICA_BECOME_PRIMARY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -39,12 +45,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -104,14 +110,11 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
-        metastore = StandaloneMetaStorageManager.create(vault);
+        metastore = spy(StandaloneMetaStorageManager.create(vault));
 
         revisionTracker = new PendingComparableValuesTracker<>(-1L);
 
-        placementDriver = new LeaseTracker(
-                (LongFunction<CompletableFuture<?>> function) -> metastore.registerRevisionUpdateListener(function::apply),
-                metastore
-        );
+        placementDriver = createPlacementDriver();
 
         metastore.registerRevisionUpdateListener(rev -> {
             revisionTracker.update(rev, null);
@@ -165,7 +168,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_15_000);
 
         // Assert that primary await future will succeed fast.
-        assertThat(primaryReplicaFuture, CompletableFutureMatcher.willSucceedFast());
+        assertThat(primaryReplicaFuture, willSucceedFast());
 
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture.get().getLeaseholder());
         assertEquals(LEASE_FROM_1_TO_15_000.getStartTime(), primaryReplicaFuture.get().getStartTime());
@@ -202,7 +205,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_15000_TO_30_000);
 
         // Assert that primary await future will succeed fast.
-        assertThat(primaryReplicaFuture, CompletableFutureMatcher.willSucceedFast());
+        assertThat(primaryReplicaFuture, willSucceedFast());
 
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture.get().getLeaseholder());
         assertEquals(LEASE_FROM_15000_TO_30_000.getStartTime(), primaryReplicaFuture.get().getStartTime());
@@ -258,8 +261,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_15000_TO_30_000);
 
         // Assert that both primary await futures will succeed fast.
-        assertThat(primaryReplicaFuture1, CompletableFutureMatcher.willSucceedFast());
-        assertThat(primaryReplicaFuture2, CompletableFutureMatcher.willSucceedFast());
+        assertThat(primaryReplicaFuture1, willSucceedFast());
+        assertThat(primaryReplicaFuture2, willSucceedFast());
 
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture1.get().getLeaseholder());
         assertEquals(LEASE_FROM_15000_TO_30_000.getStartTime(), primaryReplicaFuture1.get().getStartTime());
@@ -299,7 +302,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_15000_TO_30_000);
 
         // Assert that second primary await future will succeed fast.
-        assertThat(primaryReplicaFuture2, CompletableFutureMatcher.willSucceedFast());
+        assertThat(primaryReplicaFuture2, willSucceedFast());
 
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture2.get().getLeaseholder());
         assertEquals(LEASE_FROM_15000_TO_30_000.getStartTime(), primaryReplicaFuture2.get().getStartTime());
@@ -327,7 +330,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_15_000);
 
         // Assert that primary await future will succeed fast.
-        assertThat(primaryReplicaFuture, CompletableFutureMatcher.willSucceedFast());
+        assertThat(primaryReplicaFuture, willSucceedFast());
 
         // Assert that retrieved primary replica for same awaiting timestamp as within await ones will be completed immediately.
         CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaSameTime = placementDriver.getPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
@@ -342,7 +345,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaTimeGtLeaseExpiration =
                 placementDriver.getPrimaryReplica(GROUP_1, new HybridTimestamp(16_000, 0));
 
-        assertThat(retrievedPrimaryReplicaTimeGtLeaseExpiration, CompletableFutureMatcher.willSucceedFast());
+        assertThat(retrievedPrimaryReplicaTimeGtLeaseExpiration, willSucceedFast());
         assertNull(retrievedPrimaryReplicaTimeGtLeaseExpiration.get());
 
         assertEquals(LEASEHOLDER_1, retrievedPrimaryReplicaSameTime.get().getLeaseholder());
@@ -354,7 +357,45 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertEquals(LEASE_FROM_1_TO_15_000.getExpirationTime(), retrievedPrimaryReplicaTimeLtLeaseExpiration.get().getExpirationTime());
     }
 
-    private void publishLease(Lease lease) {
+    @Test
+    void testListenReplicaBecomePrimaryEvent() {
+        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenReplicaBecomePrimaryEvent();
+
+        long publishLeaseRelease = publishLease(LEASE_FROM_1_TO_5_000);
+
+        assertThat(eventParametersFuture, willCompleteSuccessfully());
+
+        PrimaryReplicaEventParameters parameters = eventParametersFuture.join();
+
+        assertThat(parameters.causalityToken(), greaterThanOrEqualTo(publishLeaseRelease));
+
+        checkReplicaBecomePrimaryEventParameters(LEASE_FROM_1_TO_5_000, parameters);
+    }
+
+    @Test
+    void testListenReplicaBecomePrimaryEventOnStartPlacementDriver() {
+        long newRecoveryRevision = publishLease(LEASE_FROM_1_TO_5_000);
+
+        when(metastore.recoveryFinishedFuture()).thenReturn(completedFuture(newRecoveryRevision));
+
+        placementDriver.stopTrack();
+
+        placementDriver = createPlacementDriver();
+
+        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenReplicaBecomePrimaryEvent();
+
+        placementDriver.startTrack();
+
+        assertThat(eventParametersFuture, willCompleteSuccessfully());
+
+        PrimaryReplicaEventParameters parameters = eventParametersFuture.join();
+
+        assertThat(parameters.causalityToken(), equalTo(newRecoveryRevision));
+
+        checkReplicaBecomePrimaryEventParameters(LEASE_FROM_1_TO_5_000, parameters);
+    }
+
+    private long publishLease(Lease lease) {
         long rev = metastore.appliedRevision();
 
         metastore.invoke(
@@ -363,6 +404,37 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 noop()
         );
 
-        revisionTracker.waitFor(rev + 1).join();
+        long expRev = rev + 1;
+
+        assertThat(revisionTracker.waitFor(expRev), willCompleteSuccessfully());
+
+        return expRev;
+    }
+
+    private CompletableFuture<PrimaryReplicaEventParameters> listenReplicaBecomePrimaryEvent() {
+        var eventParametersFuture = new CompletableFuture<PrimaryReplicaEventParameters>();
+
+        placementDriver.listen(REPLICA_BECOME_PRIMARY, (parameters, exception) -> {
+            eventParametersFuture.complete(parameters);
+
+            return completedFuture(false);
+        });
+
+        return eventParametersFuture;
+    }
+
+    private static void checkReplicaBecomePrimaryEventParameters(
+            Lease expLease,
+            PrimaryReplicaEventParameters parameters
+    ) {
+        assertThat(parameters.groupId(), equalTo(expLease.replicationGroupId()));
+        assertThat(parameters.meta(), equalTo(expLease));
+    }
+
+    private LeaseTracker createPlacementDriver() {
+        return new LeaseTracker(
+                (LongFunction<CompletableFuture<?>> function) -> metastore.registerRevisionUpdateListener(function::apply),
+                metastore
+        );
     }
 }
