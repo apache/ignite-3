@@ -185,7 +185,7 @@ public class TransactionStateResolver {
 
         if (localMeta == null) {
             // Fallback to commit partition path, because we don't have coordinator id.
-            resolveTxStateFromCommitPartition(txId, commitGrpId, timestamp0, txMetaFuture);
+            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         } else if (localMeta.txState() == PENDING) {
             resolveTxStateFromTxCoordinator(txId, localMeta.txCoordinatorId(), commitGrpId, timestamp0, txMetaFuture);
         } else if (localMeta.txState() == FINISHING) {
@@ -218,7 +218,7 @@ public class TransactionStateResolver {
 
         if (coordinator == null) {
             // This means the coordinator node have either left the cluster or restarted.
-            resolveTxStateFromCommitPartition(txId, commitGrpId, timestamp, txMetaFuture);
+            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         } else {
             CompletableFuture<TransactionMeta> coordinatorTxMetaFuture = new CompletableFuture<>();
 
@@ -245,12 +245,10 @@ public class TransactionStateResolver {
     private void resolveTxStateFromCommitPartition(
             UUID txId,
             ReplicationGroupId commitGrpId,
-            HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
         TxStateCommitPartitionRequest request = FACTORY.txStateCommitPartitionRequest()
                 .groupId(commitGrpId)
-                .readTimestampLong(timestamp.longValue())
                 .txId(txId)
                 .build();
 

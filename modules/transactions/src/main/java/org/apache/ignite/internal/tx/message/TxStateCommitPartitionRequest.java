@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
 import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -30,10 +27,4 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(TxMessageGroup.TX_STATE_COMMIT_PARTITION_REQUEST)
 public interface TxStateCommitPartitionRequest extends ReplicaRequest {
     UUID txId();
-
-    long readTimestampLong();
-
-    default HybridTimestamp readTimestamp() {
-        return hybridTimestamp(readTimestampLong());
-    }
 }

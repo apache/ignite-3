@@ -441,17 +441,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }).when(txManager).updateTxMeta(any(), any());
 
         doAnswer(invocation -> txStateMeta).when(txManager).stateMeta(any());
-        doAnswer(invocation -> {
-            UUID txId = invocation.getArgument(0);
-
-            TransactionMeta txMeta = txStateMeta;
-
-            if (txMeta == null) {
-                txMeta = txStateStorage.get(txId);
-            }
-
-            return completedFuture(txMeta);
-        }).when(txManager).transactionMetaReadTimestampAware(any(), any(), any());
 
         doAnswer(invocation -> {
             var resp = new TxMessagesFactory().txStateResponse().txStateMeta(txStateMeta).build();
@@ -543,7 +532,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(grpId)
-                .readTimestampLong(clock.nowLong())
                 .txId(newTxId())
                 .build(), "senderId");
 
@@ -563,7 +551,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(grpId)
-                .readTimestampLong(readTimestamp.longValue())
                 .txId(txId)
                 .build(), localNode.id());
 
@@ -584,7 +571,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(grpId)
-                .readTimestampLong(clock.nowLong())
                 .txId(newTxId())
                 .build(), localNode.id());
 

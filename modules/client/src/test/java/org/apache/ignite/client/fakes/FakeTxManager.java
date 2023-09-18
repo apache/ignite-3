@@ -28,11 +28,9 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -145,12 +143,6 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public @Nullable TxStateMeta stateMeta(UUID txId) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<TransactionMeta> transactionMetaReadTimestampAware(UUID txId, HybridTimestamp readTimestamp,
-            TxStateStorage storage) {
         return null;
     }
 

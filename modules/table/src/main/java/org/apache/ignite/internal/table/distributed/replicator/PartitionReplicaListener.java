@@ -329,7 +329,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     @Override
     public CompletableFuture<?> invoke(ReplicaRequest request, String senderId) {
         if (request instanceof TxStateCommitPartitionRequest) {
-            return processTxStateReplicaRequest((TxStateCommitPartitionRequest) request);
+            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
         }
 
         return ensureReplicaIsPrimary(request).thenCompose(isPrimary -> processRequest(request, isPrimary, senderId));
@@ -416,14 +416,17 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Transaction state request.
      * @return Result future.
      */
-    private CompletableFuture<LeaderOrTxState> processTxStateReplicaRequest(TxStateCommitPartitionRequest request) {
+    private CompletableFuture<LeaderOrTxState> processTxStateCommitPartitionRequest(TxStateCommitPartitionRequest request) {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(primaryReplica -> {
                     if (isLocalPeer(primaryReplica.getLeaseholder())) {
-                        CompletableFuture<TransactionMeta> txStateFut = txManager
-                                .transactionMetaReadTimestampAware(request.txId(), request.readTimestamp(), txStateStorage);
+                        TransactionMeta txMeta = txManager.stateMeta(request.txId());
 
-                        return txStateFut.thenApply(txMeta -> new LeaderOrTxState(null, txMeta));
+                        if (txMeta == null) {
+                            txMeta = txStateStorage.get(request.txId());
+                        }
+
+                        return completedFuture(new LeaderOrTxState(null, txMeta));
                     } else {
                         return completedFuture(new LeaderOrTxState(primaryReplica.getLeaseholder(), null));
                     }
