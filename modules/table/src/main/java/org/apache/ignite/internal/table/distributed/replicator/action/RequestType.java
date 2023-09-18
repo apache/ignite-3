@@ -60,19 +60,13 @@ public enum RequestType {
     RO_SCAN;
 
     /**
-     * Returns {@code true} if the operation works with a single row.
+     * Returns {@code true} if the operation is an RW read.
      */
-    public boolean isSingleRow() {
+    public boolean isRwRead() {
         switch (this) {
             case RW_GET:
-            case RW_DELETE:
-            case RW_GET_AND_DELETE:
-            case RW_DELETE_EXACT:
-            case RW_INSERT:
-            case RW_UPSERT:
-            case RW_GET_AND_UPSERT:
-            case RW_GET_AND_REPLACE:
-            case RW_REPLACE_IF_EXIST:
+            case RW_GET_ALL:
+            case RW_SCAN:
                 return true;
             default:
                 return false;
@@ -80,15 +74,23 @@ public enum RequestType {
     }
 
     /**
-     * Returns {@code true} if the operation works with multiple rows.
+     * Returns {@code true} if the operation is a write.
      */
-    public boolean isMultipleRows() {
+    public boolean isWrite() {
         switch (this) {
-            case RW_GET_ALL:
+            case RW_DELETE:
             case RW_DELETE_ALL:
+            case RW_DELETE_EXACT:
             case RW_DELETE_EXACT_ALL:
+            case RW_INSERT:
             case RW_INSERT_ALL:
+            case RW_UPSERT:
             case RW_UPSERT_ALL:
+            case RW_REPLACE:
+            case RW_REPLACE_IF_EXIST:
+            case RW_GET_AND_DELETE:
+            case RW_GET_AND_REPLACE:
+            case RW_GET_AND_UPSERT:
                 return true;
             default:
                 return false;

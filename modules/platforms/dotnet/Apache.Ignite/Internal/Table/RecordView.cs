@@ -309,8 +309,8 @@ namespace Apache.Ignite.Internal.Table
                             retryPolicy)
                         .ConfigureAwait(false);
                 },
-                writer: _ser.Handler,
-                schemaProvider: () => _table.GetLatestSchemaAsync(), // TODO IGNITE-19710 retry outdated schema.
+                writer: _ser,
+                schemaProvider: _table.GetSchemaAsync,
                 partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);

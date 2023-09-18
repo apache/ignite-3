@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -40,6 +39,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
     private final List<CatalogTableColumnDescriptor> descriptors;
+    private final String schemaName;
 
     /**
      * Constructs the object.
@@ -47,9 +47,10 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
      * @param tableId Table id.
      * @param descriptors Descriptors of columns to add.
      */
-    public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors) {
+    public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors, String schemaName) {
         this.tableId = tableId;
         this.descriptors = descriptors;
+        this.schemaName = schemaName;
     }
 
     /** Returns table id. */
@@ -74,19 +75,20 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                List.of(new CatalogSchemaDescriptor(
+                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
                         schema.id(),
                         schema.name(),
                         Arrays.stream(schema.tables())
                                 .map(table -> table.id() == tableId ? new CatalogTableDescriptor(
                                         table.id(),
+                                        table.primaryKeyIndexId(),
                                         table.name(),
                                         table.zoneId(),
                                         table.tableVersion() + 1,
@@ -95,8 +97,9 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                                         table.colocationColumns()) : table
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
-                        schema.indexes()
-                ))
+                        schema.indexes(),
+                        schema.systemViews()
+                ), catalog.schemas())
         );
     }
 

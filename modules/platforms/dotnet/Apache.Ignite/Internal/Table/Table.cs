@@ -183,18 +183,6 @@ namespace Apache.Ignite.Internal.Table
             : GetCachedSchemaAsync(version ?? _latestSchemaVersion);
 
         /// <summary>
-        /// Gets the latest schema.
-        /// </summary>
-        /// <returns>Schema.</returns>
-        internal Task<Schema> GetLatestSchemaAsync()
-        {
-            // _latestSchemaVersion can be -1 (unknown) or a valid version.
-            // In case of unknown version, we request latest from the server and cache it with -1 key
-            // to avoid duplicate requests for latest schema.
-            return GetCachedSchemaAsync(_latestSchemaVersion);
-        }
-
-        /// <summary>
         /// Gets the preferred node by colocation hash.
         /// </summary>
         /// <param name="colocationHash">Colocation hash.</param>
@@ -302,7 +290,7 @@ namespace Apache.Ignite.Internal.Table
                 }
                 else
                 {
-                    w.WriteArrayHeader(1);
+                    w.Write(1);
                     w.Write(version);
                 }
             }
@@ -310,7 +298,7 @@ namespace Apache.Ignite.Internal.Table
             Schema Read()
             {
                 var r = resBuf.GetReader();
-                var schemaCount = r.ReadMapHeader();
+                var schemaCount = r.ReadInt32();
 
                 if (schemaCount == 0)
                 {
@@ -337,7 +325,7 @@ namespace Apache.Ignite.Internal.Table
         private Schema ReadSchema(ref MsgPackReader r)
         {
             var schemaVersion = r.ReadInt32();
-            var columnCount = r.ReadArrayHeader();
+            var columnCount = r.ReadInt32();
             var keyColumnCount = 0;
             var colocationColumnCount = 0;
 
@@ -345,7 +333,7 @@ namespace Apache.Ignite.Internal.Table
 
             for (var i = 0; i < columnCount; i++)
             {
-                var propertyCount = r.ReadArrayHeader();
+                var propertyCount = r.ReadInt32();
                 const int expectedCount = 7;
 
                 Debug.Assert(propertyCount >= expectedCount, "propertyCount >= " + expectedCount);
@@ -415,7 +403,7 @@ namespace Apache.Ignite.Internal.Table
             string[]? Read()
             {
                 var r = resBuf.GetReader();
-                var count = r.ReadArrayHeader();
+                var count = r.ReadInt32();
 
                 if (count == 0)
                 {

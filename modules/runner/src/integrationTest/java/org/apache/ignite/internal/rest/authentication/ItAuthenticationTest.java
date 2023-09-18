@@ -256,13 +256,14 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
         HttpRequest clusterConfigRequest = HttpRequest.newBuilder(clusterConfigUri)
                 .header("Authorization", basicAuthenticationHeader(username, password))
                 .build();
-        int code = sendRequest(client, clusterConfigRequest).statusCode();
+        HttpResponse<String> response = sendRequest(client, clusterConfigRequest);
+        int code = response.statusCode();
         if (code == 200) {
             return true;
         } else if (code == 401) {
             return false;
         } else {
-            throw new IllegalStateException("Unexpected response code: " + code);
+            throw new IllegalStateException("Unexpected response code: " + code +  ", body: " + response.body());
         }
     }
 

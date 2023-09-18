@@ -54,9 +54,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -83,6 +82,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -92,9 +92,7 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -133,7 +131,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        ClusterNode clusterNode = new ClusterNodeImpl(UUID.randomUUID().toString(), "node", new NetworkAddress("", 0));
+        ClusterNode clusterNode = DummyInternalTableImpl.LOCAL_NODE;
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
@@ -141,10 +139,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HeapLockManager(),
                 new HybridClockImpl(),
-                new TransactionIdGenerator(0xdeadbeef)
+                new TransactionIdGenerator(0xdeadbeef),
+                clusterNode::id
         ) {
             @Override
             public CompletableFuture<Void> finish(
+                    HybridTimestampTracker timestampTracker,
                     TablePartitionId commitPartition,
                     ClusterNode recipientNode,
                     Long term,
@@ -162,12 +162,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         int tblId = 1;
 
         for (int i = 0; i < PARTS; ++i) {
-            TablePartitionId groupId = new TablePartitionId(tblId, i);
-
             RaftGroupService r = Mockito.mock(RaftGroupService.class);
-            when(r.leader()).thenReturn(Mockito.mock(Peer.class));
-            when(r.groupId()).thenReturn(groupId);
-            when(r.refreshAndGetLeaderWithTerm()).thenReturn(completedFuture(new LeaderWithTerm(new Peer(clusterNode.name()), 0L)));
 
             final int part = i;
             doAnswer(invocation -> {
@@ -191,6 +186,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         }
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
+            ClusterNode node = invocation.getArgument(0);
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new TablePartitionId(2, 0);
 
@@ -209,6 +205,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                 )
                             .rowsToUpdate(rows)
                             .txId(UUID.randomUUID())
+                            .txCoordinatorId(node.id())
                             .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
@@ -223,6 +220,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         .rowUuid(UUID.randomUUID())
                         .rowMessage(((ReadWriteSingleRowReplicaRequest) request).binaryRowMessage())
                         .txId(TestTransactionIds.newTransactionId())
+                        .txCoordinatorId(node.id())
                         .build());
             }
         });
@@ -237,7 +235,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 Mockito.mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                Mockito.mock(HybridClock.class)
+                Mockito.mock(HybridClock.class),
+                new HybridTimestampTracker(),
+                new TestPlacementDriver(clusterNode.name())
         );
     }
 

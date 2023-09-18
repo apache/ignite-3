@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-affinity')
     implementation project(':ignite-baseline')
     implementation project(':ignite-network-api')
+    implementation project(':ignite-network')
     implementation project(':ignite-raft')
     implementation project(':ignite-replicator')
     implementation project(':ignite-raft-api')
@@ -43,6 +44,7 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -57,12 +59,17 @@ dependencies {
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-page-memory')
     testImplementation project(':ignite-storage-rocksdb')
+    testImplementation project(':ignite-placement-driver-api')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-transactions')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
+    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
+    testImplementation(testFixtures(project(':ignite-distribution-zones')))
+    testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
@@ -81,10 +88,14 @@ dependencies {
     testFixturesImplementation project(':ignite-replicator')
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation project(':ignite-raft')
+    testFixturesImplementation project(':ignite-affinity')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
     testFixturesImplementation(testFixtures(project(':ignite-transactions')))
     testFixturesImplementation(testFixtures(project(':ignite-cluster-management')))
+    testFixturesImplementation(testFixtures(project(':ignite-network')))
+    testFixturesImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -96,6 +107,7 @@ dependencies {
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))
@@ -106,6 +118,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
+    integrationTestImplementation(testFixtures(project(':ignite-placement-driver-api')))
     integrationTestImplementation libs.fastutil.core
 }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.calcite.sql.type.SqlTypeName.ANY;
 import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
+import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.VARBINARY;
@@ -41,8 +42,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * Accumulators.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Accumulators implementations.
  */
 public class Accumulators {
 
@@ -88,9 +88,11 @@ public class Accumulators {
             case "SOME":
                 return minMaxFactory(false, call);
             case "SINGLE_VALUE":
-                return SingleVal.FACTORY;
+                return singleValueFactory(call);
             case "ANY_VALUE":
-                return AnyVal.FACTORY;
+                return anyValueFactory(call);
+            case "LITERAL_AGG":
+                return LiteralVal.newAccumulator(typeFactory.createSqlType(BOOLEAN));
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -184,6 +186,26 @@ public class Accumulators {
         }
     }
 
+    private Supplier<Accumulator> singleValueFactory(AggregateCall call) {
+        RelDataType type = call.getType();
+
+        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+            throw unsupportedAggregateFunction(call);
+        }
+
+        return SingleVal.newAccumulator(type);
+    }
+
+    private Supplier<Accumulator> anyValueFactory(AggregateCall call) {
+        RelDataType type = call.getType();
+
+        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+            throw unsupportedAggregateFunction(call);
+        }
+
+        return AnyVal.newAccumulator(type);
+    }
+
     /**
      * SingleVal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -191,7 +213,13 @@ public class Accumulators {
     private static class SingleVal extends AnyVal {
         private boolean touched;
 
-        public static final Supplier<Accumulator> FACTORY = SingleVal::new;
+        private SingleVal(RelDataType type) {
+            super(type);
+        }
+
+        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+            return () -> new SingleVal(type);
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -204,17 +232,43 @@ public class Accumulators {
 
             super.add(args);
         }
+    }
 
+    /**
+     * LITERAL_AGG accumulator, return {@code true} if incoming data is not empty, {@code false} otherwise.
+     * Calcite`s implementation RexImpTable#LiteralAggImplementor.
+     */
+    private static class LiteralVal extends AnyVal {
+        private LiteralVal(RelDataType type) {
+            super(type);
+        }
+
+        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+            return () -> new LiteralVal(type);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object end() {
+            return holder != null;
+        }
     }
 
     /**
      * ANY_VALUE accumulator.
      */
     private static class AnyVal implements Accumulator {
-        private Object holder;
+        protected Object holder;
 
-        public static final Supplier<Accumulator> FACTORY = AnyVal::new;
+        private final RelDataType type;
 
+        private AnyVal(RelDataType type) {
+            this.type = type;
+        }
+
+        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+            return () -> new AnyVal(type);
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -241,7 +295,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createSqlType(ANY);
+            return type;
         }
     }
 

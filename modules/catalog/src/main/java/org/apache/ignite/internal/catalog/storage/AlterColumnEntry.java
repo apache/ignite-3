@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -42,15 +41,19 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
 
     private final CatalogTableColumnDescriptor column;
 
+    private final String schemaName;
+
     /**
      * Constructs the object.
      *
      * @param tableId An id the table to be modified.
      * @param column A modified descriptor of the column to be replaced.
+     * @param schemaName Schema name.
      */
-    public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column) {
+    public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column, String schemaName) {
         this.tableId = tableId;
         this.column = column;
+        this.schemaName = schemaName;
     }
 
     /** Returns an id the table to be modified. */
@@ -75,14 +78,14 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                List.of(new CatalogSchemaDescriptor(
+                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
                         schema.id(),
                         schema.name(),
                         Arrays.stream(schema.tables())
@@ -90,6 +93,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                                         ? table
                                         : new CatalogTableDescriptor(
                                                 table.id(),
+                                                table.primaryKeyIndexId(),
                                                 table.name(),
                                                 table.zoneId(),
                                                 table.tableVersion() + 1,
@@ -100,8 +104,9 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                                                 table.colocationColumns())
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
-                        schema.indexes()
-                ))
+                        schema.indexes(),
+                        schema.systemViews()
+                ), catalog.schemas())
         );
     }
 

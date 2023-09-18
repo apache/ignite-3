@@ -321,7 +321,7 @@ public final class Utils {
      * Gets the current monotonic time in milliseconds.
      */
     public static long monotonicMs() {
-        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+        return IgniteUtils.monotonicMs();
     }
 
     /**

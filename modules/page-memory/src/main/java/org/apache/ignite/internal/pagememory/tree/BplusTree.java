@@ -32,7 +32,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePa
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.clearTail;
 import static org.apache.ignite.internal.util.ArrayUtils.set;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
 import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
 
 import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;

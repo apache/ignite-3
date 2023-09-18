@@ -17,17 +17,15 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
-import static org.apache.ignite.internal.runner.app.ItTablesApiTest.SCHEMA;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -43,7 +41,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -53,10 +50,6 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -64,6 +57,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -83,7 +77,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItRoReadsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRoReadsTest.class);
 
-    private static final String TABLE_NAME = "some-table";
+    private static final String TABLE_NAME = "SOME_TABLE";
 
     private static final SchemaDescriptor SCHEMA_1 = new SchemaDescriptor(
             1,
@@ -509,28 +503,36 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
     }
 
     private static Table startTable(Ignite node, String tableName) {
-        List<ColumnDefinition> cols = new ArrayList<>();
-        cols.add(SchemaBuilders.column("key", ColumnType.INT64).build());
-        cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
-        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
+        String zoneName = zoneNameForTable(tableName);
 
-        String zoneName = "zone_" + tableName;
-        createZone(((IgniteImpl) node).distributionZoneManager(), zoneName, 1, DEFAULT_REPLICA_COUNT);
+        try (Session session = node.sql().createSession()) {
+            session.execute(null, String.format("create zone \"%s\" with partitions=1, replicas=%d", zoneName, DEFAULT_REPLICA_COUNT));
 
-        CompletableFuture<Table> createTableCompletableFuture = ((TableManager) node.tables()).createTableAsync(
-                tableName,
-                zoneName,
-                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(cols).withPrimaryKey("key").build(), tblCh)
-        );
+            session.execute(null,
+                    String.format(
+                            "create table \"%s\" (key bigint primary key, valInt int, valStr varchar default 'default') "
+                                    + "with primary_zone='%s'",
+                            tableName, zoneName
+                    )
+            );
+        }
 
-        assertThat(createTableCompletableFuture, willCompleteSuccessfully());
+        Table table = node.tables().table(tableName);
 
-        return createTableCompletableFuture.join();
+        assertNotNull(table);
+
+        return table;
+    }
+
+    private static String zoneNameForTable(String tableName) {
+        return "ZONE_" + tableName;
     }
 
     private static void stopTable(Ignite node, String tableName) {
-        assertThat(((TableManager) node.tables()).dropTableAsync(tableName), willCompleteSuccessfully());
-        DistributionZonesTestUtil.dropZone(((IgniteImpl) node).distributionZoneManager(), "zone_" + tableName);
+        try (Session session = node.sql().createSession()) {
+            session.execute(null, "drop table " + tableName);
+            session.execute(null, "drop zone " + zoneNameForTable(tableName));
+        }
     }
 
     protected static int nodes() {

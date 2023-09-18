@@ -17,15 +17,102 @@
 
 package org.apache.ignite.lang;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.util.Locale;
+
 /**
  * Defines error groups and its errors.
  */
 @SuppressWarnings("PublicInnerClass")
 public class ErrorGroups {
+    /** List of all registered error groups. */
+    private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
+
+    /**
+     * Initializes and register all error groups and error codes.
+     */
+    public static synchronized void initialize() {
+        for (Class<?> cls : ErrorGroups.class.getDeclaredClasses()) {
+            try {
+                cls.getDeclaredConstructor().newInstance();
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to initialize error groups", e);
+            }
+        }
+    }
+
+    /**
+     * Creates a new error group with the given {@code groupName} and {@code groupCode}.
+     *
+     * @param groupName Group name to be created.
+     * @param groupCode Group code to be created.
+     * @return New error group.
+     * @throws IllegalArgumentException If the specified name or group code already registered.
+     *      Also, this exception is thrown if the given {@code groupName} is {@code null} or empty.
+     */
+    public static synchronized ErrorGroup registerGroup(String groupName, short groupCode) {
+        if (groupName == null || groupName.isEmpty()) {
+            throw new IllegalArgumentException("Group name is null or empty");
+        }
+
+        String grpName = groupName.toUpperCase(Locale.ENGLISH);
+
+        if (registeredGroups.containsKey(groupCode)) {
+            throw new IllegalArgumentException(
+                    "Error group already registered [groupName=" + groupName + ", groupCode=" + groupCode
+                            + ", registeredGroup=" + registeredGroups.get(groupCode) + ']');
+        }
+
+        for (ErrorGroup group : registeredGroups.values()) {
+            if (group.name().equals(groupName)) {
+                throw new IllegalArgumentException(
+                        "Error group already registered [groupName=" + groupName + ", groupCode=" + groupCode
+                                + ", registeredGroup=" + group + ']');
+            }
+        }
+
+        ErrorGroup newGroup = new ErrorGroup(grpName, groupCode);
+
+        registeredGroups.put(groupCode, newGroup);
+
+        return newGroup;
+    }
+
+    /**
+     * Returns group code extracted from the given full error code.
+     *
+     * @param code Full error code.
+     * @return Group code.
+     */
+    public static short extractGroupCode(int code) {
+        return (short) (code >>> 16);
+    }
+
+    /**
+     * Returns error group identified by the given {@code groupCode}.
+     *
+     * @param groupCode Group code
+     * @return Error Group.
+     */
+    public static ErrorGroup errorGroupByGroupCode(short groupCode) {
+        return registeredGroups.get(groupCode);
+    }
+
+    /**
+     * Returns error group identified by the given error {@code code}.
+     *
+     * @param code Full error code
+     * @return Error Group.
+     */
+    public static ErrorGroup errorGroupByCode(int code) {
+        return registeredGroups.get(extractGroupCode(code));
+    }
+
     /** Common error group. */
     public static class Common {
         /** Common error group. */
-        public static final ErrorGroup COMMON_ERR_GROUP = ErrorGroup.newGroup("CMN", (short) 1);
+        public static final ErrorGroup COMMON_ERR_GROUP = registerGroup("CMN", (short) 1);
 
         /** Node stopping error. */
         public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 1);
@@ -52,7 +139,7 @@ public class ErrorGroups {
     /** Tables error group. */
     public static class Table {
         /** Table error group. */
-        public static final ErrorGroup TABLE_ERR_GROUP = ErrorGroup.newGroup("TBL", (short) 2);
+        public static final ErrorGroup TABLE_ERR_GROUP = registerGroup("TBL", (short) 2);
 
         /** Table already exists. */
         public static final int TABLE_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 1);
@@ -79,7 +166,7 @@ public class ErrorGroups {
     /** Client error group. */
     public static class Client {
         /** Client error group. */
-        public static final ErrorGroup CLIENT_ERR_GROUP = ErrorGroup.newGroup("CLIENT", (short) 3);
+        public static final ErrorGroup CLIENT_ERR_GROUP = registerGroup("CLIENT", (short) 3);
 
         /** Connection failed. */
         public static final int CONNECTION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 1);
@@ -115,7 +202,7 @@ public class ErrorGroups {
     /** SQL error group. */
     public static class Sql {
         /** SQL error group. */
-        public static final ErrorGroup SQL_ERR_GROUP = ErrorGroup.newGroup("SQL", (short) 4);
+        public static final ErrorGroup SQL_ERR_GROUP = registerGroup("SQL", (short) 4);
 
         /** No more pages in the cursor error. */
         public static final int CURSOR_NO_MORE_PAGES_ERR = SQL_ERR_GROUP.registerErrorCode((short) 1);
@@ -172,7 +259,7 @@ public class ErrorGroups {
     /** Meta storage error group. */
     public static class MetaStorage {
         /** Meta storage error group. */
-        public static final ErrorGroup META_STORAGE_ERR_GROUP = ErrorGroup.newGroup("META", (short) 5);
+        public static final ErrorGroup META_STORAGE_ERR_GROUP = registerGroup("META", (short) 5);
 
         /** Failed to start the underlying key value storage. */
         public static final int STARTING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 1);
@@ -193,7 +280,7 @@ public class ErrorGroups {
     /** Index error group. */
     public static class Index {
         /** Index error group. */
-        public static final ErrorGroup INDEX_ERR_GROUP = ErrorGroup.newGroup("IDX", (short) 6);
+        public static final ErrorGroup INDEX_ERR_GROUP = registerGroup("IDX", (short) 6);
 
         /** Invalid index definition. */
         public static final int INVALID_INDEX_DEFINITION_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 1);
@@ -208,7 +295,7 @@ public class ErrorGroups {
     /** Transactions error group. */
     public static class Transactions {
         /** Transactions error group. */
-        public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", (short) 7);
+        public static final ErrorGroup TX_ERR_GROUP = registerGroup("TX", (short) 7);
 
         /** Error of tx state storage. */
         public static final int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode((short) 1);
@@ -250,7 +337,7 @@ public class ErrorGroups {
     /** Replicator error group. */
     public static class Replicator {
         /** Replicator error group. */
-        public static final ErrorGroup REPLICATOR_ERR_GROUP = ErrorGroup.newGroup("REP", (short) 8);
+        public static final ErrorGroup REPLICATOR_ERR_GROUP = registerGroup("REP", (short) 8);
 
         /** Common error for the replication procedure. */
         public static final int REPLICA_COMMON_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 1);
@@ -281,7 +368,7 @@ public class ErrorGroups {
     /** Storage error group. */
     public static class Storage {
         /** Storage error group. */
-        public static final ErrorGroup STORAGE_ERR_GROUP = ErrorGroup.newGroup("STORAGE", (short) 9);
+        public static final ErrorGroup STORAGE_ERR_GROUP = registerGroup("STORAGE", (short) 9);
 
         /** Default error code when nothing else is specified. */
         public static final int GENERIC_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 1);
@@ -299,7 +386,7 @@ public class ErrorGroups {
     /** Distribution zones error group. */
     public static class DistributionZones {
         /** Distribution zones group. */
-        public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = ErrorGroup.newGroup("DISTRZONES", (short) 10);
+        public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = registerGroup("DISTRZONES", (short) 10);
 
         /** Distribution zone already exists. */
         public static final int ZONE_ALREADY_EXISTS_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
@@ -320,7 +407,7 @@ public class ErrorGroups {
     /** Network error group. */
     public static class Network {
         /** Network error group. */
-        public static final ErrorGroup NETWORK_ERR_GROUP = ErrorGroup.newGroup("NETWORK", (short) 11);
+        public static final ErrorGroup NETWORK_ERR_GROUP = registerGroup("NETWORK", (short) 11);
 
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 1);
@@ -332,7 +419,7 @@ public class ErrorGroups {
     /** Node configuration error group. */
     public static class NodeConfiguration {
         /** Node configuration error group. */
-        public static final ErrorGroup NODE_CONFIGURATION_ERR_GROUP = ErrorGroup.newGroup("NODECFG", (short) 12);
+        public static final ErrorGroup NODE_CONFIGURATION_ERR_GROUP = registerGroup("NODECFG", (short) 12);
 
         /** Config read error. */
         public static final int CONFIG_READ_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode((short) 1);
@@ -350,7 +437,7 @@ public class ErrorGroups {
     /** Code deployment error group. */
     public static class CodeDeployment {
         /** Code deployment error group. */
-        public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = ErrorGroup.newGroup("CODEDEPLOY", (short) 13);
+        public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = registerGroup("CODEDEPLOY", (short) 13);
 
         /** Access to non-existing deployment unit. */
         public static final int UNIT_NOT_FOUND_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 1);
@@ -370,7 +457,7 @@ public class ErrorGroups {
      */
     public static class GarbageCollector {
         /** Garbage collector error group. */
-        public static final ErrorGroup GC_ERR_GROUP = ErrorGroup.newGroup("GC", (short) 14);
+        public static final ErrorGroup GC_ERR_GROUP = registerGroup("GC", (short) 14);
 
         /** Garbage collector closed error. */
         public static final int CLOSED_ERR = GC_ERR_GROUP.registerErrorCode((short) 1);
@@ -381,7 +468,7 @@ public class ErrorGroups {
      */
     public static class Authentication {
         /** Authentication error group. */
-        public static final ErrorGroup AUTHENTICATION_ERR_GROUP = ErrorGroup.newGroup("AUTHENTICATION", (short) 15);
+        public static final ErrorGroup AUTHENTICATION_ERR_GROUP = registerGroup("AUTHENTICATION", (short) 15);
 
         /** General authentication error. */
         public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 1);
@@ -392,12 +479,21 @@ public class ErrorGroups {
      */
     public static class Compute {
         /** Compute error group. */
-        public static final ErrorGroup COMPUTE_ERR_GROUP = ErrorGroup.newGroup("COMPUTE", (short) 16);
+        public static final ErrorGroup COMPUTE_ERR_GROUP = registerGroup("COMPUTE", (short) 16);
 
         /** Classpath error. */
         public static final int CLASS_PATH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Class loader error. */
         public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 2);
+    }
+
+    /** Catalog error group. */
+    public static class Catalog {
+        /** Catalog error group. */
+        public static final ErrorGroup CATALOG_ERR_GROUP = registerGroup("CATALOG", (short) 17);
+
+        /** Command to the catalog has not passed the validation. See exception message for details. */
+        public static final int VALIDATION_ERR = CATALOG_ERR_GROUP.registerErrorCode((short) 1);
     }
 }

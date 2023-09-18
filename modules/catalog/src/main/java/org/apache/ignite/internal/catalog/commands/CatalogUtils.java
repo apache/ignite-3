@@ -18,19 +18,20 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.IntStream;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -143,58 +144,6 @@ public class CatalogUtils {
     }
 
     /**
-     * Converts CreateTable command params to descriptor.
-     *
-     * @param id Table ID.
-     * @param zoneId Distributed zone ID.
-     * @param params Parameters.
-     * @return Table descriptor.
-     */
-    public static CatalogTableDescriptor fromParams(int id, int zoneId, CreateTableParams params) {
-        return new CatalogTableDescriptor(
-                id,
-                params.tableName(),
-                zoneId,
-                CatalogTableDescriptor.INITIAL_TABLE_VERSION,
-                params.columns().stream().map(CatalogUtils::fromParams).collect(toList()),
-                params.primaryKeyColumns(),
-                params.colocationColumns()
-        );
-    }
-
-    /**
-     * Converts CreateIndex command params to hash index descriptor.
-     *
-     * @param id Index ID.
-     * @param tableId Table ID.
-     * @param params Parameters.
-     * @return Index descriptor.
-     */
-    public static CatalogHashIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(id, params.indexName(), tableId, params.unique(), params.columns());
-    }
-
-    /**
-     * Converts CreateIndex command params to sorted index descriptor.
-     *
-     * @param id Index ID.
-     * @param tableId Table ID.
-     * @param params Parameters.
-     * @return Index descriptor.
-     */
-    public static CatalogSortedIndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
-        List<CatalogColumnCollation> collations = params.collations();
-
-        assert collations.size() == params.columns().size() : "tableId=" + tableId + ", indexId=" + id;
-
-        List<CatalogIndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
-                .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
-                .collect(toList());
-
-        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.unique(), columnDescriptors);
-    }
-
-    /**
      * Converts CreateZone command params to descriptor.
      *
      * <p>If the following fields are not set, the default value is used for them:</p>
@@ -251,6 +200,7 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Column descriptor.
      */
+    // FIXME: IGNITE-20105 Default values should be taken from the SQL standard
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
         int precision = Objects.requireNonNullElse(params.precision(), defaultPrecision(params.type()));
         int scale = Objects.requireNonNullElse(params.scale(), DEFAULT_SCALE);
@@ -273,6 +223,25 @@ public class CatalogUtils {
         Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(source);
 
         return supportedTransitions != null && supportedTransitions.contains(target);
+    }
+
+    /**
+     * Returns a list of schemas, replacing any schema with {@code newSchema} if its id equal to {@code newSchema.id()}.
+     *
+     * @param newSchema A schema.
+     * @param schemas A list of schemas.
+     * @return A List of schemas.
+     */
+    public static List<CatalogSchemaDescriptor> replaceSchema(CatalogSchemaDescriptor newSchema,
+            Collection<CatalogSchemaDescriptor> schemas) {
+
+        return schemas.stream().map(s -> {
+            if (Objects.equals(s.id(), newSchema.id())) {
+                return newSchema;
+            } else {
+                return s;
+            }
+        }).collect(toList());
     }
 
     private static int defaultPrecision(ColumnType columnType) {
@@ -352,5 +321,65 @@ public class CatalogUtils {
                 Objects.requireNonNullElse(params.filter(), previous.filter()),
                 dataStorageDescriptor
         );
+    }
+
+    /**
+     * Returns schema with given name, or throws {@link CatalogValidationException} if schema with given name not exists.
+     *
+     * @param catalog Catalog to look up schema in.
+     * @param name Name of the schema of interest.
+     * @return Schema with given name. Never null.
+     * @throws CatalogValidationException If schema with given name is not exists.
+     */
+    static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+        name = Objects.requireNonNull(name, "schemaName");
+
+        CatalogSchemaDescriptor schema = catalog.schema(name);
+
+        if (schema == null) {
+            throw new CatalogValidationException(format("Schema with name '{}' not found", name));
+        }
+
+        return schema;
+    }
+
+    /**
+     * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
+     *
+     * @param schema Schema to look up table in.
+     * @param name Name of the table of interest.
+     * @return Table with given name. Never null.
+     * @throws TableNotFoundValidationException If table with given name is not exists.
+     */
+    static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+        name = Objects.requireNonNull(name, "tableName");
+
+        CatalogTableDescriptor table = schema.table(name);
+
+        if (table == null) {
+            throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return table;
+    }
+
+    /**
+     * Returns zone with given name, or throws {@link CatalogValidationException} if zone with given name not exists.
+     *
+     * @param catalog Catalog to look up zone in.
+     * @param name Name of the zone of interest.
+     * @return Zone with given name. Never null.
+     * @throws CatalogValidationException If zone with given name is not exists.
+     */
+    static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+        name = Objects.requireNonNull(name, "zoneName");
+
+        CatalogZoneDescriptor zone = catalog.zone(name);
+
+        if (zone == null) {
+            throw new CatalogValidationException(format("Distribution zone with name '{}' not found", name));
+        }
+
+        return zone;
     }
 }

@@ -40,5 +40,5 @@ public interface SqlSchemaManager {
      *
      * @param version SQL schema version to wait.
      */
-    CompletableFuture<Void> schemaReadyFuture(long version);
+    CompletableFuture<Void> schemaReadyFuture(int version);
 }

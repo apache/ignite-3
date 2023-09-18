@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -413,6 +413,11 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public ResultSetMetadata metadata() {
             return meta;
+        }
+
+        @Override
+        public String toString() {
+            return "Row " + row;
         }
     }
 }

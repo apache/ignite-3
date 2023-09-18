@@ -203,29 +203,28 @@ TEST_F(api_robustness_test, sql_exec_direct) {
 }
 
 TEST_F(api_robustness_test, sql_tables) {
-    // There are no checks because we do not really care what is the result of these
+    // There are no checks because we do not really care about the result of these
     // calls as long as they do not cause segmentation fault.
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR catalogName[] = "";
-    SQLCHAR schemaName[] = "";
-    SQLCHAR tableName[] = "";
-    SQLCHAR tableType[] = "";
+    SQLCHAR catalog_name[] = "";
+    SQLCHAR schema_name[] = "";
+    SQLCHAR table_name[] = "";
+    SQLCHAR table_type[] = "";
 
     // Everything is ok.
-    SQLRETURN ret = SQLTables(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), tableType, sizeof(tableType));
+    SQLRETURN ret = SQLTables(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name), table_type, sizeof(table_type));
 
     UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once table metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
-    SQLTables(m_conn, catalogName, 0, schemaName, 0, tableName, 0, tableType, 0);
+    SQLTables(m_conn, catalog_name, 0, schema_name, 0, table_name, 0, table_type, 0);
 
     // Values are nulls.
-    SQLTables(m_conn, 0, sizeof(catalogName), 0, sizeof(schemaName), 0, sizeof(tableName), 0, sizeof(tableType));
+    SQLTables(m_conn, 0, sizeof(catalog_name), 0, sizeof(schema_name), 0, sizeof(table_name), 0, sizeof(table_type));
 
     // All nulls.
     SQLTables(m_conn, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -247,7 +246,7 @@ TEST_F(api_robustness_test, sql_columns) {
         sizeof(tableName), columnName, sizeof(columnName));
 
     UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    // TODO IGNITE-20346: Uncomment once column metadata is implemented.
     // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
@@ -400,14 +399,14 @@ TEST_F(api_robustness_test, sql_col_attribute) {
     ret = SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, &numericAttr);
 
     UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    // TODO IGNITE-20346: Uncomment once column metadata is implemented.
     // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Everything is ok. Numeric attribute.
     ret = SQLColAttribute(m_statement, 1, SQL_DESC_COUNT, buffer, sizeof(buffer), &resLen, &numericAttr);
 
     UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    // TODO IGNITE-20346: Uncomment once column metadata is implemented.
     // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, 0);
@@ -446,7 +445,7 @@ TEST_F(api_robustness_test, sql_describe_col) {
         &decimalDigits, &nullable);
 
     UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
+    // TODO IGNITE-20346: Uncomment once column metadata is implemented.
     // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLDescribeCol(

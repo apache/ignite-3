@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
-import org.apache.ignite.internal.sql.engine.util.PlanUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * SortAggregateExecutionTest.
@@ -124,7 +124,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         // The group's fields placed on the begin of the output row (planner
         // does this by Projection node for aggregate input).
-        // Hash aggregate doesn't use groups set on reducer because send GroupKey as object.
         ImmutableIntList reduceGrpFields = ImmutableIntList.copyOf(
                 IntStream.range(0, grpSet.cardinality()).boxed().collect(Collectors.toList())
         );
@@ -137,8 +136,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             rdcCmp = (k1, k2) -> 0;
         }
 
-        Mapping reduceMapping = PlanUtils.computeAggFieldMapping(grpSets);
-        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(call, reduceMapping.getTargetCount());
+        Mapping mapping = Commons.trimmingMapping(grpSet.length(), grpSet);
+        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(call, mapping.getTargetCount());
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,

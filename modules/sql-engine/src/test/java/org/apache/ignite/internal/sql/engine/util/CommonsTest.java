@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mapping;
-import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.junit.jupiter.api.Test;
 
@@ -31,24 +30,19 @@ import org.junit.jupiter.api.Test;
 public class CommonsTest {
 
     @Test
-    public void testMapBitSet() {
-        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, 7, 7);
-        mapping.set(0, 1);
-        mapping.set(4, 6);
-        mapping.set(1, 4);
+    public void testTrimmingMapping() {
+        ImmutableBitSet requiredElements = ImmutableBitSet.of(1, 4, 3, 7);
 
-        ImmutableBitSet bitSet = ImmutableBitSet.of(1, 0, 4);
-
-        ImmutableBitSet actual = Commons.mapBitSet(bitSet, mapping);
-        assertEquals(ImmutableBitSet.of(1, 4, 6), actual);
+        Mapping mapping = Commons.trimmingMapping(requiredElements.length(), requiredElements);
+        expectMapped(mapping, ImmutableBitSet.of(1, 7), ImmutableBitSet.of(0, 3));
+        expectMapped(mapping, ImmutableBitSet.of(3), ImmutableBitSet.of(1));
+        expectMapped(mapping, ImmutableBitSet.of(1, 4, 3, 7), ImmutableBitSet.of(0, 1, 2, 3));
     }
 
-    @Test
-    public void testMapEmptyBitSet() {
-        Mapping mapping = Mappings.createIdentity(1);
-        ImmutableBitSet bitSet = ImmutableBitSet.of();
+    private static void expectMapped(Mapping mapping, ImmutableBitSet bitSet, ImmutableBitSet expected) {
+        assertEquals(expected, Mappings.apply(mapping, bitSet), "direct mapping");
 
-        ImmutableBitSet actual = Commons.mapBitSet(bitSet, mapping);
-        assertEquals(ImmutableBitSet.of(), actual);
+        Mapping inverseMapping = mapping.inverse();
+        assertEquals(bitSet, Mappings.apply(inverseMapping, expected), "inverse mapping");
     }
 }

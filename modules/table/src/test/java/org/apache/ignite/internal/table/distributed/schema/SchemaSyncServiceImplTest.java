@@ -26,7 +26,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -45,9 +44,6 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
     @Mock
     private ClusterTime clusterTime;
 
-    @Mock
-    private CatalogService catalogService;
-
     private final LongSupplier delayDurationMs = () -> DELAY_DURATION;
 
     private SchemaSyncServiceImpl schemaSyncService;
@@ -56,7 +52,7 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void createSchemaSyncService() {
-        schemaSyncService = new SchemaSyncServiceImpl(clusterTime, catalogService, delayDurationMs);
+        schemaSyncService = new SchemaSyncServiceImpl(clusterTime, delayDurationMs);
     }
 
     @Test
@@ -73,13 +69,5 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
 
         clusterTimeFuture.complete(null);
         assertThat(waitFuture, willCompleteSuccessfully());
-    }
-
-    @Test
-    void isMetadataAvailableForConsultsCatalogService() {
-        when(catalogService.latestCatalogVersion()).thenReturn(5);
-
-        assertThat(schemaSyncService.isMetadataAvailableFor(5), is(true));
-        assertThat(schemaSyncService.isMetadataAvailableFor(6), is(false));
     }
 }

@@ -82,8 +82,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> schemaReadyFuture(long version) {
+    public CompletableFuture<Void> schemaReadyFuture(int version) {
         return completedFuture(null);
     }
-
 }

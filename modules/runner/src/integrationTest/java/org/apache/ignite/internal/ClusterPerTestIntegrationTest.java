@@ -106,8 +106,6 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
      */
     @BeforeEach
     public void setup(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, workDir);
-
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {
@@ -115,17 +113,9 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
         }
     }
 
-    /**
-     * Invoked after each test has finished.
-     *
-     * @param testInfo Test information oject.
-     * @throws Exception If failed.
-     */
     @AfterEach
     @Timeout(60)
-    public void tearDown(TestInfo testInfo) throws Exception {
-        tearDownBase(testInfo);
-
+    public void tearDown() {
         cluster.shutdown();
     }
 
@@ -207,7 +197,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
         QueryContext context = QueryContext.create(SqlQueryType.ALL);
 
         return getAllFromCursor(
-                qryProc.querySingleAsync(sessionId, context, sql, args).join()
+                qryProc.querySingleAsync(sessionId, context, node(0).transactions(), sql, args).join()
         );
     }
 }

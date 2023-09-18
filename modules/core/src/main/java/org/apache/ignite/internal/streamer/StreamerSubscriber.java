@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.streamer;
 
+import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
+
 import java.util.Collection;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
@@ -53,11 +55,11 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
     private final AtomicInteger inFlightItemCount = new AtomicInteger();
 
-    private final Set<CompletableFuture<Void>> pendingFuts = ConcurrentHashMap.newKeySet();
-
     // NOTE: This can accumulate empty buffers for stopped/failed nodes. Cleaning up is not trivial in concurrent scenario.
     // We don't expect thousands of node failures, so it should be fine.
     private final ConcurrentHashMap<P, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<P, CompletableFuture<Void>> pendingRequests = new ConcurrentHashMap<>();
 
     private final IgniteLogger log;
 
@@ -125,7 +127,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
         StreamerBuffer<T> buf = buffers.computeIfAbsent(
                 partition,
-                p -> new StreamerBuffer<>(options.batchSize(), items -> sendBatch(p, items)));
+                p -> new StreamerBuffer<>(options.batchSize(), items -> enlistBatch(p, items)));
 
         buf.add(item);
         this.metrics.streamerItemsQueuedAdd(1);
@@ -154,31 +156,36 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         return completionFut;
     }
 
-    private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch) {
+    private void enlistBatch(P partition, Collection<T> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
 
-        CompletableFuture<Void> fut = new CompletableFuture<>();
-        pendingFuts.add(fut);
         inFlightItemCount.addAndGet(batchSize);
         metrics.streamerBatchesActiveAdd(1);
 
+        pendingRequests.compute(
+                partition,
+                // Chain existing futures to preserve request order.
+                (part, fut) -> fut == null ? sendBatch(part, batch) : fut.thenCompose(v -> sendBatch(part, batch))
+        );
+    }
+
+    private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
-            batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
+            return batchSender.sendAsync(partition, batch).whenComplete((res, err) -> {
                 if (err != null) {
                     // Retry is handled by the sender (RetryPolicy in ReliableChannel on the client, sendWithRetry on the server).
                     // If we get here, then retries are exhausted and we should fail the streamer.
                     log.error("Failed to send batch to partition " + partition + ": " + err.getMessage(), err);
                     close(err);
                 } else {
+                    int batchSize = batch.size();
+
                     this.metrics.streamerBatchesSentAdd(1);
                     this.metrics.streamerBatchesActiveAdd(-1);
                     this.metrics.streamerItemsSentAdd(batchSize);
                     this.metrics.streamerItemsQueuedAdd(-batchSize);
-
-                    fut.complete(null);
-                    pendingFuts.remove(fut);
 
                     inFlightItemCount.addAndGet(-batchSize);
                     requestMore();
@@ -191,8 +198,6 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
                     });
                 }
             });
-
-            return fut;
         } catch (Exception e) {
             log.error("Failed to send batch to partition " + partition + ": " + e.getMessage(), e);
             close(e);
@@ -216,19 +221,11 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         }
 
         if (throwable == null) {
-            for (StreamerBuffer<T> buf : buffers.values()) {
-                pendingFuts.add(buf.flushAndClose());
-            }
+            buffers.values().forEach(StreamerBuffer::flushAndClose);
 
-            var futs = pendingFuts.toArray(new CompletableFuture[0]);
+            var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenComplete((res, err) -> {
-                if (err != null) {
-                    completionFut.completeExceptionally(err);
-                } else {
-                    completionFut.complete(null);
-                }
-            });
+            CompletableFuture.allOf(futs).whenComplete(copyStateTo(completionFut));
         } else {
             completionFut.completeExceptionally(throwable);
         }
@@ -262,7 +259,11 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
         flushTimer = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(threadPrefix, log));
 
-        flushTask = flushTimer.scheduleAtFixedRate(new PeriodicFlushTask(), interval, interval, TimeUnit.MILLISECONDS);
+        flushTask = flushTimer.scheduleAtFixedRate(this::flushBuffers, interval, interval, TimeUnit.MILLISECONDS);
+    }
+
+    private void flushBuffers() {
+        buffers.values().forEach(StreamerBuffer::flush);
     }
 
     private static StreamerMetricSink getMetrics(@Nullable StreamerMetricSink metrics) {
@@ -289,17 +290,5 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
                 // No-op.
             }
         };
-    }
-
-    /**
-     * Periodically flushes buffers.
-     */
-    private class PeriodicFlushTask implements Runnable {
-        @Override
-        public void run() {
-            for (StreamerBuffer<T> buf : buffers.values()) {
-                buf.flush(options.autoFlushFrequency());
-            }
-        }
     }
 }

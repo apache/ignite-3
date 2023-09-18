@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import java.nio.ByteBuffer;
 import java.util.List;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -45,6 +45,5 @@ public interface QueryBatchMessage extends ExecutionContextAwareMessage {
     /**
      * Get rows.
      */
-    @Marshallable
-    List<Object> rows();
+    List<ByteBuffer> rows();
 }

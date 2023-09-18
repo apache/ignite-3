@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.IsNot.not;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -32,6 +33,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -46,22 +48,6 @@ import org.junit.jupiter.api.function.Executable;
 public class SqlTestUtils {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
-
-    /**
-     * <em>Assert</em> that execution of the supplied {@code executable} throws
-     * an {@link SqlException} with expected error code and return the exception.
-     *
-     * @param expectedCode Expected error code of {@link SqlException}
-     * @param executable Supplier to execute and check thrown exception.
-     * @return Thrown the {@link SqlException}.
-     */
-    public static SqlException assertThrowsSqlException(int expectedCode, Executable executable) {
-        SqlException ex = assertThrows(SqlException.class, executable);
-        assertEquals(expectedCode, ex.code());
-
-        return ex;
-    }
-
     /**
      * <em>Assert</em> that execution of the supplied {@code executable} throws
      * an {@link SqlException} with expected error code and message.
@@ -72,12 +58,30 @@ public class SqlTestUtils {
      * @return Thrown the {@link SqlException}.
      */
     public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
-        SqlException ex = assertThrowsSqlException(expectedCode, executable);
+        return assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
+    }
 
-        String msg = ex.getMessage();
+    /**
+     * <em>Assert</em> that execution of the supplied {@code executable} throws
+     * an expected {@link SqlException} with expected error code and message.
+     *
+     * @param expectedType Expected exception type.
+     * @param expectedCode Expected error code of {@link SqlException}.
+     * @param expectedMessage Expected error message of {@link SqlException}.
+     * @param executable Supplier to execute and check thrown exception.
+     * @return Thrown the {@link SqlException}.
+     */
+    public static <T extends SqlException> T assertThrowsSqlException(
+            Class<T> expectedType,
+            int expectedCode,
+            String expectedMessage,
+            Executable executable) {
+        T ex = assertThrows(expectedType, executable);
+        assertEquals(expectedCode, ex.code());
 
-        assertNotNull(msg, "Error message was null, but expected '" + expectedMessage + "'.");
-        assertTrue(msg.contains(expectedMessage), "Error message '" + ex.getMessage() + "' doesn't contain '" + expectedMessage + "'.");
+        assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
+
+        assertThat("Exception shouldn't be in internal package", ex.getClass().getPackageName(), not(containsString("internal")));
 
         return ex;
     }
@@ -133,7 +137,6 @@ public class SqlTestUtils {
      * Generate random value for given SQL type.
      *
      * @param type SQL type to generate value related to the type.
-     *
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(ColumnType type) {
@@ -145,7 +148,6 @@ public class SqlTestUtils {
      *
      * @param base Base value to generate value.
      * @param type SQL type to generate value related to the type.
-     *
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(int base, ColumnType type) {
@@ -161,9 +163,9 @@ public class SqlTestUtils {
             case INT64:
                 return (long) base;
             case FLOAT:
-                return (float) base + ((float) base / 1000);
+                return base + ((float) base / 1000);
             case DOUBLE:
-                return (double) base + ((double) base / 1000);
+                return base + ((double) base / 1000);
             case STRING:
                 return "str_" + base;
             case BYTE_ARRAY:
@@ -171,13 +173,13 @@ public class SqlTestUtils {
             case NULL:
                 return null;
             case DECIMAL:
-                return BigDecimal.valueOf((double) base + ((double) base / 1000));
+                return BigDecimal.valueOf(base + ((double) base / 1000));
             case NUMBER:
                 return BigInteger.valueOf(base);
             case UUID:
                 return new UUID(base, base);
             case BITMASK:
-                return new byte[]{(byte) base};
+                return BitSet.valueOf(BigInteger.valueOf(base).toByteArray());
             case DURATION:
                 return Duration.ofNanos(base);
             case DATETIME:

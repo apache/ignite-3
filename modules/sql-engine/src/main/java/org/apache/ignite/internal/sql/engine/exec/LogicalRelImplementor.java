@@ -334,7 +334,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
         ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
-        IgniteIndex idx = tbl.getIndex(rel.indexName());
+        IgniteIndex idx = tbl.indexes().get(rel.indexName());
 
         List<SearchBounds> searchBounds = rel.searchBounds();
         RexNode condition = rel.condition();
@@ -348,11 +348,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         if (searchBounds != null) {
             Comparator<RowT> searchRowComparator = null;
 
-            if (idx.collations() != null) {
-                searchRowComparator = expressionFactory.comparator(TraitUtils.createCollation(idx.collations()));
+            if (idx.type() == Type.SORTED) {
+                searchRowComparator = expressionFactory.comparator(IgniteIndex.createSearchRowCollation(idx.collation()));
             }
 
-            ranges = expressionFactory.ranges(searchBounds, idx.getRowType(typeFactory, tbl.descriptor()), searchRowComparator);
+            ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator);
         }
 
         RelCollation outputCollation = rel.collation();
@@ -620,9 +620,15 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteReceiver rel) {
+        RelDataType rowType = rel.getRowType();
+
+        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
+
         Inbox<RowT> inbox = new Inbox<>(ctx, exchangeSvc, mailboxRegistry,
                 ctx.remotes(rel.exchangeId()), expressionFactory.comparator(rel.collation()),
-                rel.exchangeId(), rel.sourceFragmentId());
+                rowFactory, rel.exchangeId(), rel.sourceFragmentId());
 
         mailboxRegistry.register(inbox);
 

@@ -43,7 +43,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -61,13 +60,10 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void tearDown() {
         for (String engine : ENGINES) {
             sql("delete from " + tableName(engine));
         }
-
-        tearDownBase(testInfo);
     }
 
     @BeforeAll

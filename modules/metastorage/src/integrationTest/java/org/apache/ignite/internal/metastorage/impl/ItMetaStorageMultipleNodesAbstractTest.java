@@ -234,7 +234,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
     private final List<Node> nodes = new ArrayList<>();
 
-    private Node startNode(TestInfo testInfo) throws NodeStoppingException {
+    private Node startNode(TestInfo testInfo) {
         var nodeFinder = new StaticNodeFinder(List.of(new NetworkAddress("localhost", 10_000)));
 
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, 10_000 + nodes.size(), nodeFinder);

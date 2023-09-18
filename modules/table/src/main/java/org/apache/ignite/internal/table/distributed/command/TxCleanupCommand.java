@@ -45,4 +45,9 @@ public interface TxCleanupCommand extends PartitionCommand {
     default @Nullable HybridTimestamp commitTimestamp() {
         return nullableHybridTimestamp(commitTimestampLong());
     }
+
+    /**
+     * Transaction coordinator id.
+     */
+    String txCoordinatorId();
 }

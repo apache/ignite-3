@@ -34,6 +34,7 @@ import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -131,6 +132,8 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
+        ErrorGroups.initialize();
+
         //noinspection resource: returned from method
         var client = new TcpIgniteClient(cfg);
 
@@ -171,11 +174,11 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
         return ch.serviceAsync(ClientOp.CLUSTER_GET_NODES, r -> {
-            int cnt = r.in().unpackArrayHeader();
+            int cnt = r.in().unpackInt();
             List<ClusterNode> res = new ArrayList<>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                int fieldCnt = r.in().unpackArrayHeader();
+                int fieldCnt = r.in().unpackInt();
                 assert fieldCnt == 4;
 
                 res.add(new ClientClusterNode(

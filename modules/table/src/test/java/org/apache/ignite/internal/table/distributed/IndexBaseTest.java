@@ -70,19 +70,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(SCHEMA_DESCRIPTOR);
 
-    private static final ColumnsExtractor PK_INDEX_BINARY_TUPLE_CONVERTER = new ColumnsExtractor() {
-        private final BinaryRowConverter converter = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
-
-        @Override
-        public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
-            return new BinaryTuple(PK_INDEX_SCHEMA.elementCount(), keyOnlyRow.tupleSlice());
-        }
-
-        @Override
-        public BinaryTuple extractColumns(BinaryRow row) {
-            return converter.toTuple(row);
-        }
-    };
+    private static final ColumnsExtractor PK_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
 
     private static final int[] USER_INDEX_COLS = {
             SCHEMA_DESCRIPTOR.column("INTVAL").schemaIndex(),
@@ -91,19 +79,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
 
-    private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new ColumnsExtractor() {
-        private final BinaryRowConverter converter = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
-
-        @Override
-        public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public BinaryTuple extractColumns(BinaryRow row) {
-            return converter.toTuple(row);
-        }
-    };
+    private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
 
     private static final UUID TX_ID = UUID.randomUUID();
 
@@ -115,13 +91,20 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     GcUpdateHandler gcUpdateHandler;
 
+    public static UUID getTxId() {
+        return TX_ID;
+    }
+
     @BeforeEach
     void setUp(@InjectConfiguration GcConfiguration gcConfig) {
         int pkIndexId = 1;
         int sortedIndexId = 2;
         int hashIndexId = 3;
 
-        pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, null);
+        pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(pkIndexId, List.of(
+                new StorageHashIndexColumnDescriptor("INTKEY", NativeTypes.INT32, false),
+                new StorageHashIndexColumnDescriptor("STRKEY", NativeTypes.STRING, false)
+        )));
 
         TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
@@ -188,7 +171,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, (unused) -> {}, null);
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null);
     }
 
     static BinaryRow defaultRow() {
@@ -248,7 +231,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         USE_UPDATE {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, (unused) -> {}, null);
+                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null);
             }
         },
         /** Uses updateAll api. */
@@ -266,7 +249,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                         TX_ID,
                         singletonMap(rowUuid, rowMessage),
                         partitionId,
-                        (unused) -> {},
+                        true,
+                        null,
                         null
                 );
             }

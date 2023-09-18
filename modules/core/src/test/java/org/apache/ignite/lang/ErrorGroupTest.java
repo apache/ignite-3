@@ -19,6 +19,7 @@ package org.apache.ignite.lang;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Arrays;
@@ -29,6 +30,18 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.junit.jupiter.api.Test;
 
 class ErrorGroupTest {
+    @Test
+    public void testErrorCodeInitialization() throws Exception {
+        ErrorGroups.initialize();
+
+        // Check that all error codes are initialized.
+        int errGroupsCount = ErrorGroups.class.getDeclaredClasses().length;
+        for (int groupCode = 1; groupCode <= errGroupsCount; groupCode++) {
+            ErrorGroup errGroup = ErrorGroups.errorGroupByCode(groupCode << 16);
+            assertThat("Error group is not initialized for code: " + groupCode, errGroup, notNullValue());
+        }
+    }
+
     @Test
     void extractsCauseMessageFromIgniteExceptionMessage() {
         // Given

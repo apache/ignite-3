@@ -28,6 +28,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,6 +41,10 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     private final QueryProcessor qryProc;
 
+    private final Map<String, Object> props;
+
+    private IgniteTransactions transactions;
+
     private long queryTimeout = DEFAULT_QUERY_TIMEOUT;
 
     private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
@@ -48,17 +53,31 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     private int pageSize = AbstractSession.DEFAULT_PAGE_SIZE;
 
-    private final Map<String, Object> props;
-
     /**
      * Session builder constructor.
      *
      * @param qryProc SQL query processor.
+     * @param transactions Transactions facade.
      * @param props Initial properties.
      */
-    SessionBuilderImpl(QueryProcessor qryProc, Map<String, Object> props) {
+    SessionBuilderImpl(QueryProcessor qryProc, IgniteTransactions transactions, Map<String, Object> props) {
         this.qryProc = qryProc;
+        this.transactions = transactions;
         this.props = props;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteTransactions igniteTransactions() {
+        return transactions;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SessionBuilder igniteTransactions(IgniteTransactions transactions) {
+        this.transactions = transactions;
+
+        return this;
     }
 
     /** {@inheritDoc} */
@@ -145,6 +164,7 @@ public class SessionBuilderImpl implements SessionBuilder {
         return new SessionImpl(
                 sessionId,
                 qryProc,
+                transactions,
                 pageSize,
                 propsHolder
         );

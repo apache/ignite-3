@@ -63,11 +63,6 @@ class DataStreamer {
             public int autoFlushFrequency() {
                 return options0.autoFlushFrequency();
             }
-
-            @Override
-            public int retryLimit() {
-                return options0.retryLimit();
-            }
         };
     }
 }

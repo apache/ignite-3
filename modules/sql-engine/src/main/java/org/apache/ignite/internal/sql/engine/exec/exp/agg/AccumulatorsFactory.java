@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import static org.apache.calcite.sql.fun.SqlInternalOperators.LITERAL_AGG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.createRowType;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -254,6 +255,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         private final List<Integer> argList;
 
+        private final boolean literalAgg;
+
         private final int filterArg;
 
         private final boolean ignoreNulls;
@@ -270,6 +273,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
 
+            literalAgg = call.getAggregation() == LITERAL_AGG;
             argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
@@ -280,13 +284,17 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public void add(RowT row) {
-            if (type != AggregateType.REDUCE && filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
+            if (type != AggregateType.REDUCE && filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
                 return;
             }
 
-            Object[] args = new Object[argList.size()];
-            for (int i = 0; i < argList.size(); i++) {
-                args[i] = handler.get(argList.get(i), row);
+            // need to be refactored after https://issues.apache.org/jira/browse/CALCITE-5969
+            int params = literalAgg ? 1 : argList.size();
+
+            Object[] args = new Object[params];
+            for (int i = 0; i < params; i++) {
+                int argPos = literalAgg ? 0 : argList.get(i);
+                args[i] = handler.get(argPos, row);
 
                 if (ignoreNulls && args[i] == null) {
                     return;

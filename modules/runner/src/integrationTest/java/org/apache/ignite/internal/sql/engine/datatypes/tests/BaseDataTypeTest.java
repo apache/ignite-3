@@ -23,21 +23,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import java.util.NavigableSet;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.provider.Arguments;
@@ -119,28 +116,23 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
     protected final QueryChecker checkQuery(String query) {
         QueryTemplate queryTemplate = createQueryTemplate(query);
 
-        return new QueryChecker(null, queryTemplate) {
-            @Override
-            protected QueryProcessor getEngine() {
-                return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
-            }
+        IgniteImpl node = (IgniteImpl) CLUSTER_NODES.get(0);
 
-            @Override
-            protected void checkMetadata(AsyncSqlCursor<?> cursor) {
-                Optional<ColumnMetadata> testKey = cursor.metadata().columns()
-                        .stream()
-                        .filter(c -> "test_key".equalsIgnoreCase(c.name()))
-                        .findAny();
+        return queryCheckerFactory.create(node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
+    }
 
-                testKey.ifPresent((c) -> {
+    private void validateMetadata(ResultSetMetadata metadata) {
+        metadata.columns()
+                .stream()
+                .filter(c -> "test_key".equalsIgnoreCase(c.name()))
+                .findAny()
+                .ifPresent((c) -> {
                     ColumnType columnType = testTypeSpec.columnType();
                     String error = format(
                             "test_key should have type {}. This can happen if a query returned a column ", columnType
                     );
                     assertEquals(c.type(), columnType, error);
                 });
-            }
-        };
     }
 
     /**

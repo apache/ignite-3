@@ -70,14 +70,11 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 
 /**
  * PlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
 public class PlannerTest extends AbstractPlannerTest {
     private static final String DEVELOPER_TABLE = "DEVELOPER";
 
@@ -432,11 +429,11 @@ public class PlannerTest extends AbstractPlannerTest {
             RelNode rel = relRoot.rel;
 
             assertNotNull(rel);
-            assertEquals("LogicalProject(DEPTNO=[$0], DEPTNO0=[$4])\n"
-                            + "  LogicalFilter(condition=[=(+($0, $4), 2)])\n"
-                            + "    LogicalJoin(condition=[true], joinType=[inner])\n"
-                            + "      IgniteLogicalTableScan(table=[[PUBLIC, DEPT]])\n"
-                            + "      IgniteLogicalTableScan(table=[[PUBLIC, EMP]])\n",
+            assertEquals("LogicalProject(DEPTNO=[$0], DEPTNO0=[$4])" + System.lineSeparator()
+                            + "  LogicalFilter(condition=[=(+($0, $4), 2)])" + System.lineSeparator()
+                            + "    LogicalJoin(condition=[true], joinType=[inner])" + System.lineSeparator()
+                            + "      IgniteLogicalTableScan(table=[[PUBLIC, DEPT]])" + System.lineSeparator()
+                            + "      IgniteLogicalTableScan(table=[[PUBLIC, EMP]])" + System.lineSeparator(),
                     RelOptUtil.toString(rel));
 
             // Transformation chain
@@ -449,11 +446,11 @@ public class PlannerTest extends AbstractPlannerTest {
 
             assertNotNull(phys);
             assertEquals(
-                    "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])\n"
+                    "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])" + System.lineSeparator()
                             + "  IgniteCorrelatedNestedLoopJoin(condition=[=(+($3, $2), 2)], joinType=[inner], "
-                            + "variablesSet=[[$cor2]])\n"
-                            + "    IgniteTableScan(table=[[PUBLIC, EMP]])\n"
-                            + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(+($t0, $cor2.DEPTNO), 2)])\n",
+                            + "variablesSet=[[$cor2]])" + System.lineSeparator()
+                            + "    IgniteTableScan(table=[[PUBLIC, EMP]])" + System.lineSeparator()
+                            + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(+($t0, $cor2.DEPTNO), 2)])" + System.lineSeparator(),
                     RelOptUtil.toString(phys),
                     "Invalid plan:\n" + RelOptUtil.toString(phys)
             );
@@ -479,11 +476,11 @@ public class PlannerTest extends AbstractPlannerTest {
         RelNode phys = physicalPlan(sql, publicSchema, "CorrelatedNestedLoopJoin");
 
         assertNotNull(phys);
-        assertEquals("IgniteSort(sort0=[$3], sort1=[$0], dir0=[ASC], dir1=[ASC])\n"
-                        + "  IgniteProject(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1])\n"
-                        + "    IgniteNestedLoopJoin(condition=[AND(=($3, $2), >=($1, $4))], joinType=[inner])\n"
-                        + "      IgniteTableScan(table=[[PUBLIC, EMP]])\n"
-                        + "      IgniteTableScan(table=[[PUBLIC, DEPT]])\n",
+        assertEquals("IgniteSort(sort0=[$3], sort1=[$0], dir0=[ASC], dir1=[ASC])" + System.lineSeparator()
+                        + "  IgniteProject(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1])" + System.lineSeparator()
+                        + "    IgniteNestedLoopJoin(condition=[AND(=($3, $2), >=($1, $4))], joinType=[inner])" + System.lineSeparator()
+                        + "      IgniteTableScan(table=[[PUBLIC, EMP]])" + System.lineSeparator()
+                        + "      IgniteTableScan(table=[[PUBLIC, DEPT]])" + System.lineSeparator(),
                 RelOptUtil.toString(phys));
     }
 
@@ -568,7 +565,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testMinusDateSerialization() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+        IgniteSchema publicSchema = new IgniteSchema(DEFAULT_SCHEMA, 1, List.of());
 
         IgniteRel phys = physicalPlan("SELECT (DATE '2021-03-01' - DATE '2021-01-01') MONTHS", publicSchema);
 
@@ -598,7 +595,7 @@ public class PlannerTest extends AbstractPlannerTest {
         return new MappingQueryContext(locNodeName, mappingService);
     }
 
-    private static PlanningContext plannerContext(SchemaPlus schema, String sql, Object... params) {
+    private PlanningContext plannerContext(SchemaPlus schema, String sql, Object... params) {
         return PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)

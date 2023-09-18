@@ -20,12 +20,14 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
@@ -33,7 +35,6 @@ import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TraceableException;
@@ -74,8 +75,9 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> CompletableFuture<Void> sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
-            boolean last, List<RowT> rows) {
+    public CompletableFuture<Void> sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
+            boolean last, List<ByteBuffer> rows) {
+
         return messageService.send(
                 nodeName,
                 FACTORY.queryBatchMessage()
@@ -84,7 +86,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .exchangeId(exchangeId)
                         .batchId(batchId)
                         .last(last)
-                        .rows(Commons.cast(rows))
+                        .rows(rows)
                         .build()
         );
     }
@@ -114,7 +116,7 @@ public class ExchangeServiceImpl implements ExchangeService {
             traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
         }
 
-        if (!(traceableErr instanceof ExecutionCancelledException)) {
+        if (!(traceableErr instanceof QueryCancelledException)) {
             LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
             LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), error);
@@ -162,7 +164,7 @@ public class ExchangeServiceImpl implements ExchangeService {
 
         if (inbox != null) {
             try {
-                inbox.onBatchReceived(nodeName, msg.batchId(), msg.last(), Commons.cast(msg.rows()));
+                inbox.onBatchReceived(nodeName, msg.batchId(), msg.last(), msg.rows());
             } catch (Throwable e) {
                 inbox.onError(e);
 

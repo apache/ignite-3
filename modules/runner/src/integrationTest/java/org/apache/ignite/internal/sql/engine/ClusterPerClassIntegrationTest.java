@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.apache.ignite.internal.table.TableTestUtils.getTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -54,14 +53,12 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
+import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -82,15 +79,15 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
+@ExtendWith(QueryCheckerExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
@@ -140,6 +137,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
         LOG.info("End beforeAll()");
     }
+
+    @InjectQueryCheckerFactory
+    protected static QueryCheckerFactory queryCheckerFactory;
 
     /**
      * Starts and initializes a test cluster.
@@ -232,36 +232,15 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Invokes before the test will start.
+     * Returns table index descriptor of the given index at the given node, or {@code null} if no such index exists.
      *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
+     * @param node Node.
+     * @param indexName Index name.
      */
-    @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, WORK_DIR);
-    }
+    public static @Nullable CatalogIndexDescriptor getIndexDescriptor(Ignite node, String indexName) {
+        IgniteImpl nodeImpl = (IgniteImpl) node;
 
-    /**
-     * Invokes after the test has finished.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
-    @AfterEach
-    public void tearDown(TestInfo testInfo) throws Exception {
-        tearDownBase(testInfo);
-    }
-
-    /**
-     * Returns table index configuration of the given index at the given node, or {@code null} if no such index exists.
-     *
-     * @param node  A node.
-     * @param indexName  An index.
-     * @return  An index configuration.
-     */
-    public static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return getTablesConfiguration(node).indexes().get(indexName.toUpperCase());
+        return nodeImpl.catalogManager().index(indexName, nodeImpl.clock().nowLong());
     }
 
     /**
@@ -282,12 +261,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @return Instance of QueryChecker.
      */
     protected static QueryChecker assertQuery(Transaction tx, String qry) {
-        return new QueryChecker(tx, qry) {
-            @Override
-            protected QueryProcessor getEngine() {
-                return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
-            }
-        };
+        IgniteImpl node = (IgniteImpl) CLUSTER_NODES.get(0);
+
+        return queryCheckerFactory.create(node.queryEngine(), node.transactions(), tx, qry);
     }
 
     /**
@@ -446,7 +422,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             var context = QueryContext.create(SqlQueryType.ALL, tx);
 
             return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, sql, args))
+                    await(queryEngine.querySingleAsync(sessionId, context, CLUSTER_NODES.get(0).transactions(), sql, args))
             );
         } finally {
             queryEngine.closeSession(sessionId);
@@ -496,7 +472,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             InternalTable internalTable = tableImpl.internalTable();
 
             assertTrue(
-                    waitForCondition(() -> getIndexConfiguration(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
+                    waitForCondition(() -> getIndexDescriptor(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
                     String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
             );
 
@@ -510,15 +486,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                     continue;
                 }
 
-                TableView tableView = getTableConfiguration(clusterNode, tableName).value();
-                TableIndexView indexView = getIndexConfiguration(clusterNode, indexName).value();
-
-                CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-                CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
+                CatalogTableDescriptor tableDescriptor = getTableDescriptor(clusterNode, tableName);
+                CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(clusterNode, indexName);
 
                 IndexStorage index = internalTable.storage().getOrCreateIndex(
                         partitionId,
-                        StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor)
+                        StorageIndexDescriptor.create(tableDescriptor, indexDescriptor)
                 );
 
                 assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
@@ -529,16 +502,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
         return partitionIdToNodes;
     }
-
-    /**
-     * Returns tables configuration.
-     *
-     * @param node Node.
-     */
-    public static TablesConfiguration getTablesConfiguration(Ignite node) {
-        return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
-    }
-
 
     /**
      * Returns internal  {@code SqlQueryProcessor} for first cluster node.
@@ -598,25 +561,26 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Returns the index ID from the configuration, {@code null} if there is no index configuration.
+     * Returns the index ID from the catalog, {@code null} if there is no index.
      *
      * @param node Node.
      * @param indexName Index name.
      */
     static @Nullable Integer indexId(Ignite node, String indexName) {
-        TableIndexConfiguration indexConfig = getIndexConfiguration(node, indexName);
+        CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, indexName);
 
-        return indexConfig == null ? null : indexConfig.id().value();
+        return indexDescriptor == null ? null : indexDescriptor.id();
     }
 
     /**
-     * Returns table configuration of the given table at the given node, or {@code null} if no such table exists.
+     * Returns table descriptor of the given table at the given node, or {@code null} if no such table exists.
      *
      * @param node Node.
      * @param tableName Table name.
-     * @return Table configuration.
      */
-    private static @Nullable TableConfiguration getTableConfiguration(Ignite node, String tableName) {
-        return getTablesConfiguration(node).tables().get(tableName.toUpperCase());
+    private static @Nullable CatalogTableDescriptor getTableDescriptor(Ignite node, String tableName) {
+        IgniteImpl nodeImpl = (IgniteImpl) node;
+
+        return getTable(nodeImpl.catalogManager(), tableName, nodeImpl.clock().nowLong());
     }
 }

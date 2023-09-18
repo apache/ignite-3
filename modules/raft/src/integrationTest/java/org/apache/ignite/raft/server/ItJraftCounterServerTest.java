@@ -825,7 +825,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * @return The counter value.
      * @throws Exception If failed.
      */
-    private static long applyIncrements(RaftGroupService client, int start, int stop) throws Exception {
+    private long applyIncrements(RaftGroupService client, int start, int stop) throws Exception {
         long val = 0;
 
         for (int i = start; i <= stop; i++) {
@@ -863,5 +863,13 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         var fsm0 = (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
         return expected == ((CounterListener) fsm0.getListener()).value();
+    }
+
+    @Test
+    public void testReadIndex() throws Exception {
+        startCluster();
+        long index = clients.get(0).readIndex().join();
+        clients.get(0).<Long>run(incrementAndGetCommand(1)).get();
+        assertEquals(index + 1, clients.get(0).readIndex().join());
     }
 }

@@ -138,7 +138,7 @@ public class ByteUtils {
      * @param i Unsigned int value.
      * @param bytes Bytes array to write result to.
      * @param off Offset in the target array to write result to.
-     * @return Number of bytes overwritten in {@code bytes} array.
+     * @return The array.
      */
     public static byte[] putIntToBytes(int i, byte[] bytes, int off) {
         assert bytes != null;

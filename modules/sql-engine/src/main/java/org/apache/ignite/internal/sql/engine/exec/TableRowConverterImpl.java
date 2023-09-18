@@ -19,64 +19,80 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
+import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Converts rows to execution engine representation.
  */
 public class TableRowConverterImpl implements TableRowConverter {
-
     private final SchemaRegistry schemaRegistry;
 
     private final SchemaDescriptor schemaDescriptor;
 
-    private final TableDescriptor desc;
+    private final BinaryTupleSchema binaryTupleSchema;
+
+    private final int[] mapping;
 
     /** Constructor. */
-    public TableRowConverterImpl(SchemaRegistry schemaRegistry, SchemaDescriptor schemaDescriptor, TableDescriptor desc) {
+    TableRowConverterImpl(
+            SchemaRegistry schemaRegistry,
+            SchemaDescriptor schemaDescriptor,
+            TableDescriptor descriptor,
+            @Nullable BitSet requiredColumns
+    ) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
-        this.desc = desc;
+
+        this.binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+
+        int size = requiredColumns == null ? descriptor.columnsCount() : requiredColumns.cardinality();
+
+        mapping = new int[size];
+
+        int currentIdx = 0;
+        for (ColumnDescriptor column : descriptor) {
+            if (requiredColumns != null && !requiredColumns.get(column.logicalIndex())) {
+                continue;
+            }
+
+            mapping[currentIdx++] = schemaDescriptor.column(column.name()).schemaIndex();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public <RowT> RowT toRow(
             ExecutionContext<RowT> ectx,
-            BinaryRow binaryRow,
-            RowHandler.RowFactory<RowT> factory,
-            @Nullable BitSet requiredColumns
+            BinaryRow tableRow,
+            RowHandler.RowFactory<RowT> factory
     ) {
-        RowHandler<RowT> handler = factory.handler();
+        InternalTuple tuple;
+        if (tableRow.schemaVersion() == schemaDescriptor.version()) {
+            InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
 
-        assert handler == ectx.rowHandler();
-
-        RowT res = factory.create();
-
-        assert handler.columnCount(res) == (requiredColumns == null ? desc.columnsCount() : requiredColumns.cardinality());
-
-        Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
-
-        if (requiredColumns == null) {
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(i);
-
-                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
-            }
+            tuple = new FormatAwareProjectedTuple(
+                    tableTuple,
+                    mapping
+            );
         } else {
-            for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(j);
+            InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
 
-                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
-            }
+            tuple = new FieldDeserializingProjectedTuple(
+                    binaryTupleSchema,
+                    tableTuple,
+                    mapping
+            );
         }
 
-        return res;
+        return factory.create(tuple);
     }
 }

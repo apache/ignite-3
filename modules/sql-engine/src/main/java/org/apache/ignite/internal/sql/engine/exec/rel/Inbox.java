@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.calcite.util.Util.unexpected;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -52,6 +54,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     private final Collection<String> srcNodeNames;
     private final @Nullable Comparator<RowT> comp;
     private final Map<String, RemoteSource<RowT>> perNodeBuffers;
+    private final RowFactory<RowT> rowFactory;
 
     private @Nullable List<RemoteSource<RowT>> remoteSources;
     private int requested;
@@ -63,6 +66,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param ctx Execution context.
      * @param exchange Exchange service.
      * @param registry Mailbox registry.
+     * @param rowFactory Incoming row factory.
      * @param exchangeId Exchange ID.
      * @param srcFragmentId Source fragment ID.
      */
@@ -72,6 +76,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             MailboxRegistry registry,
             Collection<String> srcNodeNames,
             @Nullable Comparator<RowT> comp,
+            RowFactory<RowT> rowFactory,
             long exchangeId,
             long srcFragmentId
     ) {
@@ -83,6 +88,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         this.registry = registry;
         this.srcNodeNames = srcNodeNames;
         this.comp = comp;
+        this.rowFactory = rowFactory;
 
         this.srcFragmentId = srcFragmentId;
         this.exchangeId = exchangeId;
@@ -157,12 +163,18 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param last Last batch flag.
      * @param rows Rows.
      */
-    public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<RowT> rows) throws Exception {
+    public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<ByteBuffer> rows) throws Exception {
         RemoteSource<RowT> source = perNodeBuffers.get(srcNodeName);
 
         boolean waitingBefore = source.check() == State.WAITING;
 
-        source.onBatchReceived(batchId, last, rows);
+        List<RowT> rows0 = new ArrayList<>(rows.size());
+
+        for (ByteBuffer row : rows) {
+            rows0.add(rowFactory.create(row));
+        }
+
+        source.onBatchReceived(batchId, last, rows0);
 
         if (requested > 0 && waitingBefore && source.check() != State.WAITING) {
             push();

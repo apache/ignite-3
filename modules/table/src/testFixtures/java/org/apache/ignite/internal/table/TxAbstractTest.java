@@ -57,6 +57,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
@@ -77,7 +78,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -115,15 +115,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     protected static final double DELTA = 100;
 
+    protected HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+
     protected IgniteTransactions igniteTransactions;
 
     protected TxManager clientTxManager;
-
-    /**
-     * Initialize the test state.
-     */
-    @BeforeEach
-    public abstract void before() throws Exception;
 
     @Test
     public void testCommitRollbackSameTxDoesNotThrow() throws TransactionException {
@@ -409,6 +405,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
     public void testBatchPutConcurrently() {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
@@ -437,6 +434,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
     public void testBatchReadPutConcurrently() throws InterruptedException {
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
@@ -1541,7 +1539,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     }
 
                     while (!stop.get() && firstErr.get() == null) {
-                        InternalTransaction tx = txManager(accounts).begin();
+                        InternalTransaction tx = txManager(accounts).begin(timestampTracker);
 
                         var table = accounts.recordView();
 
@@ -1947,7 +1945,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
 
-        Transaction sameTxWithoutFinishGuard = new ReadWriteTransactionImpl(txManager(accounts), txId);
+        Transaction sameTxWithoutFinishGuard = new ReadWriteTransactionImpl(txManager(accounts), timestampTracker, txId);
 
         log.info("Started transaction {}", txId);
 

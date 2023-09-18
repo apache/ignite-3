@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -110,9 +111,7 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
-        BinaryTuple key = keyExtractor.extractColumnsFromKeyOnlyRow(keyRow);
-
-        return completedFuture(getImpl(key, keyRow));
+        return completedFuture(getImpl(keyRow.tupleSlice(), keyRow));
     }
 
     @Override
@@ -123,10 +122,10 @@ public class FakeInternalTable implements InternalTable {
         return null;
     }
 
-    private BinaryRow getImpl(BinaryTuple key, BinaryRow keyRow) {
+    private BinaryRow getImpl(ByteBuffer key, BinaryRow keyRow) {
         onDataAccess("get", keyRow);
 
-        return data.get(key.byteBuffer());
+        return data.get(key);
     }
 
     /** {@inheritDoc} */
@@ -194,7 +193,7 @@ public class FakeInternalTable implements InternalTable {
             @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(row);
 
-        BinaryRow res = getImpl(key, row);
+        BinaryRow res = getImpl(key.byteBuffer(), row);
 
         upsertImpl(key, row);
 
@@ -208,7 +207,7 @@ public class FakeInternalTable implements InternalTable {
     public CompletableFuture<Boolean> insert(BinaryRowEx row, @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(row);
 
-        BinaryRow old = getImpl(key, row);
+        BinaryRow old = getImpl(key.byteBuffer(), row);
 
         if (old == null) {
             upsertImpl(key, row);
@@ -247,7 +246,7 @@ public class FakeInternalTable implements InternalTable {
     public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, @Nullable InternalTransaction tx) {
         BinaryTuple key = keyExtractor.extractColumns(oldRow);
 
-        BinaryRow old = getImpl(key, oldRow);
+        BinaryRow old = getImpl(key.byteBuffer(), oldRow);
 
         if (old == null || !old.tupleSlice().equals(oldRow.tupleSlice())) {
             onDataAccess("replace", oldRow);
@@ -261,7 +260,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     private @Nullable BinaryRow replaceImpl(BinaryTuple key, BinaryRow row, @Nullable InternalTransaction tx) {
-        BinaryRow old = getImpl(key, row);
+        BinaryRow old = getImpl(key.byteBuffer(), row);
 
         if (old == null) {
             onDataAccess("replace", row);
@@ -291,12 +290,10 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
-        BinaryTuple key = keyExtractor.extractColumnsFromKeyOnlyRow(keyRow);
-
-        BinaryRow old = getImpl(key, keyRow);
+        BinaryRow old = getImpl(keyRow.tupleSlice(), keyRow);
 
         if (old != null) {
-            data.remove(key.byteBuffer());
+            data.remove(keyRow.tupleSlice());
         }
 
         onDataAccess("delete", keyRow);
@@ -310,7 +307,7 @@ public class FakeInternalTable implements InternalTable {
 
         BinaryTuple key = keyExtractor.extractColumns(oldRow);
 
-        BinaryRow old = getImpl(key, oldRow);
+        BinaryRow old = getImpl(key.byteBuffer(), oldRow);
 
         if (old != null && old.tupleSlice().equals(oldRow.tupleSlice())) {
             data.remove(key.byteBuffer());
@@ -324,12 +321,10 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, @Nullable InternalTransaction tx) {
-        BinaryTuple key = keyExtractor.extractColumnsFromKeyOnlyRow(row);
-
-        BinaryRow old = getImpl(key, row);
+        BinaryRow old = getImpl(row.tupleSlice(), row);
 
         if (old != null) {
-            data.remove(key.byteBuffer());
+            data.remove(row.tupleSlice());
         }
 
         onDataAccess("getAndDelete", row);
@@ -502,6 +497,11 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
+        return null;
+    }
+
+    @Override
+    public Function<String, ClusterNode> getClusterNodeResolver() {
         return null;
     }
 }

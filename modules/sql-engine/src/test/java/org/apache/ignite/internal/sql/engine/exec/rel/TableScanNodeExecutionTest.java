@@ -34,6 +34,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -97,20 +99,21 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         int i = 0;
 
+        HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
-            TestInternalTableImpl internalTable = new TestInternalTableImpl(mock(ReplicaService.class), size);
+            TestInternalTableImpl internalTable = new TestInternalTableImpl(mock(ReplicaService.class), size, timestampTracker);
 
             TableRowConverter rowConverter = new TableRowConverter() {
                 @Override
-                public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                        @Nullable BitSet requiredColumns) {
+                public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
             TableDescriptor descriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
-            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rowConverter, descriptor);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter, descriptor);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
                     partsWithTerms, null, null, null);
 
@@ -146,18 +149,21 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         private final CountDownLatch scanComplete = new CountDownLatch(1);
 
-        TestInternalTableImpl(ReplicaService replicaSvc, int dataAmount) {
+        TestInternalTableImpl(ReplicaService replicaSvc, int dataAmount, HybridTimestampTracker timestampTracker) {
             super(
                     "test",
                     1,
                     Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
                     addr -> mock(ClusterNode.class),
-                    new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(), new TransactionIdGenerator(0xdeadbeef)),
+                    new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(), new TransactionIdGenerator(0xdeadbeef),
+                            () -> "local"),
                     mock(MvTableStorage.class),
                     mock(TxStateTableStorage.class),
                     replicaSvc,
-                    mock(HybridClock.class)
+                    mock(HybridClock.class),
+                    timestampTracker,
+                    mock(PlacementDriver.class)
             );
             this.dataAmount = dataAmount;
 

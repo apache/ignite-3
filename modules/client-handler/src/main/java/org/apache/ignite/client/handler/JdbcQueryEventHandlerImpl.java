@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Set;
@@ -58,14 +56,12 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -137,9 +133,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
             return CompletableFuture.completedFuture(new JdbcConnectResult(connectionId));
         } catch (IgniteInternalCheckedException exception) {
-            StringWriter sw = getWriterWithStackTrace(exception);
+            String msg = getErrorMessage(exception);
 
-            return CompletableFuture.completedFuture(new JdbcConnectResult(Response.STATUS_FAILED, "Unable to connect: " + sw));
+            return CompletableFuture.completedFuture(new JdbcConnectResult(Response.STATUS_FAILED, "Unable to connect: " + msg));
         }
     }
 
@@ -165,6 +161,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 context,
+                igniteTransactions,
                 req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
         ));
@@ -174,10 +171,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 .exceptionally(t -> {
                     LOG.info("Exception while executing query [query=" + req.sqlQuery() + "]", ExceptionUtils.unwrapCause(t));
 
-                    StringWriter sw = getWriterWithStackTrace(t);
+                    String msg = getErrorMessage(t);
 
                     return new JdbcQueryExecuteResult(Response.STATUS_FAILED,
-                            "Exception while executing query [query=" + req.sqlQuery() + "]. Error message:" + sw);
+                            "Exception while executing query [query=" + req.sqlQuery() + "]. Error message:" + msg);
                 });
     }
 
@@ -271,6 +268,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connCtx.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 queryContext,
+                igniteTransactions,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         ));
@@ -280,14 +278,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     private JdbcBatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {
-        StringWriter sw = getWriterWithStackTrace(e);
+        String msg = getErrorMessage(e);
 
         String error;
 
         if (e instanceof ClassCastException) {
-            error = "Unexpected result. Not an upsert statement? [query=" + query + "] Error message:" + sw;
+            error = "Unexpected result. Not an upsert statement? [query=" + query + "] Error message:" + msg;
         } else {
-            error = sw.toString();
+            error = msg;
         }
 
         return new JdbcBatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
@@ -338,26 +336,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /**
-     * Serializes the stack trace of given exception for further sending to the client.
+     * Get a message of given exception for further sending to the client.
      *
      * @param t Throwable.
-     * @return StringWriter filled with exception.
+     * @return String filled with exception message.
      */
-    private StringWriter getWriterWithStackTrace(Throwable t) {
+    @Nullable private String getErrorMessage(Throwable t) {
         Throwable cause = ExceptionUtils.unwrapCause(t);
-        StringWriter sw = new StringWriter();
-
-        try (PrintWriter pw = new PrintWriter(sw)) {
-            // We need to remap QueryValidationException into a jdbc error.
-            if (cause instanceof QueryValidationException
-                    || (cause instanceof IgniteException && cause.getCause() instanceof QueryValidationException)) {
-                pw.print("Given statement type does not match that declared by JDBC driver.");
-            } else {
-                pw.print(cause.getMessage());
-            }
-
-            return sw;
-        }
+        return cause.getMessage();
     }
 
     /**

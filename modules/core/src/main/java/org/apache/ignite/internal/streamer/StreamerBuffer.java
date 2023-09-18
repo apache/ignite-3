@@ -19,24 +19,19 @@ package org.apache.ignite.internal.streamer;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 class StreamerBuffer<T> {
     private final int capacity;
 
-    private final Function<List<T>, CompletableFuture<Void>> flusher;
+    private final Consumer<List<T>> flusher;
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
-    private CompletableFuture<Void> flushFut;
-
     private boolean closed;
 
-    private long lastFlushTime;
-
-    StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<Void>> flusher) {
+    StreamerBuffer(int capacity, Consumer<List<T>> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
         buf = new ArrayList<>(capacity);
@@ -55,12 +50,12 @@ class StreamerBuffer<T> {
         buf.add(item);
 
         if (buf.size() >= capacity) {
-            flush(buf);
+            flusher.accept(buf);
             buf = new ArrayList<>(capacity);
         }
     }
 
-    synchronized CompletableFuture<Void> flushAndClose() {
+    synchronized void flushAndClose() {
         if (closed) {
             throw new IllegalStateException("Streamer is already closed.");
         }
@@ -68,31 +63,16 @@ class StreamerBuffer<T> {
         closed = true;
 
         if (!buf.isEmpty()) {
-            flush(buf);
+            flusher.accept(buf);
         }
-
-        return flushFut == null ? CompletableFuture.completedFuture(null) : flushFut;
     }
 
-    synchronized void flush(long period) {
+    synchronized void flush() {
         if (closed || buf.isEmpty()) {
             return;
         }
 
-        if (System.nanoTime() - lastFlushTime > period) {
-            flush(buf);
-            buf = new ArrayList<>(capacity);
-        }
-    }
-
-    private void flush(List<T> b) {
-        if (flushFut == null || flushFut.isDone()) {
-            flushFut = flusher.apply(b);
-        } else {
-            // Chain flush futures to ensure the order of items.
-            flushFut = flushFut.thenCompose(ignored -> flusher.apply(b));
-        }
-
-        lastFlushTime = System.nanoTime();
+        flusher.accept(buf);
+        buf = new ArrayList<>(capacity);
     }
 }

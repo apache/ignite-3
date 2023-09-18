@@ -29,12 +29,12 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 
 /**
- * IgniteSortAggregateBase interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Defines common methods for {@link IgniteRel relational nodes} that implement sort-base aggregates.
  */
 interface IgniteSortAggregateBase extends TraitsAwareIgniteRel {
     /**
@@ -44,7 +44,34 @@ interface IgniteSortAggregateBase extends TraitsAwareIgniteRel {
      */
     ImmutableBitSet getGroupSet();
 
-    /** {@inheritDoc} */
+    /**
+     * Performs propagation of {@link RelCollation collation trait}.
+     *
+     * <p>Sorted aggregate operate on already sorted input to perform aggregation/grouping.
+     * Because of that such operator produces rows sorted by grouping columns, and it can produce
+     * results that may satisfy required collation trait (ordering).
+     *
+     * <p>If a grouping set contains all required ordering columns, then inputs should provide
+     * ordering that includes all required ordering columns + the rest of the columns used in the grouping set:
+
+     * <pre>
+     *       GROUP BY a, b, c ORDER BY a, b
+     *       Input collation: (a, b, c)
+     * </pre>
+     *
+     * <p>Otherwise this operator is unable to fully satisfy required ordering and we require collation trait based
+     * columns from the grouping set, and the rest of the requirements is going to be satisfied by enforcer operator:
+     * <pre>
+     *     GROUP BY a, b ORDER BY a, b, c
+     *     Input collation (a, b)
+     *     Enforcer: adds ordering by c
+     * </pre>
+     *
+     * @param nodeTraits Required relational node output traits.
+     * @param inputTraits Traits of input nodes.
+     *
+     * @return Traits satisfied by this expression and traits that input nodes should satisfy.
+     */
     @Override
     default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(
             RelTraitSet nodeTraits, List<RelTraitSet> inputTraits

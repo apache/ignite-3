@@ -21,9 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.Serializable;
 import java.util.List;
-import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.table.RecordView;
@@ -113,6 +111,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check column renaming.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20315")
     void testRenameColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
@@ -266,6 +265,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check merge column default value changes.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733") // get hangs on registry.waitLatestSchema() after column update.
     public void testMergeChangesColumnDefault() throws Exception {
         List<Ignite> grid = startGrid();
 
@@ -277,13 +277,13 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111));
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
+        changeDefault(grid, colName, "newDefault");
         addColumn(grid, "val VARCHAR DEFAULT 'newDefault'");
 
         tbl.insert(null, Tuple.create().set("key", 2L).set("valInt", 222));
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "brandNewDefault");
-        changeDefault(grid, "val", (Supplier<Object> & Serializable) () -> "brandNewDefault");
+        changeDefault(grid, colName, "brandNewDefault");
+        changeDefault(grid, "val", "brandNewDefault");
 
         tbl.insert(null, Tuple.create().set("key", 3L).set("valInt", 333));
 

@@ -129,7 +129,7 @@ public class SetOpConverterRule {
                     outTrait.replace(IgniteDistributions.single()),
                     convert(map, inTrait.replace(IgniteDistributions.single())),
                     setOp.all,
-                    cluster.getTypeFactory().leastRestrictive(Util.transform(inputs, RelNode::getRowType))
+                    setOp.getRowType()
             );
         }
     }

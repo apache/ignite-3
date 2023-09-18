@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.BitSet;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Converts rows to execution engine representation.
@@ -27,18 +25,17 @@ import org.jetbrains.annotations.Nullable;
 public interface TableRowConverter {
 
     /**
-     * Converts a tuple to relational node row.
+     * Converts a table row to relational node row.
      *
-     * @param ectx            Execution context.
-     * @param row             Tuple to convert.
-     * @param requiredColumns Participating columns.
+     * @param ectx Execution context.
+     * @param tableRow Tuple to convert.
+     * @param factory Factory to use to create a sql row from given table row.
      * @return Relational node row.
      */
     <RowT> RowT toRow(
             ExecutionContext<RowT> ectx,
-            BinaryRow row,
-            RowHandler.RowFactory<RowT> factory,
-            @Nullable BitSet requiredColumns
+            BinaryRow tableRow,
+            RowHandler.RowFactory<RowT> factory
     );
 
 }

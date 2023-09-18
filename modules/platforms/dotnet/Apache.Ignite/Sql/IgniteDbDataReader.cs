@@ -107,7 +107,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
             : throw new InvalidOperationException($"Column '{name}' is not present in this reader.");
 
     /// <inheritdoc />
-    public override bool GetBoolean(int ordinal) => GetReader(ordinal, typeof(bool)).GetByteAsBool(ordinal);
+    public override bool GetBoolean(int ordinal) => GetReader(ordinal, typeof(bool)).GetBool(ordinal);
 
     /// <inheritdoc/>
     public override byte GetByte(int ordinal) => Metadata.Columns[ordinal] switch
@@ -537,7 +537,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         {
             var reader = _pageEnumerator.Current.GetReader();
 
-            _pageRowCount = reader.ReadArrayHeader();
+            _pageRowCount = reader.ReadInt32();
             _pageRowOffset = reader.Consumed;
             _pageRowIndex = 0;
             _pageRowSize = (_pageRowCount > 0 ? reader.ReadBinaryHeader() : 0) + reader.Consumed - _pageRowOffset;
