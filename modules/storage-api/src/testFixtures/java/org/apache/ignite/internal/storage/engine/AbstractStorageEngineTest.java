@@ -82,8 +82,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
             try (AutoCloseable ignored1 = mvTableStorage::stop) {
                 // Flush. Persist the table itself, not the update.
-                CompletableFuture<Void> flushFuture = mvPartitionStorage.flush();
-                assertThat(flushFuture, willCompleteSuccessfully());
+                assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
 
                 mvPartitionStorage.runConsistently(locker -> {
                     // Update of basic storage data.
@@ -93,8 +92,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
                 });
 
                 // Flush.
-                flushFuture = mvPartitionStorage.flush();
-                assertThat(flushFuture, willCompleteSuccessfully());
+                assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
             }
         }
 

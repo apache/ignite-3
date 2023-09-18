@@ -106,7 +106,9 @@ class CheckpointWorkflow {
     private final @Nullable ThreadPoolExecutor callbackListenerThreadPool;
 
     /**
-     * Contains metapage IDs for all partitions, that were explicitly merked dirty by {@link #markPartitionAsDirty(DataRegion, int, int)}.
+     * Contains meta-page IDs for all partitions, that were explicitly marked dirty by {@link #markPartitionAsDirty(DataRegion, int, int)}.
+     * Not required to be volatile, read/write is protected by a {@link #checkpointReadWriteLock}. Publication of the initial value should
+     * be guaranteed by external user. {@link CheckpointManager}, in particular.
      */
     private Map<DataRegion<?>, Set<FullPageId>> dirtyPartitionsMap = new ConcurrentHashMap<>();
 
