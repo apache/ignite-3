@@ -160,6 +160,11 @@ public class ClusterServiceFactory {
         public @Nullable ClusterNode getByConsistentId(String consistentId) {
             return allMembers.get(consistentId);
         }
+
+        @Override
+        public @Nullable ClusterNode getById(String id) {
+            return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
+        }
     }
 
     private class LocalMessagingService extends AbstractMessagingService {

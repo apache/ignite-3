@@ -182,6 +182,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         return consistentIdToMemberMap.get(consistentId);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable ClusterNode getById(String id) {
+        return consistentIdToMemberMap.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
+    }
+
     /**
      * Converts the given {@link Member} to a {@link ClusterNode}.
      *
