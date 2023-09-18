@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+
 package org.apache.ignite.internal.sql.engine.rel.logical;
 
 import java.util.List;
@@ -28,34 +29,28 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Logical relational expression for reading data from a table.
+ * Logical relational expression for reading data from a system view.
  */
-public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
-    /** Creates a IgniteTableScan. */
-    public static IgniteLogicalTableScan create(
-            RelOptCluster cluster,
-            RelTraitSet traits,
-            List<RelHint> hints,
-            RelOptTable tbl,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
-    ) {
-        return new IgniteLogicalTableScan(cluster, traits, hints, tbl, proj, cond, requiredColumns);
-    }
+public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan {
 
     /**
-     * Creates a TableScan.
+     * Creates asSystem view scan.
      *
-     * @param cluster         Cluster that this relational expression belongs to.
-     * @param traits          Traits of this relational expression.
-     * @param hints           Table hints.
-     * @param tbl             Table definition.
-     * @param proj            Projects.
-     * @param cond            Filters.
-     * @param requiredColumns Participating columns.
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param hints Table hints.
+     * @param table Table definition.
+     * @param projections Projection list.
+     * @param condition Filter condition.
+     * @param reqColumns Participating columns.
      */
-    private IgniteLogicalTableScan(
+    private IgniteLogicalSystemViewScan(RelOptCluster cluster, RelTraitSet traitSet,
+            List<RelHint> hints, RelOptTable table,
+            @Nullable List<RexNode> projections, @Nullable RexNode condition, @Nullable ImmutableBitSet reqColumns) {
+        super(cluster, traitSet, hints, table, projections, condition, reqColumns);
+    }
+
+    /** Creates an instance of a logical system view scan operator. */
+    public static IgniteLogicalSystemViewScan create(
             RelOptCluster cluster,
             RelTraitSet traits,
             List<RelHint> hints,
@@ -64,12 +59,13 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
     ) {
-        super(cluster, traits, hints, tbl, proj, cond, requiredColumns);
+        return new IgniteLogicalSystemViewScan(cluster, traits, hints, tbl, proj, cond, requiredColumns);
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteLogicalTableScan withHints(List<RelHint> hintList) {
-        return new IgniteLogicalTableScan(getCluster(), getTraitSet(), hintList, getTable(), projects, condition, requiredColumns);
+    public IgniteLogicalSystemViewScan withHints(List<RelHint> hintList) {
+        return new IgniteLogicalSystemViewScan(getCluster(), getTraitSet(), hintList, getTable(),
+                projects, condition, requiredColumns);
     }
 }

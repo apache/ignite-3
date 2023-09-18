@@ -53,7 +53,7 @@ import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Converts a SQL parse tree into a relational algebra operators. */
@@ -137,7 +137,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         RelOptTable targetTable = getTargetTable(insertOp);
         assert targetTable != null;
 
-        IgniteTable ignTable = targetTable.unwrap(IgniteTable.class);
+        IgniteDataSource ignTable = targetTable.unwrap(IgniteDataSource.class);
 
         List<RelDataTypeField> tblFields = targetTable.getRowType().getFieldList();
         List<String> targetFields = targetRowType.getFieldNames();

@@ -88,6 +88,7 @@ import org.apache.ignite.internal.sql.engine.prepare.Splitter;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
@@ -512,6 +513,24 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                     }
 
                     lastErrorMsg = "Unexpected table name [exp=" + tableName + ", act=" + scanTableName + ']';
+
+                    return false;
+                });
+    }
+
+    /**
+     * Predicate builder for "Table scan with given name" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteSystemViewScan> isSystemViewScan(String viewName) {
+        return isInstanceOf(IgniteSystemViewScan.class).and(
+                n -> {
+                    String scanViewName = Util.last(n.getTable().getQualifiedName());
+
+                    if (viewName.equalsIgnoreCase(scanViewName)) {
+                        return true;
+                    }
+
+                    lastErrorMsg = "Unexpected system view name [exp=" + viewName + ", act=" + scanViewName + ']';
 
                     return false;
                 });

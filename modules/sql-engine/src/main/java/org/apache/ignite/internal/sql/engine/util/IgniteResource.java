@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import org.apache.calcite.runtime.Resources;
+import org.apache.calcite.runtime.Resources.ExInst;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 
 /**
@@ -47,4 +48,7 @@ public interface IgniteResource {
 
     @Resources.BaseMessage("Assignment from {0} to {1} can not be performed. Dynamic parameter requires adding explicit type cast")
     Resources.ExInst<SqlValidatorException> assignmentRequiresExplicitCast(String type1, String type2);
+
+    @Resources.BaseMessage("System view {0} is not modifiable")
+    ExInst<SqlValidatorException> systemViewIsNotModifiable(String systemViewName);
 }

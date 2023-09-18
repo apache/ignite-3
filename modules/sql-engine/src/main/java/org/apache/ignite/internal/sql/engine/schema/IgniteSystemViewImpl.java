@@ -18,39 +18,26 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
-import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.Statistic;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
 
 /**
- * Table implementation for sql engine.
+ * System view.
  */
-public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteTable {
+public class IgniteSystemViewImpl extends AbstractIgniteDataSource implements IgniteSystemView {
 
-    private final Map<String, IgniteIndex> indexMap;
-
-    /** Constructor. */
-    public IgniteTableImpl(String name, int id,  int version, TableDescriptor desc,
-            Statistic statistic, Map<String, IgniteIndex> indexMap) {
-
+    public IgniteSystemViewImpl(String name, int id, int version, TableDescriptor desc, Statistic statistic) {
         super(name, id, version, desc, statistic);
-        this.indexMap = indexMap;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<String, IgniteIndex> indexes() {
-        return indexMap;
     }
 
     /** {@inheritDoc} */
     @Override
     protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
-        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
+        return IgniteLogicalSystemViewScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
     }
 }

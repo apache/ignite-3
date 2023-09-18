@@ -24,44 +24,21 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.hint.RelHint;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A test table that implements all the necessary for the optimizer methods to be used to prepare a query, as well as provides access to the
  * data to use this table in execution-related scenarios.
  */
-public class TestTable implements IgniteTable {
+public class TestTable extends IgniteTableImpl {
     private static final String DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE =
             "DataProvider is not configured [table={}, node={}]";
 
     private static final AtomicInteger ID = new AtomicInteger();
 
-    private final int id = ID.incrementAndGet();
-    private final Map<String, IgniteIndex> indexes;
-
-    private final String name;
-    private final double rowCnt;
-    private final TableDescriptor descriptor;
     private final Map<String, DataProvider<?>> dataProviders;
-
 
     /** Constructor. */
     public TestTable(
@@ -81,11 +58,10 @@ public class TestTable implements IgniteTable {
             List<IgniteIndex> indexList,
             Map<String, DataProvider<?>> dataProviders
     ) {
-        this.descriptor = descriptor;
-        this.name = name;
-        this.rowCnt = rowCnt;
+        super(name, ID.incrementAndGet(), 1, descriptor, new TestStatistic(rowCnt),
+                indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity())));
+
         this.dataProviders = dataProviders;
-        indexes = indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity()));
     }
 
     /**
@@ -98,93 +74,9 @@ public class TestTable implements IgniteTable {
      */
     <RowT> DataProvider<RowT> dataProvider(String nodeName) {
         if (!dataProviders.containsKey(nodeName)) {
-            throw new AssertionError(format(DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE, name, nodeName));
+            throw new AssertionError(format(DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE, name(), nodeName));
         }
 
         return (DataProvider<RowT>) dataProviders.get(nodeName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int id() {
-        return id;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int version() {
-        return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteLogicalTableScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTbl,
-            List<RelHint> hints,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
-    ) {
-        return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTbl, proj, cond, requiredColumns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
-        return descriptor.rowType((IgniteTypeFactory) typeFactory, bitSet);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Statistic getStatistic() {
-        return new TestStatistic(rowCnt);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Schema.TableType getJdbcTableType() {
-        throw new AssertionError();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean isRolledUp(String col) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean rolledUpColumnValidInsideAgg(
-            String column,
-            SqlCall call,
-            SqlNode parent,
-            CalciteConnectionConfig config
-    ) {
-        throw new AssertionError();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteDistribution distribution() {
-        return descriptor.distribution();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public TableDescriptor descriptor() {
-        return descriptor;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<String, IgniteIndex> indexes() {
-        return indexes;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String name() {
-        return name;
     }
 }
