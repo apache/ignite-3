@@ -47,7 +47,7 @@ import org.junit.jupiter.params.provider.Arguments;
 
 abstract class BaseTypeCoercionTest extends AbstractPlannerTest {
 
-    static Stream<Arguments> allPairs() {
+    static Stream<Arguments> allNumericPairs() {
         return Arrays.stream(NumericPair.values()).map(Arguments::of);
     }
 

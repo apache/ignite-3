@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.rex.RexNode;
@@ -25,6 +28,8 @@ import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -39,7 +44,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
 
     // No any type changes for `addition` operation from planner perspective.
     @ParameterizedTest
-    @MethodSource("allPairs")
+    @MethodSource("allNumericPairs")
     public void additionOp(NumericPair pair) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
@@ -52,7 +57,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
 
     // No any type changes for `subtraction` operation from planner perspective.
     @ParameterizedTest
-    @MethodSource("allPairs")
+    @MethodSource("allNumericPairs")
     public void subtractionOp(NumericPair pair) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
@@ -65,7 +70,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
 
     // No any type changes for `division` operation from planner perspective.
     @ParameterizedTest
-    @MethodSource("allPairs")
+    @MethodSource("allNumericPairs")
     public void divisionOp(NumericPair pair) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
@@ -78,7 +83,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
 
     // No any type changes for `multiplication` operation from planner perspective.
     @ParameterizedTest
-    @MethodSource("allPairs")
+    @MethodSource("allNumericPairs")
     public void multiplicationOp(NumericPair pair) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
@@ -104,6 +109,18 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
 
         assertPlan("SELECT c1 % c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
         assertPlan("SELECT c2 % c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+    }
+
+    /**
+     * This test ensures that {@link #moduloArgs()} doesn't miss any type pair from {@link NumericPair}.
+     */
+    @Test
+    void moduloArgsIncludesAllTypePairs() {
+        EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
+
+        moduloArgs().map(Arguments::get).map(arg -> (NumericPair) arg[0]).forEach(remainingPairs::remove);
+
+        assertThat(remainingPairs, Matchers.empty());
     }
 
     private static Stream<Arguments> moduloArgs() {
