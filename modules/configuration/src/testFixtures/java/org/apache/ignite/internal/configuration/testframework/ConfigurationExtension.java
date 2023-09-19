@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.testframework;
 
 import static java.lang.reflect.Modifier.isStatic;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
@@ -31,12 +32,9 @@ import static org.mockito.Mockito.withSettings;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
-import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.UUID;
@@ -48,7 +46,6 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.internal.configuration.ConfigurationListenerHolder;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
 import org.apache.ignite.internal.configuration.RootInnerNode;
@@ -56,8 +53,6 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
@@ -91,12 +86,6 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     /** Key to store {@link ExecutorService} in {@link ExtensionContext.Store}. */
     private static final Object POOL_KEY = new Object();
 
-    /** Key to store {@link StorageRevisionListenerHolderImpl} in {@link ExtensionContext.Store} for all tests. */
-    private static final Object REVISION_LISTENER_ALL_TEST_HOLDER_KEY = new Object();
-
-    /** Key to store {@link StorageRevisionListenerHolderImpl} in {@link ExtensionContext.Store} for each test. */
-    private static final Object REVISION_LISTENER_PER_TEST_HOLDER_KEY = new Object();
-
     /** All {@link ConfigurationExtension} classes in classpath. */
     private static final List<Class<?>> EXTENSIONS;
 
@@ -120,7 +109,6 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         POLYMORPHIC_EXTENSIONS = List.copyOf(polymorphicExtensions);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void beforeAll(ExtensionContext context) throws Exception {
         context.getStore(NAMESPACE).put(CGEN_KEY, new ConfigurationAsmGenerator());
@@ -129,23 +117,19 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         injectFields(context, true);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void afterAll(ExtensionContext context) throws Exception {
         context.getStore(NAMESPACE).remove(CGEN_KEY);
 
         context.getStore(NAMESPACE).remove(POOL_KEY, ExecutorService.class).shutdownNow();
-
-        context.getStore(NAMESPACE).remove(REVISION_LISTENER_ALL_TEST_HOLDER_KEY);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
         injectFields(context, false);
     }
 
-    private void injectFields(ExtensionContext context, boolean forStatic) throws Exception {
+    private static void injectFields(ExtensionContext context, boolean forStatic) throws Exception {
         Class<?> testClass = context.getRequiredTestClass();
         Object testInstance = context.getTestInstance().orElse(null);
 
@@ -156,38 +140,21 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         ConfigurationAsmGenerator cgen = store.get(CGEN_KEY, ConfigurationAsmGenerator.class);
         ExecutorService pool = store.get(POOL_KEY, ExecutorService.class);
 
-        StorageRevisionListenerHolderImpl revisionListenerHolder = new StorageRevisionListenerHolderImpl();
-
-        if (forStatic) {
-            store.put(REVISION_LISTENER_ALL_TEST_HOLDER_KEY, revisionListenerHolder);
-        } else {
-            store.put(REVISION_LISTENER_PER_TEST_HOLDER_KEY, revisionListenerHolder);
-        }
-
         for (Field field : getInjectConfigurationFields(testClass, forStatic)) {
             field.setAccessible(true);
 
             InjectConfiguration annotation = field.getAnnotation(InjectConfiguration.class);
 
-            Object cfgValue = cfgValue(field.getType(), annotation, cgen, pool, revisionListenerHolder);
+            Object cfgValue = cfgValue(field.getType(), annotation, cgen, pool);
 
             field.set(forStatic ? null : testInstance, cfgValue);
         }
-
-        for (Field field : getInjectRevisionListenerHolderFields(testClass, forStatic)) {
-            field.setAccessible(true);
-
-            field.set(forStatic ? null : testInstance, revisionListenerHolder);
-        }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
-        context.getStore(NAMESPACE).remove(REVISION_LISTENER_PER_TEST_HOLDER_KEY);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean supportsParameter(
             ParameterContext parameterContext,
@@ -195,25 +162,15 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     ) throws ParameterResolutionException {
         Class<?> parameterType = parameterContext.getParameter().getType();
 
-        return (parameterContext.isAnnotated(InjectConfiguration.class) && supportsAsConfigurationType(parameterType))
-                || (parameterContext.isAnnotated(InjectRevisionListenerHolder.class) && isRevisionListenerHolder(parameterType));
+        return parameterContext.isAnnotated(InjectConfiguration.class) && supportsAsConfigurationType(parameterType);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Object resolveParameter(
             ParameterContext parameterContext,
             ExtensionContext extensionContext
     ) throws ParameterResolutionException {
         Store store = extensionContext.getStore(NAMESPACE);
-
-        StorageRevisionListenerHolderImpl revisionListenerHolder;
-
-        if (isStaticExecutable(parameterContext.getDeclaringExecutable())) {
-            revisionListenerHolder = store.get(REVISION_LISTENER_ALL_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
-        } else {
-            revisionListenerHolder = store.get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
-        }
 
         if (parameterContext.isAnnotated(InjectConfiguration.class)) {
             Parameter parameter = parameterContext.getParameter();
@@ -223,23 +180,16 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             try {
                 ExecutorService pool = store.get(POOL_KEY, ExecutorService.class);
 
-                return cfgValue(parameter.getType(), parameter.getAnnotation(InjectConfiguration.class), cgen, pool,
-                        revisionListenerHolder);
+                return cfgValue(parameter.getType(), parameter.getAnnotation(InjectConfiguration.class), cgen, pool);
             } catch (ClassNotFoundException classNotFoundException) {
                 throw new ParameterResolutionException(
                         "Cannot find a configuration schema class that matches " + parameter.getType().getCanonicalName(),
                         classNotFoundException
                 );
             }
-        } else if (parameterContext.isAnnotated(InjectRevisionListenerHolder.class)) {
-            return revisionListenerHolder;
         } else {
             throw new ParameterResolutionException("Unknown parameter:" + parameterContext.getParameter());
         }
-    }
-
-    private static boolean isStaticExecutable(Executable executable) {
-        return isStatic(executable.getModifiers());
     }
 
     /**
@@ -249,7 +199,6 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
      * @param annotation Annotation present on the field or parameter.
      * @param cgen Runtime code generator associated with the extension instance.
      * @param pool Single-threaded executor service to perform configuration changes.
-     * @param revisionListenerHolder Configuration storage revision change listener holder.
      * @return Mock configuration instance.
      * @throws ClassNotFoundException If corresponding configuration schema class is not found.
      */
@@ -257,8 +206,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             Class<?> type,
             InjectConfiguration annotation,
             ConfigurationAsmGenerator cgen,
-            ExecutorService pool,
-            StorageRevisionListenerHolderImpl revisionListenerHolder
+            ExecutorService pool
     ) throws ClassNotFoundException {
         // Trying to find a schema class using configuration naming convention. This code won't work for inner Java
         // classes, extension is designed to mock actual configurations from public API to configure Ignite components.
@@ -314,8 +262,11 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // Reference that's required for notificator.
         var cfgRef = new AtomicReference<DynamicConfiguration<?, ?>>();
 
+        AtomicLong storageRevisionCounter = new AtomicLong();
+
+        AtomicLong notificationListenerCounter = new AtomicLong();
+
         cfgRef.set(cgen.instantiateCfg(rootKey, new DynamicConfigurationChanger() {
-            /** {@inheritDoc} */
             @Override
             public CompletableFuture<Void> change(ConfigurationSource change) {
                 return CompletableFuture.supplyAsync(() -> {
@@ -328,8 +279,8 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                     ConfigurationUtil.dropNulls(copy);
 
                     if (superRootRef.compareAndSet(sr, copy)) {
-                        long storageRevision = revisionListenerHolder.storageRev.incrementAndGet();
-                        long notificationNumber = revisionListenerHolder.notificationListenerCnt.incrementAndGet();
+                        long storageRevision = storageRevisionCounter.incrementAndGet();
+                        long notificationNumber = notificationListenerCounter.incrementAndGet();
 
                         List<CompletableFuture<?>> futures = new ArrayList<>();
 
@@ -341,31 +292,26 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                                 notificationNumber
                         ));
 
-                        futures.addAll(revisionListenerHolder.notifyStorageRevisionListeners(storageRevision, notificationNumber));
-
-                        return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new));
+                        return allOf(futures.toArray(CompletableFuture[]::new));
                     }
 
                     return change(change);
                 }, pool).thenCompose(Function.identity());
             }
 
-            /** {@inheritDoc} */
             @Override
             public InnerNode getRootNode(RootKey<?, ?> rk) {
                 return superRootRef.get().getRoot(rk);
             }
 
-            /** {@inheritDoc} */
             @Override
             public <T> T getLatest(List<KeyPathNode> path) {
                 return findEx(path, superRootRef.get());
             }
 
-            /** {@inheritDoc} */
             @Override
             public long notificationCount() {
-                return revisionListenerHolder.notificationListenerCnt.get();
+                return notificationListenerCounter.get();
             }
         }));
 
@@ -383,65 +329,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         );
     }
 
-    private static List<Field> getInjectRevisionListenerHolderFields(Class<?> testClass, boolean forStatic) {
-        return AnnotationSupport.findAnnotatedFields(
-                testClass,
-                InjectRevisionListenerHolder.class,
-                field -> isRevisionListenerHolder(field.getType()) && (isStatic(field.getModifiers()) == forStatic),
-                HierarchyTraversalMode.TOP_DOWN
-        );
-    }
-
     private static boolean supportsAsConfigurationType(Class<?> type) {
         return type.getCanonicalName().endsWith("Configuration");
-    }
-
-    private static boolean isRevisionListenerHolder(Class<?> type) {
-        return ConfigurationStorageRevisionListenerHolder.class.isAssignableFrom(type);
-    }
-
-    /**
-     * Implementation for {@link ConfigurationExtension}.
-     */
-    private static class StorageRevisionListenerHolderImpl implements ConfigurationStorageRevisionListenerHolder {
-        final AtomicLong storageRev = new AtomicLong();
-
-        final AtomicLong notificationListenerCnt = new AtomicLong();
-
-        final ConfigurationListenerHolder<ConfigurationStorageRevisionListener> listeners = new ConfigurationListenerHolder<>();
-
-        /** {@inheritDoc} */
-        @Override
-        public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-            listeners.addListener(listener, notificationListenerCnt.get());
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
-            listeners.removeListener(listener);
-        }
-
-        private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision, long notificationNumber) {
-            List<CompletableFuture<?>> futures = new ArrayList<>();
-
-            for (Iterator<ConfigurationStorageRevisionListener> it = listeners.listeners(notificationNumber); it.hasNext(); ) {
-                ConfigurationStorageRevisionListener listener = it.next();
-
-                try {
-                    CompletableFuture<?> future = listener.onUpdate(storageRevision);
-
-                    assert future != null;
-
-                    if (future.isCompletedExceptionally() || future.isCancelled() || !future.isDone()) {
-                        futures.add(future);
-                    }
-                } catch (Throwable t) {
-                    futures.add(CompletableFuture.failedFuture(t));
-                }
-            }
-
-            return futures;
-        }
     }
 }
