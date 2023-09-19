@@ -25,7 +25,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
-import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.REPLICA_BECOME_PRIMARY;
+import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -287,6 +287,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
-        return fireEvent(REPLICA_BECOME_PRIMARY, new PrimaryReplicaEventParameters(causalityToken, lease.replicationGroupId(), lease));
+        return fireEvent(PRIMARY_REPLICA_ELECTED, new PrimaryReplicaEventParameters(causalityToken, lease.replicationGroupId(), lease));
     }
 }

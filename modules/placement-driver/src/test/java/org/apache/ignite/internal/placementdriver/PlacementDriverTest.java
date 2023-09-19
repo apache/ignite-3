@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
-import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.REPLICA_BECOME_PRIMARY;
+import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -414,7 +414,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private CompletableFuture<PrimaryReplicaEventParameters> listenReplicaBecomePrimaryEvent() {
         var eventParametersFuture = new CompletableFuture<PrimaryReplicaEventParameters>();
 
-        placementDriver.listen(REPLICA_BECOME_PRIMARY, (parameters, exception) -> {
+        placementDriver.listen(PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
             if (exception != null) {
                 eventParametersFuture.completeExceptionally(exception);
             } else {

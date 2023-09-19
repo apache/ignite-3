@@ -22,5 +22,5 @@ import org.apache.ignite.internal.event.Event;
 /** Primary replica management events. */
 public enum PrimaryReplicaEvent implements Event {
     /** This event is fired when a replica becomes primary or when the primary replica changes for a replication group. */
-    REPLICA_BECOME_PRIMARY;
+    PRIMARY_REPLICA_ELECTED;
 }
