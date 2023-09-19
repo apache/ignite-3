@@ -48,6 +48,11 @@ public class TestTopologyService extends AbstractTopologyService {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public @Nullable ClusterNode getById(String id) {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * Calls {@link TopologyEventHandler#onAppeared(ClusterNode)} on all registered event handlers.
      *

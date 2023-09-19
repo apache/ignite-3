@@ -229,6 +229,11 @@ public class CheckpointPagesWriter implements Runnable {
                         pm -> createPageStoreWriter(pm, pageIdsToRetry)
                 );
 
+                if (fullId.pageIdx() == 0) {
+                    // Skip meta-pages, they are written by "writePartitionMeta".
+                    continue;
+                }
+
                 // Should also be done for partitions that will be destroyed to remove their pages from the data region.
                 pageMemory.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);
             }

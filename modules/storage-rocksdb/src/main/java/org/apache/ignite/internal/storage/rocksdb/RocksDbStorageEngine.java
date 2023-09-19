@@ -168,6 +168,11 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     @Override
+    public boolean isVolatile() {
+        return false;
+    }
+
+    @Override
     public RocksDbTableStorage createMvTable(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
