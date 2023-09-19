@@ -177,13 +177,15 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Test using arguments in parameters")
     void useOptionsInArguments() {
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.basic6={type=basic,username: --verbose, password=--verbose}");
+                "security.authentication.providers.basic6={type=basic,username:", "--verbose,", "password=--verbose}");
 
         assertAll(
-                () -> assertExitCodeIs(1),
-                () -> assertErrOutputContains(""),
+                () -> assertExitCodeIs(2),
+                () -> assertErrOutputContains("Unknown option: '--verbose,'"),
                 this::assertOutputIsEmpty
         );
+
+        resetOutput();
 
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
                 "\"security.authentication.providers.basic7={type=basic,username: --verbose, password=--verbose}\"");
