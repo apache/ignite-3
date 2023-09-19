@@ -130,18 +130,17 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
 
         //Emulate config with spaces
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.basic1", "=", "{", "type=basic,", "username=asd,", "password=asadf}");
+                "security.authentication.providers.basic2", "=", "{", "type=basic,", "username=asd,", "password=asadf}");
 
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 this::assertOutputIsNotEmpty
         );
-
-
     }
 
     @Test
+    @DisplayName("Test different types of quoted parameters")
     void updateClusterWithQuotedArgs() {
         //Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
@@ -155,7 +154,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
 
         //Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "\"security.authentication.providers.basic3\"", "\"={type=basic,username=asd,password=asadf}\"");
+                "\"security.authentication.providers.basic4\"", "\"={type=basic,username=asd,password=asadf}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -165,7 +164,29 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
 
         //Emulate quoting config
         execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.basic3", "\"={type=basic,username=asd,password=asadf}\"");
+                "security.authentication.providers.basic5", "\"={type=basic,username=asd,password=asadf}\"");
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                this::assertOutputIsNotEmpty
+        );
+    }
+
+    @Test
+    @DisplayName("Test using arguments in parameters")
+    void useOptionsInArguments() {
+        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+                "security.authentication.providers.basic6={type=basic,username: --verbose, password=--verbose}");
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                () -> assertErrOutputContains(""),
+                this::assertOutputIsEmpty
+        );
+
+        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+                "\"security.authentication.providers.basic7={type=basic,username: --verbose, password=--verbose}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
