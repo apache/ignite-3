@@ -1493,17 +1493,18 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
         }
     }
 
-    private Set<Assignment> calculateAssignments(TablePartitionId tablePartitionId) {
+    private CompletableFuture<Set<Assignment>> calculateAssignments(TablePartitionId tablePartitionId) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
 
-        return AffinityUtils.calculateAssignmentForPartition(
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 we must use distribution zone keys here
-                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                tablePartitionId.partitionId(),
-                getZoneDescriptor(tableDescriptor, catalogVersion).replicas()
-        );
+        return distributionZoneManager.currentDataNodes(tableDescriptor.zoneId()).thenApply(dataNodes ->
+                AffinityUtils.calculateAssignmentForPartition(
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 we must use distribution zone keys here
+                        dataNodes,
+                        tablePartitionId.partitionId(),
+                        getZoneDescriptor(tableDescriptor, catalogVersion).replicas()
+                ));
     }
 
     @Override

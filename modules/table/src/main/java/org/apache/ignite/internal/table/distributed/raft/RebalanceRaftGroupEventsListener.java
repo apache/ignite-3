@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.union;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -118,7 +119,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
     /** Function that calculates assignments for table's partition. */
-    private final Function<TablePartitionId, Set<Assignment>> calculateAssignmentsFn;
+    private final Function<TablePartitionId, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
 
     /**
      * Constructs new listener.
@@ -135,7 +136,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             TablePartitionId tablePartitionId,
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
-            Function<TablePartitionId, Set<Assignment>> calculateAssignmentsFn,
+            Function<TablePartitionId,CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
             ScheduledExecutorService rebalanceScheduler
     ) {
         this.metaStorageMgr = metaStorageMgr;
@@ -306,6 +307,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     )
             ).get();
 
+            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId).get();
+
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);
             Entry plannedEntry = values.get(plannedPartAssignmentsKey);
@@ -316,7 +319,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry);
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry);
 
-            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(tablePartitionId);
 
             Set<Assignment> stable = createAssignments(configuration);
 

@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -286,6 +287,18 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
         return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
+    }
+
+    public CompletableFuture<Set<String>> currentDataNodes(int zoneId) {
+        return metaStorageManager.get(zoneDataNodesKey(zoneId)).thenApply(dataNodesEntry -> {
+            int catalogVersion = catalogManager.latestCatalogVersion();
+
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, catalogVersion);
+
+            Set<Node> dataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+
+            return filterDataNodes(dataNodes, zoneDescriptor.filter(), nodesAttributes());
+        });
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
