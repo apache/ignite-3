@@ -20,8 +20,8 @@
 #include <ignite/common/ignite_type.h>
 
 #include <cstdint>
-#include <string>
 #include <optional>
+#include <string>
 
 namespace ignite {
 

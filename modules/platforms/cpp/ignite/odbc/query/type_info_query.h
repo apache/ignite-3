@@ -19,8 +19,7 @@
 
 #include "ignite/odbc/query/query.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Type info query.
@@ -52,14 +51,14 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector* get_meta() override { return &m_columns_meta; }
+    const column_meta_vector *get_meta() override { return &m_columns_meta; }
 
     /**
      * Fetch next result row to application buffers.
      *
      * @return Operation result.
      */
-    sql_result fetch_next_row(column_binding_map& column_bindings) override;
+    sql_result fetch_next_row(column_binding_map &column_bindings) override;
 
     /**
      * Get data of the specified column in the result set.
@@ -68,7 +67,7 @@ public:
      * @param buffer Buffer to put column data to.
      * @return Operation result.
      */
-    sql_result get_column(std::uint16_t column_idx, application_data_buffer& buffer) override;
+    sql_result get_column(std::uint16_t column_idx, application_data_buffer &buffer) override;
 
     /**
      * Close query.
@@ -115,4 +114,4 @@ private:
     std::vector<ignite_type>::const_iterator m_cursor{m_types.end()};
 };
 
-}
+} // namespace ignite

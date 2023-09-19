@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
+#include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/type_traits.h"
-#include "ignite/odbc/query/type_info_query.h"
 
 #include <cassert>
 
-namespace
-{
+namespace {
 
-enum class result_column
-{
+enum class result_column {
     /** Data source-dependent data-type name. */
     TYPE_NAME = 1,
 
@@ -109,41 +107,38 @@ enum class result_column
 
 } // anonymous namespace
 
-namespace ignite
-{
+namespace ignite {
 
-type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_type) :
-    query(diag, query_type::TYPE_INFO)
-{
+type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_type)
+    : query(diag, query_type::TYPE_INFO) {
     m_columns_meta.reserve(19);
 
     const std::string sch;
     const std::string tbl;
 
-    m_columns_meta.emplace_back(sch, tbl, "TYPE_NAME",          ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "DATA_TYPE",          ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "COLUMN_SIZE",        ignite_type::INT32);
-    m_columns_meta.emplace_back(sch, tbl, "LITERAL_PREFIX",     ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "LITERAL_SUFFIX",     ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "CREATE_PARAMS",      ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "NULLABLE",           ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "CASE_SENSITIVE",     ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "SEARCHABLE",         ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "TYPE_NAME", ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "DATA_TYPE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "COLUMN_SIZE", ignite_type::INT32);
+    m_columns_meta.emplace_back(sch, tbl, "LITERAL_PREFIX", ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "LITERAL_SUFFIX", ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "CREATE_PARAMS", ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "NULLABLE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "CASE_SENSITIVE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "SEARCHABLE", ignite_type::INT16);
     m_columns_meta.emplace_back(sch, tbl, "UNSIGNED_ATTRIBUTE", ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "FIXED_PREC_SCALE",   ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "AUTO_UNIQUE_VALUE",  ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "LOCAL_TYPE_NAME",    ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "MINIMUM_SCALE",      ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "MAXIMUM_SCALE",      ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "SQL_DATA_TYPE",      ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "SQL_DATETIME_SUB",   ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "NUM_PREC_RADIX",     ignite_type::INT32);
+    m_columns_meta.emplace_back(sch, tbl, "FIXED_PREC_SCALE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "AUTO_UNIQUE_VALUE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "LOCAL_TYPE_NAME", ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "MINIMUM_SCALE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "MAXIMUM_SCALE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "SQL_DATA_TYPE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "SQL_DATETIME_SUB", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "NUM_PREC_RADIX", ignite_type::INT32);
     m_columns_meta.emplace_back(sch, tbl, "INTERVAL_PRECISION", ignite_type::INT16);
 
     assert(is_sql_type_supported(sql_type) || sql_type == SQL_ALL_TYPES);
 
-    if (sql_type == SQL_ALL_TYPES)
-    {
+    if (sql_type == SQL_ALL_TYPES) {
         m_types.push_back(ignite_type::BOOLEAN);
         m_types.push_back(ignite_type::INT8);
         m_types.push_back(ignite_type::INT16);
@@ -161,13 +156,11 @@ type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_typ
         m_types.push_back(ignite_type::STRING);
         m_types.push_back(ignite_type::BYTE_ARRAY);
         // TODO: IGNITE-19969 implement support for period, duration and big_integer
-    }
-    else
+    } else
         m_types.push_back(sql_type_to_ignite_type(sql_type));
 }
 
-sql_result type_info_query::execute()
-{
+sql_result type_info_query::execute() {
     m_cursor = m_types.begin();
 
     m_executed = true;
@@ -176,8 +169,7 @@ sql_result type_info_query::execute()
     return sql_result::AI_SUCCESS;
 }
 
-sql_result type_info_query::fetch_next_row(column_binding_map &column_bindings)
-{
+sql_result type_info_query::fetch_next_row(column_binding_map &column_bindings) {
     if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
         return sql_result::AI_ERROR;
@@ -191,14 +183,13 @@ sql_result type_info_query::fetch_next_row(column_binding_map &column_bindings)
     if (m_cursor == m_types.end())
         return sql_result::AI_NO_DATA;
 
-    for (auto& pair : column_bindings)
+    for (auto &pair : column_bindings)
         get_column(pair.first, pair.second);
 
     return sql_result::AI_SUCCESS;
 }
 
-sql_result type_info_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer)
-{
+sql_result type_info_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer) {
     if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
         return sql_result::AI_ERROR;
@@ -211,32 +202,27 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
 
     auto current_type = *m_cursor;
 
-    switch (result_column(column_idx))
-    {
-        case result_column::TYPE_NAME:
-        {
+    switch (result_column(column_idx)) {
+        case result_column::TYPE_NAME: {
             buffer.put_string(ignite_type_to_sql_type_name(current_type));
 
             break;
         }
 
         case result_column::DATA_TYPE:
-        case result_column::SQL_DATA_TYPE:
-        {
+        case result_column::SQL_DATA_TYPE: {
             buffer.put_int16(ignite_type_to_sql_type(current_type));
 
             break;
         }
 
-        case result_column::COLUMN_SIZE:
-        {
+        case result_column::COLUMN_SIZE: {
             buffer.put_int32(ignite_type_max_column_size(current_type));
 
             break;
         }
 
-        case result_column::LITERAL_PREFIX:
-        {
+        case result_column::LITERAL_PREFIX: {
             auto prefix = ignite_type_literal_prefix(current_type);
             if (!prefix)
                 buffer.put_null();
@@ -246,8 +232,7 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
             break;
         }
 
-        case result_column::LITERAL_SUFFIX:
-        {
+        case result_column::LITERAL_SUFFIX: {
             auto suffix = ignite_type_literal_suffix(current_type);
             if (!suffix)
                 buffer.put_null();
@@ -257,8 +242,7 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
             break;
         }
 
-        case result_column::CREATE_PARAMS:
-        {
+        case result_column::CREATE_PARAMS: {
             if (current_type == ignite_type::DECIMAL || current_type == ignite_type::NUMBER)
                 buffer.put_string("precision,scale");
             else
@@ -267,15 +251,13 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
             break;
         }
 
-        case result_column::NULLABLE:
-        {
+        case result_column::NULLABLE: {
             buffer.put_int32(ignite_type_nullability(current_type));
 
             break;
         }
 
-        case result_column::CASE_SENSITIVE:
-        {
+        case result_column::CASE_SENSITIVE: {
             if (current_type == ignite_type::STRING)
                 buffer.put_int16(SQL_TRUE);
             else
@@ -284,59 +266,51 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
             break;
         }
 
-        case result_column::SEARCHABLE:
-        {
+        case result_column::SEARCHABLE: {
             buffer.put_int16(SQL_SEARCHABLE);
 
             break;
         }
 
-        case result_column::UNSIGNED_ATTRIBUTE:
-        {
+        case result_column::UNSIGNED_ATTRIBUTE: {
             buffer.put_int16(is_ignite_type_unsigned(current_type));
 
             break;
         }
 
         case result_column::FIXED_PREC_SCALE:
-        case result_column::AUTO_UNIQUE_VALUE:
-        {
+        case result_column::AUTO_UNIQUE_VALUE: {
             buffer.put_int16(SQL_FALSE);
 
             break;
         }
 
-        case result_column::LOCAL_TYPE_NAME:
-        {
+        case result_column::LOCAL_TYPE_NAME: {
             buffer.put_null();
 
             break;
         }
 
         case result_column::MINIMUM_SCALE:
-        case result_column::MAXIMUM_SCALE:
-        {
+        case result_column::MAXIMUM_SCALE: {
             buffer.put_int16(std::int16_t(ignite_type_decimal_digits(current_type)));
 
             break;
         }
 
-        case result_column::SQL_DATETIME_SUB:
-        {
+        case result_column::SQL_DATETIME_SUB: {
             buffer.put_null();
 
             break;
         }
 
-        case result_column::NUM_PREC_RADIX:
-        {
+        case result_column::NUM_PREC_RADIX: {
             buffer.put_int32(ignite_type_num_precision_radix(current_type));
 
             break;
         }
 
-        case result_column::INTERVAL_PRECISION:
-        {
+        case result_column::INTERVAL_PRECISION: {
             buffer.put_null();
 
             break;
@@ -349,8 +323,7 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
     return sql_result::AI_SUCCESS;
 }
 
-sql_result type_info_query::close()
-{
+sql_result type_info_query::close() {
     m_cursor = m_types.end();
 
     m_executed = false;
@@ -359,4 +332,3 @@ sql_result type_info_query::close()
 }
 
 } // namespace ignite
-
