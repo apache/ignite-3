@@ -26,21 +26,15 @@ dependencies {
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
-    implementation project(':ignite-network-api')
-    implementation project(':ignite-network')
-
     implementation libs.opentelemetry.sdk.extension.autoconfigure.spi
-    implementation libs.opentelemetry.instrumentation.api
-    implementation libs.opentelemetry.semconv
     implementation libs.opentelemetry.javaagent.extension.api
     implementation libs.auto.service.annotations
 
-    testImplementation project(':ignite-core')
     testImplementation libs.hamcrest.core
 
-    integrationTestImplementation project(':ignite-core')
-    integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')

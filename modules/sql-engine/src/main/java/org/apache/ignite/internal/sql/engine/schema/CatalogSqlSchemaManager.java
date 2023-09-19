@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;

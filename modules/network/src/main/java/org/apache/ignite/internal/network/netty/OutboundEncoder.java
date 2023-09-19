@@ -17,13 +17,20 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.stream.ChunkedInput;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Context;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
@@ -35,6 +42,7 @@ import org.apache.ignite.internal.network.serialization.PerSessionSerializationS
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An encoder for the outbound messages that uses {@link DirectMessageWriter}.
@@ -60,7 +68,17 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     /** {@inheritDoc} */
     @Override
     protected void encode(ChannelHandlerContext ctx, OutNetworkObject msg, List<Object> out) throws Exception {
-        out.add(new NetworkMessageChunkedInput(msg, serializationService));
+        if (!Span.current().getSpanContext().isValid()) {
+            out.add(new NetworkMessageChunkedInput(msg, null, serializationService));
+            return;
+        }
+
+        var propagator = getPropagators().getTextMapPropagator();
+        Map<String, String> headers = new HashMap<>(capacity(propagator.fields().size()));
+
+        propagator.inject(Context.current(), headers, (carrier, key, val) -> carrier.put(key, val));
+
+        out.add(new NetworkMessageChunkedInput(msg, TraceableMessageImpl.builder().headers(headers).build(), serializationService));
     }
 
     /**
@@ -77,6 +95,9 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         private final MessageSerializer<NetworkMessage> serializer;
 
         private final MessageSerializer<ClassDescriptorListMessage> descriptorSerializer;
+
+        /** Trace message serializer. */
+        private final MessageSerializer<TraceableMessage> traceSerializer;
 
         /** Message writer. */
         private final DirectMessageWriter writer;
@@ -95,14 +116,20 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
          * Constructor.
          *
          * @param outObject            Out network object.
+         * @param traceableMsg         Traceable object.
          * @param serializationService Serialization service.
          */
         private NetworkMessageChunkedInput(
                 OutNetworkObject outObject,
+                @Nullable TraceableMessage traceableMsg,
                 PerSessionSerializationService serializationService
         ) {
-            this.serializationService = serializationService;
             this.msg = outObject.networkMessage();
+            this.traceableMsg = traceableMsg;
+            this.serializationService = serializationService;
+            this.traceableFinished = traceableMsg == null;
+            this.traceSerializer = traceableMsg == null
+                    ? null : serializationService.createMessageSerializer(traceableMsg.groupType(), traceableMsg.messageType());
 
             List<ClassDescriptorMessage> outDescriptors = outObject.descriptors().stream()
                     .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
@@ -117,14 +144,6 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                 descriptors = null;
                 descriptorSerializer = null;
                 descriptorsFinished = true;
-            }
-
-            if (outObject.traceHeaders().isEmpty()) {
-                traceableMsg = null;
-                traceableFinished = true;
-            } else {
-                traceableMsg = TraceableMessageImpl.builder().headers(outObject.traceHeaders()).build();
-                traceableFinished = false;
             }
 
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
@@ -164,7 +183,12 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
             while (byteBuffer.hasRemaining()) {
                 if (!traceableFinished) {
-                    traceableFinished = serializer.writeMessage(traceableMsg, writer);
+                    traceableFinished = traceSerializer.writeMessage(traceableMsg, writer);
+                    if (traceableFinished) {
+                        writer.reset();
+                    } else {
+                        break;
+                    }
                 } else if (!descriptorsFinished) {
                     descriptorsFinished = descriptorSerializer.writeMessage(descriptors, writer);
                     if (descriptorsFinished) {

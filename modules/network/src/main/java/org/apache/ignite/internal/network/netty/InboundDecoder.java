@@ -22,8 +22,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.ContextStorage;
+import io.opentelemetry.context.propagation.TextMapGetter;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.direct.DirectMessageReader;
@@ -137,7 +142,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     NetworkMessage message = deserializer.getMessage();
 
                     if (message instanceof TraceableMessage) {
-                        LOG.error(">>>> DONE {}", message);
+                        onContextTraceContextRestore((TraceableMessage) message);
                     }
                     if (message instanceof ClassDescriptorListMessage) {
                         onClassDescriptorMessage((ClassDescriptorListMessage) message);
@@ -175,5 +180,22 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
     private void onClassDescriptorMessage(ClassDescriptorListMessage msg) {
         serializationService.mergeDescriptors(msg.messages());
+    }
+
+    private void onContextTraceContextRestore(TraceableMessage msg) {
+        Context context = GlobalOpenTelemetry.getPropagators().getTextMapPropagator()
+                .extract(Context.current(), msg.headers(), new TextMapGetter<>() {
+                    @Override
+                    public Iterable<String> keys(Map<String, String> carrier) {
+                        return carrier.keySet();
+                    }
+
+                    @Override
+                    public String get(Map<String, String> carrier, String key) {
+                        return carrier.get(key);
+                    }
+                });
+
+        ContextStorage.get().attach(context);
     }
 }

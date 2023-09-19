@@ -52,7 +52,7 @@ public class StartNodeExample {
         CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
                 "ignite-node-0",
                 Path.of("examples", "config", configFileName),
-                Path.of("examples", "work", nodeName)
+                Path.of("examples", "work", "ignite-node-0")
         );
 
         CompletableFuture<Ignite> igniteFuture2 = IgnitionManager.start(

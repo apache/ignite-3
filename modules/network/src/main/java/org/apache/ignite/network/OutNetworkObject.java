@@ -18,9 +18,7 @@
 package org.apache.ignite.network;
 
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for the outgoing network message.
@@ -31,10 +29,6 @@ public class OutNetworkObject {
 
     /** List of class descriptor messages. */
     private final List<ClassDescriptorMessage> descriptors;
-
-    /** Headers. */
-    @Nullable
-    private final Map<String, String> headers;
 
     /**
      * Flag indicating if this outgoing message should be added to the unacknowledged messages queue of the recovery descriptor.
@@ -50,7 +44,7 @@ public class OutNetworkObject {
      * @param descriptors Class descriptors.
      */
     public OutNetworkObject(NetworkMessage networkMessage, List<ClassDescriptorMessage> descriptors) {
-        this(networkMessage, descriptors, null, true);
+        this(networkMessage, descriptors, true);
     }
 
     /**
@@ -61,26 +55,8 @@ public class OutNetworkObject {
      * @param shouldBeSavedForRecovery See {@link #shouldBeSavedForRecovery}.
      */
     public OutNetworkObject(NetworkMessage networkMessage, List<ClassDescriptorMessage> descriptors, boolean shouldBeSavedForRecovery) {
-        this(networkMessage, descriptors, null, shouldBeSavedForRecovery);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param networkMessage Network message.
-     * @param descriptors Class descriptors.
-     * @param headers Class descriptors.
-     * @param shouldBeSavedForRecovery See {@link #shouldBeSavedForRecovery}.
-     */
-    public OutNetworkObject(
-            NetworkMessage networkMessage,
-            List<ClassDescriptorMessage> descriptors,
-            @Nullable Map<String, String> headers,
-            boolean shouldBeSavedForRecovery
-    ) {
         this.networkMessage = networkMessage;
         this.descriptors = descriptors;
-        this.headers = headers;
         this.shouldBeSavedForRecovery = shouldBeSavedForRecovery;
     }
 
@@ -98,9 +74,5 @@ public class OutNetworkObject {
 
     public List<ClassDescriptorMessage> descriptors() {
         return descriptors;
-    }
-
-    public @Nullable Map<String, String> traceHeaders() {
-        return headers;
     }
 }

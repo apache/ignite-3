@@ -461,7 +461,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return new ClientMessageUnpacker(buf);
     }
 
-    @WithSpan
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
         long requestId = -1;
         int opCode = -1;

@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -341,7 +342,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SessionId sessionId,
             QueryContext context,
             IgniteTransactions transactions,
-            String qry,
+            @SpanAttribute("qry") String qry,
             Object... params
     ) {
         if (!busyLock.enterBusy()) {
