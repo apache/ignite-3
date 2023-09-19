@@ -94,8 +94,6 @@ public class ExampleTestUtils {
 
         captured = captured.replaceAll("\r", "");
 
-        System.out.println("KKK " + captured);
-
         for (String single : expected) {
             assertThat(captured, containsString(single));
         }

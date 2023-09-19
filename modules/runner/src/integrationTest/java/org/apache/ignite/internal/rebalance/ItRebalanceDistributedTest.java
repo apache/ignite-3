@@ -779,9 +779,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
                     List.of(
-                    NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY,
-                    PersistentPageMemoryStorageEngineConfiguration.KEY,
-                    VolatilePageMemoryStorageEngineConfiguration.KEY),
+                            NetworkConfiguration.KEY,
+                            RestConfiguration.KEY,
+                            ClientConnectorConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY),
                     List.of(),
                     List.of(UnsafeMemoryAllocatorConfigurationSchema.class)
                     );
