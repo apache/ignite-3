@@ -74,7 +74,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -131,7 +130,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private final AtomicInteger nextTableId = new AtomicInteger();
 
     @BeforeEach
-    public void beforeTest(TestInfo testInfo) throws NodeStoppingException {
+    public void beforeTest(TestInfo testInfo) {
         this.nodeName = testNodeName(testInfo, PORT);
         this.anotherNodeName = testNodeName(testInfo, PORT + 1);
         this.testInfo = testInfo;
@@ -216,6 +215,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
         placementDriverManager.start();
+
+        assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
