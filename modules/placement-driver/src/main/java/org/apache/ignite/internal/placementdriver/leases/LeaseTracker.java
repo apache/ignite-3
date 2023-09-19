@@ -31,10 +31,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -169,11 +166,8 @@ public class LeaseTracker implements PlacementDriver {
 
                     LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
 
-                    Set<ReplicationGroupId> actualGroups = new HashSet<>();
-
                     for (Lease lease : leaseBatch.leases()) {
                         ReplicationGroupId grpId = lease.replicationGroupId();
-                        actualGroups.add(grpId);
 
                         leasesMap.put(grpId, lease);
 
@@ -184,12 +178,9 @@ public class LeaseTracker implements PlacementDriver {
                         }
                     }
 
-                    for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leasesMap.entrySet().iterator(); iterator.hasNext();) {
-                        Map.Entry<ReplicationGroupId, Lease> e = iterator.next();
-
-                        if (!actualGroups.contains(e.getKey())) {
-                            iterator.remove();
-                            tryRemoveTracker(e.getKey());
+                    for (ReplicationGroupId grpId : leases.leaseByGroupId().keySet()) {
+                        if (!leasesMap.containsKey(grpId)) {
+                            tryRemoveTracker(grpId);
                         }
                     }
 
