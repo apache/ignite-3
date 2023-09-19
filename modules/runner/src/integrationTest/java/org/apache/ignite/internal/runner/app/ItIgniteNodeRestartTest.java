@@ -1149,10 +1149,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     public void updateClusterCfgWithDefaultValue() {
         IgniteImpl ignite = startNode(0);
 
-        RocksDbStorageEngineConfiguration dbStorageEngineConfiguration = ignite.clusterConfiguration()
-                .getConfiguration(RocksDbStorageEngineConfiguration.KEY);
-        int defaultValue = dbStorageEngineConfiguration.flushDelayMillis().value();
-        CompletableFuture<Void> update = dbStorageEngineConfiguration.flushDelayMillis().update(defaultValue);
+        GcConfiguration gcConfiguration = ignite.clusterConfiguration()
+                .getConfiguration(GcConfiguration.KEY);
+        int defaultValue = gcConfiguration.threads().value();
+        CompletableFuture<Void> update = gcConfiguration.threads().update(defaultValue);
         assertThat(update, willCompleteSuccessfully());
 
         stopNode(0);
