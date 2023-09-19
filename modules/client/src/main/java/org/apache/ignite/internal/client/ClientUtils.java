@@ -46,7 +46,7 @@ public class ClientUtils {
 
             throw ExceptionUtils.wrap(e);
         } catch (ExecutionException e) {
-            //TODO: https://issues.apache.org/jira/browse/IGNITE-19539
+            //TODO: https://issues.apache.org/jira/browse/IGNITE-20436
             throw ExceptionUtils.wrap(e);
         }
     }
