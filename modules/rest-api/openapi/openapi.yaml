@@ -879,6 +879,7 @@ components:
       description: Node metadata information.
     NodeState:
       required:
+      - jdbcPort
       - name
       - state
       type: object
@@ -891,6 +892,10 @@ components:
           - $ref: '#/components/schemas/State'
           - type: object
             description: Node status.
+        jdbcPort:
+          type: integer
+          description: Node jdbc port.
+          format: int32
       description: Node state.
     Problem:
       type: object

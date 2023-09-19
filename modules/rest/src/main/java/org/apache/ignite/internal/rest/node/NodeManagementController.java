@@ -31,14 +31,17 @@ public class NodeManagementController implements NodeManagementApi {
 
     private final NameProvider nameProvider;
 
-    public NodeManagementController(NameProvider nameProvider, StateProvider stateProvider) {
+    private final JdbcPortProvider jdbcPortProvider;
+
+    public NodeManagementController(NameProvider nameProvider, StateProvider stateProvider, JdbcPortProvider jdbcPortProvider) {
         this.nameProvider = nameProvider;
         this.stateProvider = stateProvider;
+        this.jdbcPortProvider = jdbcPortProvider;
     }
 
     @Override
     public NodeState state() {
-        return new NodeState(nameProvider.getName(), stateProvider.getState());
+        return new NodeState(nameProvider.getName(), stateProvider.getState(), jdbcPortProvider.jdbcPort());
     }
 
     @Override
