@@ -201,7 +201,7 @@ public class ItGeneratedRestClientTest {
     @Test
     void getClusterConfigurationByPath() {
         assertDoesNotThrow(() -> {
-            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("rocksDb.defaultRegion");
+            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("gc.threads");
 
             assertNotNull(configuration);
             assertFalse(configuration.isEmpty());
@@ -286,7 +286,7 @@ public class ItGeneratedRestClientTest {
     void updateNodeConfigurationWithInvalidParam() throws JsonProcessingException {
         ApiException thrown = assertThrows(
                 ApiException.class,
-                () -> clusterConfigurationApi.updateClusterConfiguration("rocksDb.defaultRegion.cache=invalid")
+                () -> clusterConfigurationApi.updateClusterConfiguration("security.authentication.enabled=true")
         );
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
