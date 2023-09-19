@@ -22,6 +22,9 @@ import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
+/**
+ * Message that wraps trace headers.
+ */
 @Transferable(NetworkMessageTypes.TRACEABLE_MESSAGE)
 public interface TraceableMessage extends NetworkMessage {
     Map<String, String> headers();

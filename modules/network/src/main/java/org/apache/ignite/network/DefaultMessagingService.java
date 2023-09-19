@@ -284,7 +284,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             @Nullable String consistentId,
             ChannelType type,
             @SpanAttribute("addr") InetSocketAddress addr,
-            @SpanAttribute("message") NetworkMessage message
+            @SpanAttribute("msg") NetworkMessage message
     ) {
         if (isInNetworkThread()) {
             return CompletableFuture.supplyAsync(() -> sendMessage0(consistentId, type, addr, message), outboundExecutor)
