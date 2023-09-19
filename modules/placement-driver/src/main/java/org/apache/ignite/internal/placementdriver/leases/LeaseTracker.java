@@ -96,7 +96,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     /**
-     * Recoveries state from Vault and subscribers on further updates.
+     * Recovers state from Vault and subscribes to future updates.
      *
      * @param recoveryRevision Revision from {@link MetaStorageManager#recoveryFinishedFuture()}.
      */

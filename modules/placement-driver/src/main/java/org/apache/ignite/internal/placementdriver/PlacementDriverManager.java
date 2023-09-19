@@ -175,7 +175,7 @@ public class PlacementDriverManager implements IgniteComponent {
                         }
                     });
 
-            recoveryInternalComponents();
+            recoverInternalComponents();
         });
     }
 
@@ -251,7 +251,7 @@ public class PlacementDriverManager implements IgniteComponent {
         return leaseTracker;
     }
 
-    private void recoveryInternalComponents() {
+    private void recoverInternalComponents() {
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
         assert recoveryFinishedFuture.isDone();
