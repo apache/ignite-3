@@ -33,14 +33,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -110,7 +107,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
-        metastore = spy(StandaloneMetaStorageManager.create(vault));
+        metastore = StandaloneMetaStorageManager.create(vault);
 
         revisionTracker = new PendingComparableValuesTracker<>(-1L);
 
@@ -124,7 +121,12 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         vault.start();
         metastore.start();
-        placementDriver.startTrack();
+
+        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+
+        assertThat(recoveryFinishedFuture, willCompleteSuccessfully());
+
+        placementDriver.startTrackAsync(recoveryFinishedFuture.join());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
     }
@@ -376,15 +378,13 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     void testListenReplicaBecomePrimaryEventOnStartPlacementDriver() {
         long newRecoveryRevision = publishLease(LEASE_FROM_1_TO_5_000);
 
-        when(metastore.recoveryFinishedFuture()).thenReturn(completedFuture(newRecoveryRevision));
-
         placementDriver.stopTrack();
 
         placementDriver = createPlacementDriver();
 
         CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenReplicaBecomePrimaryEvent();
 
-        placementDriver.startTrack();
+        placementDriver.startTrackAsync(newRecoveryRevision);
 
         assertThat(eventParametersFuture, willCompleteSuccessfully());
 
@@ -415,7 +415,11 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         var eventParametersFuture = new CompletableFuture<PrimaryReplicaEventParameters>();
 
         placementDriver.listen(REPLICA_BECOME_PRIMARY, (parameters, exception) -> {
-            eventParametersFuture.complete(parameters);
+            if (exception != null) {
+                eventParametersFuture.completeExceptionally(exception);
+            } else {
+                eventParametersFuture.complete(parameters);
+            }
 
             return completedFuture(false);
         });
@@ -432,9 +436,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private LeaseTracker createPlacementDriver() {
-        return new LeaseTracker(
-                (LongFunction<CompletableFuture<?>> function) -> metastore.registerRevisionUpdateListener(function::apply),
-                metastore
-        );
+        return new LeaseTracker(metastore);
     }
 }

@@ -42,9 +42,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
-import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -89,33 +86,25 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /** Listener to update a leases cache. */
     private final UpdateListener updateListener = new UpdateListener();
 
-    /** Versioned value used only at manager startup to correctly fire table creation events. */
-    private final IncrementalVersionedValue<Void> startVv;
-
     /**
      * Constructor.
      *
-     * @param registry Registry for versioned values.
      * @param msManager Meta storage manager.
      */
-    public LeaseTracker(Consumer<LongFunction<CompletableFuture<?>>> registry, MetaStorageManager msManager) {
+    public LeaseTracker(MetaStorageManager msManager) {
         this.msManager = msManager;
-
-        startVv = new IncrementalVersionedValue<>(registry);
     }
 
-    /** Recoveries state from Vault and subscribers on further updates. */
-    public void startTrack() {
-        inBusyLock(busyLock, () -> {
+    /**
+     * Recoveries state from Vault and subscribers on further updates.
+     *
+     * @param recoveryRevision Revision from {@link MetaStorageManager#recoveryFinishedFuture()}.
+     */
+    public CompletableFuture<Void> startTrackAsync(long recoveryRevision) {
+        return inBusyLock(busyLock, () -> {
             msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
-            CompletableFuture<Long> recoveryFinishedFuture = msManager.recoveryFinishedFuture();
-
-            assert recoveryFinishedFuture.isDone();
-
-            long recoveryRevision = recoveryFinishedFuture.join();
-
-            loadLeasesBusy(recoveryRevision);
+            return loadLeasesBusyAsync(recoveryRevision);
         });
     }
 
@@ -259,11 +248,15 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         return primaryReplicaWaiters.computeIfAbsent(groupId, key -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE));
     }
 
-    private void loadLeasesBusy(long recoveryRevision) {
+    private CompletableFuture<Void> loadLeasesBusyAsync(long recoveryRevision) {
         Entry entry = msManager.getLocally(PLACEMENTDRIVER_LEASES_KEY, recoveryRevision);
+
+        CompletableFuture<Void> loadLeasesFuture;
 
         if (entry.empty() || entry.tombstone()) {
             leases = new Leases(Map.of(), BYTE_EMPTY_ARRAY);
+
+            loadLeasesFuture = completedFuture(null);
         } else {
             byte[] leasesBytes = entry.value();
 
@@ -285,18 +278,12 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
             leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
 
-            // Forces to wait until recovery is complete before the metastore watches is deployed to avoid races with other components.
-            startVv.update(recoveryRevision, (unused, throwable) -> allOf(fireEventFutures.toArray(CompletableFuture[]::new)))
-                    .whenComplete((unused, throwable) -> {
-                        if (throwable != null) {
-                            LOG.error("Error fire events", throwable);
-                        } else {
-                            LOG.debug("Events fired successfully");
-                        }
-                    });
+            loadLeasesFuture = allOf(fireEventFutures.toArray(CompletableFuture[]::new));
         }
 
         LOG.info("Leases cache recovered [leases={}]", leases);
+
+        return loadLeasesFuture;
     }
 
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
