@@ -38,7 +38,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
-import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -350,7 +349,6 @@ public class IgniteImpl implements Ignite {
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
 
         NetworkConfiguration networkConfiguration = nodeConfigRegistry.getConfiguration(NetworkConfiguration.KEY);
-        ClientConnectorConfiguration networkConfiguration1 = nodeConfigRegistry.getConfiguration(ClientConnectorConfiguration.KEY);
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 

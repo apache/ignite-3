@@ -20,6 +20,9 @@ package org.apache.ignite.internal.configuration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.rest.node.JdbcPortProvider;
 
+/**
+ * Provider of client port form node configuration.
+ */
 public class JdbcPortProviderImpl implements JdbcPortProvider {
 
     private final ConfigurationRegistry configurationRegistry;

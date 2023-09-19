@@ -37,6 +37,9 @@ public class NodeState {
     @Schema(description = "Node jdbc port.", requiredMode = RequiredMode.REQUIRED)
     private final int jdbcPort;
 
+    /**
+     * Construct NodeState DTO.
+     */
     @JsonCreator
     public NodeState(@JsonProperty("name") String name,
             @JsonProperty("state") State state,
