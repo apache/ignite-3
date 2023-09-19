@@ -778,12 +778,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             vaultManager = createVault(name, dir);
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
-                    NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY
-            );
+                    List.of(
+                    NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY,
+                    PersistentPageMemoryStorageEngineConfiguration.KEY,
+                    VolatilePageMemoryStorageEngineConfiguration.KEY),
+                    List.of(),
+                    List.of(UnsafeMemoryAllocatorConfigurationSchema.class)
+                    );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator),
@@ -863,22 +870,17 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             clusterCfgGenerator = new ConfigurationTreeGenerator(
                     List.of(
-                            PersistentPageMemoryStorageEngineConfiguration.KEY,
-                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     List.of(),
                     List.of(
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
-                            UnsafeMemoryAllocatorConfigurationSchema.class,
                             PersistentPageMemoryDataStorageConfigurationSchema.class,
                             TestDataStorageConfigurationSchema.class
                     )
             );
             clusterCfgMgr = new ConfigurationManager(
                     List.of(
-                            PersistentPageMemoryStorageEngineConfiguration.KEY,
-                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     cfgStorage,
@@ -904,7 +906,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
-                            clusterConfigRegistry,
+                            nodeCfgMgr.configurationRegistry(),
                             dir.resolve("storage"),
                             null
                     )
