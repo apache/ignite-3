@@ -33,6 +33,9 @@ public class NodeManagementRestFactory implements RestFactory {
 
     private JdbcPortProvider jdbcPortProvider;
 
+    /**
+     * Constructs node management rest factory.
+     */
     public NodeManagementRestFactory(StateProvider stateProvider, NameProvider nameProvider, JdbcPortProvider jdbcPortProvider) {
         this.stateProvider = stateProvider;
         this.nameProvider = nameProvider;

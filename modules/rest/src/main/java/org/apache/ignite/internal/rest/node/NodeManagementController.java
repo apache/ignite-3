@@ -33,6 +33,9 @@ public class NodeManagementController implements NodeManagementApi {
 
     private final JdbcPortProvider jdbcPortProvider;
 
+    /**
+     * Constructs node management controller.
+     */
     public NodeManagementController(NameProvider nameProvider, StateProvider stateProvider, JdbcPortProvider jdbcPortProvider) {
         this.nameProvider = nameProvider;
         this.stateProvider = stateProvider;

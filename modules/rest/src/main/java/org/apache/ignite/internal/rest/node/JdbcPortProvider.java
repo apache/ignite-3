@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.rest.node;
 
+/**
+ * Provides jdbc port.
+ */
 @FunctionalInterface
 public interface JdbcPortProvider {
     int jdbcPort();
