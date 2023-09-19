@@ -32,7 +32,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-rocksdb.
  */
 @AutoService(ConfigurationModule.class)
-public class RocksDbStorageEngineDistributedConfigurationModule implements ConfigurationModule {
+public class RocksDbStorageDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
@@ -42,7 +42,7 @@ public class RocksDbStorageEngineDistributedConfigurationModule implements Confi
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(RocksDbStorageEngineConfiguration.KEY);
+        return List.of();
     }
 
     /** {@inheritDoc} */

@@ -15,29 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.configuration;
+package org.apache.ignite.internal.storage.impl;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-page-memory.
+ * Implementation for {@link TestStorageEngine}.
  */
 @AutoService(ConfigurationModule.class)
-public class PageMemoryDistributedConfigurationModule implements ConfigurationModule {
+public class TestStorageDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
+        return ConfigurationType.DISTRIBUTED;
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(UnsafeMemoryAllocatorConfigurationSchema.class);
+        return List.of(TestDataStorageConfigurationSchema.class);
     }
 }
