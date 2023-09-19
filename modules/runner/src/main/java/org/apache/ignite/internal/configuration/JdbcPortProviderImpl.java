@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.node;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.internal.rest.node.JdbcPortProvider;
 
 public class JdbcPortProviderImpl implements JdbcPortProvider {
 
-    private HoconPresentation nodeConfigPresentation;
+    private final ConfigurationRegistry configurationRegistry;
 
-    public JdbcPortProviderImpl(HoconPresentation nodeConfigPresentation) {
-        this.nodeConfigPresentation = nodeConfigPresentation;
+    public JdbcPortProviderImpl(ConfigurationRegistry configurationRegistry) {
+        this.configurationRegistry = configurationRegistry;
     }
 
     @Override
     public int jdbcPort() {
-        // ToDo
-        return 10800;
+        return configurationRegistry.getConfiguration(ClientConnectorConfiguration.KEY).port().value();
     }
 }
