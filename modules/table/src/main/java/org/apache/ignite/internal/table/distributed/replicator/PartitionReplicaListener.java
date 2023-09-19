@@ -1625,7 +1625,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (rowIdsToDelete.isEmpty()) {
                         return completedFuture(
-                                new CompletionResult(null, null));
+                                new CompletionResult(result, null));
                     }
 
                     return updateAllCommand(request, rowIdsToDelete)
@@ -1665,7 +1665,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (rowIdsToDelete.isEmpty()) {
-                        return completedFuture(new CompletionResult(null, null));
+                        return completedFuture(new CompletionResult(result, null));
                     }
 
                     return updateAllCommand(request, rowIdsToDelete)
@@ -1710,7 +1710,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (rowsToInsert.isEmpty()) {
                         return completedFuture(
-                                new CompletionResult(null, null));
+                                new CompletionResult(result, null));
                     }
 
                     CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] insertLockFuts = new CompletableFuture[rowsToInsert.size()];
@@ -1785,7 +1785,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
                                 }
 
-                                return new CompletionResult(emptyList(), res);
+                                return new CompletionResult(null, res);
                             });
                 });
             }

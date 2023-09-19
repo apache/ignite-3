@@ -282,7 +282,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @param fac Replica requests factory.
      * @param reducer Transform reducer.
-     * @param checker Used to handle no-op operations (producing no writes).
+     * @param checker Used to handle no-op operations (producing no updates).
      * @return The future.
      */
     private <T> CompletableFuture<T> enlistInTx(
@@ -726,7 +726,7 @@ public class InternalTableImpl implements InternalTable {
         );
 
         return fut.thenApply(res -> {
-            if (res == null && tx != null) {
+            if (tx != null) {
                 txManager.removeInflight(tx.id());
             }
 
@@ -753,7 +753,7 @@ public class InternalTableImpl implements InternalTable {
         );
 
         return fut.thenApply(res -> {
-            if (!res && tx != null) {
+            if (tx != null && !res) {
                 txManager.removeInflight(tx.id());
             }
 
@@ -778,7 +778,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                Objects::isNull
+                res -> !res.isEmpty()
         );
     }
 
@@ -801,7 +801,7 @@ public class InternalTableImpl implements InternalTable {
         );
 
         return fut.thenApply(res -> {
-            if (!res && tx != null) {
+            if (tx != null && !res) {
                 txManager.removeInflight(tx.id());
             }
 
@@ -829,7 +829,7 @@ public class InternalTableImpl implements InternalTable {
         );
 
         return fut.thenApply(res -> {
-            if (!res && tx != null) {
+            if (tx != null && !res) {
                 txManager.removeInflight(tx.id());
             }
 
@@ -856,7 +856,7 @@ public class InternalTableImpl implements InternalTable {
         );
 
         return fut.thenApply(res -> {
-            if (res == null && tx != null) {
+            if (tx != null && res == null) {
                 txManager.removeInflight(tx.id());
             }
 
@@ -883,7 +883,7 @@ public class InternalTableImpl implements InternalTable {
         );
 
         return fut.thenApply(res -> {
-            if (!res && tx != null) {
+            if (tx != null && !res) {
                 txManager.removeInflight(tx.id());
             }
 
@@ -910,7 +910,7 @@ public class InternalTableImpl implements InternalTable {
         );
 
         return fut.thenApply(res -> {
-            if (!res && tx != null) {
+            if (tx != null && !res) {
                 txManager.removeInflight(tx.id());
             }
 
@@ -937,7 +937,7 @@ public class InternalTableImpl implements InternalTable {
         );
 
         return fut.thenApply(res -> {
-            if (res == null && tx != null) {
+            if (tx != null && res == null) {
                 txManager.removeInflight(tx.id());
             }
 
@@ -962,7 +962,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                Objects::isNull
+                res -> !res.isEmpty()
         );
     }
 
@@ -986,7 +986,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                Objects::isNull
+                res -> !res.isEmpty()
         );
     }
 
