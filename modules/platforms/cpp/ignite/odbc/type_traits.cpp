@@ -269,7 +269,7 @@ ignite_type sql_type_to_ignite_type(std::int16_t sql_type) {
             return ignite_type::TIME;
 
         default:
-            // TODO: Add proper support for all possible types.
+            // TODO: IGNITE-19969 implement support for period, duration and big_integer
             break;
     }
 

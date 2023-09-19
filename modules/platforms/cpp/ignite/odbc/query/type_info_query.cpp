@@ -160,9 +160,7 @@ type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_typ
         m_types.push_back(ignite_type::BITMASK);
         m_types.push_back(ignite_type::STRING);
         m_types.push_back(ignite_type::BYTE_ARRAY);
-        m_types.push_back(ignite_type::PERIOD);
-        m_types.push_back(ignite_type::DURATION);
-        m_types.push_back(ignite_type::NUMBER);
+        // TODO: IGNITE-19969 implement support for period, duration and big_integer
     }
     else
         m_types.push_back(sql_type_to_ignite_type(sql_type));
