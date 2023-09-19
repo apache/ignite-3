@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 
 import java.util.Collection;
 import java.util.List;
