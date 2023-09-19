@@ -106,7 +106,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -1151,8 +1150,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         GcConfiguration gcConfiguration = ignite.clusterConfiguration()
                 .getConfiguration(GcConfiguration.KEY);
-        int defaultValue = gcConfiguration.threads().value();
-        CompletableFuture<Void> update = gcConfiguration.threads().update(defaultValue);
+        int defaultValue = gcConfiguration.onUpdateBatchSize().value();
+        CompletableFuture<Void> update = gcConfiguration.onUpdateBatchSize().update(defaultValue);
         assertThat(update, willCompleteSuccessfully());
 
         stopNode(0);

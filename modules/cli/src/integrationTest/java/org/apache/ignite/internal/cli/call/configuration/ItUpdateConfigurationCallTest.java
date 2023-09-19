@@ -40,12 +40,12 @@ public class ItUpdateConfigurationCallTest extends CallInitializedIntegrationTes
     @DisplayName("Should update cluster configuration")
     void shouldUpdateClusterConfiguration() {
         // Given default write buffer size
-        String givenConfigurationProperty = readConfigurationProperty("gc.threads");
-        assertThat(givenConfigurationProperty).isEqualTo("16");
+        String givenConfigurationProperty = readConfigurationProperty("gc.onUpdateBatchSize");
+        assertThat(givenConfigurationProperty).isEqualTo("5");
         // And
         var input = ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .config("{gc: {threads: 1}}")
+                .config("{gc: {onUpdateBatchSize: 1}}")
                 .build();
 
         // When update buffer size
@@ -56,19 +56,19 @@ public class ItUpdateConfigurationCallTest extends CallInitializedIntegrationTes
         // And
         assertThat(output.body()).contains("Cluster configuration was updated successfully");
         // And buffer size is updated
-        String updatedConfigurationProperty = readConfigurationProperty("gc.threads");
+        String updatedConfigurationProperty = readConfigurationProperty("gc.onUpdateBatchSize");
         assertThat(updatedConfigurationProperty).isEqualTo("1");
 
         // When update buffer size back to default but using key-value format
         updateCall.execute(
                 ClusterConfigUpdateCallInput.builder()
                         .clusterUrl(NODE_URL)
-                        .config("gc.threads=16")
+                        .config("gc.onUpdateBatchSize=5")
                         .build()
         );
 
         // Then buffer size is updated
-        assertThat(readConfigurationProperty("gc.threads")).isEqualTo("16");
+        assertThat(readConfigurationProperty("gc.onUpdateBatchSize")).isEqualTo("5");
     }
 
     private String readConfigurationProperty(String selector) {
