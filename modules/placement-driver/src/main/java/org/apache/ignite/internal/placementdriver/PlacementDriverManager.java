@@ -175,7 +175,7 @@ public class PlacementDriverManager implements IgniteComponent {
                         }
                     });
 
-            recoverInternalComponents();
+            recoverInternalComponentsBusy();
         });
     }
 
@@ -251,15 +251,17 @@ public class PlacementDriverManager implements IgniteComponent {
         return leaseTracker;
     }
 
-    private void recoverInternalComponents() {
+    private void recoverInternalComponentsBusy() {
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
         assert recoveryFinishedFuture.isDone();
 
         long recoveryRevision = recoveryFinishedFuture.join();
 
+        CompletableFuture<Void> startLeaserTrackerFuture = leaseTracker.startTrackAsync(recoveryRevision);
+
         // Forces to wait until recovery is complete before the metastore watches is deployed to avoid races with other components.
-        startVv.update(recoveryRevision, (unused, throwable) -> leaseTracker.startTrackAsync(recoveryRevision))
+        startVv.update(recoveryRevision, (unused, throwable) -> startLeaserTrackerFuture)
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
                         LOG.error("Error starting the PlacementDriverManager internal components", throwable);

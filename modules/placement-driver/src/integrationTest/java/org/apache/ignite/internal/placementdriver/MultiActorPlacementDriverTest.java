@@ -296,6 +296,11 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         res.forEach(node -> node.placementDriverManager.start());
 
         assertThat(
+                allOf(res.stream().map(node -> node.metastore.notifyRevisionUpdateListenerOnStart()).toArray(CompletableFuture[]::new)),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(
                 allOf(res.stream().map(node -> node.metastore.deployWatches()).toArray(CompletableFuture[]::new)),
                 willCompleteSuccessfully()
         );

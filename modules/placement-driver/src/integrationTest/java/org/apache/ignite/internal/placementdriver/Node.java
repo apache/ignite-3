@@ -19,7 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import java.util.List;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -34,7 +34,7 @@ class Node implements AutoCloseable {
 
     final Loza loza;
 
-    final MetaStorageManager metastore;
+    final MetaStorageManagerImpl metastore;
 
     final PlacementDriverManager placementDriverManager;
 
@@ -43,7 +43,7 @@ class Node implements AutoCloseable {
             VaultManager vault,
             ClusterService clusterService,
             Loza loza,
-            MetaStorageManager metastore,
+            MetaStorageManagerImpl metastore,
             PlacementDriverManager placementDriverManager
     ) {
         this.name = name;
