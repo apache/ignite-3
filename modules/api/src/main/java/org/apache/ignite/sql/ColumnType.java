@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 
@@ -84,7 +85,7 @@ public enum ColumnType {
     BYTE_ARRAY(byte[].class, PrecisionScale.YES_NO),
 
     /** Date interval. */
-    PERIOD(Void.class, PrecisionScale.YES_NO),
+    PERIOD(Period.class, PrecisionScale.YES_NO),
 
     /** Time interval. */
     DURATION(Duration.class, PrecisionScale.YES_NO),
