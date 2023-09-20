@@ -34,7 +34,7 @@ public class NodeState {
     @Schema(description = "Node status.", requiredMode = RequiredMode.REQUIRED)
     private final State state;
 
-    @Schema(description = "Node jdbc port.", requiredMode = RequiredMode.REQUIRED)
+    @Schema(description = "Node JDBC port.", requiredMode = RequiredMode.REQUIRED)
     private final int jdbcPort;
 
     /**

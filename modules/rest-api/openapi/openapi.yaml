@@ -894,7 +894,7 @@ components:
             description: Node status.
         jdbcPort:
           type: integer
-          description: Node jdbc port.
+          description: Node JDBC port.
           format: int32
       description: Node state.
     Problem:

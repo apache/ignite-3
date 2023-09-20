@@ -21,7 +21,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.internal.rest.node.JdbcPortProvider;
 
 /**
- * Provider of client port form node configuration.
+ * Provider of client port from node configuration.
  */
 public class JdbcPortProviderImpl implements JdbcPortProvider {
 
