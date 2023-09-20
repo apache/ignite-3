@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
@@ -73,13 +74,11 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
     public void testScanNodeDataPropagation() throws InterruptedException {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
 
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.INT32)
-                .build();
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+
+        RowSchema rowSchema = rowSchemaFromRelTypes(List.of(rowType));
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
