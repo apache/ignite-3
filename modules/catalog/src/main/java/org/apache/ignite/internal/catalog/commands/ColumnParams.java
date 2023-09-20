@@ -242,6 +242,10 @@ public class ColumnParams {
                 throw new CatalogValidationException(format("Column '{}' type is not specified", params.name()));
             }
 
+            if (params.type == ColumnType.NULL) {
+                throw new CatalogValidationException(format("Type NULL is not applicable for column '{}'", params.name()));
+            }
+
             PrecisionScale precScale = params.type.precScale();
 
             switch (precScale) {

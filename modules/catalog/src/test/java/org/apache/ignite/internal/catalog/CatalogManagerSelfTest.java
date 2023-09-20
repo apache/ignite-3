@@ -47,7 +47,6 @@ import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.NULL;
-import static org.apache.ignite.sql.ColumnType.NUMBER;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -580,7 +579,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @ParameterizedTest
-    @EnumSource(ColumnType.class)
+    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
     public void testColumnSetPrecisionScale(ColumnType type) {
         Builder colBuilder = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20);
 
@@ -712,7 +711,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      * Changing length is forbidden for all types other than STRING and BYTE_ARRAY.
      */
     @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyLengthChangeIsRejected(ColumnType type) {
         ColumnParams pkCol = columnParams("ID", INT32);
         Builder colBuilder = columnParamsBuilder("COL", type);

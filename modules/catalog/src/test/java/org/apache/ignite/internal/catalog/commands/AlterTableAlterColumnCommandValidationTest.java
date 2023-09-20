@@ -306,7 +306,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
     }
 
     @ParameterizedTest
-    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = "DECIMAL")
+    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"DECIMAL", "NULL"})
     void precisionCannotBeChangedIfTypeIsNotDecimal(ColumnType type) {
         String tableName = "TEST";
         String columnName = "VAL";
@@ -421,7 +421,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
     }
 
     @ParameterizedTest
-    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"})
+    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL"})
     void lengthCannotBeChangedForNonVariableTypes(ColumnType type) {
         String tableName = "TEST";
         String columnName = "VAL";
@@ -536,7 +536,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         List<Arguments> arguments = new ArrayList<>();
         for (ColumnType from : ColumnType.values()) {
             for (ColumnType to : ColumnType.values()) {
-                if (from != to && !CatalogUtils.isSupportedColumnTypeChange(from, to)) {
+                if (from != to && !CatalogUtils.isSupportedColumnTypeChange(from, to) && from != ColumnType.NULL) {
                     arguments.add(Arguments.of(from, to));
                 }
             }
