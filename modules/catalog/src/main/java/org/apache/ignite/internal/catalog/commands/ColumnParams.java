@@ -244,24 +244,35 @@ public class ColumnParams {
 
             PrecisionScale precScale = params.type.precScale();
 
-            if (precScale == PrecisionScale.NO_NO) {
-                if (params.precision() != null) {
-                    throw new CatalogValidationException(format("Precision is not applicable for column of type '{}'", params.type()));
-                }
+            switch (precScale) {
+                case NO_NO:
+                    if (params.precision() != null) {
+                        throw new CatalogValidationException(format("Precision is not applicable for column of type '{}'", params.type()));
+                    }
 
-                if (params.scale() != null) {
-                    throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
-                }
-            } else if (precScale == PrecisionScale.YES_NO) {
-                validatePrecision(params, helper);
+                    if (params.scale() != null) {
+                        throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
+                    }
 
-                if (params.scale() != null) {
-                    throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
-                }
-            } else if (precScale == PrecisionScale.YES_YES) {
-                validatePrecision(params, helper);
+                    break;
 
-                validateScale(params, helper);
+                case YES_NO:
+                    validatePrecision(params, helper);
+
+                    if (params.scale() != null) {
+                        throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
+                    }
+
+                    break;
+
+                case YES_YES:
+                    validatePrecision(params, helper);
+
+                    validateScale(params, helper);
+
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Usupported type: " + precScale);
             }
         }
 

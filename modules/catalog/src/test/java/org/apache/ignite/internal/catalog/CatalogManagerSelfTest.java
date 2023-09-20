@@ -617,7 +617,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ColumnParams colWithPrecision;
         Builder colWithPrecisionBuilder = columnParamsBuilder("COL_PRECISION", type).precision(3);
 
-        if (type == NUMBER) {
+        if (type.precScale() == PrecisionScale.YES_YES) {
             colWithPrecisionBuilder.scale(0);
         }
 

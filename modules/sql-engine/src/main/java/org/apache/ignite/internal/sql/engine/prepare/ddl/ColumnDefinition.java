@@ -101,7 +101,7 @@ public class ColumnDefinition {
     public @Nullable Integer scale() {
         int scale = type.getScale();
         Integer ret = scale == SCALE_NOT_SPECIFIED ? null : scale;
-        return type.getSqlTypeName().allowsScale() ? ret : null;
 
+        return type.getSqlTypeName().allowsScale() ? ret : null;
     }
 }
