@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static java.util.Arrays.copyOfRange;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -1056,6 +1057,25 @@ public class IgniteUtils {
         }
 
         return result;
+    }
+
+    public static byte[] byteBufferToByteArray(ByteBuffer buffer) {
+        if (buffer.hasArray()) {
+            int offset = buffer.arrayOffset();
+
+            return copyOfRange(buffer.array(), offset, offset + buffer.limit());
+        } else {
+            byte[] array = new byte[buffer.limit()];
+
+            int originalPosition = buffer.position();
+
+            buffer.position(0);
+            buffer.get(array);
+
+            buffer.position(originalPosition);
+
+            return array;
+        }
     }
 
     /**
