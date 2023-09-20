@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.tx;
+
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * The event cas which is produced by event producer component.
- *
- * @see Producer#fireEvent(Event, EventParameters, Throwable)
+ * Transaction metadata interface.
  */
-public interface Event {
+public interface TransactionMeta extends Serializable {
+    /** Tx state. */
+    TxState txState();
+
+    /** Commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 }

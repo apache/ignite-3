@@ -15,28 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.notifications;
+package org.apache.ignite.internal.event;
 
-/**
- * Configuration storage revision change listener holder.
- */
-public interface ConfigurationStorageRevisionListenerHolder {
+/** Allows to {@link #listen add} and {@link #removeListener remove} event listeners that the component will produce. */
+public interface EventProducer<T extends Event, P extends EventParameters> {
     /**
-     * Adds configuration storage revision change listener.
+     * Registers an event listener. If {@link EventListener#notify} returns {@code true}, it would never be invoked again.
      *
-     * <p>NOTE: If this method is called from another listener, then it is guaranteed to be called starting from the next configuration
-     * update only.
-     *
+     * @param evt Event.
      * @param listener Listener.
      */
-    void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener);
+    void listen(T evt, EventListener<? extends P> listener);
 
     /**
-     * Removes configuration storage revision change listener.
+     * Removes a listener associated with the event.
      *
-     * <p>NOTE: Unpredictable behavior if the method is called inside other listeners.
-     *
+     * @param evt Event.
      * @param listener Listener.
      */
-    void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener);
+    void removeListener(T evt, EventListener<? extends P> listener);
 }

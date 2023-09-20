@@ -185,6 +185,11 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
+    public boolean isVolatile() {
+        return false;
+    }
+
+    @Override
     public PersistentPageMemoryTableStorage createMvTable(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier

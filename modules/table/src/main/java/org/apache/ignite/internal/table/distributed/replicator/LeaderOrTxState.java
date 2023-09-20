@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import java.io.Serializable;
-import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
+import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Response for the {@link TxStateReplicaRequest}. Can contain either the consistent ID of the Partition Group leader, which should be
- * queried for the TX Meta, or the TX Meta itself.
+ * Response for the {@link TxStateCommitPartitionRequest}. Can contain either the consistent ID of the Partition Group leader, which should
+ * be queried for the TX Meta, or the TX Meta itself.
  */
 public class LeaderOrTxState implements Serializable {
     private static final long serialVersionUID = -3555591755828355117L;
@@ -33,7 +33,7 @@ public class LeaderOrTxState implements Serializable {
     private final String leaderName;
 
     @Nullable
-    private final TxMeta txMeta;
+    private final TransactionMeta txMeta;
 
     /**
      * Creates a response.
@@ -41,7 +41,7 @@ public class LeaderOrTxState implements Serializable {
      * @param leaderName Leader consistent ID.
      * @param txMeta TX meta.
      */
-    public LeaderOrTxState(@Nullable String leaderName, @Nullable TxMeta txMeta) {
+    public LeaderOrTxState(@Nullable String leaderName, @Nullable TransactionMeta txMeta) {
         this.leaderName = leaderName;
         this.txMeta = txMeta;
     }
@@ -50,7 +50,7 @@ public class LeaderOrTxState implements Serializable {
         return leaderName;
     }
 
-    public @Nullable TxMeta txMeta() {
+    public @Nullable TransactionMeta txMeta() {
         return txMeta;
     }
 }

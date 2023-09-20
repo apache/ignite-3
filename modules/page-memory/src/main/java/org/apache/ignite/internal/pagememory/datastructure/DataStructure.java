@@ -39,7 +39,7 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.HexStringUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
@@ -454,7 +454,7 @@ public abstract class DataStructure implements ManuallyCloseable {
             recycled = PageIdUtils.rotatePageId(pageId);
         }
 
-        assert itemId(recycled) > 0 && itemId(recycled) <= MAX_ITEM_ID_NUM : IgniteUtils.hexLong(recycled);
+        assert itemId(recycled) > 0 && itemId(recycled) <= MAX_ITEM_ID_NUM : HexStringUtils.hexLong(recycled);
 
         PageIo.setPageId(pageAddr, recycled);
 

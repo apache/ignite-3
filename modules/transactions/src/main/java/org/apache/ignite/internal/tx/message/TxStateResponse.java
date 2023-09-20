@@ -15,34 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.tx.message;
+
+import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Event parameters. This type passed to the event listener.
- *
- * @see Producer#fireEvent(Event, EventParameters, Throwable)
+ * Transaction state response.
  */
-public abstract class EventParameters {
-    /** Causality token. */
-    private final long causalityToken;
-
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     */
-    public EventParameters(long causalityToken) {
-        this.causalityToken = causalityToken;
-    }
-
-    /**
-     * Returns a causality token.
-     * The token is required for represent a causality dependency between several events.
-     * The earlier the event occurred, the lower the value of the token.
-     *
-     * @return Causality token.
-     */
-    public long causalityToken() {
-        return causalityToken;
-    }
+@Transferable(TxMessageGroup.TX_STATE_RESPONSE)
+public interface TxStateResponse extends TimestampAware {
+    @Marshallable
+    @Nullable
+    TransactionMeta txStateMeta();
 }

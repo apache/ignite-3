@@ -18,7 +18,6 @@
 #include "odbc_connection.h"
 #include "odbc_suite.h"
 
-#include "ignite/common/config.h"
 #include "ignite/odbc/string_utils.h"
 
 #include <gtest/gtest.h>
@@ -278,8 +277,6 @@ public:
     }
 };
 
-// TODO IGNITE-19216 Implement type info fetching
-#ifdef MUTED
 TEST_F(meta_queries_test, test_get_type_info_all_types) {
     odbc_connect(get_basic_connection_string());
 
@@ -287,8 +284,16 @@ TEST_F(meta_queries_test, test_get_type_info_all_types) {
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+
+    constexpr auto TYPES_NUM = 16;
+    for (int i = 0; i < TYPES_NUM; ++i) {
+        ret = SQLFetch(m_statement);
+        EXPECT_EQ(ret, SQL_SUCCESS) << "Index " << i;
+    }
+
+    ret = SQLFetch(m_statement);
+    EXPECT_EQ(ret, SQL_NO_DATA);
 }
-#endif // MUTED
 
 TEST_F(meta_queries_test, date_type_column_attribute_curdate) {
     odbc_connect(get_basic_connection_string());
@@ -516,8 +521,6 @@ TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
 }
 #endif // MUTED
 
-// TODO: IGNITE-19216 Implement type info query.
-#ifdef MUTED
 TEST_F(meta_queries_test, get_data_with_get_type_info) {
     odbc_connect(get_basic_connection_string());
 
@@ -528,7 +531,6 @@ TEST_F(meta_queries_test, get_data_with_get_type_info) {
 
     check_single_row_result_set_with_get_data(m_statement);
 }
-#endif // MUTED
 
 TEST_F(meta_queries_test, get_data_with_tables) {
     odbc_connect(get_basic_connection_string());
@@ -660,7 +662,7 @@ TEST_F(meta_queries_test, ddl_tables_meta_table_type_list) {
 }
 
 template<size_t n, size_t k>
-void check_meta(char columns[n][k], SQLLEN columns_len[n], std::string table_name) {
+void check_meta(char columns[n][k], SQLLEN columns_len[n], const std::string &table_name) {
     std::string catalog(columns[0], columns_len[0]);
     std::string schema(columns[1], columns_len[1]);
     std::string table(columns[2], columns_len[2]);

@@ -95,6 +95,7 @@ public class Main {
         CommandLine cmd = new CommandLine(TopLevelCliCommand.class, micronautFactory);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
         cmd.setDefaultValueProvider(micronautFactory.create(ConfigDefaultValueProvider.class));
+        cmd.setTrimQuotes(true);
         return cmd.execute(args);
     }
 

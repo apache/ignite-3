@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.pagememory.io.PageIo.getVersion;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
+import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.EMPTY;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -228,6 +228,11 @@ public class CheckpointPagesWriter implements Runnable {
                         pageMemory,
                         pm -> createPageStoreWriter(pm, pageIdsToRetry)
                 );
+
+                if (fullId.pageIdx() == 0) {
+                    // Skip meta-pages, they are written by "writePartitionMeta".
+                    continue;
+                }
 
                 // Should also be done for partitions that will be destroyed to remove their pages from the data region.
                 pageMemory.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);

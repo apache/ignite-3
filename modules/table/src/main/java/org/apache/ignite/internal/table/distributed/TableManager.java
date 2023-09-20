@@ -90,12 +90,12 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -191,7 +191,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Table manager.
  */
-public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
+public class TableManager extends AbstractEventProducer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
@@ -432,7 +432,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
-        transactionStateResolver = new TransactionStateResolver(replicaSvc, clusterNodeResolver);
+        transactionStateResolver = new TransactionStateResolver(
+                replicaSvc,
+                txManager,
+                clock,
+                clusterNodeResolver,
+                topologyService::getById,
+                clusterService.messagingService()
+        );
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -494,6 +501,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             mvGc.start();
 
             lowWatermark.start();
+
+            transactionStateResolver.start();
 
             CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 

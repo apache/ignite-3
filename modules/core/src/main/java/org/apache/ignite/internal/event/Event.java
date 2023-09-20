@@ -15,22 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.notifications;
+package org.apache.ignite.internal.event;
 
-import java.util.concurrent.CompletableFuture;
-
-/**
- * Configuration storage revision change listener.
- *
- * <p>Storage revision - monotonously increasing counter, linked to the specific storage for current configuration values.
- */
-@FunctionalInterface
-public interface ConfigurationStorageRevisionListener {
-    /**
-     * Called on update the storage version.
-     *
-     * @param newStorageRevision Updated configuration storage revision.
-     * @return Future that signifies the end of the listener execution.
-     */
-    CompletableFuture<?> onUpdate(long newStorageRevision);
+/** An event which is produced by a component. */
+public interface Event {
 }

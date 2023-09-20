@@ -42,6 +42,9 @@ public final class Types {
     public static final NativeType DECIMAL_6_1 = NativeTypes.decimalOf(6, 1);
     public static final NativeType DECIMAL_8_3 = NativeTypes.decimalOf(8, 3);
 
+    public static final NativeType DECIMAL_14_7 = NativeTypes.decimalOf(14, 7);
+    public static final NativeType DECIMAL_30_15 = NativeTypes.decimalOf(30, 15);
+
     private Types() {
         throw new AssertionError("Should not be called");
     }
