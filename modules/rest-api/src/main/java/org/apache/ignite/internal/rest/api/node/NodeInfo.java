@@ -24,24 +24,24 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 /**
- * Node state that is returned by REST.
+ * Node info that is returned by REST.
  */
-@Schema(description = "Node state.")
-public class NodeState {
+@Schema(description = "Node info.")
+public class NodeInfo {
     @Schema(description = "Unique node name.", requiredMode = RequiredMode.REQUIRED)
     private final String name;
 
-    @Schema(description = "Node status.", requiredMode = RequiredMode.REQUIRED)
-    private final State state;
+    @Schema(description = "Node JDBC port.", requiredMode = RequiredMode.REQUIRED)
+    private final int jdbcPort;
 
     /**
-     * Construct NodeState DTO.
+     * Construct NodeInfo DTO.
      */
     @JsonCreator
-    public NodeState(@JsonProperty("name") String name,
-            @JsonProperty("state") State state) {
+    public NodeInfo(@JsonProperty("name") String name,
+            @JsonProperty("jdbcPort") int jdbcPort) {
         this.name = name;
-        this.state = state;
+        this.jdbcPort = jdbcPort;
     }
 
     @JsonGetter("name")
@@ -49,8 +49,8 @@ public class NodeState {
         return name;
     }
 
-    @JsonGetter("state")
-    public State state() {
-        return state;
+    @JsonGetter("jdbcPort")
+    public int jdbcPort() {
+        return jdbcPort;
     }
 }

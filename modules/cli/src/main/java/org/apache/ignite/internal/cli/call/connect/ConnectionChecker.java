@@ -36,7 +36,7 @@ import org.apache.ignite.internal.cli.core.rest.ApiClientSettingsBuilder;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.NodeState;
+import org.apache.ignite.rest.client.model.NodeInfo;
 
 /**
  * Checks connection to the Ignite3 node. Creates {@link SessionInfo} on success.
@@ -94,10 +94,10 @@ public class ConnectionChecker {
     private SessionInfo checkConnection(ApiClientSettings apiClientSettings) throws ApiException {
         ApiClient apiClient = ApiClientFactory.buildClient(apiClientSettings);
 
-        NodeState nodeState = new NodeManagementApi(apiClient).nodeState();
-        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(apiClientSettings.basePath(), nodeState.getJdbcPort());
+        NodeInfo nodeInfo = new NodeManagementApi(apiClient).nodeInfo();
+        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(apiClientSettings.basePath(), nodeInfo.getJdbcPort());
         return SessionInfo.builder().nodeUrl(apiClientSettings.basePath())
-                .nodeName(nodeState.getName()).jdbcUrl(jdbcUrl).username(apiClientSettings.basicAuthenticationUsername()).build();
+                .nodeName(nodeInfo.getName()).jdbcUrl(jdbcUrl).username(apiClientSettings.basicAuthenticationUsername()).build();
     }
 
     /**
