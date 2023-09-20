@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.calcite.schema.Statistics;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.schema.CatalogColumnDescriptor;

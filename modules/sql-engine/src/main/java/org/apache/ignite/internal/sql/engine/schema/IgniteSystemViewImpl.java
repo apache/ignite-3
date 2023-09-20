@@ -26,6 +26,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.Statistic;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -33,18 +34,28 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  */
 public class IgniteSystemViewImpl extends AbstractIgniteDataSource implements IgniteSystemView {
 
+    /** Constructor. */
     public IgniteSystemViewImpl(String name, int id, int version, TableDescriptor desc) {
-        super(name, id, version, desc, new Statistic() {
-            @Override
-            public @Nullable RelDistribution getDistribution() {
-                return desc.distribution();
-            }
-        });
+        super(name, id, version, desc, new SystemViewStatistic(desc.distribution()));
     }
 
     /** {@inheritDoc} */
     @Override
     protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
         return IgniteLogicalSystemViewScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
+    }
+
+    private static final class SystemViewStatistic implements Statistic {
+
+        private final IgniteDistribution distribution;
+
+        private SystemViewStatistic(IgniteDistribution distribution) {
+            this.distribution = distribution;
+        }
+
+        @Override
+        public @Nullable RelDistribution getDistribution() {
+            return distribution;
+        }
     }
 }

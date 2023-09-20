@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Statistics;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
