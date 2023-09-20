@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerSelfTest.applyNecessaryPrecisionScale;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecisionScale;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 

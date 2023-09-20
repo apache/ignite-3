@@ -48,9 +48,6 @@ public class CatalogUtils {
     /** Default number of distribution zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;
 
-    /** Default nullable behavior. */
-    public static final boolean DEFAULT_NULLABLE = false;
-
     /**
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
      * nodes.

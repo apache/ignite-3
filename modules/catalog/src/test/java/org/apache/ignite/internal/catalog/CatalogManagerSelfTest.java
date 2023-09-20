@@ -23,9 +23,10 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecision;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecisionScale;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_NULLABLE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
@@ -576,34 +577,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 willThrowFast(CatalogValidationException.class, "Decreasing the precision is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
-    }
-
-    @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
-    public void testColumnSetPrecisionScale(ColumnType type) {
-        Builder colBuilder = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20);
-
-        Builder colBuilderErrPrec1 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, Integer.MIN_VALUE, 2);
-        Builder colBuilderErrPrec2 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, Integer.MAX_VALUE, 2);
-        Builder colBuilderErrScale1 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, Integer.MAX_VALUE);
-
-        if (type.precScale() == PrecisionScale.NO_NO) {
-            assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Precision is not applicable for column of type");
-        }
-
-        if (type.precScale() == PrecisionScale.YES_NO) {
-            Builder colBuilder0 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, 2);
-            assertThrowsWithCause(colBuilder0::build, CatalogValidationException.class, "Scale is not applicable for column of type");
-        }
-
-        if (type.precScale() == PrecisionScale.YES_NO || type.precScale() == PrecisionScale.YES_YES) {
-            assertThrowsWithCause(colBuilderErrPrec1::build, CatalogValidationException.class, "must be between");
-            assertThrowsWithCause(colBuilderErrPrec2::build, CatalogValidationException.class, "must be between");
-        }
-
-        if (type.precScale() == PrecisionScale.YES_YES) {
-            assertThrowsWithCause(colBuilderErrScale1::build, CatalogValidationException.class, "must be between");
-        }
     }
 
     /**
@@ -1864,25 +1837,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
 
         assertThat(versionAfter, is(versionBefore));
-    }
-
-    /** Append precision\scale according to type requirement. */
-    public static Builder applyNecessaryPrecisionScale(ColumnType type, Builder colBuilder) {
-        if (type.precScale() != PrecisionScale.NO_NO) {
-            colBuilder.precision(11);
-        }
-
-        if (type.precScale() == PrecisionScale.YES_YES) {
-            colBuilder.scale(0);
-        }
-
-        return colBuilder;
-    }
-
-    private static void applyNecessaryPrecision(ColumnType type, Builder colBuilder) {
-        if (type.precScale() != PrecisionScale.NO_NO) {
-            colBuilder.precision(11);
-        }
     }
 
     private CompletableFuture<Void> changeColumn(

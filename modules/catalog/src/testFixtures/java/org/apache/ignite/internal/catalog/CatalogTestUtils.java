@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -27,6 +28,8 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ColumnType.PrecisionScale;
 
 /**
  * Utilities for working with the catalog in tests.
@@ -113,5 +116,28 @@ public class CatalogTestUtils {
                 clockWaiter.stop();
             }
         };
+    }
+
+    /** Default nullable behavior. */
+    public static final boolean DEFAULT_NULLABLE = false;
+
+    /** Append precision\scale according to type requirement. */
+    public static Builder applyNecessaryPrecisionScale(ColumnType type, Builder colBuilder) {
+        if (type.precScale() != PrecisionScale.NO_NO) {
+            colBuilder.precision(11);
+        }
+
+        if (type.precScale() == PrecisionScale.YES_YES) {
+            colBuilder.scale(0);
+        }
+
+        return colBuilder;
+    }
+
+    /** Append scale according to type requirement. */
+    public static void applyNecessaryPrecision(ColumnType type, Builder colBuilder) {
+        if (type.precScale() != PrecisionScale.NO_NO) {
+            colBuilder.precision(11);
+        }
     }
 }
