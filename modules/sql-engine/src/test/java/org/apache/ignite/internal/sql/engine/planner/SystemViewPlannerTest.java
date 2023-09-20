@@ -143,7 +143,7 @@ public class SystemViewPlannerTest extends AbstractPlannerTest {
         int id = SYSTEM_VIEW_ID.incrementAndGet();
         TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, IgniteDistributions.single());
 
-        return new IgniteSystemViewImpl(name, id, 1, tableDescriptor, Statistics.UNKNOWN);
+        return new IgniteSystemViewImpl(name, id, 1, tableDescriptor);
     }
 
     private static <T extends RelNode> Predicate<T> hasExpr(Function<T, RexNode> expr, String... expectedExprs) {

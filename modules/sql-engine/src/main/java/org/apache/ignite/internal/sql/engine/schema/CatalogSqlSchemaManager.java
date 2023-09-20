@@ -151,7 +151,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             String viewName = systemViewDescriptor.name();
             TableDescriptor descriptor = createTableDescriptorForSystemView(systemViewDescriptor);
 
-            IgniteSystemView schemaTable = new IgniteSystemViewImpl(viewName, viewId, version, descriptor, Statistics.UNKNOWN);
+            IgniteSystemView schemaTable = new IgniteSystemViewImpl(viewName, viewId, version, descriptor);
 
             schemaDataSources.add(schemaTable);
         }

@@ -21,18 +21,25 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.Statistic;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * System view.
  */
 public class IgniteSystemViewImpl extends AbstractIgniteDataSource implements IgniteSystemView {
 
-    public IgniteSystemViewImpl(String name, int id, int version, TableDescriptor desc, Statistic statistic) {
-        super(name, id, version, desc, statistic);
+    public IgniteSystemViewImpl(String name, int id, int version, TableDescriptor desc) {
+        super(name, id, version, desc, new Statistic() {
+            @Override
+            public @Nullable RelDistribution getDistribution() {
+                return desc.distribution();
+            }
+        });
     }
 
     /** {@inheritDoc} */

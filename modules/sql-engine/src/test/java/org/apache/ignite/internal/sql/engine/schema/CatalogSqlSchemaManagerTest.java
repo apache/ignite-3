@@ -328,6 +328,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         int tableId = table.id();
         assertEquals(IgniteDistributions.affinity(List.of(1, 2), tableId, tableId), distribution);
+        assertEquals(distribution, table.getStatistic().getDistribution());
     }
 
     /**
@@ -433,6 +434,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         assertEquals(testSystemView.id, systemView.id());
         assertEquals(distribution, systemView.distribution());
+        assertEquals(distribution, systemView.getStatistic().getDistribution());
     }
 
     /**
