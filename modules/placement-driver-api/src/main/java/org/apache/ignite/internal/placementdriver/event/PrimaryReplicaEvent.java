@@ -18,9 +18,26 @@
 package org.apache.ignite.internal.placementdriver.event;
 
 import org.apache.ignite.internal.event.Event;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 
 /** Primary replica management events. */
 public enum PrimaryReplicaEvent implements Event {
-    /** This event is fired when a replica becomes primary or when the primary replica changes for a replication group. */
+    /**
+     * This event is fired when a primary replica is selected for a replication group.
+     *
+     * <p>The primary replica is a lease-based object, which means it is limited in time. Therefore, after receiving this event, it is
+     * important to use {@link PlacementDriver#awaitPrimaryReplica} which will allow to work with this replica and understand when lease
+     * expires or prolonged.</p>
+     *
+     * <p>Notes:</p>
+     * <ul>
+     *     <li>This event will fire strictly after the completion of the future from {@link PlacementDriver#awaitPrimaryReplica};</li>
+     *     <li>This event will fire when on node recovery and will indicate the primary replica at the time the node was stopped;</li>
+     *     <li>If a lease prolongation occurs, this event will not fire;</li>
+     *     <li>When working from a primary replica, it is recommended to check whether it has become outdated using
+     *     {@link ReplicaMeta#getExpirationTime()}.</li>
+     * </ul>
+     */
     PRIMARY_REPLICA_ELECTED;
 }
