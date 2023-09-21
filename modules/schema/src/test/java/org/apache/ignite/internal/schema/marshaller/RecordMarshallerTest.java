@@ -158,7 +158,7 @@ public class RecordMarshallerTest {
                 "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
                         + "longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, primitiveFloatCol, "
                         + "primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] of type "
-                        + "org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns.",
+                        + "org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns",
                 ex.getMessage());
     }
 

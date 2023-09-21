@@ -194,7 +194,7 @@ public class KvMarshallerTest {
                 IllegalArgumentException.class,
                 () -> factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class));
 
-        assertEquals("No field found for column BOOLEANCOL", ex.getMessage());
+        assertEquals("No mapped object field found for column 'BOOLEANCOL'", ex.getMessage());
     }
 
     @ParameterizedTest
@@ -217,7 +217,7 @@ public class KvMarshallerTest {
                 "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
                         + "intCol, longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, "
                         + "primitiveFloatCol, primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] "
-                        + "of type org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns.",
+                        + "of type org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns",
                 ex.getMessage());
     }
 
