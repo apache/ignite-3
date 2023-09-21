@@ -485,7 +485,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             PrimaryReplicaEventParameters parameters
     ) {
         assertThat(parameters.groupId(), equalTo(expLease.replicationGroupId()));
-        assertThat(parameters.meta(), equalTo(expLease));
+        assertThat(parameters.leaseholder(), equalTo(expLease.getLeaseholder()));
     }
 
     private LeaseTracker createPlacementDriver() {

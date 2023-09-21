@@ -291,6 +291,13 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
-        return fireEvent(PRIMARY_REPLICA_ELECTED, new PrimaryReplicaEventParameters(causalityToken, lease.replicationGroupId(), lease));
+        String leaseholder = lease.getLeaseholder();
+
+        assert leaseholder != null : lease;
+
+        return fireEvent(
+                PRIMARY_REPLICA_ELECTED,
+                new PrimaryReplicaEventParameters(causalityToken, lease.replicationGroupId(), leaseholder)
+        );
     }
 }
