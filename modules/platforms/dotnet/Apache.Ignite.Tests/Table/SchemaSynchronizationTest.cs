@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
@@ -337,8 +338,10 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
     public async Task TestSchemaUpdateWhileStreaming([Values(true, false)] bool insertNewColumn)
     {
+        using var metricListener = new MetricsTests.Listener();
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
 
         var table = await Client.Tables.GetTableAsync(TestTableName);
@@ -365,6 +368,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
             // Update schema.
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.
+            metricListener.AssertMetric("streamer-items-sent", 6, 3000);
             await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
             await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
