@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.raft.Loza;
@@ -54,12 +58,27 @@ class Node implements AutoCloseable {
         this.placementDriverManager = placementDriverManager;
     }
 
+    void start() {
+        vault.start();
+        clusterService.start();
+        loza.start();
+        metastore.start();
+
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        placementDriverManager.start();
+
+        assertThat(metastore.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+    }
+
     @Override
     public void close() throws Exception {
         List<IgniteComponent> igniteComponents = List.of(placementDriverManager, metastore, loza, clusterService, vault);
 
-        IgniteUtils.closeAll(igniteComponents.stream().map(component -> component::beforeNodeStop));
-
-        IgniteUtils.stopAll(igniteComponents.stream());
+        IgniteUtils.closeAll(Stream.concat(
+                igniteComponents.stream().map(component -> component::beforeNodeStop),
+                Stream.of(() -> IgniteUtils.stopAll(igniteComponents.stream()))
+        ));
     }
 }

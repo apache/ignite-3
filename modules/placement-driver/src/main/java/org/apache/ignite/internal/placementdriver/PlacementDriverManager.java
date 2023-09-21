@@ -126,13 +126,11 @@ public class PlacementDriverManager implements IgniteComponent {
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metastore = metastore;
 
-        startVv = new IncrementalVersionedValue<>(registry);
+        this.raftClientFuture = new CompletableFuture<>();
 
-        raftClientFuture = new CompletableFuture<>();
+        this.leaseTracker = new LeaseTracker(metastore);
 
-        leaseTracker = new LeaseTracker(metastore);
-
-        leaseUpdater = new LeaseUpdater(
+        this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,
                 metastore,
@@ -140,6 +138,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 leaseTracker,
                 clock
         );
+
+        this.startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override

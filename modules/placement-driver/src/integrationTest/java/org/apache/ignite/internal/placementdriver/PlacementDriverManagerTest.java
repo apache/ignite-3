@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.LongFunction;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -265,9 +266,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 vaultManager
         );
 
-        IgniteUtils.closeAll(igniteComponents.stream().filter(Objects::nonNull).map(component -> component::beforeNodeStop));
-
-        IgniteUtils.stopAll(igniteComponents.stream());
+        IgniteUtils.closeAll(Stream.concat(
+                igniteComponents.stream().filter(Objects::nonNull).map(component -> component::beforeNodeStop),
+                Stream.of(() -> IgniteUtils.stopAll(igniteComponents.stream())))
+        );
     }
 
     @Test

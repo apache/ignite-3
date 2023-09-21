@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -280,30 +277,10 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeClock
             );
 
-            vaultManager.start();
-            clusterService.start();
-            raftManager.start();
-            metaStorageManager.start();
-
             res.add(new Node(nodeName, vaultManager, clusterService, raftManager, metaStorageManager, placementDriverManager));
         }
 
-        assertThat(
-                allOf(res.stream().map(node -> node.metastore.recoveryFinishedFuture()).toArray(CompletableFuture[]::new)),
-                willCompleteSuccessfully()
-        );
-
-        res.forEach(node -> node.placementDriverManager.start());
-
-        assertThat(
-                allOf(res.stream().map(node -> node.metastore.notifyRevisionUpdateListenerOnStart()).toArray(CompletableFuture[]::new)),
-                willCompleteSuccessfully()
-        );
-
-        assertThat(
-                allOf(res.stream().map(node -> node.metastore.deployWatches()).toArray(CompletableFuture[]::new)),
-                willCompleteSuccessfully()
-        );
+        res.forEach(Node::start);
 
         return res;
     }
