@@ -272,9 +272,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
         // Check that all fields from holder are registered in MetricSet.
         for (var field : holder.getClass().getDeclaredFields()) {
-            var metric = metricSet.get(field.getName());
+            if ("metrics".equals(field.getName())) {
+                continue;
+            }
 
-            assertNotNull(metric, "Metric is not registered: " + field.getName());
+            var metricName = field.getName().substring(0, 1).toUpperCase() + field.getName().substring(1);
+            var metric = metricSet.get(metricName);
+
+            assertNotNull(metric, "Metric is not registered: " + metricName);
         }
     }
 
