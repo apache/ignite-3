@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.apache.calcite.sql.SqlLiteral;
@@ -30,8 +30,8 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.pretty.SqlFormatOptions;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -78,7 +78,10 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         assertThat(dflt, instanceOf(SqlLiteral.class));
         assertThat(((SqlLiteral) dflt).getValueAs(Integer.class), equalTo(10));
 
-        assertThrows(SqlException.class, () -> parse(QUERY_PREFIX + "SET DEFAULT FUNC"));
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"FUNC\"",
+                () -> parse(QUERY_PREFIX + "SET DEFAULT FUNC"));
     }
 
     /**
@@ -101,7 +104,10 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         validateDataType("SET DATA TYPE INTEGER NOT NULL DEFAULT -1", "INTEGER", true, -1);
         validateDataType("SET DATA TYPE INTEGER NULL DEFAULT NULL", "INTEGER", false, null);
 
-        assertThrows(SqlException.class, () -> parse(QUERY_PREFIX + "SET DATA TYPE INTEGER DEFAULT FUNC"));
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"FUNC\"",
+                () -> parse(QUERY_PREFIX + "SET DATA TYPE INTEGER DEFAULT FUNC"));
     }
 
     private void validateDataType(String querySuffix, @Nullable String typeName, @Nullable Boolean notNull, @Nullable Object expDefault) {

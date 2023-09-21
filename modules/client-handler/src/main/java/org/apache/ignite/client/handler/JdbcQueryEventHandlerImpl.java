@@ -173,8 +173,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
                     String msg = getErrorMessage(t);
 
-                    return new JdbcQueryExecuteResult(Response.STATUS_FAILED,
-                            "Exception while executing query [query=" + req.sqlQuery() + "]. Error message:" + msg);
+                    return new JdbcQueryExecuteResult(Response.STATUS_FAILED, msg);
                 });
     }
 

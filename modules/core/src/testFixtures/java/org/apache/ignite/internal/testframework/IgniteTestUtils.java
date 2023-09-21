@@ -54,6 +54,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.hamcrest.CustomMatcher;
@@ -309,6 +310,8 @@ public final class IgniteTestUtils {
             if (!hasCause(e, cls, msg)) {
                 fail("Exception is neither of a specified class, nor has a cause of the specified class: " + cls, e);
             }
+
+            IgniteExceptionMapperUtil.assertInternal(e);
 
             return e;
         }

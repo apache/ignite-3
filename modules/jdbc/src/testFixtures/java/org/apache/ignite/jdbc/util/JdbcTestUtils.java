@@ -22,6 +22,7 @@ import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.SQLException;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.junit.jupiter.api.function.Executable;
 
 /**
@@ -37,8 +38,11 @@ public class JdbcTestUtils {
      * @return Thrown the {@link SQLException}.
      */
     public static <T extends SQLException> T assertThrowsSqlException(Class<T> expectedType, Executable executable) {
-        return assertThrows(expectedType, executable);
+        T ex = assertThrows(expectedType, executable);
 
+        IgniteExceptionMapperUtil.assertInternal(ex);
+
+        return ex;
     }
 
     /**

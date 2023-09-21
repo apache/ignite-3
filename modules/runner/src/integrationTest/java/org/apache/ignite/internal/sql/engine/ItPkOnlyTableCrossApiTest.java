@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -257,18 +257,24 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
                 rwTx -> {
                     recordView.upsert(rwTx, Tuple.create().set("id", 0).set("name", names[0]));
 
-                    SqlException ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
-                    assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
+                    assertThrowsSqlException(
+                            CONSTRAINT_VIOLATION_ERR,
+                            "PK unique constraint is violated",
+                            () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
 
                     kvView.put(rwTx, new KeyObject(1, names[1]), null);
 
-                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 1, names[1])));
-                    assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
+                    assertThrowsSqlException(
+                            CONSTRAINT_VIOLATION_ERR,
+                            "PK unique constraint is violated",
+                            () -> sql(rwTx, String.format(sqlInsert, 1, names[1])));
 
                     binView.put(rwTx, Tuple.create().set("id", 2).set("name", names[2]), Tuple.create());
 
-                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 2, names[2])));
-                    assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
+                    assertThrowsSqlException(
+                            CONSTRAINT_VIOLATION_ERR,
+                            "PK unique constraint is violated",
+                            () -> sql(rwTx, String.format(sqlInsert, 2, names[2])));
 
                     sql(rwTx, String.format(sqlInsert, 3, names[3]));
                 },

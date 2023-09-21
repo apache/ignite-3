@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,6 +37,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.function.Executable;
@@ -81,7 +81,7 @@ public class SqlTestUtils {
 
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
-        assertThat("Exception shouldn't be in internal package", ex.getClass().getPackageName(), not(containsString("internal")));
+        IgniteExceptionMapperUtil.assertInternal(ex);
 
         return ex;
     }

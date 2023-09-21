@@ -17,8 +17,8 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
@@ -118,8 +118,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
                 // Starting transaction.
                 stmt.executeUpdate("insert into TEST (ID) values (1)");
 
-                SQLException ex = assertThrows(SQLException.class, () -> stmt.executeUpdate("drop table TEST"));
-                assertTrue(ex.getMessage().contains("DDL doesn't support transactions."));
+                assertThrowsSqlException("DDL doesn't support transactions.", () -> stmt.executeUpdate("drop table TEST"));
 
                 assertEquals(1, rowsCount(conn));
                 assertEquals(0, rowsCount(ItJdbcTransactionTest.conn));
@@ -225,8 +224,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(true);
 
-            SQLException t = assertThrows(SQLException.class, conn::commit);
-            assertEquals("Transaction cannot be committed explicitly in auto-commit mode.", t.getMessage());
+            assertThrowsSqlException("Transaction cannot be committed explicitly in auto-commit mode.", conn::commit);
         }
     }
 
@@ -238,8 +236,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(true);
 
-            SQLException t = assertThrows(SQLException.class, conn::rollback);
-            assertEquals("Transaction cannot be rolled back explicitly in auto-commit mode.", t.getMessage());
+            assertThrowsSqlException("Transaction cannot be rolled back explicitly in auto-commit mode.", conn::rollback);
         }
     }
 

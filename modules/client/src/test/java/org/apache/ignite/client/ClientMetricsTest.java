@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -185,7 +187,10 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(1, metrics().requestsSent());
         assertEquals(0, metrics().requestsRetried());
 
-        assertThrows(SqlException.class, () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Query failed",
+                () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(1, metrics().requestsFailed());
