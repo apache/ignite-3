@@ -1144,8 +1144,7 @@ T application_data_buffer::get_num() const {
 
             converter << str;
 
-            // Workaround for char types which are recognised as
-            // symbolyc types and not numeric types.
+            // Workaround for char types which are recognized as symbolic types and not numeric types.
             if (sizeof(T) == 1) {
                 short tmp;
 

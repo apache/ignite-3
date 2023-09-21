@@ -33,6 +33,9 @@ enum class query_type {
 
     /** Table metadata. */
     TABLE_METADATA,
+
+    /** Type info. */
+    TYPE_INFO,
 };
 
 /**

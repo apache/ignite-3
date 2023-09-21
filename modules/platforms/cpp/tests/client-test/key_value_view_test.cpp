@@ -699,7 +699,7 @@ TEST_F(key_value_view_test, remove_all_nonexisting_keys_return_all) {
 
     EXPECT_EQ(res.size(), 2);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    // TODO: Key order should be preserved by the server (IGNITE-20435).
     EXPECT_EQ(2, res[0].key);
     EXPECT_EQ(1, res[1].key);
 }
@@ -732,7 +732,7 @@ TEST_F(key_value_view_test, remove_all_overlapped) {
 
     EXPECT_EQ(res.size(), 2);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    // TODO: Key order should be preserved by the server (IGNITE-20435).
     EXPECT_EQ(12, res[0].key);
     EXPECT_EQ(11, res[1].key);
 }
@@ -746,7 +746,7 @@ TEST_F(key_value_view_test, remove_all_exact_nonexisting) {
     auto res = kv_view.remove_all(
         nullptr, {{test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}});
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    // TODO: Key order should be preserved by the server (IGNITE-20435).
     ASSERT_EQ(2, res.size());
 }
 

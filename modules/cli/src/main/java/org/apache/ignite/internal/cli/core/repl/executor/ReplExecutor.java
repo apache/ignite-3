@@ -185,6 +185,7 @@ public class ReplExecutor {
         CommandLineContextProvider.setCmd(cmd);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler(exceptionHandlers));
         cmd.registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+        cmd.setTrimQuotes(true);
 
         DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);
         DynamicCompleterActivationPoint activationPoint = factory.create(DynamicCompleterActivationPoint.class);

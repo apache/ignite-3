@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.testframework;
+package org.apache.ignite.internal.tx.message;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
+import java.util.UUID;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Annotation for injecting {@link ConfigurationStorageRevisionListenerHolder} into tests.
- *
- * <p>This annotation should be used on either fields or method parameters, one instance per test.
+ * Transaction state request.
  */
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.PARAMETER})
-// TODO: IGNITE-19853 Get rid of this annotation.
-public @interface InjectRevisionListenerHolder {
+@Transferable(TxMessageGroup.TX_STATE_COMMIT_PARTITION_REQUEST)
+public interface TxStateCommitPartitionRequest extends ReplicaRequest {
+    UUID txId();
 }

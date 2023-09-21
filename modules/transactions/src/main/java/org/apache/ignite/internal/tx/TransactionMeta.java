@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.notifications;
+package org.apache.ignite.internal.tx;
 
-import java.util.concurrent.CompletableFuture;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Configuration storage revision change listener.
- *
- * <p>Storage revision - monotonously increasing counter, linked to the specific storage for current configuration values.
+ * Transaction metadata interface.
  */
-@FunctionalInterface
-public interface ConfigurationStorageRevisionListener {
-    /**
-     * Called on update the storage version.
-     *
-     * @param newStorageRevision Updated configuration storage revision.
-     * @return Future that signifies the end of the listener execution.
-     */
-    CompletableFuture<?> onUpdate(long newStorageRevision);
+public interface TransactionMeta extends Serializable {
+    /** Tx state. */
+    TxState txState();
+
+    /** Commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 }
