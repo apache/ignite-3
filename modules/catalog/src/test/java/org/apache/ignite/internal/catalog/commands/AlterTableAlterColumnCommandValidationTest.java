@@ -472,7 +472,6 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                         ColumnParams.builder()
                                 .name(columnName)
                                 .type(ColumnType.STRING)
-                                .precision(10)
                                 .length(10)
                                 .build())
                 )
