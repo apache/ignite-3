@@ -90,8 +90,8 @@ T unpack_int(const msgpack_object &object) {
 
 template<typename T>
 T unpack_uint(const msgpack_object &object) {
-    static_assert(
-        std::numeric_limits<T>::is_integer && !std::numeric_limits<T>::is_signed, "Type T is not a unsigned integer type");
+    static_assert(std::numeric_limits<T>::is_integer && !std::numeric_limits<T>::is_signed,
+        "Type T is not a unsigned integer type");
 
     auto u64_val = unpack_object<std::uint64_t>(object);
 

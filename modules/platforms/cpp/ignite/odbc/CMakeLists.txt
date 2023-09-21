@@ -37,6 +37,7 @@ set(SOURCES
     meta/table_meta.cpp
     query/data_query.cpp
     query/table_metadata_query.cpp
+    query/type_info_query.cpp
     odbc.cpp
     entry_points.cpp
     ssl_mode.cpp
