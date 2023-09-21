@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecisionScale;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
@@ -281,7 +281,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .name("ID")
                                 .type(ColumnType.INT32)
                                 .build(),
-                        applyNecessaryPrecisionScale(from, ColumnParams.builder()
+                        initializeColumnWithDefaults(from, ColumnParams.builder()
                                 .name(columnName)
                                 .type(from))
                                 .build())
@@ -314,11 +314,11 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(
-                        applyNecessaryPrecisionScale(ColumnType.INT64, ColumnParams.builder()
+                        initializeColumnWithDefaults(ColumnType.INT64, ColumnParams.builder()
                                 .name("ID")
                                 .type(ColumnType.INT64))
                                 .build(),
-                        applyNecessaryPrecisionScale(type, ColumnParams.builder()
+                        initializeColumnWithDefaults(type, ColumnParams.builder()
                                 .name(columnName)
                                 .type(type))
                                 .build())
@@ -433,7 +433,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .name("ID")
                                 .type(ColumnType.INT64)
                                 .build(),
-                        applyNecessaryPrecisionScale(type, ColumnParams.builder()
+                        initializeColumnWithDefaults(type, ColumnParams.builder()
                                 .name(columnName)
                                 .type(type))
                                 .build())

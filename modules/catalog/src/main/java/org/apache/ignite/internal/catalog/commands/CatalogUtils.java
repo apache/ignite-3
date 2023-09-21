@@ -71,11 +71,15 @@ public class CatalogUtils {
     /** Max number of distribution zone partitions. */
     public static final int MAX_PARTITION_COUNT = 65_000;
 
-    /** Flag indicate no precision applicability. */
-    public static final int PRECISION_NOT_APPLICABLE = Integer.MIN_VALUE;
+    /** Precision if not specified. */
+    public static final int DEFAULT_PRECISION = 0;
 
-    /** Flag indicate no scale applicability. */
-    public static final int SCALE_NOT_APPLICABLE = Integer.MIN_VALUE;
+    /**
+     * Default scale is 0.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 22
+     */
+    public static final int DEFAULT_SCALE = 0;
 
     /**
      * Maximum TIME and TIMESTAMP precision is implementation-defined.
@@ -193,8 +197,8 @@ public class CatalogUtils {
      * @return Column descriptor.
      */
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
-        int precision = params.precision() == null ? PRECISION_NOT_APPLICABLE : params.precision();
-        int scale = params.scale() == null ? SCALE_NOT_APPLICABLE : params.scale();
+        int precision = Objects.requireNonNullElse(params.precision(), DEFAULT_PRECISION);
+        int scale = Objects.requireNonNullElse(params.scale(), DEFAULT_SCALE);
         int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type(), precision));
 
         DefaultValue defaultValue = params.defaultValueDefinition();

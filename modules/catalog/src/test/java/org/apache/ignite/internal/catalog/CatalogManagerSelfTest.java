@@ -23,18 +23,23 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecision;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecisionScale;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropTableCommand;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.PRECISION_NOT_APPLICABLE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SCALE_NOT_APPLICABLE;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
@@ -242,7 +247,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
         assertNotNull(desc);
         // INT32 key
-        assertThat(desc.precision(), is(PRECISION_NOT_APPLICABLE));
+        assertThat(desc.precision(), is(DEFAULT_PRECISION));
 
         // Validate another table creation.
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
@@ -350,8 +355,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         long beforeAddedTimestamp = clock.nowLong();
 
         assertThat(
-                manager.execute(addColumnParams(
-                        columnParamsBuilder(NEW_COLUMN_NAME, STRING, true, 11).defaultValue(constant("Ignite!")).build()
+                manager.execute(addColumnParams(TABLE_NAME,
+                        columnParamsBuilder(NEW_COLUMN_NAME, STRING, 11, true).defaultValue(constant("Ignite!")).build()
                 )),
                 willBe(nullValue())
         );
@@ -378,9 +383,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DefaultValue.Type.CONSTANT, column.defaultValue().type());
         assertEquals("Ignite!", ((DefaultValue.ConstantValue) column.defaultValue()).value());
 
-        assertEquals(DEFAULT_VARLEN_LENGTH, column.length());
-        assertEquals(DFLT_TEST_PRECISION, column.precision());
-        assertEquals(SCALE_NOT_APPLICABLE, column.scale());
+        assertEquals(11, column.length());
+        assertEquals(DEFAULT_PRECISION, column.precision());
+        assertEquals(DEFAULT_SCALE, column.scale());
     }
 
     @Test
@@ -389,7 +394,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         long beforeAddedTimestamp = clock.nowLong();
 
-        assertThat(manager.execute(dropColumnParams("VAL")), willBe(nullValue()));
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "VAL")), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.activeSchema(beforeAddedTimestamp);
@@ -412,7 +417,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Add duplicate column.
         assertThat(
-                manager.execute(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32, true), columnParams("VAL", INT32, true))),
+                manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32, true), columnParams("VAL", INT32, true))),
                 willThrow(CatalogValidationException.class)
         );
 
@@ -423,7 +428,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Add multiple columns.
         assertThat(
-                manager.execute(addColumnParams(
+                manager.execute(addColumnParams(TABLE_NAME,
                         columnParams(NEW_COLUMN_NAME, INT32, true), columnParams(NEW_COLUMN_NAME_2, INT32, true)
                 )),
                 willBe(nullValue())
@@ -436,7 +441,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
 
         // Drop multiple columns.
-        assertThat(manager.execute(dropColumnParams(NEW_COLUMN_NAME, NEW_COLUMN_NAME_2)), willBe(nullValue()));
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, NEW_COLUMN_NAME, NEW_COLUMN_NAME_2)), willBe(nullValue()));
 
         // Validate both columns dropped.
         schema = manager.activeSchema(clock.nowLong());
@@ -588,6 +593,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ColumnParams pkCol = columnParams("ID", INT32);
         ColumnParams colWithPrecision;
         Builder colWithPrecisionBuilder = columnParamsBuilder("COL_PRECISION", type).precision(3);
+        applyNecessaryLength(type, colWithPrecisionBuilder);
 
         if (type.precScale() == PrecisionScale.YES_YES) {
             colWithPrecisionBuilder.scale(0);
@@ -636,7 +642,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
     public void testAlterColumnTypeLength(ColumnType type) {
         ColumnParams pkCol = columnParams("ID", INT32);
-        ColumnParams col = columnParamsBuilder("COL_" + type, type).length(10).precision(10).build();
+        ColumnParams col = columnParamsBuilder("COL_" + type, type).length(10).build();
 
         assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
@@ -690,10 +696,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         Builder colBuilder = columnParamsBuilder("COL", type);
         Builder colWithLengthBuilder = columnParamsBuilder("COL_PRECISION", type).length(10);
 
-        applyNecessaryPrecisionScale(type, colBuilder);
-        applyNecessaryPrecisionScale(type, colWithLengthBuilder);
+        applyNecessaryLength(type, colWithLengthBuilder);
+
+        initializeColumnWithDefaults(type, colBuilder);
+        initializeColumnWithDefaults(type, colWithLengthBuilder);
 
         ColumnParams col = colBuilder.build();
+
+        if (!type.specifiedLength()) {
+            assertThrowsWithCause(colWithLengthBuilder::build, CatalogValidationException.class);
+            return;
+        }
+
         ColumnParams colWithLength = colWithLengthBuilder.build();
 
         assertThat(
@@ -705,11 +719,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(manager.schema(schemaVer));
         assertNull(manager.schema(schemaVer + 1));
 
-        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, null, 10, null), null, null),
+        assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, null, 1 << 6, null), null, null),
                 willThrowFast(CatalogValidationException.class,
                         "Changing the length for column of type '" + col.type() + "' is not allowed"));
 
-        assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 10, null), null, null),
+        assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 1 << 5, null), null, null),
                 willBe(nullValue()));
 
         assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 9, null), null, null),
@@ -734,6 +748,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ColumnParams col;
 
         applyNecessaryPrecision(type, colWithPrecisionBuilder);
+        applyNecessaryLength(type, colWithPrecisionBuilder);
 
         if (type.precScale() == PrecisionScale.NO_NO || type.precScale() == PrecisionScale.YES_NO) {
             assertThrowsWithCause(colWithPrecisionBuilder::build, CatalogValidationException.class);
@@ -786,7 +801,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         types.remove(NULL);
 
         List<ColumnParams> testColumns = types.stream()
-                .map(t -> applyNecessaryPrecisionScale(t, columnParamsBuilder("COL_" + t, t)))
+                .map(t -> initializeColumnWithDefaults(t, columnParamsBuilder("COL_" + t, t)))
                 .map(Builder::build)
                 .collect(toList());
 
@@ -1403,7 +1418,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
         // Try to add column without table.
-        assertThat(manager.execute(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32))),
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32))),
                 willThrow(TableNotFoundValidationException.class));
         verifyNoInteractions(eventListener);
 
@@ -1411,11 +1426,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         // Add column.
-        assertThat(manager.execute(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32))), willBe(nullValue()));
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32))), willBe(nullValue()));
         verify(eventListener).notify(any(AddColumnEventParameters.class), isNull());
 
         // Drop column.
-        assertThat(manager.execute(dropColumnParams(NEW_COLUMN_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, NEW_COLUMN_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(DropColumnEventParameters.class), isNull());
 
         verifyNoMoreInteractions(eventListener);
@@ -1566,7 +1581,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void addColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(manager.execute(addColumnParams(columnParams("val2", INT32))), willCompleteSuccessfully());
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("val2", INT32))), willCompleteSuccessfully());
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
@@ -1577,7 +1592,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void dropColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(manager.execute(dropColumnParams("val1")), willCompleteSuccessfully());
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "val1")), willCompleteSuccessfully());
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
@@ -1708,14 +1723,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testDropColumnWithNotExistingTable() {
-        assertThat(manager.execute(dropColumnParams("key")), willThrowFast(TableNotFoundValidationException.class));
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "key")), willThrowFast(TableNotFoundValidationException.class));
     }
 
     @Test
     void testDropColumnWithMissingTableColumns() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
-        assertThat(manager.execute(dropColumnParams("fake")), willThrowFast(CatalogValidationException.class));
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "fake")), willThrowFast(CatalogValidationException.class));
     }
 
     @Test
@@ -1734,7 +1749,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleIndex()), willCompleteSuccessfully());
 
         assertThat(
-                manager.execute(dropColumnParams("VAL")),
+                manager.execute(dropColumnParams(TABLE_NAME, "VAL")),
                 willThrowFast(
                         CatalogValidationException.class,
                         "Deleting indexed column is not allowed"
@@ -1744,14 +1759,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testAddColumnWithNotExistingTable() {
-        assertThat(manager.execute(addColumnParams(columnParams("key", INT32))), willThrowFast(TableNotFoundValidationException.class));
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("key", INT32))),
+                willThrowFast(TableNotFoundValidationException.class));
     }
 
     @Test
     void testAddColumnWithExistingName() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
-        assertThat(manager.execute(addColumnParams(columnParams("ID", INT32))), willThrowFast(CatalogValidationException.class));
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("ID", INT32))),
+                willThrowFast(CatalogValidationException.class));
     }
 
 
@@ -1884,7 +1901,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
                 columnParamsBuilder("VAL_NOT_NULL", INT32).defaultValue(constant(1)).build(),
                 columnParams("DEC", DECIMAL, true, 11, 2),
-                columnParams("STR", STRING, true, 10),
+                columnParams("STR", STRING, 101, true),
                 columnParamsBuilder("DEC_SCALE", DECIMAL).precision(12).scale(3).build()
         );
 

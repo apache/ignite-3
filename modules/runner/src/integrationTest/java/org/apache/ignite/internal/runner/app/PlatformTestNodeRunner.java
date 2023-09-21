@@ -284,7 +284,7 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("VAL").type(STRING).precision(1 << 14).nullable(true).build()
+                        ColumnParams.builder().name("VAL").type(STRING).length(1000).nullable(true).build()
                 ),
                 List.of(keyCol)
         );
@@ -298,7 +298,7 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME_ALL_COLUMNS,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("STR").type(STRING).nullable(true).precision(1 << 14).build(),
+                        ColumnParams.builder().name("STR").type(STRING).nullable(true).length(1000).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
@@ -307,14 +307,14 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
                         ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
-                        ColumnParams.builder().name("BITMASK").type(BITMASK).precision(1 << 14).length(64).nullable(true).build(),
+                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(1000).length(64).nullable(true).build(),
                         ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(3).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(4).nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).precision(1 << 14).nullable(true).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
@@ -329,7 +329,7 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME_ALL_COLUMNS_SQL,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("STR").type(STRING).precision(1 << 14).nullable(true).build(),
+                        ColumnParams.builder().name("STR").type(STRING).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
@@ -344,7 +344,7 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).precision(1 << 14).nullable(true).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
@@ -407,8 +407,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(STRING).precision(1 << 14).build(),
-                ColumnParams.builder().name("VAL").type(STRING).precision(1 << 14).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(STRING).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(STRING).length(1000).nullable(true).build()
         );
 
         createTwoColumnTable(
@@ -443,14 +443,14 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(BYTE_ARRAY).precision(1 << 14).build(),
-                ColumnParams.builder().name("VAL").type(BYTE_ARRAY).precision(1 << 14).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(BYTE_ARRAY).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(BYTE_ARRAY).length(1000).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(BITMASK).precision(1 << 14).length(32).build(),
-                ColumnParams.builder().name("VAL").type(BITMASK).precision(1 << 14).length(32).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(BITMASK).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(BITMASK).length(1000).nullable(true).build()
         );
     }
 

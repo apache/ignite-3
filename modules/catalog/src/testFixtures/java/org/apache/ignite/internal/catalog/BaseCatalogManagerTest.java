@@ -19,23 +19,18 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.DEFAULT_NULLABLE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
-import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -48,7 +43,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -168,49 +162,5 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .columns(columns)
                 .primaryKeyColumns(primaryKeys)
                 .colocationColumns(colocationColumns);
-    }
-
-    protected static ColumnParams columnParams(String name, ColumnType type) {
-        return columnParams(name, type, DEFAULT_NULLABLE);
-    }
-
-    protected static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
-        return columnParamsBuilder(name, type, nullable).build();
-    }
-
-    protected static ColumnParams columnParams(String name, ColumnType type, boolean nullable, int precision) {
-        return columnParamsBuilder(name, type, nullable, precision).build();
-    }
-
-    protected static ColumnParams columnParams(String name, ColumnType type, boolean nullable, int precision, int scale) {
-        return columnParamsBuilder(name, type, nullable, precision, scale).build();
-    }
-
-    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type) {
-        return columnParamsBuilder(name, type, DEFAULT_NULLABLE);
-    }
-
-    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable) {
-        return ColumnParams.builder().name(name).nullable(nullable).type(type);
-    }
-
-    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable, int precision) {
-        return ColumnParams.builder().name(name).nullable(nullable).type(type).precision(precision);
-    }
-
-    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable, int precision, int scale) {
-        return ColumnParams.builder().name(name).nullable(nullable).type(type).precision(precision).scale(scale);
-    }
-
-    protected static CatalogCommand dropTableCommand(String tableName) {
-        return DropTableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
-    }
-
-    protected static CatalogCommand dropColumnParams(String... columns) {
-        return AlterTableDropColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(Set.of(columns)).build();
-    }
-
-    protected static CatalogCommand addColumnParams(ColumnParams... columns) {
-        return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(List.of(columns)).build();
     }
 }

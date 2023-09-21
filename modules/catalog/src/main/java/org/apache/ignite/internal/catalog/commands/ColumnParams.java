@@ -223,6 +223,11 @@ public class ColumnParams {
                 public int getMaxScale() {
                     return 10;
                 }
+
+                @Override
+                public int getMaxLength() {
+                    return 1000;
+                }
             });
         }
 
@@ -244,6 +249,19 @@ public class ColumnParams {
 
             if (params.type == ColumnType.NULL) {
                 throw new CatalogValidationException(format("Type NULL is not applicable for column '{}'", params.name()));
+            }
+
+            if (params.type.specifiedLength()) {
+                int length = Objects.requireNonNull(params.length(), "length");
+
+                if (length > helper.getMaxLength()) {
+                    throw new CatalogValidationException(format("Length for column '{}' cannot exceed {}", params.name(),
+                            helper.getMaxLength()));
+                }
+            } else {
+                if (params.length() != null) {
+                    throw new CatalogValidationException(format("Length specification is not applicable for column '{}'", params.name()));
+                }
             }
 
             PrecisionScale precScale = params.type.precScale();
@@ -276,7 +294,7 @@ public class ColumnParams {
 
                     break;
                 default:
-                    throw new UnsupportedOperationException("Usupported type: " + precScale);
+                    throw new UnsupportedOperationException("Unsupported type: " + precScale);
             }
         }
 

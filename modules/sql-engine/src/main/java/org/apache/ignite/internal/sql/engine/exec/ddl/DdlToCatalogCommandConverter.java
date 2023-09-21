@@ -253,6 +253,11 @@ class DdlToCatalogCommandConverter {
                     public int getMaxScale() {
                         return TYPE_SYSTEM.getMaxScale(def.type().getSqlTypeName());
                     }
+
+                    @Override
+                    public int getMaxLength() {
+                        return 1 << 16;
+                    }
                 });
     }
 

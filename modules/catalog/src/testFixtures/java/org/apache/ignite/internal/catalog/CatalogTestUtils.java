@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.List;
+import java.util.Set;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -122,13 +129,17 @@ public class CatalogTestUtils {
     public static final boolean DEFAULT_NULLABLE = false;
 
     /** Append precision\scale according to type requirement. */
-    public static Builder applyNecessaryPrecisionScale(ColumnType type, Builder colBuilder) {
+    public static Builder initializeColumnWithDefaults(ColumnType type, Builder colBuilder) {
         if (type.precScale() != PrecisionScale.NO_NO) {
             colBuilder.precision(11);
         }
 
         if (type.precScale() == PrecisionScale.YES_YES) {
             colBuilder.scale(0);
+        }
+
+        if (type.specifiedLength()) {
+            colBuilder.length(1 << 5);
         }
 
         return colBuilder;
@@ -139,5 +150,64 @@ public class CatalogTestUtils {
         if (type.precScale() != PrecisionScale.NO_NO) {
             colBuilder.precision(11);
         }
+    }
+
+    /** Append scale according to type requirement. */
+    public static void applyNecessaryLength(ColumnType type, Builder colBuilder) {
+        if (type.specifiedLength()) {
+            colBuilder.length(1 << 5);
+        }
+    }
+
+    static ColumnParams columnParams(String name, ColumnType type) {
+        return columnParams(name, type, DEFAULT_NULLABLE);
+    }
+
+    static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
+        return columnParamsBuilder(name, type, nullable).build();
+    }
+
+    static ColumnParams columnParams(String name, ColumnType type, boolean nullable, int precision) {
+        return columnParamsBuilder(name, type, nullable, precision).build();
+    }
+
+    static ColumnParams columnParams(String name, ColumnType type, boolean nullable, int precision, int scale) {
+        return columnParamsBuilder(name, type, nullable, precision, scale).build();
+    }
+
+    static ColumnParams columnParams(String name, ColumnType type, int length, boolean nullable) {
+        return columnParamsBuilder(name, type, length, nullable).build();
+    }
+
+    static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type) {
+        return columnParamsBuilder(name, type, DEFAULT_NULLABLE);
+    }
+
+    static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable) {
+        return ColumnParams.builder().name(name).nullable(nullable).type(type);
+    }
+
+    static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable, int precision) {
+        return ColumnParams.builder().name(name).nullable(nullable).type(type).precision(precision);
+    }
+
+    static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable, int precision, int scale) {
+        return ColumnParams.builder().name(name).nullable(nullable).type(type).precision(precision).scale(scale);
+    }
+
+    static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, int length, boolean nullable) {
+        return ColumnParams.builder().name(name).nullable(nullable).type(type).length(length);
+    }
+
+    static CatalogCommand dropTableCommand(String tableName) {
+        return DropTableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
+    }
+
+    static CatalogCommand dropColumnParams(String tableName, String... columns) {
+        return AlterTableDropColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(Set.of(columns)).build();
+    }
+
+    static CatalogCommand addColumnParams(String tableName, ColumnParams... columns) {
+        return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
     }
 }

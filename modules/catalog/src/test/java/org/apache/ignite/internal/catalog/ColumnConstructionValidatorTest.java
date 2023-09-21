@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.DEFAULT_NULLABLE;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,7 +33,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 
 /** Test {@link ColumnParams} assembly and validation. */
-public class ColumnConstructionValidatorTest {
+public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
     public void testColumnSetPrecisionScale(ColumnType type) {
@@ -39,6 +42,8 @@ public class ColumnConstructionValidatorTest {
         Builder colBuilderErrPrec1 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, Integer.MIN_VALUE, 2);
         Builder colBuilderErrPrec2 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, Integer.MAX_VALUE, 2);
         Builder colBuilderErrScale1 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, Integer.MAX_VALUE);
+
+        applyNecessaryLength(type, colBuilder);
 
         if (type.precScale() == PrecisionScale.NO_NO) {
             assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Precision is not applicable for column of type");
@@ -57,5 +62,27 @@ public class ColumnConstructionValidatorTest {
         if (type.precScale() == PrecisionScale.YES_YES) {
             assertThrowsWithCause(colBuilderErrScale1::build, CatalogValidationException.class, "must be between");
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    public void testColumnSetLength(ColumnType type) {
+        Builder colBuilder = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder colBuilder1 = columnParamsBuilder("COL1", type, DEFAULT_NULLABLE);
+
+        initializeColumnWithDefaults(type, colBuilder);
+        initializeColumnWithDefaults(type, colBuilder1);
+
+        colBuilder.length(100);
+
+        if (!type.specifiedLength()) {
+            assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Length specification is not applicable");
+            return;
+        }
+
+        colBuilder.build();
+
+        colBuilder1.length(1001);
+        assertThrowsWithCause(colBuilder1::build, CatalogValidationException.class, "Length for column");
     }
 }

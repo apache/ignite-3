@@ -24,4 +24,7 @@ public interface ColumnParamsSupplier {
 
     /** Return max possible scale. */
     int getMaxScale();
+
+    /** Return max possible length. */
+    int getMaxLength();
 }
