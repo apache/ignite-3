@@ -241,7 +241,7 @@ class DdlToCatalogCommandConverter {
                 .nullable(def.nullable())
                 .precision(def.precision())
                 .scale(def.scale())
-                .length(def.precision())
+                .length(def.length())
                 .defaultValue(convert(def.defaultValueDefinition()))
                 .build(new ColumnParamsSupplier() {
                     @Override

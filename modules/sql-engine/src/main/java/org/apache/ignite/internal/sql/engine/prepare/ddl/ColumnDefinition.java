@@ -19,13 +19,16 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
@@ -35,6 +38,8 @@ public class ColumnDefinition {
     private final RelDataType type;
 
     private final DefaultValueDefinition defaultValueDefinition;
+
+    private ColumnType colType;
 
     /**
      * Calcite definition {@link org.apache.calcite.sql.type.SqlTypeName} for precision and scale is
@@ -85,13 +90,10 @@ public class ColumnDefinition {
      * Get column's precision.
      */
     public @Nullable Integer precision() {
-        int prec = type.getPrecision();
-        // WA for undefined precision for such a types, if this definition raise in IgniteTypeSystem.getDefaultPrecision
-        // VARCHAR(65536) type instead of VARCHAR will occur in appropriate tests, additional investigation need.
-        if (type.getSqlTypeName() == SqlTypeName.VARCHAR || type.getSqlTypeName() == SqlTypeName.VARBINARY) {
-            prec = prec == PRECISION_NOT_SPECIFIED ? DEFAULT_VARLEN_LENGTH : prec;
-        }
+        colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
+        int prec = colType.specifiedLength() ? PRECISION_NOT_SPECIFIED : type.getPrecision();
         Integer ret = prec == PRECISION_NOT_SPECIFIED ? null : prec;
+
         return type.getSqlTypeName().allowsPrec() || PRECISION_ALLOWED.contains(type.getSqlTypeName()) ? ret : null;
     }
 
@@ -99,9 +101,18 @@ public class ColumnDefinition {
      * Get column's scale.
      */
     public @Nullable Integer scale() {
-        int scale = type.getScale();
+        colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
+        int scale = colType.specifiedLength() ? SCALE_NOT_SPECIFIED : type.getScale();
         Integer ret = scale == SCALE_NOT_SPECIFIED ? null : scale;
 
         return type.getSqlTypeName().allowsScale() ? ret : null;
+    }
+
+    /**
+     * Get column's length.
+     */
+    public @Nullable Integer length() {
+        colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
+        return colType.specifiedLength() ? defaultLength(colType, DEFAULT_LENGTH) : null;
     }
 }
