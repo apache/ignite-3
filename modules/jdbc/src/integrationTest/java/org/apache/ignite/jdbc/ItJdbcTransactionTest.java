@@ -29,7 +29,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Verifies that SQL DML statements can use an explicit transaction using the jdbc API.
@@ -237,6 +240,37 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
             conn.setAutoCommit(true);
 
             assertThrowsSqlException("Transaction cannot be rolled back explicitly in auto-commit mode.", conn::rollback);
+        }
+    }
+
+    /**
+     * Ensure that explicit transaction can not be used, after it encounters an error.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20534")
+    @ParameterizedTest
+    @CsvSource({
+            // dml or not | SQL statement
+            "true,insert into TEST (ID) values (2)",
+            "false,SELECT * FROM test",
+    })
+    public void testOperationsFailsWhenTransactionEncoutersAnError(boolean dml, String sqlStmt) throws SQLException {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(false);
+
+            try (Statement stmt = conn.createStatement()) {
+                assertThrowsSqlException(SQLException.class, () -> stmt.executeQuery("SELECT 1/0").next());
+
+                assertThrowsSqlException(SQLException.class, "Transaction is already finished",
+                        () -> {
+                            if (dml) {
+                                stmt.executeUpdate(sqlStmt);
+                            } else {
+                                try (ResultSet rs = stmt.executeQuery(sqlStmt)) {
+                                    rs.next();
+                                }
+                            }
+                        });
+            }
         }
     }
 

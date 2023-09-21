@@ -583,18 +583,23 @@ TEST_F(transaction_test, transaction_error) {
         },
         odbc_exception);
 
-    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_COMMIT);
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, conn2.m_conn);
-
-    reset_statement();
-
-    insert_test_value(conn2.m_statement, 2, "test_2");
-
     reset_statement(conn2.m_statement);
 
-    ret = SQLEndTran(SQL_HANDLE_DBC, conn2.m_conn, SQL_ROLLBACK);
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+    // If any statement in transaction fails, then the transaction is considered aborted -
+    // all subsequent statements within that transaction should fail.
+
+    EXPECT_THROW(
+        {
+            try {
+                insert_test_value(conn2.m_statement, 2, "test_2");
+            } catch (const odbc_exception &err) {
+                EXPECT_THAT(err.message, testing::HasSubstr("Transaction is already finished"));
+                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
+                EXPECT_EQ(err.sql_state, "HY000");
+                throw;
+            }
+        },
+        odbc_exception);
 
     check_no_test_value(2);
-    check_no_test_value(conn2.m_statement, 2);
 }

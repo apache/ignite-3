@@ -71,7 +71,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
             if (t != null) {
-                txWrapper.rollbackImplicit();
+                // Always rollback a transaction in case of an error.
+                txWrapper.unwrap().rollback();
 
                 throw new CompletionException(wrapIfNecessary(t));
             }
