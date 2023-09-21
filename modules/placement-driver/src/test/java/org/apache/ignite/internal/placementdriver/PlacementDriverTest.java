@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -53,6 +56,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,7 +88,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             GROUP_1
     );
 
-    private static final Lease LEASE_FROM_15000_TO_30_000 = new Lease(
+    private static final Lease LEASE_FROM_15_000_TO_30_000 = new Lease(
             LEASEHOLDER_1,
             new HybridTimestamp(15_000, 0),
             new HybridTimestamp(30_000, 0),
@@ -204,14 +208,14 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertFalse(primaryReplicaFuture.isDone());
 
         // Publish primary replica for non-overlapping interval [15, 30] with left border gt than await time 10.
-        publishLease(LEASE_FROM_15000_TO_30_000);
+        publishLease(LEASE_FROM_15_000_TO_30_000);
 
         // Assert that primary await future will succeed fast.
         assertThat(primaryReplicaFuture, willSucceedFast());
 
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture.get().getLeaseholder());
-        assertEquals(LEASE_FROM_15000_TO_30_000.getStartTime(), primaryReplicaFuture.get().getStartTime());
-        assertEquals(LEASE_FROM_15000_TO_30_000.getExpirationTime(), primaryReplicaFuture.get().getExpirationTime());
+        assertEquals(LEASE_FROM_15_000_TO_30_000.getStartTime(), primaryReplicaFuture.get().getStartTime());
+        assertEquals(LEASE_FROM_15_000_TO_30_000.getExpirationTime(), primaryReplicaFuture.get().getExpirationTime());
     }
 
     /**
@@ -260,19 +264,19 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertFalse(primaryReplicaFuture2.isDone());
 
         // Publish primary replica for an interval [15, 30] with left border gt than await time 10.
-        publishLease(LEASE_FROM_15000_TO_30_000);
+        publishLease(LEASE_FROM_15_000_TO_30_000);
 
         // Assert that both primary await futures will succeed fast.
         assertThat(primaryReplicaFuture1, willSucceedFast());
         assertThat(primaryReplicaFuture2, willSucceedFast());
 
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture1.get().getLeaseholder());
-        assertEquals(LEASE_FROM_15000_TO_30_000.getStartTime(), primaryReplicaFuture1.get().getStartTime());
-        assertEquals(LEASE_FROM_15000_TO_30_000.getExpirationTime(), primaryReplicaFuture1.get().getExpirationTime());
+        assertEquals(LEASE_FROM_15_000_TO_30_000.getStartTime(), primaryReplicaFuture1.get().getStartTime());
+        assertEquals(LEASE_FROM_15_000_TO_30_000.getExpirationTime(), primaryReplicaFuture1.get().getExpirationTime());
 
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture2.get().getLeaseholder());
-        assertEquals(LEASE_FROM_15000_TO_30_000.getStartTime(), primaryReplicaFuture2.get().getStartTime());
-        assertEquals(LEASE_FROM_15000_TO_30_000.getExpirationTime(), primaryReplicaFuture2.get().getExpirationTime());
+        assertEquals(LEASE_FROM_15_000_TO_30_000.getStartTime(), primaryReplicaFuture2.get().getStartTime());
+        assertEquals(LEASE_FROM_15_000_TO_30_000.getExpirationTime(), primaryReplicaFuture2.get().getExpirationTime());
     }
 
     /**
@@ -301,14 +305,14 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertFalse(primaryReplicaFuture2.isDone());
 
         // Publish primary replica for an interval [15, 30] with left border gt than await time 10.
-        publishLease(LEASE_FROM_15000_TO_30_000);
+        publishLease(LEASE_FROM_15_000_TO_30_000);
 
         // Assert that second primary await future will succeed fast.
         assertThat(primaryReplicaFuture2, willSucceedFast());
 
         assertEquals(LEASEHOLDER_1, primaryReplicaFuture2.get().getLeaseholder());
-        assertEquals(LEASE_FROM_15000_TO_30_000.getStartTime(), primaryReplicaFuture2.get().getStartTime());
-        assertEquals(LEASE_FROM_15000_TO_30_000.getExpirationTime(), primaryReplicaFuture2.get().getExpirationTime());
+        assertEquals(LEASE_FROM_15_000_TO_30_000.getStartTime(), primaryReplicaFuture2.get().getStartTime());
+        assertEquals(LEASE_FROM_15_000_TO_30_000.getExpirationTime(), primaryReplicaFuture2.get().getExpirationTime());
     }
 
     /**
@@ -361,7 +365,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     @Test
     void testListenReplicaBecomePrimaryEvent() {
-        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenReplicaBecomePrimaryEvent();
+        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenAnyReplicaBecomePrimaryEvent();
 
         long publishLeaseRelease = publishLease(LEASE_FROM_1_TO_5_000);
 
@@ -382,7 +386,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         placementDriver = createPlacementDriver();
 
-        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenReplicaBecomePrimaryEvent();
+        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenAnyReplicaBecomePrimaryEvent();
 
         placementDriver.startTrackAsync(newRecoveryRevision);
 
@@ -395,12 +399,51 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         checkReplicaBecomePrimaryEventParameters(LEASE_FROM_1_TO_5_000, parameters);
     }
 
+    @Test
+    void testListenReplicaBecomePrimaryEventWithLeaseProlongation() {
+        publishLease(LEASE_FROM_1_TO_15_000);
+
+        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenAnyReplicaBecomePrimaryEvent();
+
+        publishLease(LEASE_FROM_15_000_TO_30_000);
+
+        assertThat(eventParametersFuture, willTimeoutFast());
+    }
+
+    @Test
+    void testListenNeighborGroupReplicaBecomePrimaryEvent() {
+        Lease lease = LEASE_FROM_1_TO_15_000;
+
+        publishLease(lease);
+
+        TablePartitionId groupId = (TablePartitionId) lease.replicationGroupId();
+
+        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenSpecificGroupReplicaBecomePrimaryEvent(groupId);
+
+        Lease neighborGroupLease = new Lease(
+                LEASEHOLDER_1,
+                new HybridTimestamp(1, 0),
+                new HybridTimestamp(15_000, 0),
+                false,
+                true,
+                new TablePartitionId(groupId.tableId() + 1, groupId.partitionId() + 1)
+        );
+
+        publishLeases(lease, neighborGroupLease);
+
+        assertThat(eventParametersFuture, willTimeoutFast());
+    }
+
     private long publishLease(Lease lease) {
+        return publishLeases(lease);
+    }
+
+    private long publishLeases(Lease... leases) {
         long rev = metastore.appliedRevision();
 
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),
-                put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(lease)).bytes()),
+                put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(leases)).bytes()),
                 noop()
         );
 
@@ -411,14 +454,24 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         return expRev;
     }
 
-    private CompletableFuture<PrimaryReplicaEventParameters> listenReplicaBecomePrimaryEvent() {
+    private CompletableFuture<PrimaryReplicaEventParameters> listenAnyReplicaBecomePrimaryEvent() {
+        return listenReplicaBecomePrimaryEvent(null);
+    }
+
+    private CompletableFuture<PrimaryReplicaEventParameters> listenSpecificGroupReplicaBecomePrimaryEvent(ReplicationGroupId groupId) {
+        return listenReplicaBecomePrimaryEvent(Objects.requireNonNull(groupId));
+    }
+
+    private CompletableFuture<PrimaryReplicaEventParameters> listenReplicaBecomePrimaryEvent(@Nullable ReplicationGroupId groupId) {
         var eventParametersFuture = new CompletableFuture<PrimaryReplicaEventParameters>();
 
         placementDriver.listen(PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
-            if (exception != null) {
-                eventParametersFuture.completeExceptionally(exception);
-            } else {
-                eventParametersFuture.complete(parameters);
+            if (groupId == null || groupId.equals(parameters.groupId())) {
+                if (exception != null) {
+                    eventParametersFuture.completeExceptionally(exception);
+                } else {
+                    eventParametersFuture.complete(parameters);
+                }
             }
 
             return completedFuture(false);

@@ -158,6 +158,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
                     Set<ReplicationGroupId> actualGroups = new HashSet<>();
 
+                    Set<ReplicationGroupId> previousLeasesGroupIds = LeaseTracker.this.leases.leaseByGroupId().keySet();
+
                     for (Lease lease : leaseBatch.leases()) {
                         ReplicationGroupId grpId = lease.replicationGroupId();
                         actualGroups.add(grpId);
@@ -169,7 +171,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                                     .computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                                     .update(lease.getExpirationTime(), lease);
 
-                            fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
+                            if (!previousLeasesGroupIds.contains(grpId)) {
+                                fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
+                            }
                         }
                     }
 
