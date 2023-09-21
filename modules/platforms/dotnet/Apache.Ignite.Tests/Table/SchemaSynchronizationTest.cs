@@ -366,9 +366,12 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 yield return GetTuple(i);
             }
 
+            // Wait for background streaming to complete.
+            // TODO: Remove this workaround when IGNITE-20416 is fixed.
+            metricListener.AssertMetric("streamer-items-sent", 6, 3000);
+
             // Update schema.
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.
-            metricListener.AssertMetric("streamer-items-sent", 6, 3000);
             await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
             await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
