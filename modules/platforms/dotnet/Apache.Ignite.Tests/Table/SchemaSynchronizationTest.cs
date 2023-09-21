@@ -337,7 +337,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("https://issues.apache.org/jira/browse/IGNITE-20399")]
     public async Task TestSchemaUpdateWhileStreaming([Values(true, false)] bool insertNewColumn)
     {
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
