@@ -93,7 +93,7 @@ struct schema {
      * @param reader Reader to use.
      * @return Schema instance.
      */
-    static std::shared_ptr<schema> read(protocol::reader& reader) {
+    static std::shared_ptr<schema> read(protocol::reader &reader) {
         std::int32_t key_column_count = 0;
         auto schema_version = reader.read_int32();
 

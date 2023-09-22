@@ -17,36 +17,27 @@
 
 #pragma once
 
-#include "ignite/odbc/meta/table_meta.h"
 #include "ignite/odbc/query/query.h"
 
 namespace ignite {
 
-/** Connection forward-declaration. */
-class sql_connection;
-
 /**
- * Table metadata query.
+ * Type info query.
  */
-class table_metadata_query : public query {
+class type_info_query : public query {
 public:
     /**
      * Constructor.
      *
      * @param diag Diagnostics collector.
-     * @param connection Associated connection.
-     * @param catalog Catalog search pattern.
-     * @param schema Schema search pattern.
-     * @param table Table search pattern.
-     * @param table_type Table type search pattern.
+     * @param sql_type SQL type.
      */
-    table_metadata_query(diagnosable_adapter &diag, sql_connection &connection, const std::string &catalog,
-        const std::string &schema, const std::string &table, const std::string &table_type);
+    type_info_query(diagnosable_adapter &diag, std::int16_t sql_type);
 
     /**
      * Destructor.
      */
-    ~table_metadata_query() override = default;
+    ~type_info_query() override = default;
 
     /**
      * Execute query.
@@ -60,7 +51,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector *get_meta() override;
+    const column_meta_vector *get_meta() override { return &m_columns_meta; }
 
     /**
      * Fetch next result row to application buffers.
@@ -90,62 +81,37 @@ public:
      *
      * @return True if data is available.
      */
-    bool is_data_available() const override;
+    bool is_data_available() const override { return m_cursor != m_types.end(); }
 
     /**
      * Get number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
-    std::int64_t affected_rows() const override;
+    std::int64_t affected_rows() const override { return 0; }
 
     /**
      * Move to the next result set.
      *
      * @return Operation result.
      */
-    sql_result next_result_set() override;
+    sql_result next_result_set() override { return sql_result::AI_NO_DATA; }
 
 private:
-    /**
-     * Make get columns metadata requests and use response to set internal state.
-     *
-     * @return True on success.
-     */
-    sql_result make_request_get_tables_meta();
+    /** Columns metadata. */
+    column_meta_vector m_columns_meta;
 
-    /** Connection associated with the statement. */
-    sql_connection &m_connection;
-
-    /** Catalog search pattern. */
-    std::string m_catalog;
-
-    /** Schema search pattern. */
-    std::string m_schema;
-
-    /** Table search pattern. */
-    std::string m_table;
-
-    /** Table type search pattern. */
-    std::string m_table_type;
-
-    /** Query executed. */
+    /** Executed flag. */
     bool m_executed{false};
 
     /** Fetched flag. */
     bool m_fetched{false};
 
-    /** Has result set. */
-    bool m_has_result_set{false};
+    /** Requested types. */
+    std::vector<ignite_type> m_types;
 
-    /** Fetched metadata. */
-    table_meta_vector m_meta;
-
-    /** Metadata cursor. */
-    table_meta_vector::iterator m_cursor;
-
-    /** Columns metadata. */
-    column_meta_vector m_columns_meta;
+    /** Query cursor. */
+    std::vector<ignite_type>::const_iterator m_cursor{m_types.end()};
 };
 
 } // namespace ignite
