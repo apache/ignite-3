@@ -37,7 +37,7 @@ class JdbcUrlFactoryTest {
         // Given default config
 
         // Then JDBC URL is constructed without SSL settings
-        String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
+        String jdbcUrl = factory.constructJdbcUrl("http://localhost:10300", 10800);
         assertEquals("jdbc:ignite:thin://localhost:10800", jdbcUrl);
     }
 
@@ -47,7 +47,7 @@ class JdbcUrlFactoryTest {
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsSslSecretConfig());
 
         // Then JDBC URL is constructed with SSL settings
-        String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
+        String jdbcUrl = factory.constructJdbcUrl("http://localhost:10300", 10800);
         String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
                 + "?sslEnabled=true"
                 + "&trustStorePath=ssl/truststore.jks"
@@ -64,7 +64,7 @@ class JdbcUrlFactoryTest {
         configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_SSL_ENABLED.value(), "true");
 
         // Then JDBC URL is constructed with SSL settings
-        String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
+        String jdbcUrl = factory.constructJdbcUrl("http://localhost:10300", 10800);
         String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
                 + "?sslEnabled=true"
                 + "&trustStorePath=ssl/truststore.jks"
@@ -80,7 +80,7 @@ class JdbcUrlFactoryTest {
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
         // Then JDBC URL is constructed with basic authentication settings
-        String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
+        String jdbcUrl = factory.constructJdbcUrl("http://localhost:10300", 10800);
         String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
                 + "?basicAuthenticationUsername=admin"
                 + "&basicAuthenticationPassword=password";
@@ -93,7 +93,7 @@ class JdbcUrlFactoryTest {
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsSslBasicSecretConfig());
 
         // Then JDBC URL is constructed with SSL and basic authentication settings
-        String jdbcUrl = factory.constructJdbcUrl("{clientConnector:{port:10800}}", "http://localhost:10300");
+        String jdbcUrl = factory.constructJdbcUrl("http://localhost:10300", 10800);
         String expectedJdbcUrl = "jdbc:ignite:thin://localhost:10800"
                 + "?sslEnabled=true"
                 + "&trustStorePath=ssl/truststore.jks"
