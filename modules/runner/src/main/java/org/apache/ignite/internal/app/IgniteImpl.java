@@ -461,8 +461,11 @@ public class IgniteImpl implements Ignite {
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
+        Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
+
         placementDriverMgr = new PlacementDriverManager(
                 name,
+                registry,
                 metaStorageMgr,
                 MetastorageGroupId.INSTANCE,
                 clusterSvc,
@@ -482,8 +485,6 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 clusterSvc
         );
-
-        Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
