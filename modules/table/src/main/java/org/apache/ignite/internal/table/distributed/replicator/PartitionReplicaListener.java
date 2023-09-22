@@ -1404,7 +1404,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cmdType Command type.
      * @param full {@code True} if a full transaction and can be immediately committed.
      * @param op Operation closure.
-     * @param <T> Type of execution result.
      * @return A future object representing the result of the given operation.
      */
     private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
@@ -1436,7 +1435,24 @@ public class PartitionReplicaListener implements ReplicaListener {
                 if (th != null) {
                     fut.completeExceptionally(th);
                 } else {
-                    fut.complete(v);
+                    // Delayed result future completion marks the actual command finish.
+                    if (v instanceof CompletionResult) {
+                        CompletionResult res = (CompletionResult) v;
+                        if (res.delayedResult() != null) {
+                            CompletableFuture<?> nested = (CompletableFuture<?>) res.delayedResult();
+                            nested.whenComplete((v0, th0) -> {
+                                if (th0 != null) {
+                                    fut.completeExceptionally(th0);
+                                } else {
+                                    fut.complete((T) v0);
+                                }
+                            });
+                        } else {
+                            fut.complete((T) res.result());
+                        }
+                    } else {
+                        fut.complete(v);
+                    }
                 }
             });
         }
