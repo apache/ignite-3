@@ -152,14 +152,7 @@ public class TypeUtils {
 
     /** Assembly output type from input types. */
     public static RelDataType createRowType(IgniteTypeFactory typeFactory, List<RelDataType> fields) {
-        return createRowType(typeFactory, fields.toArray(new RelDataType[0]));
-    }
-
-    /** Assembly output type from input types. */
-    public static RelDataType createRowType(IgniteTypeFactory typeFactory, RelDataType... fields) {
-        List<RelDataType> types = Arrays.asList(fields);
-
-        return createRowType(typeFactory, types, "$F");
+        return createRowType(typeFactory, fields, "$F");
     }
 
     private static RelDataType createRowType(IgniteTypeFactory typeFactory, List<RelDataType> fields, String namePreffix) {
