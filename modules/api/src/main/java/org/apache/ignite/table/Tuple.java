@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -247,24 +246,6 @@ public interface Tuple extends Iterable<Object> {
      * @throws IndexOutOfBoundsException If no column with the given index exists.
      */
     @Nullable <T> T value(int columnIndex);
-
-    /**
-     * Gets a binary object column.
-     *
-     * @param columnName Column name.
-     * @return Column value.
-     * @throws IllegalArgumentException If no column with the given name exists.
-     */
-    BinaryObject binaryObjectValue(String columnName);
-
-    /**
-     * Gets a binary object column.
-     *
-     * @param columnIndex Column index.
-     * @return Column value.
-     * @throws IndexOutOfBoundsException If no column with the given index exists.
-     */
-    BinaryObject binaryObjectValue(int columnIndex);
 
     /**
      * Gets a {@code boolean} column value.

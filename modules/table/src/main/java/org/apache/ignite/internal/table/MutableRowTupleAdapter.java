@@ -26,7 +26,6 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -112,18 +111,6 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
     @Override
     public <T> T value(int columnIndex) {
         return tuple != null ? tuple.value(columnIndex) : super.value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(String columnName) {
-        return tuple != null ? tuple.binaryObjectValue(columnName) : super.binaryObjectValue(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
-        return super.binaryObjectValue(columnIndex);
     }
 
     /** {@inheritDoc} */
