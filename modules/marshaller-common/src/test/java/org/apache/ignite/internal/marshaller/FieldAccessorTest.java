@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.Random;
+import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestSimpleObject;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -237,7 +238,7 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void identityAccessor() throws Exception {
-        FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
+        IdentityAccessor accessor = FieldAccessor.createIdentityAccessor(
                 new MarshallerColumn("col0", STRING), 0, null
         );
 
@@ -256,7 +257,7 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void identityAccessorWithConverter() throws Exception {
-        FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
+        IdentityAccessor accessor = FieldAccessor.createIdentityAccessor(
                 new MarshallerColumn("val", BYTE_ARR),
                 0,
                 new SerializingConverter<TestSimpleObject>()

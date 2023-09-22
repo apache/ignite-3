@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
@@ -195,14 +196,14 @@ public abstract class Marshaller {
      */
     private static class SimpleMarshaller extends Marshaller {
         /** Identity accessor. */
-        private final FieldAccessor fieldAccessor;
+        private final IdentityAccessor fieldAccessor;
 
         /**
          * Creates a marshaller for objects of natively supported type.
          *
          * @param fieldAccessor Identity field accessor for objects of natively supported type.
          */
-        SimpleMarshaller(FieldAccessor fieldAccessor) {
+        SimpleMarshaller(IdentityAccessor fieldAccessor) {
             this.fieldAccessor = fieldAccessor;
         }
 
@@ -251,8 +252,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable
-        Object value(Object obj, int fldIdx) {
+        public @Nullable Object value(Object obj, int fldIdx) {
             return fieldAccessors[fldIdx].value(obj);
         }
 
