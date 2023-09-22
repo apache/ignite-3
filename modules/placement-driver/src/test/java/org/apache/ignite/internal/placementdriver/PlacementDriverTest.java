@@ -364,7 +364,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testListenReplicaBecomePrimaryEvent() {
+    void testListenReplicaBecomePrimaryEventCaseNoLeaseBefore() {
         CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenAnyReplicaBecomePrimaryEvent();
 
         long publishLeaseRelease = publishLease(LEASE_FROM_1_TO_5_000);
@@ -376,6 +376,25 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertThat(parameters.causalityToken(), greaterThanOrEqualTo(publishLeaseRelease));
 
         checkReplicaBecomePrimaryEventParameters(LEASE_FROM_1_TO_5_000, parameters);
+    }
+
+    @Test
+    void testListenReplicaBecomePrimaryEventCaseFullTimeIntervalShifted() {
+        publishLease(LEASE_FROM_1_TO_5_000);
+
+        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenAnyReplicaBecomePrimaryEvent();
+
+        // It is important that startTime shifts because if only expirationTime changes, then this is an prolongation
+        // (no need to fire the event).
+        long publishLeaseRelease = publishLease(LEASE_FROM_15_000_TO_30_000);
+
+        assertThat(eventParametersFuture, willCompleteSuccessfully());
+
+        PrimaryReplicaEventParameters parameters = eventParametersFuture.join();
+
+        assertThat(parameters.causalityToken(), greaterThanOrEqualTo(publishLeaseRelease));
+
+        checkReplicaBecomePrimaryEventParameters(LEASE_FROM_15_000_TO_30_000, parameters);
     }
 
     @Test
@@ -400,12 +419,13 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testListenReplicaBecomePrimaryEventWithLeaseProlongation() {
-        publishLease(LEASE_FROM_1_TO_15_000);
+    void testListenReplicaBecomePrimaryEventCaseOnlyExpirationTimeShifted() {
+        publishLease(LEASE_FROM_1_TO_5_000);
 
         CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenAnyReplicaBecomePrimaryEvent();
 
-        publishLease(LEASE_FROM_15_000_TO_30_000);
+        // Because if only expirationTime changes, then this is an prolongation (no need to fire the event).
+        publishLease(LEASE_FROM_1_TO_15_000);
 
         assertThat(eventParametersFuture, willTimeoutFast());
     }

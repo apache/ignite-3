@@ -58,6 +58,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class tracks cluster leases in memory.
@@ -158,7 +159,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
                     Set<ReplicationGroupId> actualGroups = new HashSet<>();
 
-                    Set<ReplicationGroupId> previousLeasesGroupIds = LeaseTracker.this.leases.leaseByGroupId().keySet();
+                    Map<ReplicationGroupId, Lease> previousLeasesMap = LeaseTracker.this.leases.leaseByGroupId();
 
                     for (Lease lease : leaseBatch.leases()) {
                         ReplicationGroupId grpId = lease.replicationGroupId();
@@ -171,7 +172,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                                     .computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                                     .update(lease.getExpirationTime(), lease);
 
-                            if (!previousLeasesGroupIds.contains(grpId)) {
+                            if (needFireEventReplicaBecomePrimary(previousLeasesMap.get(grpId), lease)) {
                                 fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
                             }
                         }
@@ -299,5 +300,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 PRIMARY_REPLICA_ELECTED,
                 new PrimaryReplicaEventParameters(causalityToken, lease.replicationGroupId(), leaseholder)
         );
+    }
+
+    private static boolean needFireEventReplicaBecomePrimary(@Nullable Lease previousLease, Lease newLease) {
+        return previousLease == null || !previousLease.getStartTime().equals(newLease.getStartTime());
     }
 }
