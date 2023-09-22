@@ -109,7 +109,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19162 Trim all less than millisecond information from timestamp
         //String tsStr = "2023-03-29T08:22:33.005007Z";
-        // TODO: IGNITE-20105 it should be "2023-03-29T08:22:33.005Z";
         String tsStr = "2023-03-29T08:22:33.005Z";
 
         Instant ins = Instant.parse(tsStr);

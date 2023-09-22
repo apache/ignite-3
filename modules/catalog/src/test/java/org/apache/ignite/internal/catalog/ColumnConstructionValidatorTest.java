@@ -39,28 +39,26 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
     public void testColumnSetPrecisionScale(ColumnType type) {
         Builder colBuilder = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20);
 
-        Builder colBuilderErrPrec1 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, Integer.MIN_VALUE, 2);
-        Builder colBuilderErrPrec2 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, Integer.MAX_VALUE, 2);
-        Builder colBuilderErrScale1 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, Integer.MAX_VALUE);
+        Builder colBuilderErrPrec = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, -1, 2);
+        Builder colBuilderErrScale = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, -1);
 
         applyNecessaryLength(type, colBuilder);
 
         if (type.precScale() == PrecisionScale.NO_NO) {
-            assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Precision is not applicable for column of type");
+            assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Precision is not applicable for column");
         }
 
         if (type.precScale() == PrecisionScale.YES_NO) {
             Builder colBuilder0 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, 2);
-            assertThrowsWithCause(colBuilder0::build, CatalogValidationException.class, "Scale is not applicable for column of type");
+            assertThrowsWithCause(colBuilder0::build, CatalogValidationException.class, "Scale is not applicable for column");
         }
 
         if (type.precScale() == PrecisionScale.YES_NO || type.precScale() == PrecisionScale.YES_YES) {
-            assertThrowsWithCause(colBuilderErrPrec1::build, CatalogValidationException.class, "must be between");
-            assertThrowsWithCause(colBuilderErrPrec2::build, CatalogValidationException.class, "must be between");
+            assertThrowsWithCause(colBuilderErrPrec::build, CatalogValidationException.class);
         }
 
         if (type.precScale() == PrecisionScale.YES_YES) {
-            assertThrowsWithCause(colBuilderErrScale1::build, CatalogValidationException.class, "must be between");
+            assertThrowsWithCause(colBuilderErrScale::build, CatalogValidationException.class);
         }
     }
 
@@ -82,7 +80,7 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
 
         colBuilder.build();
 
-        colBuilder1.length(1001);
-        assertThrowsWithCause(colBuilder1::build, CatalogValidationException.class, "Length for column");
+        colBuilder1.length(-1);
+        assertThrowsWithCause(colBuilder1::build, CatalogValidationException.class);
     }
 }

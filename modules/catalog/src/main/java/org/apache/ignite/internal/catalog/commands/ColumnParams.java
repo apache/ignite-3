@@ -25,7 +25,6 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
@@ -210,37 +209,16 @@ public class ColumnParams {
             return this;
         }
 
-        /** Test only builder wrapper. */
-        @TestOnly
-        public ColumnParams build() {
-            return build(new ColumnParamsSupplier() {
-                @Override
-                public int getMaxPrecision() {
-                    return 1 << 15;
-                }
-
-                @Override
-                public int getMaxScale() {
-                    return 10;
-                }
-
-                @Override
-                public int getMaxLength() {
-                    return 1000;
-                }
-            });
-        }
-
         /** Builds parameters. */
-        public ColumnParams build(ColumnParamsSupplier helper) {
-            validate(helper);
+        public ColumnParams build() {
+            validate();
 
             ColumnParams params0 = params;
             params = null;
             return params0;
         }
 
-        private void validate(ColumnParamsSupplier helper) {
+        private void validate() {
             CatalogParamsValidationUtils.validateIdentifier(params.name(), "Column name");
 
             if (params.type == null) {
@@ -254,9 +232,9 @@ public class ColumnParams {
             if (params.type.specifiedLength()) {
                 int length = Objects.requireNonNull(params.length(), "length");
 
-                if (length > helper.getMaxLength()) {
-                    throw new CatalogValidationException(format("Length for column '{}' cannot exceed {}", params.name(),
-                            helper.getMaxLength()));
+                if (length < 0) {
+                    throw new CatalogValidationException(format("Length: {} for column of type '{}' must be non-negative",
+                            params.length(), params.type()));
                 }
             } else {
                 if (params.length() != null) {
@@ -269,17 +247,19 @@ public class ColumnParams {
             switch (precScale) {
                 case NO_NO:
                     if (params.precision() != null) {
-                        throw new CatalogValidationException(format("Precision is not applicable for column of type '{}'", params.type()));
+                        throw new CatalogValidationException(format("Precision is not applicable for column '{}' of type '{}'",
+                                params.name(), params.type()));
                     }
 
                     if (params.scale() != null) {
-                        throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
+                        throw new CatalogValidationException(format("Scale is not applicable for column '{}' of type '{}'",
+                                params.name(), params.type()));
                     }
 
                     break;
 
                 case YES_NO:
-                    validatePrecision(params, helper);
+                    validatePrecision(params);
 
                     if (params.scale() != null) {
                         throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
@@ -288,9 +268,9 @@ public class ColumnParams {
                     break;
 
                 case YES_YES:
-                    validatePrecision(params, helper);
+                    validatePrecision(params);
 
-                    validateScale(params, helper);
+                    validateScale(params);
 
                     break;
                 default:
@@ -298,29 +278,29 @@ public class ColumnParams {
             }
         }
 
-        private static void validatePrecision(ColumnParams params, ColumnParamsSupplier helper) {
+        private static void validatePrecision(ColumnParams params) {
             Integer precision = params.precision();
 
             if (precision == null) {
                 throw new CatalogValidationException(format("Precision definition is necessary for type '{}'", params.type()));
             }
 
-            if (precision < 0 || precision > helper.getMaxPrecision()) {
-                throw new CatalogValidationException(format("Precision: {} for column of type '{}' must be between 0 and {}",
-                        params.precision, params.type(), helper.getMaxPrecision()));
+            if (precision < 0) {
+                throw new CatalogValidationException(format("Precision: {} for column of type '{}' must be non-negative",
+                        params.precision(), params.type()));
             }
         }
 
-        private static void validateScale(ColumnParams params, ColumnParamsSupplier helper) {
+        private static void validateScale(ColumnParams params) {
             Integer scale = params.scale();
 
             if (scale == null) {
                 throw new CatalogValidationException(format("Scale definition is necessary for type '{}'", params.type()));
             }
 
-            if (scale > helper.getMaxScale()) {
-                throw new CatalogValidationException(format("Scale: {} for column of type '{}' must be between 0 and {}",
-                        params.scale(), params.type(), helper.getMaxScale()));
+            if (scale < 0) {
+                throw new CatalogValidationException(format("Scale: {} for column of type '{}' must be non-negative",
+                        params.scale(), params.type()));
             }
         }
     }
