@@ -34,9 +34,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
-import org.apache.ignite.internal.event.AbstractEventProducer;
-import org.apache.ignite.internal.index.event.IndexEvent;
-import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -64,7 +61,7 @@ import org.apache.ignite.lang.NodeStoppingException;
  * as well as managing indexes' lifecycle.
  */
 // TODO: IGNITE-19082 Delete this class
-public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventParameters> implements IgniteComponent {
+public class IndexManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Schema manager. */
@@ -147,35 +144,22 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
     }
 
     private CompletableFuture<Boolean> onIndexDrop(DropIndexEventParameters parameters) {
-        int indexId = parameters.indexId();
-        int tableId = parameters.tableId();
-
-        long causalityToken = parameters.causalityToken();
-        int catalogVersion = parameters.catalogVersion();
-
         if (!busyLock.enterBusy()) {
-            fireEvent(IndexEvent.DROP,
-                    new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId),
-                    new NodeStoppingException()
-            );
-
             return failedFuture(new NodeStoppingException());
         }
 
+        int indexId = parameters.indexId();
+
         try {
-            return tableManager.tableAsync(causalityToken, parameters.tableId())
-                    .thenCompose(table -> {
+            return tableManager.tableAsync(parameters.causalityToken(), parameters.tableId())
+                    .thenApply(table -> {
                         if (table != null) {
                             // In case of DROP TABLE the table will be removed first.
                             table.unregisterIndex(indexId);
                         }
 
-                        return fireEvent(
-                                IndexEvent.DROP,
-                                new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId)
-                        );
-                    })
-                    .thenApply(unused -> false);
+                        return false;
+                    });
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -193,12 +177,6 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         int catalogVersion = parameters.catalogVersion();
 
         if (!busyLock.enterBusy()) {
-            fireEvent(
-                    IndexEvent.CREATE,
-                    new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId),
-                    new NodeStoppingException()
-            );
-
             return failedFuture(new NodeStoppingException());
         }
 
@@ -207,7 +185,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
             assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
 
-            return createIndexLocally(causalityToken, catalogVersion, table, index).thenApply(unused -> false);
+            return createIndexLocally(causalityToken, table, index).thenApply(unused -> false);
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -217,7 +195,6 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
     private CompletableFuture<Void> createIndexLocally(
             long causalityToken,
-            int catalogVersion,
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index
     ) {
@@ -231,11 +208,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
             );
         }
 
-        CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
-
-        CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken);
-
-        return allOf(fireCreateIndexEventFuture, registerIndexFuture);
+        return registerIndex(table, index, causalityToken);
     }
 
     /**
@@ -348,11 +321,9 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
             assert table != null : "tableId=" + tableId + ", indexId=" + index.id();
 
-            CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
-
             CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken);
 
-            startIndexFutures.add(allOf(fireCreateIndexEventFuture, registerIndexFuture));
+            startIndexFutures.add(registerIndexFuture);
         }
 
         startVv.update(causalityToken, (unused, throwable) -> allOf(startIndexFutures.toArray(CompletableFuture[]::new)))
@@ -410,13 +381,5 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
                 }
             }
         });
-    }
-
-    private CompletableFuture<?> fireCreateIndexEvent(
-            CatalogIndexDescriptor index,
-            long causalityToken,
-            int catalogVersion
-    ) {
-        return fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, catalogVersion, index.tableId(), index.id()));
     }
 }

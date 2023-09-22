@@ -44,8 +44,6 @@ import org.apache.ignite.internal.event.Event;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -145,8 +143,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
-    private final IndexManager indexManager;
-
     private final CatalogSchemaManager schemaManager;
 
     private final DataStorageManager dataStorageManager;
@@ -188,7 +184,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
             TableManager tableManager,
-            IndexManager indexManager,
             CatalogSchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
@@ -199,7 +194,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
-        this.indexManager = indexManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
@@ -323,8 +317,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .map((p) -> () -> {
                     if (p.left instanceof TableEvent) {
                         tableManager.removeListener((TableEvent) p.left, p.right);
-                    } else {
-                        indexManager.removeListener((IndexEvent) p.left, p.right);
                     }
                 });
 
