@@ -1407,7 +1407,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return A future object representing the result of the given operation.
      */
     private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
-        var fut = new CompletableFuture<T>();
+        var fut = new CompletableFuture<Void>();
 
         if (!full) {
             txCleanupReadyFutures.compute(txId, (id, txOps) -> {
@@ -1416,8 +1416,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 if (txOps.state == TxState.ABORTED || txOps.state == TxState.COMMITED) {
-                    fut.completeExceptionally(
-                            new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
+                    fut.completeExceptionally(new Exception());
                 } else {
                     txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(fut);
                 }
@@ -1426,8 +1425,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             });
         }
 
+        CompletableFuture<T> resFut = op.get();
+
         if (!fut.isDone()) {
-            op.get().whenComplete((v, th) -> {
+            resFut.whenComplete((v, th) -> {
                 if (full) { // Fast unlock.
                     releaseTxLocks(txId);
                 }
@@ -1444,20 +1445,22 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 if (th0 != null) {
                                     fut.completeExceptionally(th0);
                                 } else {
-                                    fut.complete((T) v0);
+                                    fut.complete(null);
                                 }
                             });
                         } else {
-                            fut.complete((T) res.result());
+                            fut.complete(null);
                         }
                     } else {
-                        fut.complete(v);
+                        fut.complete(null);
                     }
                 }
             });
+
+            return resFut;
         }
 
-        return fut;
+        return failedFuture(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
     }
 
     /**
