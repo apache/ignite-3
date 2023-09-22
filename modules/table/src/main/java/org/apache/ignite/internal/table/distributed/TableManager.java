@@ -1434,7 +1434,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return failedFuture(e);
                 }
 
-            var map = new HashMap<>(previousVal);
+                var map = new HashMap<>(previousVal);
 
                 TableImpl table = map.remove(tableId);
 
