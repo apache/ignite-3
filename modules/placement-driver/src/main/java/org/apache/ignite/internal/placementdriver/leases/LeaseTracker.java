@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.PrimaryReplicaExpirationNotificator;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -87,12 +89,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /** Listener to update a leases cache. */
     private final UpdateListener updateListener = new UpdateListener();
 
+    /** Local primary replica expiration notificator. */
+    private final PrimaryReplicaExpirationNotificator expirationNotificator;
+
     /**
      * Constructor.
      *
+     * @param nodeName Ignite node name.
      * @param msManager Meta storage manager.
      */
-    public LeaseTracker(MetaStorageManager msManager) {
+    public LeaseTracker(String nodeName, MetaStorageManager msManager) {
+        this.expirationNotificator = new PrimaryReplicaExpirationNotificator(nodeName);
         this.msManager = msManager;
     }
 
@@ -120,7 +127,19 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         primaryReplicaWaiters.forEach((groupId, pendingTracker) -> pendingTracker.close());
         primaryReplicaWaiters.clear();
 
+        expirationNotificator.stop();
+
         msManager.unregisterWatch(updateListener);
+    }
+
+    @Override
+    public void subscribePrimaryExpired(ReplicationGroupId grpId, Supplier<CompletableFuture<Void>> listener) {
+        expirationNotificator.subscribe(grpId, listener);
+    }
+
+    @Override
+    public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
+        return expirationNotificator.completionFuture(grpId);
     }
 
     /**
@@ -176,6 +195,10 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                                 fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
                             }
                         }
+
+                        if (isLeaseExpired(lease)) {
+                            expirationNotificator.onLeaseExpire(leases.leaseByGroupId().get(lease.replicationGroupId()));
+                        }
                     }
 
                     for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leasesMap.entrySet().iterator(); iterator.hasNext();) {
@@ -187,7 +210,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         }
                     }
 
-                    LeaseTracker.this.leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
+                    leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
                 }
 
                 return allOf(fireEventFutures.toArray(CompletableFuture[]::new));
@@ -198,6 +221,18 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         public void onError(Throwable e) {
             LOG.warn("Unable to process update leases event", e);
         }
+    }
+
+    /**
+     * Checks the replication group change the leaseholder or not.
+     *
+     * @param lease True when the new leaseholder is chosen for this replication group false otherwise.
+     */
+    private boolean isLeaseExpired(Lease lease) {
+        ReplicationGroupId grpId = lease.replicationGroupId();
+        Lease previousLease = leases.leaseByGroupId().get(grpId);
+
+        return previousLease != null && !previousLease.getStartTime().equals(lease.getStartTime());
     }
 
     @Override
@@ -279,6 +314,10 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
                     // needFireEventReplicaBecomePrimary is not needed because we need to recover the last leases.
                     fireEventFutures.add(fireEventReplicaBecomePrimary(recoveryRevision, lease));
+                }
+
+                if (isLeaseExpired(lease)) {
+                    expirationNotificator.onLeaseExpire(leases.leaseByGroupId().get(lease.replicationGroupId()));
                 }
             });
 

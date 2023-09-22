@@ -387,7 +387,7 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
-            toBeNegotiated.put(grpId, Objects.equals(lease.getLeaseholder(), candidate.name()));
+            toBeNegotiated.put(grpId, !lease.isAccepted() && Objects.equals(lease.getLeaseholder(), candidate.name()));
         }
 
         /**

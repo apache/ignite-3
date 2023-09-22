@@ -509,6 +509,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private LeaseTracker createPlacementDriver() {
-        return new LeaseTracker(metastore);
+        return new LeaseTracker(LEASEHOLDER_1, metastore);
     }
 }

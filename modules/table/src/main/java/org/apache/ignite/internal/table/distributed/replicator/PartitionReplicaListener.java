@@ -325,6 +325,28 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatValidator(schemas, catalogTables);
+
+        placementDriver.subscribePrimaryExpired(replicationGroupId, () -> {
+            LOG.info("Primary replica expired [grp={}]", replicationGroupId);
+
+            ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
+
+            for (UUID txId : txCleanupReadyFutures.keySet()) {
+                TxCleanupReadyFutureList txOps = txCleanupReadyFutures.get(txId);
+
+                if (txOps.state == COMMITED || txOps.state == ABORTED) {
+                    txCleanupReadyFutures.remove(txId);
+                } else if (!txOps.futures.isEmpty()) {
+                    ArrayList<CompletableFuture<?>> txFuts = new ArrayList<>();
+
+                    txOps.futures.forEach((opType, futures) -> txFuts.addAll(futures));
+
+                    futs.add(allOf(txFuts.toArray(CompletableFuture[]::new)).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
+                }
+            }
+
+            return allOf(futs.toArray(CompletableFuture[]::new));
+        });
     }
 
     @Override

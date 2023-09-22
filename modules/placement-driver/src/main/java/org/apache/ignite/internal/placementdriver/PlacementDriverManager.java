@@ -128,7 +128,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(metastore);
+        this.leaseTracker = new LeaseTracker(nodeName, metastore);
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,

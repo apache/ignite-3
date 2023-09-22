@@ -416,14 +416,6 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
                 distributedConfigurationValidator);
 
-        replicaMgr = new ReplicaManager(
-                name,
-                clusterSvc,
-                cmgMgr,
-                clock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
-        );
-
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
         var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -475,6 +467,15 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
                 clock
+        );
+
+        replicaMgr = new ReplicaManager(
+                name,
+                clusterSvc,
+                cmgMgr,
+                clock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                placementDriverMgr.placementDriver()
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -51,4 +52,20 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      * @return Primary replica future.
      */
     CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
+
+    /**
+     * Subscribes to a local primary replica expiration.
+     *
+     * @param grp Replication group id.
+     * @param listener Expiration listener.
+     */
+    void subscribePrimaryExpired(ReplicationGroupId grp, Supplier<CompletableFuture<Void>> listener);
+
+    /**
+     * Returns a future that completes when all expiration listener of previous primary complete.
+     *
+     * @param grpId Replication group id.
+     * @return Future.
+     */
+    CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId);
 }

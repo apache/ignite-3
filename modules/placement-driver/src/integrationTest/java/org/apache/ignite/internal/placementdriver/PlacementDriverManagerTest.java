@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -41,6 +42,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -334,6 +336,44 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             return lease.getExpirationTime().compareTo(nodeClock.now()) > 0;
         }, 10_000));
     }
+
+    @Test
+    public void testPrimaryReplicaExpired() throws Exception {
+        AtomicBoolean leaseExpired = new AtomicBoolean();
+
+        TablePartitionId grpPart0 = createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName));
+
+        placementDriverManager.placementDriver().subscribePrimaryExpired(grpPart0, () -> {
+            log.info("Primary replica is expired [grp={}]", grpPart0);
+
+            leaseExpired.set(true);
+
+            return CompletableFuture.completedFuture(null);
+        });
+
+        Lease lease1 = checkLeaseCreated(grpPart0, true);
+
+        assertFalse(leaseExpired.get());
+
+        Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 1);
+
+        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
+
+        assertTrue(waitForCondition(() -> {
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
+
+            Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
+
+            return lease.getLeaseholder().equals(anotherNodeName);
+        }, 10_000));
+
+        Lease lease2 = checkLeaseCreated(grpPart0, true);
+
+        assertNotEquals(lease1.getLeaseholder(), lease2.getLeaseholder());
+
+        assertTrue(leaseExpired.get());
+    }
+
 
     @Test
     public void testLeaseAccepted() throws Exception {
