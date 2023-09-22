@@ -198,7 +198,7 @@ public final class MarshallerUtil {
             case BOOLEAN:
                 return BinaryMode.BOOLEAN;
             default:
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException("No matching mode for type " + type);
         }
     }
 }
