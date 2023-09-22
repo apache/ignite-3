@@ -277,6 +277,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 if (lease.isAccepted()) {
                     getOrCreatePrimaryReplicaWaiter(lease.replicationGroupId()).update(lease.getExpirationTime(), lease);
 
+                    // needFireEventReplicaBecomePrimary is not needed because we need to recover the last leases.
                     fireEventFutures.add(fireEventReplicaBecomePrimary(recoveryRevision, lease));
                 }
             });
@@ -302,7 +303,16 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         );
     }
 
+    /**
+     * Checks whether event {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} should be fired for an <b>accepted</b> lease.
+     *
+     * @param previousLease Previous group lease, {@code null} if absent.
+     * @param newLease New group lease.
+     * @return {@code true} if there is no previous lease for the group or the new lease is not prolongation.
+     */
     private static boolean needFireEventReplicaBecomePrimary(@Nullable Lease previousLease, Lease newLease) {
+        assert newLease.isAccepted() : newLease;
+
         return previousLease == null || !previousLease.getStartTime().equals(newLease.getStartTime());
     }
 }
