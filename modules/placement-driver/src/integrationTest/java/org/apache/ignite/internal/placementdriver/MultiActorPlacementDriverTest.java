@@ -280,7 +280,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             res.add(new Node(nodeName, vaultManager, clusterService, raftManager, metaStorageManager, placementDriverManager));
         }
 
-        res.forEach(Node::start);
+        res.forEach(Node::startMetastore);
+        res.forEach(Node::startPlacementDriver);
+        res.forEach(Node::deployWatches);
 
         return res;
     }

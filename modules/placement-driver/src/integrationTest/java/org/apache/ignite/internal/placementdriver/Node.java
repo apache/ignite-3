@@ -58,16 +58,20 @@ class Node implements AutoCloseable {
         this.placementDriverManager = placementDriverManager;
     }
 
-    void start() {
+    void startMetastore() {
         vault.start();
         clusterService.start();
         loza.start();
         metastore.start();
+    }
 
+    void startPlacementDriver() {
         assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
 
         placementDriverManager.start();
+    }
 
+    void deployWatches() {
         assertThat(metastore.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
     }
