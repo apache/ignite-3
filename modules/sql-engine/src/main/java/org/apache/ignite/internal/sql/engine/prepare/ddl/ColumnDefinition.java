@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.sql.ColumnType;
@@ -91,26 +90,22 @@ public class ColumnDefinition {
      * Get column's precision.
      */
     public @Nullable Integer precision() {
-        Supplier<Integer> precisionGetter = () -> {
-            colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
-            int prec = colType.specifiedLength() ? PRECISION_NOT_SPECIFIED : type.getPrecision();
-            return prec == PRECISION_NOT_SPECIFIED ? null : prec;
-        };
+        colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
+        Integer precision = colType.specifiedLength() ? PRECISION_NOT_SPECIFIED : type.getPrecision();
+        precision = precision == PRECISION_NOT_SPECIFIED ? null : precision;
 
-        return type.getSqlTypeName().allowsPrec() || PRECISION_ALLOWED.contains(type.getSqlTypeName()) ? precisionGetter.get() : null;
+        return type.getSqlTypeName().allowsPrec() || PRECISION_ALLOWED.contains(type.getSqlTypeName()) ? precision : null;
     }
 
     /**
      * Get column's scale.
      */
     public @Nullable Integer scale() {
-        Supplier<Integer> scaleGetter = () -> {
-            colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
-            int scale = colType.specifiedLength() ? SCALE_NOT_SPECIFIED : type.getScale();
-            return scale == SCALE_NOT_SPECIFIED ? null : scale;
-        };
+        colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
+        Integer scale = colType.specifiedLength() ? SCALE_NOT_SPECIFIED : type.getScale();
+        scale = scale == SCALE_NOT_SPECIFIED ? null : scale;
 
-        return type.getSqlTypeName().allowsScale() ? scaleGetter.get() : null;
+        return type.getSqlTypeName().allowsScale() ? scale : null;
     }
 
     /**
@@ -118,12 +113,9 @@ public class ColumnDefinition {
      */
     public @Nullable Integer length() {
         colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
-        
-        Supplier<Integer> lenGetter = () -> {
-            int prec = type.getPrecision();
-            return prec == PRECISION_NOT_SPECIFIED ? defaultLength(colType, DEFAULT_LENGTH) : prec;
-        };
+        int length = type.getPrecision();
+        length = length == PRECISION_NOT_SPECIFIED ? defaultLength(colType, DEFAULT_LENGTH) : length;
 
-        return colType.specifiedLength() ? lenGetter.get() : null;
+        return colType.specifiedLength() ? length : null;
     }
 }
