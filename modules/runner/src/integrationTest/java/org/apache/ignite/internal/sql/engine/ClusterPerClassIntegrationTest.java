@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.table.TableTestUtils.getTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -53,13 +52,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
-import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
@@ -71,7 +67,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -414,19 +412,29 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
-        var queryEngine = new TestQueryProcessor(CLUSTER_NODES.get(0));
+        Ignite ignite = CLUSTER_NODES.get(0);
 
-        SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
-
-        try {
-            var context = QueryContext.create(SqlQueryType.ALL, tx);
-
-            return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, CLUSTER_NODES.get(0).transactions(), sql, args))
-            );
-        } finally {
-            queryEngine.closeSession(sessionId);
+        try (Session session = ignite.sql().createSession()) {
+            ResultSet<SqlRow> rs = session.execute(tx, sql, args);
+            return getAllResultSet(rs);
         }
+    }
+
+    public static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
+        List<List<Object>> res = new ArrayList<>();
+
+        while (resultSet.hasNext()) {
+            SqlRow sqlRow = resultSet.next();
+            ArrayList<Object> row = new ArrayList<>(sqlRow.columnCount());
+            for (int i = 0; i < sqlRow.columnCount(); i++) {
+                row.add(sqlRow.value(i));
+            }
+            res.add(row);
+        }
+
+        resultSet.close();
+
+        return res;
     }
 
     protected static void checkMetadata(ColumnMetadata expectedMeta, ColumnMetadata actualMeta) {
