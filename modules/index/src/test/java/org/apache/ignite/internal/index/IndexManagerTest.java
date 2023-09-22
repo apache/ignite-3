@@ -131,8 +131,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 DEFAULT_ZONE_NAME,
                 TABLE_NAME,
                 List.of(
-                        ColumnParams.builder().name("c1").precision(1 << 14).type(STRING).build(),
-                        ColumnParams.builder().name("c2").precision(1 << 14).type(STRING).build()
+                        ColumnParams.builder().name("c1").length(100).type(STRING).build(),
+                        ColumnParams.builder().name("c2").length(100).type(STRING).build()
                 ),
                 List.of("c1")
         );
