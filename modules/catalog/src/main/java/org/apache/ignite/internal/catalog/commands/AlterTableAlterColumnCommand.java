@@ -33,7 +33,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -152,8 +151,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
             }
         }
 
-        if (precision != null && precision != origin.precision() && (origin.type() != ColumnType.DECIMAL
-                || origin.type().precScale() == PrecisionScale.NO_NO)) {
+        if (precision != null && precision != origin.precision() && origin.type() != ColumnType.DECIMAL) {
             throw new CatalogValidationException(format("Changing the precision for column of type '{}' is not allowed", origin.type()));
         }
 
