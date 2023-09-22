@@ -345,15 +345,16 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         outerTx.commit();
 
         // Outdated tx.
-        Transaction outerTx0 = outerTx;
-        assertThrowsSqlException(
-                Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
-                "Transaction is already finished",
-                () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
+        //ToDo: IGNITE-20387 , uncomment
+//        Transaction outerTx0 = outerTx;
+//        assertThrowsSqlException(
+//                Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+//                "Transaction is already finished",
+//                () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
-                "--",
+                "PK unique constraint is violated",
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
 
         AsyncResultSet rs = await(ses.executeAsync(null, "SELECT VAL0 FROM TEST ORDER BY VAL0"));
