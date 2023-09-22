@@ -59,7 +59,6 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Index;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -346,11 +345,11 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // Outdated tx.
         //ToDo: IGNITE-20387 , uncomment
-//        Transaction outerTx0 = outerTx;
-//        assertThrowsSqlException(
-//                Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
-//                "Transaction is already finished",
-//                () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
+        //        Transaction outerTx0 = outerTx;
+        //        assertThrowsSqlException(
+        //                Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+        //                "Transaction is already finished",
+        //                () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
