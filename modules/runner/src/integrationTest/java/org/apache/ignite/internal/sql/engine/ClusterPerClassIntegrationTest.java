@@ -420,7 +420,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         }
     }
 
-    public static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
+    private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
         List<List<Object>> res = new ArrayList<>();
 
         while (resultSet.hasNext()) {
