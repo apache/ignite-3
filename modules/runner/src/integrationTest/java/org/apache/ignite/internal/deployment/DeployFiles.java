@@ -56,7 +56,7 @@ class DeployFiles {
 
     private DeployFile bigFile;
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-19009
+    // TODO https://issues.apache.org/jira/browse/IGNITE-20204
     DeployFiles(Path workDir) {
         this.workDir = workDir;
     }
