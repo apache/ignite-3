@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.marshaller.testobjects;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
@@ -26,7 +27,9 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
  * Test object.
  */
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-public class TestSimpleObject {
+public class TestSimpleObject implements Serializable {
+    private static final long serialVersionUID = -4668524529090341483L;
+
     /**
      * Creates an object with random data.
      */

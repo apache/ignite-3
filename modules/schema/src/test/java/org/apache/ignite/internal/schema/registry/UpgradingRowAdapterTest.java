@@ -37,17 +37,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -213,90 +205,13 @@ public class UpgradingRowAdapterTest {
      * @param vals   Row values.
      * @return Row bytes.
      */
-    private BinaryRow serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
+    private static BinaryRow serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
         assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.size());
 
         RowAssembler asm = new RowAssembler(schema);
 
-        for (int i = 0; i < vals.size(); i++) {
-            if (vals.get(i) == null) {
-                asm.appendNull();
-            } else {
-                NativeType type = schema.column(i).type();
-
-                switch (type.spec()) {
-                    case BOOLEAN:
-                        asm.appendBoolean((Boolean) vals.get(i));
-                        break;
-
-                    case INT8:
-                        asm.appendByte((Byte) vals.get(i));
-                        break;
-
-                    case INT16:
-                        asm.appendShort((Short) vals.get(i));
-                        break;
-
-                    case INT32:
-                        asm.appendInt((Integer) vals.get(i));
-                        break;
-
-                    case INT64:
-                        asm.appendLong((Long) vals.get(i));
-                        break;
-
-                    case FLOAT:
-                        asm.appendFloat((Float) vals.get(i));
-                        break;
-
-                    case DOUBLE:
-                        asm.appendDouble((Double) vals.get(i));
-                        break;
-
-                    case UUID:
-                        asm.appendUuid((UUID) vals.get(i));
-                        break;
-
-                    case STRING:
-                        asm.appendString((String) vals.get(i));
-                        break;
-
-                    case NUMBER:
-                        asm.appendNumber((BigInteger) vals.get(i));
-                        break;
-
-                    case DECIMAL:
-                        asm.appendDecimal((BigDecimal) vals.get(i));
-                        break;
-
-                    case BYTES:
-                        asm.appendBytes((byte[]) vals.get(i));
-                        break;
-
-                    case BITMASK:
-                        asm.appendBitmask((BitSet) vals.get(i));
-                        break;
-
-                    case DATE:
-                        asm.appendDate((LocalDate) vals.get(i));
-                        break;
-
-                    case TIME:
-                        asm.appendTime((LocalTime) vals.get(i));
-                        break;
-
-                    case DATETIME:
-                        asm.appendDateTime((LocalDateTime) vals.get(i));
-                        break;
-
-                    case TIMESTAMP:
-                        asm.appendTimestamp((Instant) vals.get(i));
-                        break;
-
-                    default:
-                        throw new IllegalStateException("Unsupported test type: " + type);
-                }
-            }
+        for (Object val : vals) {
+            asm.appendValue(val);
         }
 
         return asm.build();
