@@ -75,6 +75,7 @@ import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -90,7 +91,6 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -121,7 +121,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -155,8 +154,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
-import org.apache.ignite.internal.table.event.TableEvent;
-import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
@@ -191,7 +188,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Table manager.
  */
-public class TableManager extends AbstractEventProducer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
+public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
@@ -530,12 +527,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
                 return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
             });
 
-            schemaManager.listen(SchemaEvent.CREATE, (parameters, exception) -> inBusyLockAsync(busyLock, () -> {
-                var eventParameters = new TableEventParameters(parameters.causalityToken(), parameters.tableId());
-
-                return fireEvent(TableEvent.ALTER, eventParameters).thenApply(v -> false);
-            }));
-
             addMessageHandler(clusterService.messagingService());
         });
     }
@@ -651,8 +642,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
         int tableId = parameters.tableId();
 
         if (!busyLock.enterBusy()) {
-            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tableId), new NodeStoppingException());
-
             return failedFuture(new NodeStoppingException());
         }
 
@@ -1217,8 +1206,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
         int tableId = tableDescriptor.id();
 
         if (!busyLock.enterBusy()) {
-            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId), new NodeStoppingException());
-
             return failedFuture(new NodeStoppingException());
         }
 
@@ -1329,10 +1316,11 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
         tablesById(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
-        // We use the event notification future as the result so that dependent components can complete the schema updates.
+        // We used the event notification future as the result so that dependent components can complete the schema updates.
+        // After switching to Catalog, most likely, the ticket is irrelevant and should be closed.
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        return allOf(createPartsFut, fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId)));
+        return createPartsFut.thenApply(ignore -> null);
     }
 
     /**
@@ -1446,7 +1434,7 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
                     return failedFuture(e);
                 }
 
-                var map = new HashMap<>(previousVal);
+            var map = new HashMap<>(previousVal);
 
                 TableImpl table = map.remove(tableId);
 
@@ -1474,22 +1462,13 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
 
             startedTables.remove(tableId);
 
-            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tableId))
-                    .whenComplete((v, e) -> {
-                        Set<ByteArray> assignmentKeys = new HashSet<>();
+            Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
+                    .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
+                    .collect(Collectors.toSet());
 
-                        for (int p = 0; p < partitions; p++) {
-                            assignmentKeys.add(stablePartAssignmentsKey(new TablePartitionId(tableId, p)));
-                        }
-
-                        metaStorageMgr.removeAll(assignmentKeys);
-
-                        if (e != null) {
-                            LOG.error("Error on " + TableEvent.DROP + " notification", e);
-                        }
-                    });
+            metaStorageMgr.removeAll(assignmentKeys);
         } catch (NodeStoppingException e) {
-            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tableId), e);
+            // No op.
         }
     }
 
