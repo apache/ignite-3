@@ -96,8 +96,8 @@ class ErrorGroupTest {
 
         // Then error code and traceId are not duplicated
         assertThat(errorMessage, equalTo("I'm the\n reason\n"));
-        assertThat(detailedMessage, equalTo("org.apache.ignite.lang.IgniteInternalException: "
-                + "IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n"));
+        assertThat(detailedMessage, equalTo(IgniteInternalException.class.getName()
+                + ": IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n"));
     }
 
     @SuppressWarnings({"rawtypes", "OptionalGetWithoutIsPresent"})
