@@ -18,8 +18,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;

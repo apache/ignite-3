@@ -20,7 +20,7 @@ package org.apache.ignite.internal.distributionzones.exception;
 import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Exception is thrown when appropriate distribution zone was removed.

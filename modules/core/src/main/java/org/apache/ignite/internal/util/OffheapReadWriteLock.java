@@ -19,7 +19,7 @@ package org.apache.ignite.internal.util;
 
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 
 /**
  * Lock state structure is as follows.

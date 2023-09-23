@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.pagememory.tree;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.CorruptedDataStructureException;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**

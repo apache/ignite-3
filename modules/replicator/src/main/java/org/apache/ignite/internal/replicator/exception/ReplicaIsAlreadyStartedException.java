@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.replicator.exception;
 
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * Unchecked exception that is thrown when creating a replica with the same replication group id that is already started.

@@ -22,7 +22,7 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.ignite.lang.util.StringUtils;
+import org.apache.ignite.internal.lang.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**

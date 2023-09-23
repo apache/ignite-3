@@ -52,7 +52,7 @@ import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
-import org.apache.ignite.lang.util.StringUtils;
+import org.apache.ignite.internal.lang.util.StringUtils;
 import org.jline.reader.impl.completer.AggregateCompleter;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state;
 
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**

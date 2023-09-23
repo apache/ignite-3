@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 
 /**
  * Utility methods for converting various types to HEX string representation.

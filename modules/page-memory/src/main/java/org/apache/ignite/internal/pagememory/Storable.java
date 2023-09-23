@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Simple interface for data, store in some RowStore.

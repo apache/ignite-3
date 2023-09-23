@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.pagememory.mem;
 
 import java.io.IOException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Exception that signifies that there's no more available page in the data region.

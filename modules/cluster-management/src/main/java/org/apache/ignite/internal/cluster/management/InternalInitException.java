@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Internal exception thrown when cluster initialization fails for some reason.
