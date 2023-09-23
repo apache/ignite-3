@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.lang;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.Objects;
 import java.util.UUID;
 
@@ -36,7 +38,7 @@ public class RemoteException extends IgniteInternalException {
      * @param originalMessage Original error message from remote node.
      */
     public RemoteException(String nodeName, UUID traceId, int code, String originalMessage) {
-        this(traceId, code, IgniteStringFormatter.format("Remote exception: node={}, originalMessage={}", Objects.requireNonNull(nodeName), originalMessage));
+        this(traceId, code, format("Remote exception: node={}, originalMessage={}", Objects.requireNonNull(nodeName), originalMessage));
     }
 
     /**
