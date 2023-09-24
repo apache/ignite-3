@@ -414,7 +414,7 @@ public final class ExceptionUtils {
      * @return New exception with the given cause.
      */
     public static <T extends Exception> T withCauseAndCode(IgniteTriFunction<UUID, Integer, Throwable, T> supplier, int code, Throwable t) {
-        return withCauseInternal((traceId, c, message, cause) -> supplier.apply(traceId, code, t), code, t);
+        return withCauseInternal((traceId, c, message, cause) -> supplier.apply(traceId, c, t), code, t);
     }
 
     /**
@@ -437,7 +437,7 @@ public final class ExceptionUtils {
             String message,
             Throwable t
     ) {
-        return withCauseInternal((traceId, c, m, cause) -> supplier.apply(traceId, code, message, t), code, t);
+        return withCauseInternal((traceId, c, m, cause) -> supplier.apply(traceId, c, m, t), code, t);
     }
 
     /**
@@ -456,12 +456,10 @@ public final class ExceptionUtils {
     ) {
         Throwable unwrapped = unwrapCause(t);
 
-        if (unwrapped instanceof IgniteInternalException) {
-            IgniteInternalException iie = (IgniteInternalException) unwrapped;
-            return supplier.apply(iie.traceId(), iie.code(), iie.getMessage(), t);
-        } else if (unwrapped instanceof IgniteInternalCheckedException) {
-            IgniteInternalCheckedException iice = (IgniteInternalCheckedException) unwrapped;
-            return supplier.apply(iice.traceId(), iice.code(), iice.getMessage(), t);
+        if (unwrapped instanceof TraceableException) {
+            TraceableException traceable = (TraceableException) unwrapped;
+
+            return supplier.apply(traceable.traceId(), traceable.code(), unwrapped.getMessage(), t);
         }
 
         return supplier.apply(UUID.randomUUID(), defaultCode, t.getMessage(), t);

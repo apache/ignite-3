@@ -527,7 +527,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private void onNodeLeft(String nodeName) {
             remoteFragmentInitCompletion.entrySet().stream()
                     .filter(e -> nodeName.equals(e.getKey().nodeName()))
-                    .forEach(e -> e.getValue().completeExceptionally(new NodeLeftException(nodeName)));
+                    .forEach(e -> e.getValue().completeExceptionally(new NodeLeftException("Node left the cluster. Node: " + nodeName)));
         }
 
         private CompletableFuture<Void> executeFragment(IgniteRel treeRoot, ResolvedDependencies deps, ExecutionContext<RowT> ectx) {

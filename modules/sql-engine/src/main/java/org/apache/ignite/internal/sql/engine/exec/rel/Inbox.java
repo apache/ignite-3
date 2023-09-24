@@ -377,7 +377,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         checkState();
 
         if (perNodeBuffers.get(nodeName).check() != State.END) {
-            throw new NodeLeftException(nodeName);
+            throw new NodeLeftException("Node left the cluster. Node: " + nodeName);
         }
     }
 

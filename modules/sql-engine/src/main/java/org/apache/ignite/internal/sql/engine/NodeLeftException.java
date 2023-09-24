@@ -29,7 +29,7 @@ public class NodeLeftException extends IgniteException {
     private static final long serialVersionUID = 0L;
 
     /** Constructor. */
-    public NodeLeftException(String nodeName) {
-        super(NODE_LEFT_ERR, "Node left the cluster. Node: " + nodeName);
+    public NodeLeftException(String msg) {
+        super(NODE_LEFT_ERR, msg);
     }
 }
