@@ -23,11 +23,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_L
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 
-import java.util.EnumSet;
 import java.util.Objects;
-import java.util.Set;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,12 +37,6 @@ public class ColumnDefinition {
     private final DefaultValueDefinition defaultValueDefinition;
 
     private ColumnType colType;
-
-    /**
-     * Calcite definition {@link org.apache.calcite.sql.type.SqlTypeName} for precision and scale is
-     * different from standard, this fixes such a case.
-     **/
-    private static final Set<SqlTypeName> PRECISION_ALLOWED = EnumSet.of(SqlTypeName.FLOAT, SqlTypeName.REAL);
 
     /** Creates a column definition. */
     public ColumnDefinition(String name, RelDataType type, DefaultValueDefinition defaultValueDefinition) {
@@ -94,7 +85,7 @@ public class ColumnDefinition {
         Integer precision = colType.lengthAllowed() ? PRECISION_NOT_SPECIFIED : type.getPrecision();
         precision = precision == PRECISION_NOT_SPECIFIED ? null : precision;
 
-        return type.getSqlTypeName().allowsPrec() || PRECISION_ALLOWED.contains(type.getSqlTypeName()) ? precision : null;
+        return type.getSqlTypeName().allowsPrec() ? precision : null;
     }
 
     /**

@@ -48,7 +48,7 @@ public enum ColumnType {
     INT64(Long.class, false, false, false),
 
     /** 32-bit single-precision floating-point number. */
-    FLOAT(Float.class, true, false, false),
+    FLOAT(Float.class, false, false, false),
 
     /**
      * 64-bit double-precision floating-point number.

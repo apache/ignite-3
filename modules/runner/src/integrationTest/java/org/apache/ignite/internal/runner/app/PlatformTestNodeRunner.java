@@ -303,7 +303,7 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
                         ColumnParams.builder().name("INT64").type(INT64).nullable(true).build(),
-                        ColumnParams.builder().name("FLOAT").type(FLOAT).precision(5).nullable(true).build(),
+                        ColumnParams.builder().name("FLOAT").type(FLOAT).nullable(true).build(),
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
                         ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
@@ -334,7 +334,7 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
                         ColumnParams.builder().name("INT64").type(INT64).nullable(true).build(),
-                        ColumnParams.builder().name("FLOAT").type(FLOAT).precision(5).nullable(true).build(),
+                        ColumnParams.builder().name("FLOAT").type(FLOAT).nullable(true).build(),
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
                         ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
@@ -383,8 +383,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(FLOAT).precision(5).build(),
-                ColumnParams.builder().name("VAL").type(FLOAT).precision(5).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(FLOAT).build(),
+                ColumnParams.builder().name("VAL").type(FLOAT).nullable(true).build()
         );
 
         createTwoColumnTable(
@@ -437,8 +437,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(NUMBER).precision(15).scale(0).build(),
-                ColumnParams.builder().name("VAL").type(NUMBER).precision(15).scale(0).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(NUMBER).precision(15).build(),
+                ColumnParams.builder().name("VAL").type(NUMBER).precision(15).nullable(true).build()
         );
 
         createTwoColumnTable(

@@ -158,13 +158,6 @@ public class CatalogTestUtils {
         }
     }
 
-    /** Append scale according to type requirement. */
-    public static void applyNecessaryScale(ColumnType type, Builder colBuilder) {
-        if (type.scaleAllowed()) {
-            colBuilder.scale(0);
-        }
-    }
-
     static ColumnParams columnParams(String name, ColumnType type) {
         return columnParams(name, type, DEFAULT_NULLABLE);
     }
