@@ -124,7 +124,7 @@ public enum ColumnType {
     }
 
     /** If {@code true} length need to be specified, {@code false} otherwise. */
-    public boolean specifiedLength() {
+    public boolean lengthAllowed() {
         return lengthAllowed;
     }
 }

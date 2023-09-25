@@ -91,7 +91,7 @@ public class ColumnDefinition {
      */
     public @Nullable Integer precision() {
         colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
-        Integer precision = colType.specifiedLength() ? PRECISION_NOT_SPECIFIED : type.getPrecision();
+        Integer precision = colType.lengthAllowed() ? PRECISION_NOT_SPECIFIED : type.getPrecision();
         precision = precision == PRECISION_NOT_SPECIFIED ? null : precision;
 
         return type.getSqlTypeName().allowsPrec() || PRECISION_ALLOWED.contains(type.getSqlTypeName()) ? precision : null;
@@ -102,7 +102,7 @@ public class ColumnDefinition {
      */
     public @Nullable Integer scale() {
         colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type()), "colType"));
-        Integer scale = colType.specifiedLength() ? SCALE_NOT_SPECIFIED : type.getScale();
+        Integer scale = colType.lengthAllowed() ? SCALE_NOT_SPECIFIED : type.getScale();
         scale = scale == SCALE_NOT_SPECIFIED ? null : scale;
 
         return type.getSqlTypeName().allowsScale() ? scale : null;
@@ -116,6 +116,6 @@ public class ColumnDefinition {
         int length = type.getPrecision();
         length = length == PRECISION_NOT_SPECIFIED ? defaultLength(colType, DEFAULT_LENGTH) : length;
 
-        return colType.specifiedLength() ? length : null;
+        return colType.lengthAllowed() ? length : null;
     }
 }

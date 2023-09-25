@@ -18,15 +18,20 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.DEFAULT_NULLABLE;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
+import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_DEFINITION;
+import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_NOT_APPLICABLE;
+import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_VALIDATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
@@ -35,51 +40,110 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
-    public void testColumnSetPrecisionScale(ColumnType type) {
-        Builder colBuilder = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20);
+    public void testColumnSetPrecision(ColumnType type) {
+        Builder noPrecision = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder invalidPrecision = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder correctPrecision = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
 
-        Builder colBuilderErrPrec = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, -1, 2);
-        Builder colBuilderErrScale = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, -1);
+        initializeColumnWithDefaults(type, noPrecision);
+        initializeColumnWithDefaults(type, invalidPrecision);
+        initializeColumnWithDefaults(type, correctPrecision);
 
-        applyNecessaryLength(type, colBuilder);
-
-        if (!type.precisionAllowed() && !type.scaleAllowed()) {
-            assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Precision is not applicable for column");
-        }
-
-        if (type.precisionAllowed() && !type.scaleAllowed()) {
-            Builder colBuilder0 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, 2);
-            assertThrowsWithCause(colBuilder0::build, CatalogValidationException.class, "Scale is not applicable for column");
-        }
+        noPrecision.precision(null);
+        invalidPrecision.precision(-1);
 
         if (type.precisionAllowed()) {
-            assertThrowsWithCause(colBuilderErrPrec::build, CatalogValidationException.class);
+            assertThrowsWithCause(noPrecision::build, CatalogValidationException.class,
+                    format(ERR_STR_DEFINITION, "Precision", "COL", type.name()));
+
+            assertThrowsWithCause(invalidPrecision::build, CatalogValidationException.class,
+                    format(ERR_STR_VALIDATION, "Precision", "COL", type.name()));
+
+            ColumnParams col = correctPrecision.build();
+            assertNotNull(col.length());
+        } else {
+            correctPrecision.precision(1);
+
+            assertThrowsWithCause(correctPrecision::build, CatalogValidationException.class,
+                    format(ERR_STR_NOT_APPLICABLE, "Precision", "COL", type.name()));
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    public void testColumnSetScale(ColumnType type) {
+        Builder noScale = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder invalidScale = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder correctScale = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+
+        initializeColumnWithDefaults(type, noScale);
+        initializeColumnWithDefaults(type, invalidScale);
+        initializeColumnWithDefaults(type, correctScale);
+
+        noScale.scale(null);
+        invalidScale.scale(-1);
 
         if (type.scaleAllowed()) {
-            assertThrowsWithCause(colBuilderErrScale::build, CatalogValidationException.class);
+            assertThrowsWithCause(noScale::build, CatalogValidationException.class,
+                    format(ERR_STR_DEFINITION, "Scale", "COL", type.name()));
+
+            assertThrowsWithCause(invalidScale::build, CatalogValidationException.class,
+                    format(ERR_STR_VALIDATION, "Scale", "COL", type.name()));
+
+            ColumnParams col = correctScale.build();
+            assertNotNull(col.length());
+        } else {
+            correctScale.scale(1);
+
+            assertThrowsWithCause(correctScale::build, CatalogValidationException.class,
+                    format(ERR_STR_NOT_APPLICABLE, "Scale", "COL", type.name()));
         }
     }
 
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
     public void testColumnSetLength(ColumnType type) {
-        Builder colBuilder = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
-        Builder colBuilder1 = columnParamsBuilder("COL1", type, DEFAULT_NULLABLE);
+        Builder noLength = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder invalidLength = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder correctLength = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
 
-        initializeColumnWithDefaults(type, colBuilder);
-        initializeColumnWithDefaults(type, colBuilder1);
+        initializeColumnWithDefaults(type, noLength);
+        initializeColumnWithDefaults(type, invalidLength);
+        initializeColumnWithDefaults(type, correctLength);
 
-        colBuilder.length(100);
+        noLength.length(null);
+        invalidLength.length(-1);
 
-        if (!type.specifiedLength()) {
-            assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Length specification is not applicable");
-            return;
+        if (type.lengthAllowed()) {
+            assertThrowsWithCause(noLength::build, CatalogValidationException.class,
+                    format(ERR_STR_DEFINITION, "Length", "COL", type.name()));
+
+            assertThrowsWithCause(invalidLength::build, CatalogValidationException.class,
+                    format(ERR_STR_VALIDATION, "Length", "COL", type.name()));
+
+            ColumnParams col = correctLength.build();
+            assertNotNull(col.length());
+        } else {
+            correctLength.length(1);
+
+            assertThrowsWithCause(correctLength::build, CatalogValidationException.class,
+                    format(ERR_STR_NOT_APPLICABLE, "Length", "COL", type.name()));
         }
+    }
 
-        colBuilder.build();
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
+    public void testColumnEmptyName(ColumnType type) {
+        Builder colBuilder = columnParamsBuilder(null, type, DEFAULT_NULLABLE);
+        initializeColumnWithDefaults(type, colBuilder);
 
-        colBuilder1.length(-1);
-        assertThrowsWithCause(colBuilder1::build, CatalogValidationException.class);
+        assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Column name");
+    }
+
+    @Test
+    public void testColumnEmptyType() {
+        Builder colBuilder = columnParamsBuilder("COL", null, DEFAULT_NULLABLE);
+
+        assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Type is not specified for column 'COL'");
     }
 }

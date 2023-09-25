@@ -137,24 +137,31 @@ public class CatalogTestUtils {
             colBuilder.scale(0);
         }
 
-        if (type.specifiedLength()) {
+        if (type.lengthAllowed()) {
             colBuilder.length(1 << 5);
         }
 
         return colBuilder;
     }
 
-    /** Append scale according to type requirement. */
+    /** Append precision according to type requirement. */
     public static void applyNecessaryPrecision(ColumnType type, Builder colBuilder) {
         if (type.precisionAllowed()) {
             colBuilder.precision(11);
         }
     }
 
-    /** Append scale according to type requirement. */
+    /** Append length according to type requirement. */
     public static void applyNecessaryLength(ColumnType type, Builder colBuilder) {
-        if (type.specifiedLength()) {
+        if (type.lengthAllowed()) {
             colBuilder.length(1 << 5);
+        }
+    }
+
+    /** Append scale according to type requirement. */
+    public static void applyNecessaryScale(ColumnType type, Builder colBuilder) {
+        if (type.scaleAllowed()) {
+            colBuilder.scale(0);
         }
     }
 

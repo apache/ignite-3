@@ -702,7 +702,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         ColumnParams col = colBuilder.build();
 
-        if (!type.specifiedLength()) {
+        if (!type.lengthAllowed()) {
             assertThrowsWithCause(colWithLengthBuilder::build, CatalogValidationException.class);
             return;
         }

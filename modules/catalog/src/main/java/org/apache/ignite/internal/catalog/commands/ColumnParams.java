@@ -27,6 +27,10 @@ import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
+    public static final String ERR_STR_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'";
+    public static final String ERR_STR_VALIDATION = "{} for column '{}' of type '{}' must be non-negative";
+    public static final String ERR_STR_DEFINITION = "{} definition is necessary for column '{}' of type '{}'";
+
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
@@ -178,7 +182,7 @@ public class ColumnParams {
          * @param precision Column precision.
          * @return {@code this}.
          */
-        public Builder precision(Integer precision) {
+        public Builder precision(@Nullable Integer precision) {
             params.precision = precision;
 
             return this;
@@ -190,7 +194,7 @@ public class ColumnParams {
          * @param scale Column scale.
          * @return {@code this}.
          */
-        public Builder scale(Integer scale) {
+        public Builder scale(@Nullable Integer scale) {
             params.scale = scale;
 
             return this;
@@ -202,7 +206,7 @@ public class ColumnParams {
          * @param length Column length.
          * @return {@code this}.
          */
-        public Builder length(Integer length) {
+        public Builder length(@Nullable Integer length) {
             params.length = length;
 
             return this;
@@ -221,34 +225,36 @@ public class ColumnParams {
             CatalogParamsValidationUtils.validateIdentifier(params.name(), "Column name");
 
             if (params.type == null) {
-                throw new CatalogValidationException(format("Column '{}' type is not specified", params.name()));
+                throw new CatalogValidationException(format("Type is not specified for column '{}'", params.name()));
             }
 
             if (params.type == ColumnType.NULL) {
                 throw new CatalogValidationException(format("Type NULL is not applicable for column '{}'", params.name()));
             }
 
-            if (params.type.specifiedLength()) {
-                int length = Objects.requireNonNull(params.length(), "length");
+            boolean validatePrecision = params.type.precisionAllowed();
+            boolean validateScale = params.type.scaleAllowed();
+            boolean validateLenght = params.type.lengthAllowed();
 
-                if (length < 0) {
-                    throw new CatalogValidationException(format("Length: {} for column of type '{}' must be non-negative",
-                            params.length(), params.type()));
+            if (validateLenght) {
+                if (params.length() == null) {
+                    throw new CatalogValidationException(format(ERR_STR_DEFINITION, "Length", params.name(), params.type()));
+                }
+
+                if (params.length() < 0) {
+                    throw new CatalogValidationException(format(ERR_STR_VALIDATION, "Length", params.name(), params.type()));
                 }
             } else {
                 if (params.length() != null) {
-                    throw new CatalogValidationException(format("Length specification is not applicable for column '{}'", params.name()));
+                    throw new CatalogValidationException(format(ERR_STR_NOT_APPLICABLE, "Length", params.name(), params.type()));
                 }
             }
-
-            boolean validatePrecision = params.type.precisionAllowed();
-            boolean validateScale = params.type.scaleAllowed();
 
             if (validatePrecision) {
                 validatePrecision(params);
 
-                if (params.scale() != null) {
-                    throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
+                if (params.scale() != null && !validateScale) {
+                    throw new CatalogValidationException(format(ERR_STR_NOT_APPLICABLE, "Scale", params.name(), params.type()));
                 }
             }
 
@@ -258,13 +264,11 @@ public class ColumnParams {
 
             if (!validatePrecision && !validateScale) {
                 if (params.precision() != null) {
-                    throw new CatalogValidationException(format("Precision is not applicable for column '{}' of type '{}'",
-                            params.name(), params.type()));
+                    throw new CatalogValidationException(format(ERR_STR_NOT_APPLICABLE, "Precision", params.name(), params.type()));
                 }
 
                 if (params.scale() != null) {
-                    throw new CatalogValidationException(format("Scale is not applicable for column '{}' of type '{}'",
-                            params.name(), params.type()));
+                    throw new CatalogValidationException(format(ERR_STR_NOT_APPLICABLE, "Scale", params.name(), params.type()));
                 }
             }
         }
@@ -273,12 +277,11 @@ public class ColumnParams {
             Integer precision = params.precision();
 
             if (precision == null) {
-                throw new CatalogValidationException(format("Precision definition is necessary for type '{}'", params.type()));
+                throw new CatalogValidationException(format(ERR_STR_DEFINITION, "Precision", params.name(), params.type()));
             }
 
             if (precision < 0) {
-                throw new CatalogValidationException(format("Precision: {} for column of type '{}' must be non-negative",
-                        params.precision(), params.type()));
+                throw new CatalogValidationException(format(ERR_STR_VALIDATION, "Precision", params.name(), params.type()));
             }
         }
 
@@ -286,12 +289,11 @@ public class ColumnParams {
             Integer scale = params.scale();
 
             if (scale == null) {
-                throw new CatalogValidationException(format("Scale definition is necessary for type '{}'", params.type()));
+                throw new CatalogValidationException(format(ERR_STR_DEFINITION, "Scale", params.name(), params.type()));
             }
 
             if (scale < 0) {
-                throw new CatalogValidationException(format("Scale: {} for column of type '{}' must be non-negative",
-                        params.scale(), params.type()));
+                throw new CatalogValidationException(format(ERR_STR_VALIDATION, "Scale", params.name(), params.type()));
             }
         }
     }
