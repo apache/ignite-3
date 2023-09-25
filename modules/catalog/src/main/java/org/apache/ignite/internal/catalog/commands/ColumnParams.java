@@ -23,7 +23,6 @@ import java.util.Objects;
 import org.apache.ignite.internal.catalog.CatalogParamsValidationUtils;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
@@ -242,39 +241,31 @@ public class ColumnParams {
                 }
             }
 
-            PrecisionScale precScale = params.type.precScale();
+            boolean validatePrecision = params.type.precisionAllowed();
+            boolean validateScale = params.type.scaleAllowed();
 
-            switch (precScale) {
-                case NO_NO:
-                    if (params.precision() != null) {
-                        throw new CatalogValidationException(format("Precision is not applicable for column '{}' of type '{}'",
-                                params.name(), params.type()));
-                    }
+            if (validatePrecision) {
+                validatePrecision(params);
 
-                    if (params.scale() != null) {
-                        throw new CatalogValidationException(format("Scale is not applicable for column '{}' of type '{}'",
-                                params.name(), params.type()));
-                    }
+                if (params.scale() != null) {
+                    throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
+                }
+            }
 
-                    break;
+            if (validateScale) {
+                validateScale(params);
+            }
 
-                case YES_NO:
-                    validatePrecision(params);
+            if (!validatePrecision && !validateScale) {
+                if (params.precision() != null) {
+                    throw new CatalogValidationException(format("Precision is not applicable for column '{}' of type '{}'",
+                            params.name(), params.type()));
+                }
 
-                    if (params.scale() != null) {
-                        throw new CatalogValidationException(format("Scale is not applicable for column of type '{}'", params.type()));
-                    }
-
-                    break;
-
-                case YES_YES:
-                    validatePrecision(params);
-
-                    validateScale(params);
-
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported type: " + precScale);
+                if (params.scale() != null) {
+                    throw new CatalogValidationException(format("Scale is not applicable for column '{}' of type '{}'",
+                            params.name(), params.type()));
+                }
             }
         }
 

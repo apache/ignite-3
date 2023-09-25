@@ -36,7 +36,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ColumnType.PrecisionScale;
 
 /**
  * Utilities for working with the catalog in tests.
@@ -130,11 +129,11 @@ public class CatalogTestUtils {
 
     /** Append precision\scale according to type requirement. */
     public static Builder initializeColumnWithDefaults(ColumnType type, Builder colBuilder) {
-        if (type.precScale() != PrecisionScale.NO_NO) {
+        if (type.precisionAllowed()) {
             colBuilder.precision(11);
         }
 
-        if (type.precScale() == PrecisionScale.YES_YES) {
+        if (type.scaleAllowed()) {
             colBuilder.scale(0);
         }
 
@@ -147,7 +146,7 @@ public class CatalogTestUtils {
 
     /** Append scale according to type requirement. */
     public static void applyNecessaryPrecision(ColumnType type, Builder colBuilder) {
-        if (type.precScale() != PrecisionScale.NO_NO) {
+        if (type.precisionAllowed()) {
             colBuilder.precision(11);
         }
     }

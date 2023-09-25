@@ -27,7 +27,6 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
@@ -44,20 +43,20 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
 
         applyNecessaryLength(type, colBuilder);
 
-        if (type.precScale() == PrecisionScale.NO_NO) {
+        if (!type.precisionAllowed() && !type.scaleAllowed()) {
             assertThrowsWithCause(colBuilder::build, CatalogValidationException.class, "Precision is not applicable for column");
         }
 
-        if (type.precScale() == PrecisionScale.YES_NO) {
+        if (type.precisionAllowed() && !type.scaleAllowed()) {
             Builder colBuilder0 = columnParamsBuilder("COL", type, DEFAULT_NULLABLE, 20, 2);
             assertThrowsWithCause(colBuilder0::build, CatalogValidationException.class, "Scale is not applicable for column");
         }
 
-        if (type.precScale() == PrecisionScale.YES_NO || type.precScale() == PrecisionScale.YES_YES) {
+        if (type.precisionAllowed()) {
             assertThrowsWithCause(colBuilderErrPrec::build, CatalogValidationException.class);
         }
 
-        if (type.precScale() == PrecisionScale.YES_YES) {
+        if (type.scaleAllowed()) {
             assertThrowsWithCause(colBuilderErrScale::build, CatalogValidationException.class);
         }
     }

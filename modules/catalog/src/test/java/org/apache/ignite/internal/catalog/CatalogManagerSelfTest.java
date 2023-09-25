@@ -128,7 +128,6 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ColumnType.PrecisionScale;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -595,11 +594,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         Builder colWithPrecisionBuilder = columnParamsBuilder("COL_PRECISION", type).precision(3);
         applyNecessaryLength(type, colWithPrecisionBuilder);
 
-        if (type.precScale() == PrecisionScale.YES_YES) {
+        if (type.scaleAllowed()) {
             colWithPrecisionBuilder.scale(0);
         }
 
-        if (type.precScale() == PrecisionScale.NO_NO) {
+        if (!type.precisionAllowed() && !type.scaleAllowed()) {
             assertThrowsWithCause(colWithPrecisionBuilder::build, CatalogValidationException.class);
             return;
         }
@@ -750,7 +749,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         applyNecessaryPrecision(type, colWithPrecisionBuilder);
         applyNecessaryLength(type, colWithPrecisionBuilder);
 
-        if (type.precScale() == PrecisionScale.NO_NO || type.precScale() == PrecisionScale.YES_NO) {
+        if (!type.scaleAllowed()) {
             assertThrowsWithCause(colWithPrecisionBuilder::build, CatalogValidationException.class);
             return;
         }
