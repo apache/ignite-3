@@ -121,7 +121,6 @@ public abstract class IgniteServerBase : IDisposable
                 _listener.Dispose();
                 _cts.Dispose();
 
-                Dispose(true);
                 GC.SuppressFinalize(this);
 
                 _disposed = true;
