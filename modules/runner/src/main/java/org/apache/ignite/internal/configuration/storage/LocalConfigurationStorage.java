@@ -20,7 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.fromBytes;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.toBytes;
-import static org.apache.ignite.internal.lang.util.StringUtils.incrementLastChar;
+import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
 import java.io.Serializable;
 import java.util.HashMap;

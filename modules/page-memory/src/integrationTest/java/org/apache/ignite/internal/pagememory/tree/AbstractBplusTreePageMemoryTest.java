@@ -36,7 +36,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiT
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.GiB;
-import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

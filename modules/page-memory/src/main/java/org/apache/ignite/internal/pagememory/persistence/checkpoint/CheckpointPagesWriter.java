@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.pagememory.io.PageIo.getVersion;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
-import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.EMPTY;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

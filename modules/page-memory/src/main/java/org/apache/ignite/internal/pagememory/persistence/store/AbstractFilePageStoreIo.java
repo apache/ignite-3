@@ -22,10 +22,10 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.internal.util.HexStringUtils.hexInt;
-import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
-import static org.apache.ignite.internal.util.HexStringUtils.toHexString;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
+import static org.apache.ignite.internal.util.StringUtils.hexInt;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.toHexString;
 
 import java.io.Closeable;
 import java.io.IOException;

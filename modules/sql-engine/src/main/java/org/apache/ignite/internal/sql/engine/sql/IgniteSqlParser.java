@@ -34,7 +34,7 @@ import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImp
 import org.apache.ignite.internal.generated.query.calcite.sql.ParseException;
 import org.apache.ignite.internal.generated.query.calcite.sql.Token;
 import org.apache.ignite.internal.generated.query.calcite.sql.TokenMgrError;
-import org.apache.ignite.internal.lang.util.StringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.sql.SqlException;
 
 /**

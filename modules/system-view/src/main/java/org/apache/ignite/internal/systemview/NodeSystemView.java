@@ -19,9 +19,9 @@ package org.apache.ignite.internal.systemview;
 
 import java.util.List;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.util.StringUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Node system view definition.

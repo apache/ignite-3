@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
-import static org.apache.ignite.internal.lang.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.config.ConfigManager;

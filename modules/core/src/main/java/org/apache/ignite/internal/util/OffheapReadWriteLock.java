@@ -162,7 +162,7 @@ public class OffheapReadWriteLock {
 
             if (lockCount(state) <= 0) {
                 throw new IllegalMonitorStateException("Attempted to release a read lock while not holding it "
-                        + "[lock=" + HexStringUtils.hexLong(lock) + ", state=" + HexStringUtils.hexLong(state) + ']');
+                        + "[lock=" + StringUtils.hexLong(lock) + ", state=" + StringUtils.hexLong(state) + ']');
             }
 
             long updated = updateState(state, -1, 0, 0);
@@ -281,7 +281,7 @@ public class OffheapReadWriteLock {
 
             if (lockCount(state) != -1) {
                 throw new IllegalMonitorStateException("Attempted to release write lock while not holding it "
-                        + "[lock=" + HexStringUtils.hexLong(lock) + ", state=" + HexStringUtils.hexLong(state) + ']');
+                        + "[lock=" + StringUtils.hexLong(lock) + ", state=" + StringUtils.hexLong(state) + ']');
             }
 
             updated = releaseWithTag(state, tag);

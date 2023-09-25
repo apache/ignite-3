@@ -34,8 +34,8 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ArrayUtils.remove;
-import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.Arrays;

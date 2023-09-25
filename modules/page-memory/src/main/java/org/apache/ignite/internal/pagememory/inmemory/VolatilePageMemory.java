@@ -45,9 +45,9 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.util.GridUnsafe;
-import org.apache.ignite.internal.util.HexStringUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Page header structure is described by the following diagram.
@@ -323,7 +323,7 @@ public class VolatilePageMemory implements PageMemory {
             throw oom;
         }
 
-        assert (relPtr & ~PageIdUtils.PAGE_IDX_MASK) == 0 : HexStringUtils.hexLong(relPtr & ~PageIdUtils.PAGE_IDX_MASK);
+        assert (relPtr & ~PageIdUtils.PAGE_IDX_MASK) == 0 : StringUtils.hexLong(relPtr & ~PageIdUtils.PAGE_IDX_MASK);
 
         // Assign page ID according to flags and partition ID.
         long pageId = PageIdUtils.pageId(partId, flags, (int) relPtr);

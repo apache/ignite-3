@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-import static org.apache.ignite.internal.lang.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.ssl.ClientAuth;
