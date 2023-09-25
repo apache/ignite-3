@@ -78,6 +78,7 @@ import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -326,7 +327,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         schemaCompatValidator = new SchemaCompatValidator(schemas, catalogTables);
 
-        placementDriver.subscribePrimaryExpired(replicationGroupId, () -> {
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+            if (!localNode.name().equals(evt.leaseholder())) {
+                return completedFuture(false);
+            }
+
             LOG.info("Primary replica expired [grp={}]", replicationGroupId);
 
             ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
@@ -345,7 +350,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
             }
 
-            return allOf(futs.toArray(CompletableFuture[]::new));
+            return allOf(futs.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
         });
     }
 

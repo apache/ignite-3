@@ -63,6 +63,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -343,12 +344,12 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         TablePartitionId grpPart0 = createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName));
 
-        placementDriverManager.placementDriver().subscribePrimaryExpired(grpPart0, () -> {
+        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
             log.info("Primary replica is expired [grp={}]", grpPart0);
 
             leaseExpired.set(true);
 
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(false);
         });
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);

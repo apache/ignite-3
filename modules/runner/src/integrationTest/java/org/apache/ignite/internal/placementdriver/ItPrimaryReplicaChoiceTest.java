@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -82,10 +83,10 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         AtomicBoolean primaryChanged = new AtomicBoolean();
 
-        ignite.placementDriver().subscribePrimaryExpired(tblReplicationGrp, () -> {
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
             primaryChanged.set(true);
 
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(false);
         });
 
         transferPrimary(tbl, null);
@@ -110,9 +111,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl ignite = node(primary);
 
-        CompletableFuture<Void> primaryChangedHandling = new CompletableFuture<>();
+        CompletableFuture<Boolean> primaryChangedHandling = new CompletableFuture<>();
 
-        ignite.placementDriver().subscribePrimaryExpired(tblReplicationGrp, () -> primaryChangedHandling);
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> primaryChangedHandling);
 
         log.info("Primary replica is: " + primary);
 
@@ -124,7 +125,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         assertFalse(primaryChangeTask.isDone());
 
-        primaryChangedHandling.complete(null);
+        primaryChangedHandling.complete(false);
 
         assertThat(primaryChangeTask, willCompleteSuccessfully());
 

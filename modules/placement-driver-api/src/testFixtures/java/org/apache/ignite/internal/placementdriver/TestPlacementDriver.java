@@ -20,7 +20,6 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -58,11 +57,6 @@ public class TestPlacementDriver implements PlacementDriver {
     @Override
     public void removeListener(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void subscribePrimaryExpired(ReplicationGroupId grpId, Supplier<CompletableFuture<Void>> listener) {
-
     }
 
     @Override
