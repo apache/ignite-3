@@ -221,7 +221,7 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public CompletableFuture<Void> finish(
-            HybridTimestampTracker timestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
@@ -256,7 +256,7 @@ public class TxManagerImpl implements TxManager {
             return completedFuture(null);
         }
 
-        timestampTracker.update(commitTimestamp);
+        observableTimestampTracker.update(commitTimestamp);
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
@@ -319,7 +319,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public int finished() {
         return (int) txStateMap.entrySet().stream()
-                .filter(e -> e.getValue().txState() == COMMITED || e.getValue().txState() == ABORTED)
+                .filter(e -> isFinalState(e.getValue().txState()))
                 .count();
     }
 

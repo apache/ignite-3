@@ -914,6 +914,16 @@ public class IgniteUtils {
     }
 
     /**
+     * Find the first element in the given list.
+     *
+     * @param list List.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findFirst(List<T> list) {
+        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
+    }
+
+    /**
      * Find any element in given collection.
      *
      * @param collection Collection.
