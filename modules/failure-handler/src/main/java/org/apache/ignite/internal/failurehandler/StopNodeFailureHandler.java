@@ -26,7 +26,7 @@ public class StopNodeFailureHandler implements FailureHandler {
     /** {@inheritDoc} */
     @Override
     public boolean onFailure(String nodeName, FailureContext failureCtx) {
-        //Dummy implementation. t will be implemented in https://issues.apache.org/jira/browse/IGNITE-20448.
+        //Dummy implementation. It will be implemented in https://issues.apache.org/jira/browse/IGNITE-20448.
         IgnitionManager.stop(nodeName);
 
         return true;

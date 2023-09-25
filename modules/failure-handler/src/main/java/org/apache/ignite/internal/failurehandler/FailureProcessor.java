@@ -40,11 +40,13 @@ public class FailureProcessor implements IgniteComponent {
         this.hnd = hnd;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void start() {
 
     }
 
+    /** {@inheritDoc} */
     @Override
     public void stop() {
 
@@ -54,6 +56,17 @@ public class FailureProcessor implements IgniteComponent {
      * Processes failure accordingly to configured {@link FailureHandler}.
      *
      * @param failureCtx Failure context.
+     * @return {@code True} If this very call led to Ignite node invalidation.
+     */
+    public boolean process(FailureContext failureCtx) {
+        return process(failureCtx, hnd);
+    }
+
+    /**
+     * Processes failure accordingly to given failure handler.
+     *
+     * @param failureCtx Failure context.
+     * @param hnd Failure handler.
      * @return {@code True} If this very call led to Ignite node invalidation.
      */
     public boolean process(FailureContext failureCtx, FailureHandler hnd) {
