@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
+ * TODO: IGNITE-20485 Configure the lease interval as less as possible to decrease the duration of tests.
  * The test class checks invariant of a primary replica choice.
  */
 public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
@@ -233,7 +234,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         log.info("Leader moved [from={}, to={}]", leader, newLeader);
 
-        // TODO: IGNITE-?? There is no reason to wait if we can execute some operation while the primary replica is changing.
+        // TODO: IGNITE-20484 There is no reason to wait if we can execute some operation while the primary replica is changing.
         // Sleep need here to wait for update leader in all node through aware RAFT client.
         Thread.sleep(500);
 
@@ -257,7 +258,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
                 return true;
             } else {
-                // TODO: IGNITE-?? The operation is commented out due to it might lead to NPE in log.
+                // TODO: IGNITE-20484 The operation is commented out due to it might lead to NPE in log.
                 // Insert is needed to notify the placement driver about a leader for the group was changed.
                 // tbl.recordView().upsert(null, Tuple.create().set("key", Integer.valueOf(1)).set("val", "val 1"));
 
