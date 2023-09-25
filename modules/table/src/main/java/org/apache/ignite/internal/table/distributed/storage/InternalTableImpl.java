@@ -282,7 +282,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @param fac Replica requests factory.
      * @param reducer Transform reducer.
-     * @param checker Used to handle no-op operations (producing no updates).
+     * @param noOpChecker Used to handle no-op operations (producing no updates).
      * @return The future.
      */
     private <T> CompletableFuture<T> enlistInTx(
@@ -290,7 +290,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable InternalTransaction tx,
             IgnitePentaFunction<Collection<BinaryRow>, InternalTransaction, ReplicationGroupId, Long, Boolean, ReplicaRequest> fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
-            Predicate<T> checker
+            Predicate<T> noOpChecker
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -351,7 +351,7 @@ public class InternalTableImpl implements InternalTable {
 
         return postEnlist(fut, implicit && !singlePart, tx0, full).thenApply(res -> {
             // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-            if (checker.test(res) && !full) {
+            if (noOpChecker.test(res) && !full) {
                 txManager.removeInflight(tx0.id());
             }
 
@@ -771,7 +771,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                Collection::isEmpty
+                res -> tx != null && res.isEmpty()
         );
     }
 
@@ -955,7 +955,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                Collection::isEmpty
+                res -> tx != null && res.isEmpty()
         );
     }
 
@@ -979,7 +979,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                Collection::isEmpty
+                res -> tx != null && res.isEmpty()
         );
     }
 
