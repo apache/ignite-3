@@ -23,8 +23,12 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.core.State;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
@@ -51,6 +55,15 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
     public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request) {
         Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalConsistentId()));
 
+        if (node == null) {
+            return Loza.FACTORY.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build();
+        }
+
+        Message errorIfNotLeader = errorResponseIfNotLeader(node);
+        if (errorIfNotLeader != null) {
+            return errorIfNotLeader;
+        }
+
         Command command = request.command();
 
         if (command instanceof CatalogVersionAware) {
@@ -59,7 +72,7 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
             if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(
-                        "Metadata not yet available, group {}, required level {}; rejecting ActionRequest with EBUSY.",
+                        "Metadata not yet available, rejecting ActionRequest with EBUSY [group={}, requiredLevel={}].",
                         request.groupId(), requiredCatalogVersion
                 );
 
@@ -67,12 +80,45 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
                     .newResponse(
                             node.getRaftOptions().getRaftMessagesFactory(),
                             RaftError.EBUSY,
-                            "Metadata not yet available, group '%s', required level %d; rejecting ActionRequest with EBUSY.",
+                            "Metadata not yet available, rejecting ActionRequest with EBUSY [group=%s, requiredLevel=%d].",
                             request.groupId(), requiredCatalogVersion
                     );
             }
         }
 
         return null;
+    }
+
+    /**
+     * Builds an {@link org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse} if the current node is not a leader.
+     * It tries to mirror the behavior of {@link NodeImpl} in this regard.
+     *
+     * <p>NB that it's important to return leaderId for the 'not a leader and not transferring leadership' state
+     * so that the caller switches to the actual leader.
+     *
+     * @param node The node.
+     * @return ErrorResponse if this node is not a leader, {@code null} otherwise.
+     */
+    private static @Nullable Message errorResponseIfNotLeader(Node node) {
+        State state = node.getNodeState();
+
+        if (state == State.STATE_LEADER) {
+            return null;
+        }
+
+        Status st = NodeImpl.cannotApplyBecauseNotLeaderStatus(state);
+
+        PeerId leaderId = node.getLeaderId();
+
+        if (st.getRaftError() == RaftError.EPERM && leaderId != null) {
+            return RaftRpcFactory.DEFAULT.newResponse(
+                    leaderId.toString(),
+                    node.getRaftOptions().getRaftMessagesFactory(),
+                    st.getRaftError(),
+                    st.getErrorMsg()
+            );
+        } else {
+            return RaftRpcFactory.DEFAULT.newResponse(node.getRaftOptions().getRaftMessagesFactory(), st);
+        }
     }
 }
