@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testobjects;
+package org.apache.ignite.internal.marshaller.testobjects;
 
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
+import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -25,13 +25,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 /**
@@ -64,19 +63,16 @@ public class TestObjectWithAllTypes {
         obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
         obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, 42);
 
-        obj.dateCol = (LocalDate) SchemaTestUtils.generateRandomValue(rnd, DATE);
-        obj.timeCol = (LocalTime) SchemaTestUtils.generateRandomValue(rnd, NativeTypes.time());
-        obj.dateTimeCol = (LocalDateTime) SchemaTestUtils
-                .generateRandomValue(rnd, NativeTypes.datetime());
-        obj.timestampCol = (Instant) SchemaTestUtils
-                .generateRandomValue(rnd, NativeTypes.timestamp());
+        obj.dateCol = LocalDate.ofYearDay(1990 + rnd.nextInt(50), 1 + rnd.nextInt(360));
+        obj.timeCol = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60));
+        obj.dateTimeCol = LocalDateTime.of(obj.dateCol, obj.timeCol);
+        obj.timestampCol = Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
+                .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), 6));
 
         obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
         obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
-        obj.numberCol = (BigInteger) SchemaTestUtils
-                .generateRandomValue(rnd, NativeTypes.numberOf(12));
-        obj.decimalCol = (BigDecimal) SchemaTestUtils
-                .generateRandomValue(rnd, NativeTypes.decimalOf(19, 3));
+        obj.numberCol = BigInteger.probablePrime(12, rnd);
+        obj.decimalCol = BigDecimal.valueOf(rnd.nextLong(), 3);
 
         obj.nullLongCol = null;
         obj.nullBytesCol = null;
@@ -162,7 +158,7 @@ public class TestObjectWithAllTypes {
 
         TestObjectWithAllTypes object = (TestObjectWithAllTypes) o;
 
-        return  primitiveBooleanCol == object.primitiveBooleanCol
+        return primitiveBooleanCol == object.primitiveBooleanCol
                 && primitiveByteCol == object.primitiveByteCol
                 && primitiveShortCol == object.primitiveShortCol
                 && primitiveIntCol == object.primitiveIntCol

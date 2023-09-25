@@ -151,7 +151,11 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
         checkLocalTxStateOnNodes(
                 tx.id(),
-                new TxStateMeta(commit ? COMMITED : ABORTED, coordinatorId, commit ? testCluster.clocks.get(coord.name()).now() : null)
+                new TxStateMeta(
+                        commit ? COMMITED : ABORTED,
+                        coordinatorId,
+                        commit ? testCluster.clocks.get(coord.name()).now() : null
+                )
         );
     }
 

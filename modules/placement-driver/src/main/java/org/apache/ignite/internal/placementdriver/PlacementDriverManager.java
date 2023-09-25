@@ -25,7 +25,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -76,9 +78,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
 
-    /**
-     * Raft client future. Can contain null, if this node is not in placement driver group.
-     */
+    /** Raft client future. Can contain null, if this node is not in placement driver group. */
     private final CompletableFuture<TopologyAwareRaftGroupService> raftClientFuture;
 
     /** Lease tracker. */
@@ -87,11 +87,18 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Lease updater. */
     private final LeaseUpdater leaseUpdater;
 
+    /** Versioned value used only at manager startup for correct asynchronous start of internal components. */
+    private final IncrementalVersionedValue<Void> startVv;
+
+    /** Meta Storage manager. */
+    private final MetaStorageManager metastore;
+
     /**
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param metaStorageMgr Meta Storage manager.
+     * @param registry Registry for versioned values.
+     * @param metastore Meta Storage manager.
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
      * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
@@ -102,7 +109,8 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     public PlacementDriverManager(
             String nodeName,
-            MetaStorageManager metaStorageMgr,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
+            MetaStorageManager metastore,
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
             Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
@@ -116,18 +124,22 @@ public class PlacementDriverManager implements IgniteComponent {
         this.placementDriverNodesNamesProvider = placementDriverNodesNamesProvider;
         this.raftManager = raftManager;
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
+        this.metastore = metastore;
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(metaStorageMgr);
+        this.leaseTracker = new LeaseTracker(metastore);
+
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,
-                metaStorageMgr,
+                metastore,
                 logicalTopologyService,
                 leaseTracker,
                 clock
         );
+
+        this.startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
@@ -163,7 +175,7 @@ public class PlacementDriverManager implements IgniteComponent {
                         }
                     });
 
-            leaseTracker.startTrack();
+            recoverInternalComponentsBusy();
         });
     }
 
@@ -237,5 +249,25 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     public PlacementDriver placementDriver() {
         return leaseTracker;
+    }
+
+    private void recoverInternalComponentsBusy() {
+        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+
+        assert recoveryFinishedFuture.isDone();
+
+        long recoveryRevision = recoveryFinishedFuture.join();
+
+        CompletableFuture<Void> startLeaserTrackerFuture = leaseTracker.startTrackAsync(recoveryRevision);
+
+        // Forces to wait until recovery is complete before the metastore watches is deployed to avoid races with other components.
+        startVv.update(recoveryRevision, (unused, throwable) -> startLeaserTrackerFuture)
+                .whenComplete((unused, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Error starting the PlacementDriverManager internal components", throwable);
+                    } else {
+                        LOG.debug("Internal components of the PlacementDriverManager started successfully");
+                    }
+                });
     }
 }

@@ -15,21 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.testframework;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
+package org.apache.ignite.internal.rest.node;
 
 /**
- * Annotation for injecting {@link ConfigurationStorageRevisionListenerHolder} into tests.
- *
- * <p>This annotation should be used on either fields or method parameters, one instance per test.
+ * Provides JDBC port.
  */
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.PARAMETER})
-// TODO: IGNITE-19853 Get rid of this annotation.
-public @interface InjectRevisionListenerHolder {
+@FunctionalInterface
+public interface JdbcPortProvider {
+    int jdbcPort();
 }

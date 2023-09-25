@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
@@ -38,12 +37,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
  * Utility class for testing configuration listeners.
  */
 class ConfigurationListenerTestUtils {
-    /**
-     * Private constructor.
-     */
-    private ConfigurationListenerTestUtils() {
-    }
-
     /**
      * Returns consumer who does nothing.
      */
@@ -206,19 +199,6 @@ class ConfigurationListenerTestUtils {
 
                 return completedFuture(null);
             }
-        };
-    }
-
-    /**
-     * Returns configuration storage revision change listener.
-     *
-     * @param consumer Consumer of storage revision change.
-     */
-    static ConfigurationStorageRevisionListener configStorageRevisionListener(LongConsumer consumer) {
-        return (newStorageRevision) -> {
-            consumer.accept(newStorageRevision);
-
-            return completedFuture(null);
         };
     }
 

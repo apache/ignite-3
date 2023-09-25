@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.util;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.util.HexStringUtils;
+import org.intellij.lang.annotations.MagicConstant;
 
 /**
  * Utility class for page ID parts manipulation.
@@ -115,11 +117,11 @@ public final class PageIdUtils {
      * Creates page ID from its components.
      *
      * @param partitionId Partition ID.
-     * @param flag Flag: {@link PageIdAllocator#FLAG_DATA} of {@link PageIdAllocator#FLAG_AUX}.
+     * @param flag Flag: {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}.
      * @param pageIdx Page index, monotonically growing number within each partition.
      * @return Page ID constructed from the given pageIdx and partition ID, see {@link FullPageId}.
      */
-    public static long pageId(int partitionId, byte flag, int pageIdx) {
+    public static long pageId(int partitionId, @MagicConstant(intValues = {FLAG_DATA, FLAG_AUX}) byte flag, int pageIdx) {
         long pageId = flag & FLAG_MASK;
 
         pageId = (pageId << PART_ID_SIZE) | (partitionId & PART_ID_MASK);

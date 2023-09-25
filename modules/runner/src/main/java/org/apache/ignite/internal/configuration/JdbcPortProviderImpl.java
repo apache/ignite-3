@@ -15,22 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.notifications;
+package org.apache.ignite.internal.configuration;
 
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.internal.rest.node.JdbcPortProvider;
 
 /**
- * Configuration storage revision change listener.
- *
- * <p>Storage revision - monotonously increasing counter, linked to the specific storage for current configuration values.
+ * Provider of client port from node configuration.
  */
-@FunctionalInterface
-public interface ConfigurationStorageRevisionListener {
-    /**
-     * Called on update the storage version.
-     *
-     * @param newStorageRevision Updated configuration storage revision.
-     * @return Future that signifies the end of the listener execution.
-     */
-    CompletableFuture<?> onUpdate(long newStorageRevision);
+public class JdbcPortProviderImpl implements JdbcPortProvider {
+
+    private final ConfigurationRegistry configurationRegistry;
+
+    public JdbcPortProviderImpl(ConfigurationRegistry configurationRegistry) {
+        this.configurationRegistry = configurationRegistry;
+    }
+
+    @Override
+    public int jdbcPort() {
+        return configurationRegistry.getConfiguration(ClientConnectorConfiguration.KEY).port().value();
+    }
 }

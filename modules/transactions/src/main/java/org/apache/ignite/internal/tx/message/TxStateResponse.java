@@ -15,30 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller;
+package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Exception that is thrown during object marshal/unmarshal.
+ * Transaction state response.
  */
-public class MarshallerException extends IgniteInternalCheckedException {
-    /**
-     * Constructor.
-     *
-     * @param cause Cause.
-     */
-    public MarshallerException(Throwable cause) {
-        super(cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Message.
-     * @param cause   Cause.
-     */
-    public MarshallerException(String message, Throwable cause) {
-        super(message, cause);
-    }
+@Transferable(TxMessageGroup.TX_STATE_RESPONSE)
+public interface TxStateResponse extends TimestampAware {
+    @Marshallable
+    @Nullable
+    TransactionMeta txStateMeta();
 }

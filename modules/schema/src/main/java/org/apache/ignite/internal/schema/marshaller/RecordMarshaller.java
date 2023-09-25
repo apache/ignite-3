@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.Nullable;
 

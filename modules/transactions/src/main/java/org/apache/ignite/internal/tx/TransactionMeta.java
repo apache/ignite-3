@@ -15,8 +15,19 @@
  * limitations under the License.
  */
 
-/**
- * The user binary object API.
- */
+package org.apache.ignite.internal.tx;
 
-package org.apache.ignite.binary;
+import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Transaction metadata interface.
+ */
+public interface TransactionMeta extends Serializable {
+    /** Tx state. */
+    TxState txState();
+
+    /** Commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
+}
