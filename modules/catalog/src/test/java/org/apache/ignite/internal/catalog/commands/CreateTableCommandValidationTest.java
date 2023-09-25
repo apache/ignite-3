@@ -96,7 +96,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         assertThrowsWithCause(
                 () -> ColumnParams.builder().name("C").type(null).build(),
                 CatalogValidationException.class,
-                "Column 'C' type is not specified"
+                "Type is not specified for column 'C'"
         );
     }
 

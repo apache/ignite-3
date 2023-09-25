@@ -60,7 +60,7 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
                     format(ERR_STR_VALIDATION, "Precision", "COL", type.name()));
 
             ColumnParams col = correctPrecision.build();
-            assertNotNull(col.length());
+            assertNotNull(col.precision());
         } else {
             correctPrecision.precision(1);
 
@@ -91,7 +91,7 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
                     format(ERR_STR_VALIDATION, "Scale", "COL", type.name()));
 
             ColumnParams col = correctScale.build();
-            assertNotNull(col.length());
+            assertNotNull(col.scale());
         } else {
             correctScale.scale(1);
 
