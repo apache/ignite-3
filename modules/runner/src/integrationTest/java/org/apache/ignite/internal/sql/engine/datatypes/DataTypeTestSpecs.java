@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes;
 
-import static org.apache.ignite.internal.sql.engine.util.VarBinary.varBinary;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.google.common.io.BaseEncoding;
@@ -112,7 +111,17 @@ public final class DataTypeTestSpecs {
         /** {@inheritDoc} */
         @Override
         public VarBinary wrapIfNecessary(Object storageValue) {
-            return varBinary((byte[]) storageValue);
+            return VarBinary.varBinary((byte[]) storageValue);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public byte[] unwrapIfNecessary(VarBinary value) {
+            if (value == null) {
+                return null;
+            }
+
+            return value.get();
         }
 
         /** {@inheritDoc} */

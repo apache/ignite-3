@@ -104,6 +104,14 @@ public abstract class DataTypeTestSpec<T extends Comparable<T>> {
      * */
     public abstract T wrapIfNecessary(Object storageValue);
 
+    /**
+     * Unwraps {@link NativeTypeWrapper comparable wrapper} into a {@link NativeType}.
+     * If passed values in not wrapped then this method should return original instance.
+     * */
+    public Object unwrapIfNecessary(T value) {
+        return value;
+    }
+
     /** Creates {@link TestDataSamples test samples} for the given type. */
     public abstract TestDataSamples<T> createSamples(IgniteTypeFactory typeFactory);
 }

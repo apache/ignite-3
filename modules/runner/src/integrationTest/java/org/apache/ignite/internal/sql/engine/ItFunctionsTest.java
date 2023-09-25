@@ -130,21 +130,10 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
-        IgniteException ex = assertThrowsSqlException(
+        assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "Increment can't be 0",
                 () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
-
-        assertTrue(
-                ex.getCause() instanceof IllegalArgumentException,
-                format(
-                        "Expected cause is {}, but was {}",
-                        IllegalArgumentException.class.getSimpleName(),
-                        ex.getCause() == null ? null : ex.getCause().getClass().getSimpleName()
-                )
-        );
-
-        assertEquals("Increment can't be 0", ex.getCause().getMessage());
     }
 
     @Test

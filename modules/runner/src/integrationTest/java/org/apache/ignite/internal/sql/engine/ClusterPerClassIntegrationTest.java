@@ -56,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
@@ -67,9 +68,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -414,27 +413,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
         Ignite ignite = CLUSTER_NODES.get(0);
 
-        try (Session session = ignite.sql().createSession()) {
-            ResultSet<SqlRow> rs = session.execute(tx, sql, args);
-            return getAllResultSet(rs);
-        }
-    }
-
-    private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
-        List<List<Object>> res = new ArrayList<>();
-
-        while (resultSet.hasNext()) {
-            SqlRow sqlRow = resultSet.next();
-            ArrayList<Object> row = new ArrayList<>(sqlRow.columnCount());
-            for (int i = 0; i < sqlRow.columnCount(); i++) {
-                row.add(sqlRow.value(i));
-            }
-            res.add(row);
-        }
-
-        resultSet.close();
-
-        return res;
+        return SqlTestUtils.sql(ignite, tx, sql, args);
     }
 
     protected static void checkMetadata(ColumnMetadata expectedMeta, ColumnMetadata actualMeta) {

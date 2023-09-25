@@ -59,8 +59,8 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
     @ParameterizedTest
     @MethodSource("indexChecks")
     public void testKeyLookUp2(String table, ValueMode mode) {
-        VarBinary value1 = values.get(0);
-        String value1str = mode.toSql(testTypeSpec, value1);
+        byte[] value1 = values.get(0).get();
+        String value1str = mode.toSql(testTypeSpec, VarBinary.varBinary(value1));
 
         // TODO Disable for VARBINARY, remove after https://issues.apache.org/jira/browse/IGNITE-19931 is fixed
         Assumptions.assumeFalse(mode == ValueMode.CAST);

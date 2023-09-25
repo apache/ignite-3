@@ -45,13 +45,13 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
     /** {@code DELETE} by key. */
     @Test
     public void testDelete() {
-        T value1 = values.get(0);
+        Object value = testTypeSpec.unwrapIfNecessary(values.get(0));
 
         runSql("INSERT INTO t VALUES (1, $0)");
         runSql("INSERT INTO t VALUES (2, $1)");
         runSql("INSERT INTO t VALUES (3, $2)");
 
-        runSql("DELETE FROM t WHERE test_key=?", value1);
+        runSql("DELETE FROM t WHERE test_key=?", value);
 
         checkQuery("SELECT id FROM t").returns(2).returns(3).check();
     }
@@ -75,15 +75,17 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
     /** {@code UPDATE} from a dynamic parameter. */
     @Test
     public void testUpdateFromDynamicParam() {
-        runSql("INSERT INTO t VALUES (1, ?)", dataSamples.min());
+        runSql("INSERT INTO t VALUES (1, ?)", testTypeSpec.unwrapIfNecessary(dataSamples.min()));
+
+        Object max = testTypeSpec.unwrapIfNecessary(dataSamples.max());
 
         checkQuery("UPDATE t SET test_key = ? WHERE id=1")
-                .withParams(dataSamples.max())
+                .withParams(max)
                 .returns(1L)
                 .check();
 
         checkQuery("SELECT test_key FROM t WHERE id=1")
-                .returns(dataSamples.max())
+                .returns(max)
                 .check();
     }
 
