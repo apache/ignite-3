@@ -172,7 +172,11 @@ namespace Apache.Ignite.Tests
         };
 
         protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
-            new(proxies.Select(x => x.Endpoint).ToArray());
+            new(proxies.Select(x => x.Endpoint).ToArray())
+            {
+                // Proxies don't handle heartbeats well.
+                HeartbeatInterval = TimeSpan.MaxValue
+            };
 
         protected List<IgniteProxy> GetProxies()
         {
