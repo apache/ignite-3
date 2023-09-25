@@ -175,7 +175,9 @@ namespace Apache.Ignite.Tests
             new(proxies.Select(x => x.Endpoint).ToArray())
             {
                 // Proxies don't handle heartbeats well.
-                HeartbeatInterval = TimeSpan.MaxValue
+                // TODO: This does not work; the client uses server-defined heartbeat override, resulting in 1s interval
+                HeartbeatInterval = TimeSpan.MaxValue,
+                Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
             };
 
         protected List<IgniteProxy> GetProxies()
