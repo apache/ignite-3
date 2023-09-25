@@ -1059,13 +1059,17 @@ public class IgniteUtils {
         return result;
     }
 
+    /**
+     * Converts byte buffer into a byte array. The content of the array is all bytes from the position "0" to "capacity". Preserves original
+     * position/limit values in the buffer. Always returns a new instance, instead of accessing the internal buffer's array.
+     */
     public static byte[] byteBufferToByteArray(ByteBuffer buffer) {
         if (buffer.hasArray()) {
             int offset = buffer.arrayOffset();
 
-            return copyOfRange(buffer.array(), offset, offset + buffer.limit());
+            return copyOfRange(buffer.array(), offset, offset + buffer.capacity());
         } else {
-            byte[] array = new byte[buffer.limit()];
+            byte[] array = new byte[buffer.capacity()];
 
             int originalPosition = buffer.position();
 

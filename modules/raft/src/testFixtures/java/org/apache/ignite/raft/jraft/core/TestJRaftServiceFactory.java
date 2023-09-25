@@ -16,24 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
-import org.apache.ignite.raft.jraft.storage.logit.LogitLogStorageFactory;
-import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 
-public class TestJRaftServiceFactory extends IgniteJraftServiceFactory {
-
-    public TestJRaftServiceFactory() {
-        //TODO What?
-        super(new LogitLogStorageFactory(testStoreOptions()));
-    }
-
-    public static StoreOptions testStoreOptions() {
-        StoreOptions storeOptions = new StoreOptions();
-
-        storeOptions.setSegmentFileSize(512 * 1024);
-        storeOptions.setConfFileSize(512 * 1024);
-        storeOptions.setEnableWarmUpFile(false);
-
-        return storeOptions;
+public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
+    @Override
+    public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
+        return new LocalLogStorage(raftOptions);
     }
 }
