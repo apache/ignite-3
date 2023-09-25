@@ -52,7 +52,7 @@ public class LocalSnapshotMetaTableTest {
     public void testAddRemove() {
         LocalFileMetaOutter.LocalFileMeta meta = msgFactory.localFileMeta()
             .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertEquals(0, table.listFiles().size());
         assertTrue(this.table.addFile("data", meta));
@@ -70,12 +70,12 @@ public class LocalSnapshotMetaTableTest {
     public void testSaveLoadFile(@WorkDirectory Path workDir) throws IOException {
         LocalFileMetaOutter.LocalFileMeta meta1 = msgFactory.localFileMeta()
             .checksum("data1")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.table.addFile("data1", meta1));
         LocalFileMetaOutter.LocalFileMeta meta2 = msgFactory.localFileMeta()
             .checksum("data2")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.table.addFile("data2", meta2));
 
@@ -105,12 +105,12 @@ public class LocalSnapshotMetaTableTest {
     public void testSaveLoadIoBuffer() throws Exception {
         LocalFileMetaOutter.LocalFileMeta meta1 = msgFactory.localFileMeta()
             .checksum("data1")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.table.addFile("data1", meta1));
         LocalFileMetaOutter.LocalFileMeta meta2 = msgFactory.localFileMeta()
             .checksum("data2")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.table.addFile("data2", meta2));
 
