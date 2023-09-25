@@ -32,7 +32,6 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Provides access to MV (multi-version) data of a partition.
@@ -179,7 +178,6 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *
      * @return Underlying {@link MvPartitionStorage}.
      */
-    @TestOnly
     MvPartitionStorage getStorage();
 
     /**

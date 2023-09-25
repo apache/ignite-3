@@ -50,6 +50,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 
@@ -146,6 +147,13 @@ public class TxLocalTest extends TxAbstractTest {
 
         tables.put(table.groupId(), table);
         tables.put(table2.groupId(), table2);
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        if (txManager != null) {
+            txManager.stop();
+        }
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15928")
