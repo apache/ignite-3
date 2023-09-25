@@ -1498,7 +1498,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             if (writeIntents.isEmpty()) {
-                // No write intents, return the committed value. We already know that regularEntries is not empty.
+                // No write intents, then return the committed value. We already know that regularEntries is not empty.
                 return completedFuture(regularEntries.get(0).binaryRow());
             } else {
                 ReadResult writeIntent = writeIntents.get(0);

@@ -304,7 +304,6 @@ public class StorageUpdateHandler {
 
                 return null;
             });
-
         }
     }
 
