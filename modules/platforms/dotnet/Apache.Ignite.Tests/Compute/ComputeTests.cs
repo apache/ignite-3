@@ -245,7 +245,6 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(11, 4)]
         public async Task TestExecuteColocated(long key, int nodeIdx)
         {
-            // TODO: Looks like proxy connection fails, which causes the te
             var proxies = GetProxies();
             using var client = await IgniteClient.StartAsync(GetConfig(proxies));
             client.WaitForConnections(proxies.Count);
