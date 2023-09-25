@@ -74,6 +74,7 @@ include(':ignite-catalog')
 include(":ignite-arch-test")
 include(":ignite-file-transfer")
 include(":ignite-system-view")
+include(':ignite-failure-handler')
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
@@ -133,6 +134,7 @@ project(":ignite-catalog").projectDir = file('modules/catalog')
 project(":ignite-arch-test").projectDir = file('modules/arch-test')
 project(":ignite-file-transfer").projectDir = file('modules/file-transfer')
 project(":ignite-system-view").projectDir = file('modules/system-view')
+project(":ignite-failure-handler").projectDir = file('modules/failure-handler')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 
