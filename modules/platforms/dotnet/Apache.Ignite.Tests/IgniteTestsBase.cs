@@ -124,13 +124,23 @@ namespace Apache.Ignite.Tests
             _eventListener.Dispose();
         }
 
+        [SetUp]
+        public void SetUp()
+        {
+            Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
+        }
+
         [TearDown]
         public void TearDown()
         {
+            Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
+
             CheckPooledBufferLeak();
 
             _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
+
+            Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
 
         internal static string GetRequestTargetNodeName(IEnumerable<IgniteProxy> proxies, ClientOp op)
