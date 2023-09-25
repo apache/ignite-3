@@ -46,7 +46,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.CompletionResult;
+import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -224,7 +224,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
             lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)).thenApply(
-                            CompletionResult::result))
+                            ReplicaResult::result))
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
         }
 

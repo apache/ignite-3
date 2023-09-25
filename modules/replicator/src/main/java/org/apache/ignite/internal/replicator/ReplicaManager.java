@@ -235,10 +235,10 @@ public class ReplicaManager implements IgniteComponent {
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
-            CompletableFuture<CompletionResult> result = replica.processRequest(request);
+            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request);
 
             HybridTimestamp finalSendTimestamp = sendTimestamp;
-            result.handle((res, ex) -> {
+            resFut.handle((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
@@ -261,20 +261,20 @@ public class ReplicaManager implements IgniteComponent {
                     }
                 }
 
-                // Handle delayed response. It may be a future for delayed response, or a replication result, which is expected to be null.
-                if (res.delayedResult() != null) {
-                    LOG.info("Procesing delayed response for replica request [request={}]", request);
-                    assert res.delayedResult() instanceof CompletableFuture : "Unexpected replication result, should always be null";
+                if (res.repFuture() != null) {
+                    assert request instanceof PrimaryReplicaRequest;
 
-                    // Delayed result is always expected to be null
-                    CompletableFuture<?> nested = (CompletableFuture<?>) res.delayedResult();
-                    nested.handle((res0, ex0) -> {
+                    LOG.info("Procesing delayed response for replica request [request={}]", request);
+
+                    res.repFuture().handle((res0, ex0) -> {
                         NetworkMessage msg0;
+
+                        LOG.info("Sending delayed response for replica request [request={}]", request);
 
                         if (ex == null) {
                             msg0 = prepareReplicaResponse(finalSendTimestamp, res0);
                         } else {
-                            LOG.warn("Failed to process delayed replica response [request={}]", ex, request);
+                            LOG.warn("Failed to process delayed response [request={}]", ex, request);
 
                             msg0 = prepareReplicaErrorResponse(finalSendTimestamp, ex);
                         }

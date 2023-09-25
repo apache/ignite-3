@@ -350,6 +350,7 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
         return postEnlist(fut, implicit && !singlePart, tx0, full).thenApply(res -> {
+            // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
             if (checker.test(res) && !full) {
                 txManager.removeInflight(tx0.id());
             }
@@ -710,7 +711,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
-        CompletableFuture<BinaryRow> fut = enlistInTx(
+        return enlistInTx(
                 row,
                 tx,
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
@@ -724,14 +725,6 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .build()
         );
-
-        return fut.thenApply(res -> {
-            if (tx != null) {
-                txManager.removeInflight(tx.id());
-            }
-
-            return res;
-        });
     }
 
     /** {@inheritDoc} */
@@ -778,7 +771,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                res -> !res.isEmpty()
+                Collection::isEmpty
         );
     }
 
@@ -962,7 +955,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                res -> !res.isEmpty()
+                Collection::isEmpty
         );
     }
 
@@ -986,7 +979,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(full)
                         .build(),
                 InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
-                res -> !res.isEmpty()
+                Collection::isEmpty
         );
     }
 

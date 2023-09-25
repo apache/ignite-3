@@ -41,7 +41,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.replicator.CompletionResult;
+import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -163,7 +163,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 completedFuture(null),
-                                request0 -> completedFuture(new CompletionResult(replicaMessageFactory.replicaResponse()
+                                request0 -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
                                         .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
@@ -265,7 +265,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 new CompletableFuture<>(),
-                                request0 -> completedFuture(new CompletionResult(replicaMessageFactory.replicaResponse()
+                                request0 -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
                                         .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
