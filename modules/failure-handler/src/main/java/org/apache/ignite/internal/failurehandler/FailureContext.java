@@ -42,6 +42,8 @@ public class FailureContext {
     }
 
     /**
+     * Gets the failure type.
+     *
      * @return Failure type.
      */
     public FailureType type() {
@@ -49,6 +51,8 @@ public class FailureContext {
     }
 
     /**
+     * Gets the exception.
+     *
      * @return Exception or {@code null}.
      */
     public Throwable error() {

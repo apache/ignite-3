@@ -20,7 +20,7 @@ package org.apache.ignite.internal.failurehandler;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
- * General failure processing API
+ * General failure processing API.
  */
 public class FailureProcessor implements IgniteComponent {
     /** Handler. */
