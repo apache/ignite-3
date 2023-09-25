@@ -90,14 +90,22 @@ public sealed class IgniteProxy : IgniteServerBase
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    // Receive from client.
-                    var msgSize = ReceiveMessageSize(handler);
-                    using var msg = ReceiveBytes(handler, msgSize);
-                    _ops.Enqueue((ClientOp)msg.GetReader().ReadInt32());
+                    try
+                    {
+                        // Receive from client.
+                        var msgSize = ReceiveMessageSize(handler);
+                        using var msg = ReceiveBytes(handler, msgSize);
+                        _ops.Enqueue((ClientOp)msg.GetReader().ReadInt32());
 
-                    // Forward to server.
-                    _socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(msgSize)));
-                    _socket.Send(msg.AsMemory().Span);
+                        // Forward to server.
+                        _socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(msgSize)));
+                        _socket.Send(msg.AsMemory().Span);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Error in IgniteProxy Client -> Server relay (lastOp = {_ops.Last()}: {e}");
+                        throw;
+                    }
                 }
             },
             cancellationToken);
@@ -108,13 +116,21 @@ public sealed class IgniteProxy : IgniteServerBase
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    // Receive from server.
-                    var serverMsgSize = ReceiveMessageSize(_socket);
-                    using var serverMsg = ReceiveBytes(_socket, serverMsgSize);
+                    try
+                    {
+                        // Receive from server.
+                        var serverMsgSize = ReceiveMessageSize(_socket);
+                        using var serverMsg = ReceiveBytes(_socket, serverMsgSize);
 
-                    // Forward to client.
-                    handler.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(serverMsgSize)));
-                    handler.Send(serverMsg.AsMemory().Span);
+                        // Forward to client.
+                        handler.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(serverMsgSize)));
+                        handler.Send(serverMsg.AsMemory().Span);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Error in IgniteProxy Server -> Client relay (lastOp = {_ops.Last()}: {e}");
+                        throw;
+                    }
                 }
             },
             cancellationToken);
