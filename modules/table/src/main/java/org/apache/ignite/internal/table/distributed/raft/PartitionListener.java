@@ -489,7 +489,7 @@ public class PartitionListener implements RaftGroupListener {
         if (cmd.finish()) {
             LOG.info(
                     "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
-                    cmd.tablePartitionId().tableId(), cmd.tablePartitionId().partitionId(), cmd.indexId()
+                    storage.tableId(), storage.partitionId(), cmd.indexId()
             );
         }
     }

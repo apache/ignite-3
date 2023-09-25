@@ -448,7 +448,7 @@ public class ItTxTestCluster {
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
-                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
+                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
 
                 IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))

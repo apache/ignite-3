@@ -186,11 +186,6 @@ class IndexBuildTask {
         boolean finish = rowIds.size() < batchSize;
 
         return TABLE_MESSAGES_FACTORY.buildIndexCommand()
-                .tablePartitionId(TABLE_MESSAGES_FACTORY.tablePartitionIdMessage()
-                        .tableId(taskId.getTableId())
-                        .partitionId(taskId.getPartitionId())
-                        .build()
-                )
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
