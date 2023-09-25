@@ -24,6 +24,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using Internal.Proto;
 
 /// <summary>
@@ -82,26 +83,43 @@ public sealed class IgniteProxy : IgniteServerBase
             handler.Send(serverMsg.AsMemory().Span);
         }
 
-        // Normal message loop.
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            // Receive from client.
-            var msgSize = ReceiveMessageSize(handler);
-            using var msg = ReceiveBytes(handler, msgSize);
-            _ops.Enqueue((ClientOp)msg.GetReader().ReadInt32());
+        // Separate relay loops for each direction: don't block heartbeats while some request is being processed.
+        // Client -> Server.
+        var clientToServerRelay = Task.Run(
+            () =>
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    // Receive from client.
+                    var msgSize = ReceiveMessageSize(handler);
+                    using var msg = ReceiveBytes(handler, msgSize);
+                    _ops.Enqueue((ClientOp)msg.GetReader().ReadInt32());
 
-            // Forward to server.
-            _socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(msgSize)));
-            _socket.Send(msg.AsMemory().Span);
+                    // Forward to server.
+                    _socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(msgSize)));
+                    _socket.Send(msg.AsMemory().Span);
+                }
+            },
+            cancellationToken);
 
-            // Receive from server.
-            var serverMsgSize = ReceiveMessageSize(_socket);
-            using var serverMsg = ReceiveBytes(_socket, serverMsgSize);
+        // Server -> Client.
+        var serverToClientRelay = Task.Run(
+            () =>
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    // Receive from server.
+                    var serverMsgSize = ReceiveMessageSize(_socket);
+                    using var serverMsg = ReceiveBytes(_socket, serverMsgSize);
 
-            // Forward to client.
-            handler.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(serverMsgSize)));
-            handler.Send(serverMsg.AsMemory().Span);
-        }
+                    // Forward to client.
+                    handler.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(serverMsgSize)));
+                    handler.Send(serverMsg.AsMemory().Span);
+                }
+            },
+            cancellationToken);
+
+        Task.WhenAll(clientToServerRelay, serverToClientRelay).Wait(cancellationToken);
     }
 
     protected override void Dispose(bool disposing)
