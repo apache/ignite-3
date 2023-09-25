@@ -51,7 +51,9 @@ public class TestPlacementDriver implements PlacementDriver {
 
     @Override
     public void listen(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
-        throw new UnsupportedOperationException();
+        if (evt != PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Override
