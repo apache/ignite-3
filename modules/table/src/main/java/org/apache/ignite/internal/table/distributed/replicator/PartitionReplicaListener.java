@@ -29,9 +29,10 @@ import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
+import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
@@ -1434,7 +1435,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     txOps = new TxCleanupReadyFutureList();
                 }
 
-                if (txOps.state == ABORTED || txOps.state == COMMITED) {
+                if (isFinalState(txOps.state)) {
                     fut.completeExceptionally(
                             new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
                 } else {
@@ -1470,37 +1471,47 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result of the given action.
      */
     private CompletableFuture<BinaryRow> resolveRowByPkForReadOnly(BinaryTuple pk, HybridTimestamp ts) {
+        // Indexes store values associated with different versions of one entry.
+        // It's possible to have multiple entries for a particular search key
+        // only if we insert, delete and again insert an entry with the same indexed fields.
+        // It means that there exists one and only one non-empty readResult for any read timestamp for the given key.
+        // Which in turn means that if we have found non empty readResult during PK index iteration
+        // we can proceed with readResult resolution and stop the iteration.
         try (Cursor<RowId> cursor = getFromPkIndex(pk)) {
-            List<ReadResult> candidates = new ArrayList<>();
+            // TODO https://issues.apache.org/jira/browse/IGNITE-18767 scan of multiple write intents should not be needed
+            List<ReadResult> writeIntents = new ArrayList<>();
+            List<ReadResult> regularEntries = new ArrayList<>();
 
             for (RowId rowId : cursor) {
                 ReadResult readResult = mvDataStorage.read(rowId, ts);
 
-                if (!readResult.isEmpty() || readResult.isWriteIntent()) {
-                    candidates.add(readResult);
+                if (readResult.isWriteIntent()) {
+                    writeIntents.add(readResult);
+                } else if (!readResult.isEmpty()) {
+                    regularEntries.add(readResult);
                 }
             }
 
-            if (candidates.isEmpty()) {
+            // Nothing found in the storage, return null.
+            if (writeIntents.isEmpty() && regularEntries.isEmpty()) {
                 return completedFuture(null);
             }
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-18767 scan of multiple write intents should not be needed
-            List<ReadResult> writeIntents = filter(candidates, ReadResult::isWriteIntent);
-
-            if (!writeIntents.isEmpty()) {
+            if (writeIntents.isEmpty()) {
+                // No write intents, then return the committed value. We already know that regularEntries is not empty.
+                return completedFuture(regularEntries.get(0).binaryRow());
+            } else {
                 ReadResult writeIntent = writeIntents.get(0);
 
                 // Assume that all write intents for the same key belong to the same transaction, as the key should be exclusively locked.
                 // This means that we can just resolve the state of this transaction.
                 checkWriteIntentsBelongSameTx(writeIntents);
 
-                return resolveTxState(
-                        writeIntent.transactionId(),
-                        new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
-                        ts)
-                        .thenApply(readLastCommitted -> {
-                            if (readLastCommitted) {
+                return resolveWriteIntentReadability(writeIntent, ts)
+                        .thenApply(writeIntentReadable -> {
+                            if (writeIntentReadable) {
+                                return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow).orElse(null);
+                            } else {
                                 for (ReadResult wi : writeIntents) {
                                     HybridTimestamp newestCommitTimestamp = wi.newestCommitTimestamp();
 
@@ -1517,18 +1528,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     return committedReadResult.binaryRow();
                                 }
 
-                                return findAny(candidates, c -> !c.isWriteIntent() && !c.isEmpty()).map(ReadResult::binaryRow)
-                                        .orElse(null);
-                            } else {
-                                return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow)
-                                        .orElse(null);
+                                // No suitable value found in write intents, read the committed value (if exists)
+                                return findFirst(regularEntries).map(ReadResult::binaryRow).orElse(null);
                             }
                         });
-            } else {
-                BinaryRow result = findAny(candidates, r -> !r.isEmpty()).map(ReadResult::binaryRow)
-                        .orElse(null);
-
-                return completedFuture(result);
             }
         } catch (Exception e) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
@@ -2466,49 +2469,49 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp timestamp,
             Supplier<BinaryRow> lastCommitted
     ) {
-        return resolveTxState(
-                readResult.transactionId(),
-                new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
-                timestamp
-        ).thenApply(readLastCommitted -> {
-            if (readLastCommitted) {
-                return lastCommitted.get();
-            } else {
-                return readResult.binaryRow();
-            }
-        });
+        return resolveWriteIntentReadability(readResult, timestamp)
+                .thenApply(writeIntentReadable -> writeIntentReadable ? readResult.binaryRow() : lastCommitted.get());
     }
 
     /**
-     * Resolve the actual tx state.
+     * Check whether we can read from the provided write intent.
+     *
+     * @param writeIntent Write intent to resolve.
+     * @param timestamp Timestamp.
+     * @return The future completes with {@code true} when the transaction is committed and commit time <= read time,
+     *     {@code false} otherwise (whe the transaction is either in progress, or aborted, or committed and commit time > read time).
+     */
+    private CompletableFuture<Boolean> resolveWriteIntentReadability(ReadResult writeIntent, HybridTimestamp timestamp) {
+        UUID txId = writeIntent.transactionId();
+
+        return transactionStateResolver.resolveTxState(
+                        txId,
+                        new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
+                        timestamp)
+                .thenApply(txMeta -> canReadFromWriteIntent(txId, txMeta, timestamp));
+    }
+
+    /**
+     * Check whether we can read write intents created by this transaction.
      *
      * @param txId Transaction id.
-     * @param commitGrpId Commit partition id.
-     * @param timestamp Timestamp.
-     * @return The future completes with true when the transaction is not completed yet and false otherwise.
+     * @param txMeta Transaction metainfo.
+     * @param timestamp Read timestamp.
+     * @return {@code true} if we can read from entries created in this transaction
+     *     (when the transaction was committed and commit time <= read time).
      */
-    private CompletableFuture<Boolean> resolveTxState(
-            UUID txId,
-            TablePartitionId commitGrpId,
-            HybridTimestamp timestamp
-    ) {
-        return transactionStateResolver.resolveTxState(txId, commitGrpId, timestamp).thenApply(txMeta -> {
-            if (txMeta == null || txMeta.txState() == ABANDONED) {
-                // TODO https://issues.apache.org/jira/browse/IGNITE-20427 make the null value returned from commit partition
-                // TODO more determined
-                throw new TransactionAbandonedException(txId, txMeta);
-            } else if (txMeta.txState() == COMMITED) {
-                boolean readLatest = timestamp == null;
+    private static Boolean canReadFromWriteIntent(UUID txId, @Nullable TransactionMeta txMeta, @Nullable HybridTimestamp timestamp) {
+        if (txMeta == null || txMeta.txState() == ABANDONED) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-20427 make the null value returned from commit partition
+            // TODO more determined
+            throw new TransactionAbandonedException(txId, txMeta);
+        }
+        if (txMeta.txState() == COMMITED) {
+            boolean readLatest = timestamp == null;
 
-                return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
-            } else if (txMeta.txState() == ABORTED) {
-                return true;
-            } else {
-                assert txMeta.txState() == PENDING : "Unexpected transaction state [state=" + txMeta.txState() + ']';
-
-                return true;
-            }
-        });
+            return readLatest || txMeta.commitTimestamp().compareTo(timestamp) <= 0;
+        }
+        return false;
     }
 
     private CompletableFuture<Void> validateAtTimestamp(UUID txId) {
@@ -2744,10 +2747,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         final Map<RequestType, List<CompletableFuture<?>>> futures = new EnumMap<>(RequestType.class);
 
         /**
-         * Transaction state. {@code TxState#ABORTED} and {@code TxState#COMMITED} match the final transaction states. If the property is
-         * {@code null} the transaction is in pending state.
+         * Transaction state. {@code TxState#ABORTED} and {@code TxState#COMMITED} match the final transaction states.
          */
-        TxState state;
+        TxState state = PENDING;
     }
 
     @Override
@@ -2892,7 +2894,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param commitTimestamp Commit timestamp.
      */
     private void markFinished(UUID txId, TxState txState, @Nullable HybridTimestamp commitTimestamp) {
-        assert txState == COMMITED || txState == ABORTED : "Unexpected state, txId=" + txId + ", txState=" + txState;
+        assert isFinalState(txState) : "Unexpected state [txId=" + txId + ", txState=" + txState + ']';
 
         txManager.updateTxMeta(txId, old -> old == null
                 ? null

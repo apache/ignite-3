@@ -144,7 +144,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ) {
             @Override
             public CompletableFuture<Void> finish(
-                    HybridTimestampTracker timestampTracker,
+                    HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
                     ClusterNode recipientNode,
                     Long term,
