@@ -29,6 +29,8 @@ namespace Apache.Ignite.Tests
 
     /// <summary>
     /// Base class for client tests.
+    /// <para />
+    /// NOTE: Timeout is set for the entire assembly in csproj file.
     /// </summary>
     public class IgniteTestsBase
     {
