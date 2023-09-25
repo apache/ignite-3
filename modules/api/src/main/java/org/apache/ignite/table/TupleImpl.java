@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -164,18 +163,6 @@ class TupleImpl implements Tuple, Serializable {
         Objects.checkIndex(columnIndex, colValues.size());
 
         return (T) colValues.get(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
-        return value(columnIndex);
     }
 
     /** {@inheritDoc} */

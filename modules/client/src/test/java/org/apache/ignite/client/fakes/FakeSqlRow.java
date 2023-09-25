@@ -25,7 +25,6 @@ import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
@@ -107,18 +106,6 @@ public class FakeSqlRow implements SqlRow {
     @Override
     public <T> T value(int columnIndex) {
         return (T) row.get(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(String columnName) {
-        return (BinaryObject) row.get(columnIndexChecked(columnName));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
-        return (BinaryObject) row.get(columnIndex);
     }
 
     /** {@inheritDoc} */

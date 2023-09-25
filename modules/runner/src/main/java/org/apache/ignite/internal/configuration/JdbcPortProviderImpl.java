@@ -15,8 +15,24 @@
  * limitations under the License.
  */
 
-/**
- * The user binary object API.
- */
+package org.apache.ignite.internal.configuration;
 
-package org.apache.ignite.binary;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.internal.rest.node.JdbcPortProvider;
+
+/**
+ * Provider of client port from node configuration.
+ */
+public class JdbcPortProviderImpl implements JdbcPortProvider {
+
+    private final ConfigurationRegistry configurationRegistry;
+
+    public JdbcPortProviderImpl(ConfigurationRegistry configurationRegistry) {
+        this.configurationRegistry = configurationRegistry;
+    }
+
+    @Override
+    public int jdbcPort() {
+        return configurationRegistry.getConfiguration(ClientConnectorConfiguration.KEY).port().value();
+    }
+}

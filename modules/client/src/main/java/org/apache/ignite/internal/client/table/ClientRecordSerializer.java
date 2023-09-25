@@ -31,11 +31,11 @@ import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
-import org.apache.ignite.internal.marshaller.MarshallerUtil;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -66,7 +66,7 @@ public class ClientRecordSerializer<R> {
         this.tableId = tableId;
         this.mapper = mapper;
 
-        oneColumnMode = MarshallerUtil.mode(mapper.targetType()) != null;
+        oneColumnMode = BinaryMode.forClass(mapper.targetType()) != BinaryMode.POJO;
     }
 
     /**

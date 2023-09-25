@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.marshaller.reflection;
+package org.apache.ignite.internal.marshaller;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

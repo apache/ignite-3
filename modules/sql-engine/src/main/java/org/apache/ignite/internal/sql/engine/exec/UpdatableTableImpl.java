@@ -361,7 +361,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     private static void appendValue(RowAssembler rowAssembler, ColumnDescriptor colDesc, Object val) {
         val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
 
-        RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
+        rowAssembler.appendValue(val);
     }
 
     private static <RowT> CompletableFuture<List<RowT>> handleInsertResults(

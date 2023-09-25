@@ -15,8 +15,12 @@
  * limitations under the License.
  */
 
-/**
- * Contains public classes for custom user object serialization and access.
- */
+package org.apache.ignite.internal.rest.node;
 
-package org.apache.ignite.binary;
+/**
+ * Provides JDBC port.
+ */
+@FunctionalInterface
+public interface JdbcPortProvider {
+    int jdbcPort();
+}

@@ -18,13 +18,16 @@
 package org.apache.ignite.internal.placementdriver;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
  * Service that provides an ability to await and retrieve primary replicas for replication groups.
  */
-public interface PlacementDriver {
+public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> {
     /**
      * Returns a future for the primary replica for the specified replication group whose expiration time (the right border of the
      * corresponding lease interval) is greater than or equal to the timestamp passed as a parameter. Please pay attention that there are
