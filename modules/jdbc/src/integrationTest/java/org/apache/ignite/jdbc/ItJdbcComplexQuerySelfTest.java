@@ -210,11 +210,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
         // Check non-indexed field.
         JdbcTestUtils.assertThrowsSqlException(
                 "For input string: \"B\"",
-                () -> {
-                    try (ResultSet rs = stmt.executeQuery("select * from PUBLIC.Org where name = 2")) {
-                        assertFalse(rs.next());
-                    }
-                });
+                () -> stmt.executeQuery("select * from PUBLIC.Org where name = 2"));
 
         // Check indexed field.
         try (ResultSet rs = stmt.executeQuery("select * from PUBLIC.Person where name = '2'")) {
@@ -223,10 +219,6 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
 
         JdbcTestUtils.assertThrowsSqlException(
                 "For input string: \"Mike Green\"",
-                () -> {
-                    try (ResultSet rs = stmt.executeQuery("select * from PUBLIC.Person where name = 2")) {
-                        assertFalse(rs.next());
-                    }
-                });
+                () -> stmt.executeQuery("select * from PUBLIC.Person where name = 2"));
     }
 }
