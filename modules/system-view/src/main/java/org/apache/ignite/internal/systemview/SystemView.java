@@ -26,7 +26,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.lang.util.StringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Base class for system view definitions.

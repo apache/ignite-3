@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.tostring;
 
 import static java.util.Objects.nonNull;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
-import static org.apache.ignite.lang.IgniteSystemProperties.getString;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getString;
 
 import java.io.Externalizable;
 import java.io.InputStream;
@@ -51,9 +51,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringBuilder;
-import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
 
 /**

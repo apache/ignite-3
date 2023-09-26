@@ -20,9 +20,9 @@ package org.apache.ignite.internal.cluster.management;
 import java.io.Serializable;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 
 /**
  * Class that represents a local CMG state (persisted in the Vault).

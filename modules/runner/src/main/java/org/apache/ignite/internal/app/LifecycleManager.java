@@ -20,13 +20,13 @@ package org.apache.ignite.internal.app;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rest.api.node.State;
 import org.apache.ignite.internal.rest.node.StateProvider;
 import org.apache.ignite.internal.util.ReverseIterator;
-import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Class for managing the lifecycle of Ignite components.

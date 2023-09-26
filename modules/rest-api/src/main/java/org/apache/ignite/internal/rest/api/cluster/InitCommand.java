@@ -26,7 +26,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.lang.util.StringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**

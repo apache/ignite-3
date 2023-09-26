@@ -102,7 +102,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
     private static Function<Object, Object> compileCast(IgniteTypeFactory typeFactory, RelDataType from,
             RelDataType to) {
-        RelDataType rowType = createRowType(typeFactory, from);
+        RelDataType rowType = createRowType(typeFactory, List.of(from));
         ParameterExpression in = Expressions.parameter(Object.class, "in");
 
         RexToLixTranslator.InputGetter getter =

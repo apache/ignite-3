@@ -23,7 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;

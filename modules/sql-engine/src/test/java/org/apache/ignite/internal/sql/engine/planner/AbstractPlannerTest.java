@@ -73,6 +73,7 @@ import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -103,7 +104,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
