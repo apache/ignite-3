@@ -56,16 +56,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Integration test of index building.
- */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-20096")
+/** Integration test of index building. */
 public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
-    private static final String ZONE_NAME = "zone_table";
+    private static final String ZONE_NAME = "ZONE_TABLE";
 
-    private static final String TABLE_NAME = "test_table";
+    private static final String TABLE_NAME = "TEST_TABLE";
 
-    private static final String INDEX_NAME = "test_index";
+    private static final String INDEX_NAME = "TEST_INDEX";
 
     @AfterEach
     void tearDown() {
@@ -89,7 +86,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME.toUpperCase(), INDEX_NAME.toUpperCase()))
+                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)
                 .returns(2, 2)
                 .returns(3, 3)
@@ -99,6 +96,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20330")
     void testChangePrimaryReplicaOnMiddleBuildIndex() throws Exception {
         prepareBuildIndexToChangePrimaryReplica();
 
@@ -174,7 +172,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
         sql(IgniteStringFormatter.format(
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
-                TABLE_NAME, ZONE_NAME.toUpperCase()
+                TABLE_NAME, ZONE_NAME
         ));
 
         sql(IgniteStringFormatter.format(

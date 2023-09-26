@@ -2415,7 +2415,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
         } else if (request instanceof BuildIndexReplicaRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, now)
+            // TODO: IGNITE-20330 Possibly replaced by placementDriver#getPrimaryReplica and should also be added to the documentation
+            //  about PrimaryReplicaMissException
+            return placementDriver.awaitPrimaryReplica(replicationGroupId, now)
                     .thenCompose(replicaMeta -> {
                         if (isLocalPeer(replicaMeta.getLeaseholder())) {
                             return completedFuture(null);
