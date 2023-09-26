@@ -45,7 +45,6 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeFactoryImpl.JavaType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.BasicSqlType;
@@ -151,26 +150,9 @@ public class TypeUtils {
         return builder.build();
     }
 
-    /**
-     * CreateRowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RelDataType createRowType(IgniteTypeFactory typeFactory, Class<?>... fields) {
-        List<RelDataType> types = Arrays.stream(fields)
-                .map(typeFactory::createJavaType)
-                .collect(Collectors.toList());
-
-        return createRowType(typeFactory, types, "$F");
-    }
-
-    /**
-     * CreateRowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RelDataType createRowType(IgniteTypeFactory typeFactory, RelDataType... fields) {
-        List<RelDataType> types = Arrays.asList(fields);
-
-        return createRowType(typeFactory, types, "$F");
+    /** Assembly output type from input types. */
+    public static RelDataType createRowType(IgniteTypeFactory typeFactory, List<RelDataType> fields) {
+        return createRowType(typeFactory, fields, "$F");
     }
 
     private static RelDataType createRowType(IgniteTypeFactory typeFactory, List<RelDataType> fields, String namePreffix) {
@@ -397,18 +379,6 @@ public class TypeUtils {
     }
 
     /**
-     * Converts a {@link NativeType native type} to {@link RelDataType relational type} with respect to the nullability flag.
-     *
-     * @param factory Type factory.
-     * @param nativeType A native type to convert.
-     * @param nullable A flag that specify whether the resulting type should be nullable or not.
-     * @return Relational type.
-     */
-    public static RelDataType native2relationalType(RelDataTypeFactory factory, NativeType nativeType, boolean nullable) {
-        return factory.createTypeWithNullability(native2relationalType(factory, nativeType), nullable);
-    }
-
-    /**
      * Converts a {@link NativeType native type} to {@link RelDataType relational type}.
      *
      * @param factory Type factory.
@@ -486,6 +456,29 @@ public class TypeUtils {
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }
+    }
+
+    /**
+     * Converts a {@link NativeType native type} to {@link RelDataType relational type} with respect to the nullability flag.
+     *
+     * @param factory Type factory.
+     * @param nativeType A native type to convert.
+     * @param nullable A flag that specify whether the resulting type should be nullable or not.
+     * @return Relational type.
+     */
+    public static RelDataType native2relationalType(RelDataTypeFactory factory, NativeType nativeType, boolean nullable) {
+        return factory.createTypeWithNullability(native2relationalType(factory, nativeType), nullable);
+    }
+
+    /**
+     * Converts a {@link NativeType native types} to {@link RelDataType relational types}.
+     *
+     * @param factory Type factory.
+     * @param nativeTypes A native types to convert.
+     * @return Relational types.
+     */
+    public static List<RelDataType> native2relationalTypes(RelDataTypeFactory factory, NativeType... nativeTypes) {
+        return Arrays.stream(nativeTypes).map(t -> native2relationalType(factory, t)).collect(Collectors.toList());
     }
 
     /** Converts {@link ColumnType} to corresponding {@link NativeType}. */
@@ -663,14 +656,10 @@ public class TypeUtils {
 
             return new RowType(fields, type.isNullable());
 
-        } else if (SqlTypeUtil.isMap(type) || SqlTypeUtil.isMultiset(type))  {
+        } else if (SqlTypeUtil.isMap(type) || SqlTypeUtil.isMultiset(type) || SqlTypeUtil.isArray(type)) {
             // TODO https://issues.apache.org/jira/browse/IGNITE-20162
             //  Add collection types support
             throw new IllegalArgumentException("Collection types is not supported: " + type);
-        } else if (SqlTypeUtil.isArray(type) || type instanceof JavaType) {
-            // TODO Remove after is fixed https://issues.apache.org/jira/browse/IGNITE-20336
-            //  Move SqlTypeUtil.isArray(type) to collections type support branch.
-            return new BaseTypeSpec(null, true);
         } else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
