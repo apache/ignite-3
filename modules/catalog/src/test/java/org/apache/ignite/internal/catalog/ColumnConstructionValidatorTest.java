@@ -20,9 +20,9 @@ package org.apache.ignite.internal.catalog;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.DEFAULT_NULLABLE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
-import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_DEFINITION;
-import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_NOT_APPLICABLE;
-import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_VALIDATION;
+import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_COL_PARAM_DEFINITION;
+import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_COL_PARAM_NOT_APPLICABLE;
+import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_COL_PARAM_VALIDATION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -54,10 +54,10 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
 
         if (type.precisionAllowed()) {
             assertThrowsWithCause(noPrecision::build, CatalogValidationException.class,
-                    format(ERR_STR_DEFINITION, "Precision", "COL", type.name()));
+                    format(ERR_COL_PARAM_DEFINITION, "Precision", "COL", type.name()));
 
             assertThrowsWithCause(invalidPrecision::build, CatalogValidationException.class,
-                    format(ERR_STR_VALIDATION, "Precision", "COL", type.name()));
+                    format(ERR_COL_PARAM_VALIDATION, "Precision", "COL", type.name()));
 
             ColumnParams col = correctPrecision.build();
             assertNotNull(col.precision());
@@ -65,7 +65,7 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
             correctPrecision.precision(1);
 
             assertThrowsWithCause(correctPrecision::build, CatalogValidationException.class,
-                    format(ERR_STR_NOT_APPLICABLE, "Precision", "COL", type.name()));
+                    format(ERR_COL_PARAM_NOT_APPLICABLE, "Precision", "COL", type.name()));
         }
     }
 
@@ -85,10 +85,10 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
 
         if (type.scaleAllowed()) {
             assertThrowsWithCause(noScale::build, CatalogValidationException.class,
-                    format(ERR_STR_DEFINITION, "Scale", "COL", type.name()));
+                    format(ERR_COL_PARAM_DEFINITION, "Scale", "COL", type.name()));
 
             assertThrowsWithCause(invalidScale::build, CatalogValidationException.class,
-                    format(ERR_STR_VALIDATION, "Scale", "COL", type.name()));
+                    format(ERR_COL_PARAM_VALIDATION, "Scale", "COL", type.name()));
 
             ColumnParams col = correctScale.build();
             assertNotNull(col.scale());
@@ -96,7 +96,7 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
             correctScale.scale(1);
 
             assertThrowsWithCause(correctScale::build, CatalogValidationException.class,
-                    format(ERR_STR_NOT_APPLICABLE, "Scale", "COL", type.name()));
+                    format(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", "COL", type.name()));
         }
     }
 
@@ -116,10 +116,10 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
 
         if (type.lengthAllowed()) {
             assertThrowsWithCause(noLength::build, CatalogValidationException.class,
-                    format(ERR_STR_DEFINITION, "Length", "COL", type.name()));
+                    format(ERR_COL_PARAM_DEFINITION, "Length", "COL", type.name()));
 
             assertThrowsWithCause(invalidLength::build, CatalogValidationException.class,
-                    format(ERR_STR_VALIDATION, "Length", "COL", type.name()));
+                    format(ERR_COL_PARAM_VALIDATION, "Length", "COL", type.name()));
 
             ColumnParams col = correctLength.build();
             assertNotNull(col.length());
@@ -127,7 +127,7 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
             correctLength.length(1);
 
             assertThrowsWithCause(correctLength::build, CatalogValidationException.class,
-                    format(ERR_STR_NOT_APPLICABLE, "Length", "COL", type.name()));
+                    format(ERR_COL_PARAM_NOT_APPLICABLE, "Length", "COL", type.name()));
         }
     }
 

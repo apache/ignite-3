@@ -27,9 +27,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
-    public static final String ERR_STR_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'";
-    public static final String ERR_STR_VALIDATION = "{} for column '{}' of type '{}' must be non-negative";
-    public static final String ERR_STR_DEFINITION = "{} definition is necessary for column '{}' of type '{}'";
+    public static final String ERR_COL_PARAM_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'";
+    public static final String ERR_COL_PARAM_VALIDATION = "{} for column '{}' of type '{}' must be non-negative";
+    public static final String ERR_COL_PARAM_DEFINITION = "{} definition is necessary for column '{}' of type '{}'";
 
     /** Creates parameters builder. */
     public static Builder builder() {
@@ -238,15 +238,15 @@ public class ColumnParams {
 
             if (validateLenght) {
                 if (params.length() == null) {
-                    throw new CatalogValidationException(format(ERR_STR_DEFINITION, "Length", params.name(), params.type()));
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, "Length", params.name(), params.type()));
                 }
 
                 if (params.length() < 0) {
-                    throw new CatalogValidationException(format(ERR_STR_VALIDATION, "Length", params.name(), params.type()));
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_VALIDATION, "Length", params.name(), params.type()));
                 }
             } else {
                 if (params.length() != null) {
-                    throw new CatalogValidationException(format(ERR_STR_NOT_APPLICABLE, "Length", params.name(), params.type()));
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Length", params.name(), params.type()));
                 }
             }
 
@@ -254,7 +254,7 @@ public class ColumnParams {
                 validatePrecision(params);
 
                 if (params.scale() != null && !validateScale) {
-                    throw new CatalogValidationException(format(ERR_STR_NOT_APPLICABLE, "Scale", params.name(), params.type()));
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", params.name(), params.type()));
                 }
             }
 
@@ -264,11 +264,11 @@ public class ColumnParams {
 
             if (!validatePrecision && !validateScale) {
                 if (params.precision() != null) {
-                    throw new CatalogValidationException(format(ERR_STR_NOT_APPLICABLE, "Precision", params.name(), params.type()));
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Precision", params.name(), params.type()));
                 }
 
                 if (params.scale() != null) {
-                    throw new CatalogValidationException(format(ERR_STR_NOT_APPLICABLE, "Scale", params.name(), params.type()));
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", params.name(), params.type()));
                 }
             }
         }
@@ -277,11 +277,11 @@ public class ColumnParams {
             Integer precision = params.precision();
 
             if (precision == null) {
-                throw new CatalogValidationException(format(ERR_STR_DEFINITION, "Precision", params.name(), params.type()));
+                throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, "Precision", params.name(), params.type()));
             }
 
             if (precision < 0) {
-                throw new CatalogValidationException(format(ERR_STR_VALIDATION, "Precision", params.name(), params.type()));
+                throw new CatalogValidationException(format(ERR_COL_PARAM_VALIDATION, "Precision", params.name(), params.type()));
             }
         }
 
@@ -289,11 +289,11 @@ public class ColumnParams {
             Integer scale = params.scale();
 
             if (scale == null) {
-                throw new CatalogValidationException(format(ERR_STR_DEFINITION, "Scale", params.name(), params.type()));
+                throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, "Scale", params.name(), params.type()));
             }
 
             if (scale < 0) {
-                throw new CatalogValidationException(format(ERR_STR_VALIDATION, "Scale", params.name(), params.type()));
+                throw new CatalogValidationException(format(ERR_COL_PARAM_VALIDATION, "Scale", params.name(), params.type()));
             }
         }
     }

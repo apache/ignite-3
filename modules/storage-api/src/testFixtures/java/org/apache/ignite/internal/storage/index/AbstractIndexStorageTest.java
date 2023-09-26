@@ -92,7 +92,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 columnParamsBuilder(ColumnType.DOUBLE).nullable(true).build(),
                 columnParamsBuilder(ColumnType.UUID).nullable(true).build(),
                 columnParamsBuilder(ColumnType.DATE).nullable(true).build(),
-                columnParamsBuilder(ColumnType.BITMASK).length(100).length(32).nullable(true).build(),
+                columnParamsBuilder(ColumnType.BITMASK).length(100).nullable(true).build(),
                 columnParamsBuilder(ColumnType.STRING).length(100).nullable(true).build(),
                 columnParamsBuilder(ColumnType.BYTE_ARRAY).length(100).nullable(true).build(),
                 columnParamsBuilder(ColumnType.NUMBER).precision(10).nullable(true).build(),
