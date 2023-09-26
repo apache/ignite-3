@@ -110,15 +110,14 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
 
         PeerId leaderId = node.getLeaderId();
 
-        if (st.getRaftError() == RaftError.EPERM && leaderId != null) {
-            return RaftRpcFactory.DEFAULT.newResponse(
-                    leaderId.toString(),
-                    node.getRaftOptions().getRaftMessagesFactory(),
-                    st.getRaftError(),
-                    st.getErrorMsg()
-            );
-        } else {
-            return RaftRpcFactory.DEFAULT.newResponse(node.getRaftOptions().getRaftMessagesFactory(), st);
-        }
+        // We only return leaderId in case of EPERM (which means that we're not the leader) AND we know the actual leaderId.
+        boolean returnLeaderId = st.getRaftError() == RaftError.EPERM && leaderId != null;
+
+        return RaftRpcFactory.DEFAULT.newResponse(
+                returnLeaderId ? leaderId.toString() : null,
+                node.getRaftOptions().getRaftMessagesFactory(),
+                st.getRaftError(),
+                st.getErrorMsg()
+        );
     }
 }
