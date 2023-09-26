@@ -832,7 +832,8 @@ public class IgniteUtils {
     }
 
     /**
-     * Method that runs the provided {@code fn} in {@code busyLock} if {@link IgniteSpinBusyLock#enterBusy()} succeed.
+     * Method that runs the provided {@code fn} in {@code busyLock} if {@link IgniteSpinBusyLock#enterBusy()} succeed. Otherwise it just
+     * silently returns.
      *
      * @param busyLock Component's busy lock.
      * @param fn Runnable to run.
