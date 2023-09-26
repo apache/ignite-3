@@ -47,7 +47,7 @@ import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler
 import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
-import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProviderImpl;
+import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
@@ -78,12 +78,13 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         @Parameters(index = "0", description = "SQL query to execute", defaultValue = Option.NULL_VALUE)
         private String command;
 
-        @Option(names = {SCRIPT_FILE_OPTION, SCRIPT_FILE_OPTION_SHORT}, description = SCRIPT_FILE_OPTION_SHORT)
+        @Option(names = {SCRIPT_FILE_OPTION, SCRIPT_FILE_OPTION_SHORT}, description = SCRIPT_FILE_OPTION_SHORT,
+                defaultValue = Option.NULL_VALUE)
         private File file;
     }
 
     @Inject
-    private ReplExecutorProviderImpl replExecutorProvider;
+    private ReplExecutorProvider replExecutorProvider;
 
     @Inject
     private EventListeningActivationPoint eventListeningActivationPoint;

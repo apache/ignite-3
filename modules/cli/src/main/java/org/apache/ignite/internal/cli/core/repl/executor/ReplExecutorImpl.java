@@ -59,7 +59,7 @@ import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 /**
  * Executor of {@link Repl}.
  */
-public class ReplExecutorImpl {
+public class ReplExecutorImpl implements ReplExecutor {
 
     private final Parser parser = new DefaultParser().escapeChars(null);
 
@@ -108,6 +108,7 @@ public class ReplExecutorImpl {
      *
      * @param repl data class of executing REPL.
      */
+    @Override
     public void execute(Repl repl) {
         try {
             repl.customizeTerminal(terminal);
