@@ -28,7 +28,6 @@ import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -157,12 +156,12 @@ public interface TxManager extends IgniteComponent {
      * @param tx The transaction id.
      * @return {@code True} if the inflight was registered. The update must be failed on false.
      */
-    boolean addInflight(@NotNull UUID txId);
+    boolean addInflight(UUID txId);
 
     /**
      * Unregisters the inflight for a transaction.
      *
      * @param tx The transction id
      */
-    void removeInflight(@NotNull UUID txId);
+    void removeInflight(UUID txId);
 }

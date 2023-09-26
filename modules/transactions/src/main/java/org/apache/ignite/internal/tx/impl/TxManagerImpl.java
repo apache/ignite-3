@@ -57,7 +57,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -67,8 +66,6 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler {
-    private static final IgniteLogger LOGGER = Loggers.forClass(TxManagerImpl.class);
-
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
 
@@ -387,7 +384,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public boolean addInflight(@NotNull UUID txId) {
+    public boolean addInflight(UUID txId) {
         boolean[] res = {true};
 
         txCtxMap.compute(txId, (uuid, tuple) -> {
@@ -412,7 +409,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void removeInflight(@NotNull UUID txId) {
+    public void removeInflight(UUID txId) {
         TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
             assert ctx != null;
 

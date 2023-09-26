@@ -231,12 +231,15 @@ public class InternalTableImpl implements InternalTable {
      * @param row The row.
      * @param tx The transaction, not null if explicit.
      * @param fac Replica requests factory.
+     * @param noOpChecker Used to handle no-op operations (producing no updates).
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
-            IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac
+            IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
+            Predicate<R> noOpChecker
+
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -272,7 +275,14 @@ public class InternalTableImpl implements InternalTable {
             fut = enlistWithRetry(tx0, partId, term -> fac.apply(tx0, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION, implicit);
         }
 
-        return postEnlist(fut, false, tx0, implicit);
+        return postEnlist(fut, false, tx0, implicit).thenApply(res -> {
+            // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
+            if (!implicit && noOpChecker.test(res)) {
+                txManager.removeInflight(tx0.id());
+            }
+
+            return res;
+        });
     }
 
     /**
@@ -351,7 +361,7 @@ public class InternalTableImpl implements InternalTable {
 
         return postEnlist(fut, implicit && !singlePart, tx0, full).thenApply(res -> {
             // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-            if (noOpChecker.test(res) && !full) {
+            if (!full && !implicit && noOpChecker.test(res)) {
                 txManager.removeInflight(tx0.id());
             }
 
@@ -564,7 +574,8 @@ public class InternalTableImpl implements InternalTable {
                             .requestType(RequestType.RW_GET)
                             .timestampLong(clock.nowLong())
                             .full(tx == null)
-                            .build()
+                            .build(),
+                    res -> false
             );
         }
     }
@@ -676,7 +687,9 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_UPSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build());
+                        .build(),
+                res -> false
+        );
     }
 
     /** {@inheritDoc} */
@@ -723,14 +736,15 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build()
+                        .build(),
+                res -> false
         );
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, InternalTransaction tx) {
-        CompletableFuture<Boolean> fut = enlistInTx(
+        return enlistInTx(
                 row,
                 tx,
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
@@ -742,16 +756,9 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_INSERT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build()
+                        .build(),
+                res -> !res
         );
-
-        return fut.thenApply(res -> {
-            if (tx != null && !res) {
-                txManager.removeInflight(tx.id());
-            }
-
-            return res;
-        });
     }
 
     /** {@inheritDoc} */
@@ -778,7 +785,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, InternalTransaction tx) {
-        CompletableFuture<Boolean> fut = enlistInTx(
+        return enlistInTx(
                 row,
                 tx,
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
@@ -790,22 +797,15 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build()
+                        .build(),
+                res -> !res
         );
-
-        return fut.thenApply(res -> {
-            if (tx != null && !res) {
-                txManager.removeInflight(tx.id());
-            }
-
-            return res;
-        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, InternalTransaction tx) {
-        CompletableFuture<Boolean> fut = enlistInTx(
+        return enlistInTx(
                 newRow,
                 tx,
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
@@ -818,22 +818,15 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_REPLACE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build()
+                        .build(),
+                res -> !res
         );
-
-        return fut.thenApply(res -> {
-            if (tx != null && !res) {
-                txManager.removeInflight(tx.id());
-            }
-
-            return res;
-        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
-        CompletableFuture<BinaryRow> fut = enlistInTx(
+        return enlistInTx(
                 row,
                 tx,
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
@@ -845,22 +838,15 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build()
+                        .build(),
+                Objects::isNull
         );
-
-        return fut.thenApply(res -> {
-            if (tx != null && res == null) {
-                txManager.removeInflight(tx.id());
-            }
-
-            return res;
-        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, InternalTransaction tx) {
-        CompletableFuture<Boolean> fut = enlistInTx(
+        return enlistInTx(
                 keyRow,
                 tx,
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
@@ -872,22 +858,15 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_DELETE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build()
+                        .build(),
+                res -> !res
         );
-
-        return fut.thenApply(res -> {
-            if (tx != null && !res) {
-                txManager.removeInflight(tx.id());
-            }
-
-            return res;
-        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, InternalTransaction tx) {
-        CompletableFuture<Boolean> fut = enlistInTx(
+        return enlistInTx(
                 oldRow,
                 tx,
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
@@ -899,22 +878,15 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build()
+                        .build(),
+                res -> !res
         );
-
-        return fut.thenApply(res -> {
-            if (tx != null && !res) {
-                txManager.removeInflight(tx.id());
-            }
-
-            return res;
-        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
-        CompletableFuture<BinaryRow> fut = enlistInTx(
+        return enlistInTx(
                 row,
                 tx,
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
@@ -926,16 +898,9 @@ public class InternalTableImpl implements InternalTable {
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .timestampLong(clock.nowLong())
                         .full(tx == null)
-                        .build()
+                        .build(),
+                Objects::isNull
         );
-
-        return fut.thenApply(res -> {
-            if (tx != null && res == null) {
-                txManager.removeInflight(tx.id());
-            }
-
-            return res;
-        });
     }
 
     /** {@inheritDoc} */

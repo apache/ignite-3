@@ -27,7 +27,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
  */
 public interface MessagingService {
     /**
-     * Send the given message asynchronously with <b>at most once</b> delivery guarantee.
+     * Send the given message asynchronously to the specific member without any delivery guarantees.
      *
      * @param recipient Recipient of the message.
      * @param msg       Message which should be delivered.
