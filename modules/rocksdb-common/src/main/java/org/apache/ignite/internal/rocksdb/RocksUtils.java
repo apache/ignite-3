@@ -19,7 +19,7 @@ package org.apache.ignite.internal.rocksdb;
 
 import java.util.Arrays;
 import java.util.Collection;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.RocksDBException;

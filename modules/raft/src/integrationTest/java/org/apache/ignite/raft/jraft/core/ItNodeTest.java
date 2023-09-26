@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.synchronizedList;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -2732,13 +2733,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         UserLog userLog = leader.readCommittedUserLog(1);
         assertNotNull(userLog);
         assertEquals(2, userLog.getIndex());
-        assertEquals("hello0", stringFromBytes(userLog.getData().array()));
+        assertEquals("hello0", stringFromBytes(byteBufferToByteArray(userLog.getData())));
 
         // index == 5 is a DATA log(a user log)
         userLog = leader.readCommittedUserLog(5);
         assertNotNull(userLog);
         assertEquals(5, userLog.getIndex());
-        assertEquals("hello3", stringFromBytes(userLog.getData().array()));
+        assertEquals("hello3", stringFromBytes(byteBufferToByteArray(userLog.getData())));
 
         // index == 15 is greater than last_committed_index
         try {
@@ -2795,20 +2796,20 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         userLog = leader.readCommittedUserLog(12);
         assertNotNull(userLog);
         assertEquals(16, userLog.getIndex());
-        assertEquals("hello10", stringFromBytes(userLog.getData().array()));
+        assertEquals("hello10", stringFromBytes(byteBufferToByteArray(userLog.getData())));
 
         // now index == 17 is a user log
         userLog = leader.readCommittedUserLog(17);
         assertNotNull(userLog);
         assertEquals(17, userLog.getIndex());
-        assertEquals("hello11", stringFromBytes(userLog.getData().array()));
+        assertEquals("hello11", stringFromBytes(byteBufferToByteArray(userLog.getData())));
 
         cluster.ensureSame();
         assertEquals(3, cluster.getFsms().size());
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(20, fsm.getLogs().size());
             for (int i = 0; i < 20; i++)
-                assertEquals("hello" + i, stringFromBytes(fsm.getLogs().get(i).array()));
+                assertEquals("hello" + i, stringFromBytes(byteBufferToByteArray(fsm.getLogs().get(i))));
         }
     }
 

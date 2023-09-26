@@ -23,8 +23,8 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * View of pages which should be stored during current checkpoint.

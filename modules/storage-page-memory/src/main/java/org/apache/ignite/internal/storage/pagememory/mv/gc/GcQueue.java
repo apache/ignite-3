@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv.gc;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -30,7 +31,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcInnerIo;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcIo;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcLeafIo;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcMetaIo;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**

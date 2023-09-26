@@ -30,9 +30,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiPredicate;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Affinity function for partitioned table based on Highest Random Weight algorithm. This function supports the following configuration:
