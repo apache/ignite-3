@@ -559,7 +559,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         //noinspection ThrowableNotThrown
         SqlTestUtils.assertThrowsSqlException(NODE_LEFT_ERR,
-                "Unable to send fragment [targetNode=node_2, fragmentId=1, cause=Node left the cluster",
+                "cause=Node left the cluster",
                 () -> {
                     try {
                         // Wait till the query fails due to nodes' unavailability.
