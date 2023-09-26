@@ -22,7 +22,6 @@ import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.SQLException;
-import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.junit.jupiter.api.function.Executable;
 
 /**

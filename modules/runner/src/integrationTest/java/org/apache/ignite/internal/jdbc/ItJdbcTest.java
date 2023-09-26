@@ -97,7 +97,7 @@ class ItJdbcTest extends IgniteIntegrationTest {
         @DisplayName("Jdbc client can not connect without basic authentication configured")
         void jdbcCanNotConnectWithoutBasicAuthentication() {
             var url = "jdbc:ignite:thin://127.0.0.1:10800";
-            JdbcTestUtils.assertThrowsSqlException(SQLException.class, () -> DriverManager.getConnection(url));
+            JdbcTestUtils.assertThrowsSqlException("Failed to connect to server", () -> DriverManager.getConnection(url));
         }
 
         @Test
