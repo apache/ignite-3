@@ -147,7 +147,7 @@ public class IgniteFragmentMapping implements IgniteRelVisitor<FragmentMapping> 
 
     @Override
     public FragmentMapping visit(IgniteSystemViewScan rel) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("System view scan is not implemented");
     }
 
     @Override

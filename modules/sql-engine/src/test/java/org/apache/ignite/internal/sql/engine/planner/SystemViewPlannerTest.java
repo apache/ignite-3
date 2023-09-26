@@ -111,6 +111,7 @@ public class SystemViewPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @ValueSource(strings = {
             "INSERT INTO SYSTEM.SYS_PROPS VALUES('a', 'b')",
+            "INSERT into SYS_PROPS(key, VAL) VALUES('a', 'b')",
             "UPDATE SYSTEM.SYS_PROPS SET val = '0000'",
             "DELETE FROM SYSTEM.SYS_PROPS",
             "MERGE INTO SYSTEM.SYS_PROPS dst USING SYSTEM.SYS_PROPS src ON dst.key = src.key "

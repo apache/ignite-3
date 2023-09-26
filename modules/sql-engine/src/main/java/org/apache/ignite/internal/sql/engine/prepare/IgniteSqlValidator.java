@@ -153,8 +153,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public void validateInsert(SqlInsert insert) {
+        SqlValidatorTable table = table(validatedNamespace(insert, unknownType));
+        IgniteTable igniteTable = getIgniteTableForModification((SqlIdentifier) insert.getTargetTable(), table);
+
         if (insert.getTargetColumnList() == null) {
-            insert.setOperand(3, inferColumnList(insert));
+            insert.setOperand(3, inferColumnList(igniteTable));
         }
 
         super.validateInsert(insert);
@@ -192,17 +195,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
-    private IgniteTable getTable(SqlIdentifier identifier) {
+    private IgniteTable getTableForModification(SqlIdentifier identifier) {
         SqlValidatorTable table = getCatalogReader().getTable(identifier.names);
 
         if (table == null) {
             throw newValidationError(identifier, RESOURCE.objectNotFound(identifier.toString()));
         }
 
-        return getIgniteTable(identifier, table);
+        return getIgniteTableForModification(identifier, table);
     }
 
-    private IgniteTable getIgniteTable(SqlIdentifier identifier, SqlValidatorTable table) {
+    private IgniteTable getIgniteTableForModification(SqlIdentifier identifier, SqlValidatorTable table) {
         IgniteDataSource dataSource = table.unwrap(IgniteDataSource.class);
         assert dataSource != null;
 
@@ -245,7 +248,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
         final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
 
-        IgniteTable igniteTable = getTable(targetTable);
+        IgniteTable igniteTable = getTableForModification(targetTable);
         TableDescriptor descriptor = igniteTable.descriptor();
 
         SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
@@ -289,7 +292,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
         final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
 
-        IgniteTable igniteTable = getTable(targetTable);
+        IgniteTable igniteTable = getTableForModification(targetTable);
         TableDescriptor descriptor = igniteTable.descriptor();
 
         descriptor.deleteRowType((IgniteTypeFactory) typeFactory)
@@ -570,11 +573,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
-    private SqlNodeList inferColumnList(SqlInsert call) {
-        final SqlValidatorTable table = table(validatedNamespace(call, unknownType));
-        final SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
-
-        IgniteTable igniteTable = getIgniteTable((SqlIdentifier) call.getTargetTable(), table);
+    private SqlNodeList inferColumnList(IgniteTable igniteTable) {
+        SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
         TableDescriptor descriptor = igniteTable.descriptor();
 
         for (RelDataTypeField field : descriptor.insertRowType(typeFactory()).getFieldList()) {
@@ -591,7 +591,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         final SqlValidatorNamespace ns = validatedNamespace(call, unknownType);
         final SqlValidatorTable table = table(ns);
-        IgniteTable igniteTable = getIgniteTable((SqlIdentifier) call.getTargetTable(), table);
+        IgniteTable igniteTable = getIgniteTableForModification((SqlIdentifier) call.getTargetTable(), table);
         TableDescriptor descriptor = igniteTable.descriptor();
 
         final RelDataType baseType = table.getRowType();
