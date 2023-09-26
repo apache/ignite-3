@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.raft;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Raft manager.

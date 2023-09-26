@@ -53,7 +53,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, pojo), IllegalArgumentException.class);
         assertEquals(
                 "Fields [unmapped, unmapped2] of type "
-                        + "org.apache.ignite.internal.runner.app.client.ItThinClientMarshallingTest$TestPojo2 are not mapped to columns.",
+                        + "org.apache.ignite.internal.runner.app.client.ItThinClientMarshallingTest$TestPojo2 are not mapped to columns",
                 ex.getMessage());
     }
 
@@ -67,7 +67,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, pojo, pojo), IllegalArgumentException.class);
         assertEquals(
                 "Fields [val] of type org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest$TestPojo "
-                        + "are not mapped to columns.",
+                        + "are not mapped to columns",
                 ex.getMessage());
     }
 
@@ -81,7 +81,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, pojo), IllegalArgumentException.class);
         assertEquals(
                 "Fields [key] of type org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest$TestPojo "
-                        + "are not mapped to columns.",
+                        + "are not mapped to columns",
                 ex.getMessage());
     }
 
@@ -125,7 +125,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var pojoView = table.recordView(MissingFieldPojo.class);
 
         Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, new MissingFieldPojo()), IllegalArgumentException.class);
-        assertEquals("No field found for column KEY", ex.getMessage());
+        assertEquals("No mapped object field found for column 'KEY'", ex.getMessage());
     }
 
     @Test
@@ -134,7 +134,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var kvPojoView = table.keyValueView(MissingFieldPojo.class, String.class);
 
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, new MissingFieldPojo(), ""), IllegalArgumentException.class);
-        assertEquals("No field found for column KEY", ex.getMessage());
+        assertEquals("No mapped object field found for column 'KEY'", ex.getMessage());
     }
 
     @Test
@@ -143,7 +143,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo.class);
 
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, new MissingFieldPojo()), IllegalArgumentException.class);
-        assertEquals("No field found for column VAL", ex.getMessage());
+        assertEquals("No mapped object field found for column 'VAL'", ex.getMessage());
     }
 
     @Test

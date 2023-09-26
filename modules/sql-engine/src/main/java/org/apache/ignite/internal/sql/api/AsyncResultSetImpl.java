@@ -28,7 +28,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -221,18 +220,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public <T> T value(int columnIndex) {
             return (T) row.get(columnIndex);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public BinaryObject binaryObjectValue(String columnName) {
-            return (BinaryObject) row.get(columnIndexChecked(columnName));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public BinaryObject binaryObjectValue(int columnIndex) {
-            return (BinaryObject) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */

@@ -19,8 +19,8 @@ package org.apache.ignite.internal.catalog.storage;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Distributed log of catalog updates.

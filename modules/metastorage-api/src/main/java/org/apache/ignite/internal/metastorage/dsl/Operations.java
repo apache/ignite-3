@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.internal.lang.ByteArray;
 
 /**
  * Class to accumulate some operations to one batch, which can form complete {@link Update} statement together with statement result.

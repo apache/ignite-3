@@ -56,7 +56,7 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
         engine.start();
 
         table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 

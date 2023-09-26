@@ -25,6 +25,6 @@ import org.junit.jupiter.api.BeforeEach;
 class TestGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     @BeforeEach
     void setUp() {
-        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
+        initialize(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
     }
 }

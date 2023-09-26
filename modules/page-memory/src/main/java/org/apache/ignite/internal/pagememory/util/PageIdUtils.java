@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.util.HexStringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.intellij.lang.annotations.MagicConstant;
 
 /**
@@ -90,7 +90,7 @@ public final class PageIdUtils {
      */
     public static long link(long pageId, int itemId) {
         assert itemId >= 0 && itemId <= MAX_ITEM_ID_NUM : itemId;
-        assert (pageId >> ROTATION_ID_OFFSET) == 0 : HexStringUtils.hexLong(pageId);
+        assert (pageId >> ROTATION_ID_OFFSET) == 0 : StringUtils.hexLong(pageId);
 
         return pageId | (((long) itemId) << ROTATION_ID_OFFSET);
     }

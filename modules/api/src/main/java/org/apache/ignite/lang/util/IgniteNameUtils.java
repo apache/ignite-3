@@ -34,7 +34,7 @@ public final class IgniteNameUtils {
      * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
      */
     public static String parseSimpleName(String name) {
-        if (StringUtils.nullOrEmpty(name)) {
+        if (name == null || name.isEmpty()) {
             return name;
         }
 

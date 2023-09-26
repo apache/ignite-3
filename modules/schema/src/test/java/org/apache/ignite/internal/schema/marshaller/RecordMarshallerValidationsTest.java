@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -151,7 +152,7 @@ public class RecordMarshallerValidationsTest {
         assertThrowsWithCause(
                 () -> factory.create(schema, TestK2V1.class),
                 IllegalArgumentException.class,
-                "No field found for column K1");
+                "No mapped object field found for column 'K1'");
     }
 
     /**

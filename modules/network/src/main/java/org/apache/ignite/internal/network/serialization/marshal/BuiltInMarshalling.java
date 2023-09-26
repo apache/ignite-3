@@ -36,11 +36,11 @@ import java.util.Map;
 import java.util.RandomAccess;
 import java.util.UUID;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.util.StringIntrospection;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataInput.Materializer;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
-import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * Built-in types marshalling.

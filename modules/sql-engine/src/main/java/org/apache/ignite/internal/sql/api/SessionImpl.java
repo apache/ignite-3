@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
-import static org.apache.ignite.lang.IgniteExceptionMapperUtil.mapToPublicException;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlBatchException;

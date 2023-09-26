@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPart
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.VolatilePageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
