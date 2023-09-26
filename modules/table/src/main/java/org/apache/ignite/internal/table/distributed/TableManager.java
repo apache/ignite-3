@@ -1316,8 +1316,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         tablesById(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
-        // We used the event notification future as the result so that dependent components can complete the schema updates.
-        // After switching to Catalog, most likely, the ticket is irrelevant and should be closed.
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenApply(ignore -> null);
