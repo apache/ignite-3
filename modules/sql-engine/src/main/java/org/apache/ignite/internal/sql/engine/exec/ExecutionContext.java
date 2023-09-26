@@ -38,8 +38,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.AbstractQueryContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -66,7 +66,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final UUID qryId;
 
-    private final FragmentDescription fragmentDesc;
+    private final FragmentDescription description;
 
     private final Map<String, Object> params;
 
@@ -96,7 +96,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param executor Task executor.
      * @param qctx Base query context.
      * @param qryId Query ID.
-     * @param fragmentDesc Partitions information.
+     * @param description Partitions information.
      * @param handler Row handler.
      * @param params Parameters.
      */
@@ -107,7 +107,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             UUID qryId,
             ClusterNode localNode,
             String originatingNodeName,
-            FragmentDescription fragmentDesc,
+            FragmentDescription description,
             RowHandler<RowT> handler,
             Map<String, Object> params,
             TxAttributes txAttributes
@@ -117,7 +117,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.executor = executor;
         this.qctx = qctx;
         this.qryId = qryId;
-        this.fragmentDesc = fragmentDesc;
+        this.description = description;
         this.handler = handler;
         this.params = params;
         this.localNode = localNode;
@@ -149,18 +149,18 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * Get fragment ID.
      */
     public long fragmentId() {
-        return fragmentDesc.fragmentId();
+        return description.fragmentId();
     }
 
     /**
      * Get target mapping.
      */
-    public ColocationGroup target() {
-        return fragmentDesc.target();
+    public @Nullable ColocationGroup target() {
+        return description.target();
     }
 
     public FragmentDescription description() {
-        return fragmentDesc;
+        return description;
     }
 
     /**
@@ -171,7 +171,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      */
     @Nullable
     public List<String> remotes(long exchangeId) {
-        return fragmentDesc.remotes().get(exchangeId);
+        return description.remotes(exchangeId);
     }
 
     /**
@@ -181,7 +181,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @return Colocation group for given sourceId.
      */
     public ColocationGroup group(long sourceId) {
-        return fragmentDesc.mapping().findGroup(sourceId);
+        return description.group(sourceId);
     }
 
     /**
@@ -387,7 +387,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
         ExecutionContext<?> context = (ExecutionContext<?>) o;
 
-        return qryId.equals(context.qryId) && fragmentDesc.fragmentId() == context.fragmentDesc.fragmentId();
+        return qryId.equals(context.qryId) && description.fragmentId() == context.description.fragmentId();
     }
 
     /** Null bound. */
@@ -398,6 +398,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(qryId, fragmentDesc.fragmentId());
+        return Objects.hash(qryId, description.fragmentId());
     }
 }

@@ -272,7 +272,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
             // Split query plan to query fragments.
-            List<Fragment> fragments = new Splitter().go(igniteRel);
+            List<Fragment> fragments = new QuerySplitter().go(igniteRel);
 
             return new MultiStepPlan(SqlQueryType.QUERY, fragments,
                     resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
@@ -298,7 +298,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
             // Split query plan to query fragments.
-            List<Fragment> fragments = new Splitter().go(igniteRel);
+            List<Fragment> fragments = new QuerySplitter().go(igniteRel);
 
             return new MultiStepPlan(SqlQueryType.DML, fragments, DML_METADATA);
         }, planningPool));

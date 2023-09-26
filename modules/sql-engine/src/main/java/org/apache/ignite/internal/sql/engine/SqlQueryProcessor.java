@@ -40,6 +40,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.event.Event;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -60,10 +61,15 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -143,6 +149,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ClusterService clusterSrvc;
 
+    private final LogicalTopologyService logicalTopologyService;
+
     private final TableManager tableManager;
 
     private final IndexManager indexManager;
@@ -187,6 +195,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
+            LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
             IndexManager indexManager,
             CatalogSchemaManager schemaManager,
@@ -198,6 +207,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             MetricManager metricManager
     ) {
         this.clusterSrvc = clusterSrvc;
+        this.logicalTopologyService = logicalTopologyService;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
         this.schemaManager = schemaManager;
@@ -236,7 +246,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
-                clusterSrvc.topologyService(),
+                nodeName,
                 clusterSrvc.messagingService(),
                 taskExecutor,
                 busyLock
@@ -255,6 +265,25 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
+        var executionTargetProvider = new ExecutionTargetProvider() {
+            @Override
+            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, int tableId) {
+                return tableManager.tableAsync(tableId)
+                        .thenCompose(table -> table.internalTable().primaryReplicas())
+                        .thenApply(replicas -> {
+                            List<NodeWithTerm> assignments = replicas.stream()
+                                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
+                                    .collect(Collectors.toList());
+
+                            return factory.partitioned(assignments);
+                        });
+            }
+        };
+
+        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider);
+
+        logicalTopologyService.addEventListener(mappingService);
+
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
                 msgSrvc,
@@ -264,6 +293,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 SqlRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
+                mappingService,
                 dependencyResolver
         ));
 

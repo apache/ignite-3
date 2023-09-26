@@ -19,10 +19,11 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntSets;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
@@ -43,9 +44,8 @@ public class Fragment {
     @IgniteToStringExclude
     private final String rootSer;
 
-    private final FragmentMapping mapping;
-
     private final List<IgniteReceiver> remotes;
+    private final IntSet tableIds;
 
     private final boolean correlated;
 
@@ -57,8 +57,8 @@ public class Fragment {
      * @param root Root node of the fragment.
      * @param remotes Remote sources of the fragment.
      */
-    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes) {
-        this(id, root, correlated, remotes, null, null);
+    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes, IntSet tableIds) {
+        this(id, root, correlated, remotes, null, tableIds);
     }
 
     /**
@@ -66,20 +66,13 @@ public class Fragment {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     Fragment(long id, IgniteRel root, boolean correlated, List<IgniteReceiver> remotes,
-            @Nullable String rootSer, @Nullable FragmentMapping mapping) {
+            @Nullable String rootSer, IntSet tableIds) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
+        this.tableIds = IntSets.unmodifiable(tableIds);
         this.rootSer = rootSer != null ? rootSer : toJson(root);
-        this.mapping = mapping;
         this.correlated = correlated;
-    }
-
-    /** Creates a copy of this fragment with mapping assigned to the given one. */
-    public Fragment withMapping(FragmentMapping mapping) {
-        assert mapping != null;
-
-        return new Fragment(id, root, correlated, remotes, rootSer, mapping);
     }
 
     /**
@@ -105,10 +98,6 @@ public class Fragment {
         return rootSer;
     }
 
-    public FragmentMapping mapping() {
-        return mapping;
-    }
-
     /**
      * Returns {@code true} if this fragment expecting some correlated variables being set from
      * outside (e.g. parent fragment).
@@ -126,6 +115,10 @@ public class Fragment {
         return remotes;
     }
 
+    public IntSet tableIds() {
+        return tableIds;
+    }
+
     public boolean rootFragment() {
         return !(root instanceof IgniteSender);
     }
@@ -135,8 +128,8 @@ public class Fragment {
     }
 
     public boolean single() {
-        return root instanceof IgniteSender
-                && ((IgniteSender) root).sourceDistribution().satisfies(IgniteDistributions.single());
+        return rootFragment() || (root instanceof IgniteSender
+                && ((IgniteSender) root).sourceDistribution().satisfies(IgniteDistributions.single()));
     }
 
     /** {@inheritDoc} */

@@ -44,7 +44,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -61,6 +60,13 @@ import org.apache.ignite.sql.SqlException;
  * Ignite table implementation.
  */
 public final class UpdatableTableImpl implements UpdatableTable {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20495
+    // currently, IgniteTableModify doesn't implement SourceAwareIgniteRel, thus
+    // doesn't have it's own source id, but still should be mapped to a particular
+    // set of nodes. As a workaround, let's introduce some synthetic source id
+    // to use during mapping phase and here to acquire proper assignments
+    public static final long MODIFY_NODE_SOURCE_ID = -1;
+
     private static final IgniteLogger LOG = Loggers.forClass(UpdatableTableImpl.class);
 
     private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
@@ -170,7 +176,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
+            NodeWithTerm nodeWithTerm = ectx.group(MODIFY_NODE_SOURCE_ID).assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -256,7 +262,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
+            NodeWithTerm nodeWithTerm = ectx.group(MODIFY_NODE_SOURCE_ID).assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
@@ -314,7 +320,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
+            NodeWithTerm nodeWithTerm = ectx.group(MODIFY_NODE_SOURCE_ID).assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
