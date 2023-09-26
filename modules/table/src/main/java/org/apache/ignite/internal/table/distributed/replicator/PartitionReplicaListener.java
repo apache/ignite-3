@@ -408,6 +408,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
+        } else if (request instanceof BuildIndexReplicaRequest) {
+            return raftClient.run(toBuildIndexCommand((BuildIndexReplicaRequest) request));
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -2412,6 +2414,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
+        } else if (request instanceof BuildIndexReplicaRequest) {
+            return placementDriver.getPrimaryReplica(replicationGroupId, now)
+                    .thenCompose(replicaMeta -> {
+                        if (isLocalPeer(replicaMeta.getLeaseholder())) {
+                            return completedFuture(null);
+                        } else {
+                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), replicaMeta.getLeaseholder()));
+                        }
+                    });
         } else {
             return completedFuture(null);
         }
@@ -2923,7 +2934,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return tableDescriptor;
     }
 
-    private static BuildIndexCommand of(BuildIndexReplicaRequest request) {
+    private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {
         return MSG_FACTORY.buildIndexCommand()
                 .indexId(request.indexId())
                 .rowIds(request.rowIds())
