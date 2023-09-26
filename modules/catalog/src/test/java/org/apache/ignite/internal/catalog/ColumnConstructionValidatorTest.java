@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColu
 import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_DEFINITION;
 import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_NOT_APPLICABLE;
 import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_STR_VALIDATION;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
