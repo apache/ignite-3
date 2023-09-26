@@ -37,7 +37,6 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.function.Executable;
