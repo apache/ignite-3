@@ -364,8 +364,8 @@ public final class ExceptionUtils {
 
     /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier and full error code are preserved.
+     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
+     * the original trace identifier and full error code are preserved.
      * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
@@ -380,8 +380,8 @@ public final class ExceptionUtils {
 
     /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier and full error code are preserved.
+     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
+     * the original trace identifier and full error code are preserved.
      * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
@@ -403,8 +403,8 @@ public final class ExceptionUtils {
     /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause
      * and full error code {@code code}.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier preserved.
+     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
+     * the original trace identifier preserved.
      * Otherwise, a newly generated trace identifier is used.
      *
      * @param supplier Reference to a exception constructor.
@@ -414,14 +414,14 @@ public final class ExceptionUtils {
      * @return New exception with the given cause.
      */
     public static <T extends Exception> T withCauseAndCode(IgniteTriFunction<UUID, Integer, Throwable, T> supplier, int code, Throwable t) {
-        return withCauseInternal((traceId, c, message, cause) -> supplier.apply(traceId, c, t), code, t);
+        return withCauseInternal((traceId, c, message, cause) -> supplier.apply(traceId, code, t), code, t);
     }
 
     /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause,
      * full error code {@code code} and error message {@code message}.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier preserved.
+     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
+     * the original trace identifier preserved.
      * Otherwise, a newly generated trace identifier is used.
      *
      * @param supplier Reference to a exception constructor.
@@ -437,7 +437,7 @@ public final class ExceptionUtils {
             String message,
             Throwable t
     ) {
-        return withCauseInternal((traceId, c, m, cause) -> supplier.apply(traceId, c, m, t), code, t);
+        return withCauseInternal((traceId, c, m, cause) -> supplier.apply(traceId, code, message, t), code, t);
     }
 
     /**

@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -41,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -248,8 +248,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                         return;
                     }
 
-                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
-                            IgniteInternalException::new,
+                    Exception wrapperEx = ExceptionUtils.withCause(
+                            SqlException::new,
                             Common.INTERNAL_ERR,
                             "Unable to send batch: " + ex.getMessage(),
                             ex
@@ -270,8 +270,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                         return;
                     }
 
-                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
-                            IgniteInternalException::new,
+                    Exception wrapperEx = ExceptionUtils.withCause(
+                            SqlException::new,
                             Common.INTERNAL_ERR,
                             "Unable to send error: " + ex.getMessage(),
                             ex

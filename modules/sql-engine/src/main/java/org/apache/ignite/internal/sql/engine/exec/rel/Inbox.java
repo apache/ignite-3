@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -41,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -349,8 +349,8 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state)
                 .whenComplete((ignored, ex) -> {
                     if (ex != null) {
-                        IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
-                                IgniteInternalException::new,
+                        Throwable wrapperEx = ExceptionUtils.withCause(
+                                SqlException::new,
                                 Common.INTERNAL_ERR,
                                 "Unable to request next batch: " + ex.getMessage(),
                                 ex

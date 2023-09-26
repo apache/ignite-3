@@ -90,6 +90,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -704,8 +705,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                             completionFuture.complete(null);
                                         }
 
-                                        throw ExceptionUtils.withCauseAndCode(
-                                                IgniteInternalException::new,
+                                        throw ExceptionUtils.withCause(
+                                                SqlException::new,
                                                 INTERNAL_ERR,
                                                 format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
                                                         nodeName, fragment.fragmentId(), t.getMessage()), t
