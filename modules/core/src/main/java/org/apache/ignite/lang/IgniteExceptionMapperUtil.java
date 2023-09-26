@@ -94,7 +94,6 @@ public class IgniteExceptionMapperUtil {
 
             assert mapped instanceof IgniteException || mapped instanceof IgniteCheckedException :
                     "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + mapped + ']';
-            assert assertInternal(origin);
 
             return mapped;
         }

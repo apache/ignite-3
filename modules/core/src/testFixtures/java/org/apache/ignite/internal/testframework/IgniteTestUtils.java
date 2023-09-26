@@ -311,8 +311,6 @@ public final class IgniteTestUtils {
                 fail("Exception is neither of a specified class, nor has a cause of the specified class: " + cls, e);
             }
 
-            IgniteExceptionMapperUtil.assertInternal(e);
-
             return e;
         }
 

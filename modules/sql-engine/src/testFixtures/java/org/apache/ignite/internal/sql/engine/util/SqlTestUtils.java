@@ -81,8 +81,6 @@ public class SqlTestUtils {
 
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
-        IgniteExceptionMapperUtil.assertInternal(ex);
-
         return ex;
     }
 

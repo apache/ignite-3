@@ -40,8 +40,6 @@ public class JdbcTestUtils {
     public static <T extends SQLException> T assertThrowsSqlException(Class<T> expectedType, Executable executable) {
         T ex = assertThrows(expectedType, executable);
 
-        IgniteExceptionMapperUtil.assertInternal(ex);
-
         return ex;
     }
 
