@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.util.HexStringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -131,8 +131,8 @@ public class PageIdUtilsTest {
 
             long pageId = PageIdUtils.pageId(partId, PageIdAllocator.FLAG_DATA, pageNum);
 
-            String msg = "For values [offset=" + HexStringUtils.hexLong(off) + ", fileId=" + HexStringUtils.hexLong(partId)
-                    + ", pageNum=" + HexStringUtils.hexLong(pageNum) + ']';
+            String msg = "For values [offset=" + StringUtils.hexLong(off) + ", fileId=" + StringUtils.hexLong(partId)
+                    + ", pageNum=" + StringUtils.hexLong(pageNum) + ']';
 
             assertEquals(pageId, PageIdUtils.pageId(pageId), msg);
             assertEquals(0, PageIdUtils.itemId(pageId), msg);

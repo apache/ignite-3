@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.stream.Stream;
 import org.apache.ignite.lang.ErrorGroups.Sql;

@@ -36,14 +36,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomStr
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.Random;
 import java.util.function.Function;
@@ -581,90 +574,13 @@ public class RowTest {
      * @param schema Row schema.
      * @param vals   Row values.
      */
-    private void checkValues(SchemaDescriptor schema, Object... vals) {
+    private static void checkValues(SchemaDescriptor schema, Object... vals) {
         assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.length);
 
         RowAssembler asm = new RowAssembler(schema);
 
-        for (int i = 0; i < vals.length; i++) {
-            if (vals[i] == null) {
-                asm.appendNull();
-            } else {
-                NativeType type = schema.column(i).type();
-
-                switch (type.spec()) {
-                    case BOOLEAN:
-                        asm.appendBoolean((Boolean) vals[i]);
-                        break;
-
-                    case INT8:
-                        asm.appendByte((Byte) vals[i]);
-                        break;
-
-                    case INT16:
-                        asm.appendShort((Short) vals[i]);
-                        break;
-
-                    case INT32:
-                        asm.appendInt((Integer) vals[i]);
-                        break;
-
-                    case INT64:
-                        asm.appendLong((Long) vals[i]);
-                        break;
-
-                    case FLOAT:
-                        asm.appendFloat((Float) vals[i]);
-                        break;
-
-                    case DOUBLE:
-                        asm.appendDouble((Double) vals[i]);
-                        break;
-
-                    case UUID:
-                        asm.appendUuid((java.util.UUID) vals[i]);
-                        break;
-
-                    case STRING:
-                        asm.appendString((String) vals[i]);
-                        break;
-
-                    case NUMBER:
-                        asm.appendNumber((BigInteger) vals[i]);
-                        break;
-
-                    case DECIMAL:
-                        asm.appendDecimal((BigDecimal) vals[i]);
-                        break;
-
-                    case BYTES:
-                        asm.appendBytes((byte[]) vals[i]);
-                        break;
-
-                    case BITMASK:
-                        asm.appendBitmask((BitSet) vals[i]);
-                        break;
-
-                    case DATE:
-                        asm.appendDate((LocalDate) vals[i]);
-                        break;
-
-                    case TIME:
-                        asm.appendTime((LocalTime) vals[i]);
-                        break;
-
-                    case DATETIME:
-                        asm.appendDateTime((LocalDateTime) vals[i]);
-                        break;
-
-                    case TIMESTAMP:
-                        asm.appendTimestamp((Instant) vals[i]);
-                        break;
-
-                    default:
-                        throw new IllegalStateException("Unsupported test type: " + type);
-                }
-            }
+        for (Object val : vals) {
+            asm.appendValue(val);
         }
 
         Row row = Row.wrapBinaryRow(schema, asm.build());

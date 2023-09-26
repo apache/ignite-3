@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
+import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
@@ -30,6 +31,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -40,6 +42,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -199,5 +202,17 @@ class IgniteUtilsTest extends BaseIgniteAbstractTest {
         CompletableFuture.<Integer>failedFuture(new NumberFormatException()).whenComplete(copyStateTo(result));
 
         assertThat(result, willThrow(NumberFormatException.class));
+    }
+
+    @Test
+    void testByteBufferToByteArray() {
+        ByteBuffer heapBuffer = ByteBuffer.wrap(new byte[]{0, 1, 2, 3, 4}, 1, 3).slice();
+        assertArrayEquals(new byte[] {1, 2, 3}, byteBufferToByteArray(heapBuffer));
+
+        ByteBuffer bigDirectBuffer = ByteBuffer.allocateDirect(5);
+        bigDirectBuffer.put(new byte[]{0, 1, 2, 3, 4});
+
+        ByteBuffer smallDirectBuffer = bigDirectBuffer.position(1).limit(4).slice();
+        assertArrayEquals(new byte[] {1, 2, 3}, byteBufferToByteArray(smallDirectBuffer));
     }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Base class for schema exceptions.

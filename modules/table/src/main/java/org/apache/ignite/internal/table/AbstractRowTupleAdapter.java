@@ -24,8 +24,6 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -103,23 +101,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         Column col = rowColumnByIndex(columnIndex);
 
         return (T) row.value(col.schemaIndex());
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(String columnName) {
-        Column col = rowColumnByName(columnName);
-
-        return BinaryObjects.wrap(row.bytesValue(col.schemaIndex()));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
-        Column col = rowColumnByIndex(columnIndex);
-
-        return BinaryObjects.wrap(row.bytesValue(col.schemaIndex()));
     }
 
     /** {@inheritDoc} */

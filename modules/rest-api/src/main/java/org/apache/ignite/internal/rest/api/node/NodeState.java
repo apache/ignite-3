@@ -34,6 +34,9 @@ public class NodeState {
     @Schema(description = "Node status.", requiredMode = RequiredMode.REQUIRED)
     private final State state;
 
+    /**
+     * Construct NodeState DTO.
+     */
     @JsonCreator
     public NodeState(@JsonProperty("name") String name,
             @JsonProperty("state") State state) {

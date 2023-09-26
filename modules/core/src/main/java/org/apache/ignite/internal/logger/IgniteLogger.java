@@ -20,7 +20,7 @@ package org.apache.ignite.internal.logger;
 import java.lang.System.Logger.Level;
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 
 /**
  * Ignite logger wraps system logger for more convenient access.

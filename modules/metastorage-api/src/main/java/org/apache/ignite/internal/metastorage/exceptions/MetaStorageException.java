@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.exceptions;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Base class for meta storage exceptions.

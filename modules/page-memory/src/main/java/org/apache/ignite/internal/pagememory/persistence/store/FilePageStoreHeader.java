@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.ByteOrder.nativeOrder;
-import static org.apache.ignite.internal.util.HexStringUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

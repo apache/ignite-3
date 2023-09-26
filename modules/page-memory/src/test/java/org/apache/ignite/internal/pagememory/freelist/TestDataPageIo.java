@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.pagememory.freelist;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Test DataPageIo for {@link TestDataRow}.
