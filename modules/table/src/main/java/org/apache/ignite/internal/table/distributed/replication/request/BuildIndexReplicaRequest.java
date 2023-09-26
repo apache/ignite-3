@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.gc;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
-import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.junit.jupiter.api.BeforeEach;
+/** Replica request to build a table index. */
+@Transferable(TableMessageGroup.BUILD_INDEX_REPLICA_REQUEST)
+public interface BuildIndexReplicaRequest extends ReplicaRequest {
+    /** Returns index ID. */
+    int indexId();
 
-class TestGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
-    @BeforeEach
-    void setUp() {
-        initialize(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
-    }
+    /** Returns row IDs for which to build indexes. */
+    List<UUID> rowIds();
+
+    /** Returns {@code true} if this batch is the last one. */
+    boolean finish();
 }

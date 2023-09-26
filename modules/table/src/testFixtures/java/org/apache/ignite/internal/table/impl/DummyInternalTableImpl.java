@@ -323,7 +323,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         safeTime = new PendingIndependentComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
 
-        PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
+        PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
         GcConfiguration gcConfig = mock(GcConfiguration.class);
@@ -378,7 +378,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         partitionListener = new PartitionListener(
                 this.txManager,
-                new TestPartitionDataStorage(mvPartStorage),
+                new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
