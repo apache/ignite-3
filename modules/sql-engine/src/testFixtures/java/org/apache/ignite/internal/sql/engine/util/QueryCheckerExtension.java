@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static java.lang.reflect.Modifier.isStatic;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;

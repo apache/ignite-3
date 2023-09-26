@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.valueSize
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tostring;
 
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
 
 import java.util.Arrays;
-import org.apache.ignite.lang.IgniteStringBuilder;
-import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
 
 /**

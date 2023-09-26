@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.pagememory;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Class responsible for pages storage and handling.

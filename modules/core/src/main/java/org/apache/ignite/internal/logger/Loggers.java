@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.logger;
 
 import java.util.Objects;
-import org.apache.ignite.lang.LoggerFactory;
+import org.apache.ignite.internal.lang.LoggerFactory;
 
 /**
  * This class contains different static factory methods to create an instance of logger.

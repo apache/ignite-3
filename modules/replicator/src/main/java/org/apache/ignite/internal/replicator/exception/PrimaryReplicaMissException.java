@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.replicator.exception;
 
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * Unchecked exception that is thrown when a replica is not the current primary replica.
