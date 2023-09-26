@@ -42,6 +42,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -95,7 +96,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
@@ -323,7 +323,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         safeTime = new PendingIndependentComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
 
-        PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
+        PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
         GcConfiguration gcConfig = mock(GcConfiguration.class);
@@ -378,7 +378,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         partitionListener = new PartitionListener(
                 this.txManager,
-                new TestPartitionDataStorage(mvPartStorage),
+                new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,

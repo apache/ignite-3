@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.storage.util.StorageOperation.CreateStorageOpe
 import org.apache.ignite.internal.storage.util.StorageOperation.DestroyStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.FinishRebalanceStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.StartRebalanceStorageOperation;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**

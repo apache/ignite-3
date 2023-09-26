@@ -54,6 +54,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -90,7 +91,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.Tuple;
@@ -144,7 +144,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ) {
             @Override
             public CompletableFuture<Void> finish(
-                    HybridTimestampTracker timestampTracker,
+                    HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
                     ClusterNode recipientNode,
                     Long term,

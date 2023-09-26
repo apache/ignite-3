@@ -25,7 +25,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  */
 public interface ReplicaMeta extends Serializable {
     /**
-     * Get a leaseholder node.
+     * Gets a leaseholder node consistent ID.
      *
      * @return Leaseholder or {@code null} if nothing holds the lease.
      */

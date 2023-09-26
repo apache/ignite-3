@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
@@ -337,9 +338,10 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("https://issues.apache.org/jira/browse/IGNITE-20399")]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
     public async Task TestSchemaUpdateWhileStreaming([Values(true, false)] bool insertNewColumn)
     {
+        using var metricListener = new MetricsTests.Listener();
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
 
         var table = await Client.Tables.GetTableAsync(TestTableName);
@@ -363,6 +365,10 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             {
                 yield return GetTuple(i);
             }
+
+            // Wait for background streaming to complete.
+            // TODO: Remove this workaround when IGNITE-20416 is fixed.
+            metricListener.AssertMetric("streamer-items-sent", 6, 3000);
 
             // Update schema.
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.

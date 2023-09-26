@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Indicates checkpoint read lock acquisition failure which did not lead to node invalidation.

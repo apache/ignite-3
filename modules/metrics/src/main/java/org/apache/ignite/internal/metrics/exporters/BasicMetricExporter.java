@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import java.util.Map;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**

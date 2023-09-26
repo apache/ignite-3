@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Compound object used to address a page in the global page space.

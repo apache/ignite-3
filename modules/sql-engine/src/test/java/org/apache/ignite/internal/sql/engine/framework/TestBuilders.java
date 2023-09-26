@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayList;

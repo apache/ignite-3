@@ -32,7 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Map;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.internal.lang.IgniteUuid;
 
 /**
  * Built-in types.

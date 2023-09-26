@@ -38,6 +38,12 @@ public enum TxState {
             { true,  true,  true,  true,  true,  true }
     };
 
+    /**
+     * Checks whether the state is final, i.e. no transition from this state is allowed.
+     *
+     * @param state Transaction state.
+     * @return {@code true} if the state is either {@link #COMMITED} or {@link #ABORTED}
+     */
     public static boolean isFinalState(TxState state) {
         return state == COMMITED || state == ABORTED;
     }

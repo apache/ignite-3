@@ -285,18 +285,12 @@ public class MetricsTests
         };
 
     private void AssertMetric(string name, int value, int timeoutMs = 1000) =>
-        TestUtils.WaitForCondition(
-            condition: () => _listener.GetMetric(name) == value,
-            timeoutMs: timeoutMs,
-            messageFactory: () => $"{name}: expected '{value}', but was '{_listener.GetMetric(name)}'");
+        _listener.AssertMetric(name, value, timeoutMs);
 
     private void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
-        TestUtils.WaitForCondition(
-            condition: () => _listener.GetMetric(name) >= value,
-            timeoutMs: timeoutMs,
-            messageFactory: () => $"{name}: expected '>= {value}', but was '{_listener.GetMetric(name)}'");
+        _listener.AssertMetricGreaterOrEqual(name, value, timeoutMs);
 
-    private sealed class Listener : IDisposable
+    internal sealed class Listener : IDisposable
     {
         private readonly MeterListener _listener = new();
 
@@ -322,6 +316,18 @@ public class MetricsTests
             _listener.RecordObservableInstruments();
             return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
         }
+
+        public void AssertMetric(string name, int value, int timeoutMs = 1000) =>
+            TestUtils.WaitForCondition(
+                condition: () => GetMetric(name) == value,
+                timeoutMs: timeoutMs,
+                messageFactory: () => $"{name}: expected '{value}', but was '{GetMetric(name)}'");
+
+        public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
+            TestUtils.WaitForCondition(
+                condition: () => GetMetric(name) >= value,
+                timeoutMs: timeoutMs,
+                messageFactory: () => $"{name}: expected '>= {value}', but was '{GetMetric(name)}'");
 
         public void Dispose()
         {

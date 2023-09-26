@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.testframework;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getString;
 import static org.apache.ignite.internal.util.IgniteUtils.monotonicMs;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 
 import java.lang.reflect.Method;
 import org.apache.ignite.internal.logger.IgniteLogger;

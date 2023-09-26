@@ -176,6 +176,11 @@ public interface MarshallerWriter {
         }
 
         switch (col.type()) {
+            case BOOLEAN: {
+                writeBoolean((boolean) val);
+
+                break;
+            }
             case BYTE: {
                 writeByte((byte) val);
 

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getFloat;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putInt;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
-import static org.apache.ignite.lang.IgniteSystemProperties.getFloat;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.function.BiConsumer;
