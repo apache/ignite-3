@@ -27,7 +27,7 @@ import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHan
 import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
-import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProviderImpl;
 import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
 
 /**
@@ -36,7 +36,7 @@ import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
 @Singleton
 public class ReplManager {
     @Inject
-    private ReplExecutorProvider replExecutorProvider;
+    private ReplExecutorProviderImpl replExecutorProvider;
 
     @Inject
     private PromptProvider promptProvider;

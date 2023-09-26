@@ -59,7 +59,7 @@ import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 /**
  * Executor of {@link Repl}.
  */
-public class ReplExecutor {
+public class ReplExecutorImpl {
 
     private final Parser parser = new DefaultParser().escapeChars(null);
 
@@ -82,7 +82,7 @@ public class ReplExecutor {
      * @param terminal terminal instance.
      * @param nodeNameRegistry node name registry.
      */
-    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal, NodeNameRegistry nodeNameRegistry) {
+    public ReplExecutorImpl(PicocliCommandsFactory commandsFactory, Terminal terminal, NodeNameRegistry nodeNameRegistry) {
         this.factory = commandsFactory;
         this.terminal = terminal;
         this.nodeNameRegistry = nodeNameRegistry;

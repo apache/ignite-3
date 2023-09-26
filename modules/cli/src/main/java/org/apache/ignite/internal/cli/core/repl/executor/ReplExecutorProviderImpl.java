@@ -25,10 +25,10 @@ import org.jline.terminal.Terminal;
 import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Provider of {@link ReplExecutorImpl}.
  */
 @Singleton
-public class ReplExecutorProvider {
+public class ReplExecutorProviderImpl {
     private PicocliCommandsFactory factory;
 
     @Inject
@@ -37,8 +37,8 @@ public class ReplExecutorProvider {
     @Inject
     private NodeNameRegistry nodeNameRegistry;
 
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal, nodeNameRegistry);
+    public ReplExecutorImpl get() {
+        return new ReplExecutorImpl(factory, terminal, nodeNameRegistry);
     }
 
     public void injectFactory(MicronautFactory micronautFactory) {
