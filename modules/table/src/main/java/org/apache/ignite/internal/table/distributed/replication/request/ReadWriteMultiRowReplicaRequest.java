@@ -41,7 +41,8 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
     boolean full();
 
     /**
-     * Disables delayed ack optimization.
+     * Disable delayed ack optimization.
+     *
      * @return {@code True} to disable the delayed ack optimization.
      */
     boolean skipDelayedAck();

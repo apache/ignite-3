@@ -31,7 +31,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -186,12 +185,12 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public boolean addInflight(@NotNull UUID txId) {
+    public boolean addInflight(UUID txId) {
         return false;
     }
 
     @Override
-    public void removeInflight(@NotNull UUID txId) {
+    public void removeInflight(UUID txId) {
         // No-op.
     }
 }
