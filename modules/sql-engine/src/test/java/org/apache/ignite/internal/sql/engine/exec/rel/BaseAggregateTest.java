@@ -40,6 +40,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
@@ -62,7 +63,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void count(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
@@ -85,7 +86,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -114,7 +115,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void min(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
@@ -137,7 +138,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -166,7 +167,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void max(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
@@ -189,7 +190,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -221,7 +222,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
@@ -244,7 +245,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -324,7 +325,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     ) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, scanInput);
 
         AggregateCall call = AggregateCall.create(
@@ -342,7 +343,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -381,7 +382,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 200),
@@ -409,7 +410,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -447,7 +448,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
                 ExecutionContext<Object[]> ctx = executionContext();
                 IgniteTypeFactory tf = ctx.getTypeFactory();
-                RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+                RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                        NativeTypes.INT32, NativeTypes.INT32));
 
                 ScanNode<Object[]> scan = new ScanNode<>(
                         ctx,
@@ -474,7 +476,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
                 List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-                RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+                RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
                 SingleNode<Object[]> aggChain = createAggregateNodesChain(
                         testAgg,
@@ -510,7 +512,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void sumIntegerOverflow(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, Integer.MAX_VALUE / 2),
                 row(0, Integer.MAX_VALUE / 2 + 11)
@@ -531,7 +533,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -559,7 +561,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void sumLongOverflow(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, long.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT64));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, Long.MAX_VALUE / 2),
                 row(0, Long.MAX_VALUE / 2 + 11)
@@ -580,7 +582,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -611,7 +613,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void countOfEmptyWithRewind(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Collections.emptyList());
 
         AggregateCall call = AggregateCall.create(
@@ -630,7 +632,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,

@@ -22,9 +22,9 @@ import java.lang.System.Logger;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.lang.LoggerFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 
 /**

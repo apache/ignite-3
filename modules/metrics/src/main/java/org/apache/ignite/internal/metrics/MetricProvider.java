@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metrics;
 
 import java.util.Map;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 
 /**
  * Read-only metrics registry.

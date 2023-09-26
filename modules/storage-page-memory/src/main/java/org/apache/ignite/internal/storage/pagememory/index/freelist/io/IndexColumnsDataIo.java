@@ -23,10 +23,10 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes.T_INDEX_COLUMNS_DATA_IO;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Data pages IO for {@link IndexColumns}.

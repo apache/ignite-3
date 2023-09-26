@@ -265,7 +265,7 @@ public class StorageUpdateHandler {
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      */
     public void handleTransactionCleanup(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        handleTransactionCleanup(txId, commit, commitTimestamp, () -> {});
+        handleTransactionCleanup(txId, commit, commitTimestamp, null);
     }
 
     /**
@@ -276,86 +276,75 @@ public class StorageUpdateHandler {
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      * @param onApplication On application callback.
      */
-    public void handleTransactionCleanup(UUID txId, boolean commit,
-            @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
+    public void handleTransactionCleanup(
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            @Nullable Runnable onApplication) {
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
 
-        handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, onApplication);
-    }
+        // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
+        // for example, when primary (PartitionReplicaListener) is collocated with the raft node (PartitionListener)
+        // and one of them has already processed the cleanup request, since they share the instance of this class.
+        // However, we still need to run `onApplication` if it is not null, e.g. called in TxCleanupCommand handler in PartitionListener
+        // to update indexes. In this case it should be executed under `runConsistently`.
+        if (!pendingRowIds.isEmpty() || onApplication != null) {
+            storage.runConsistently(locker -> {
+                pendingRowIds.forEach(locker::lock);
 
-    /**
-     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
-     *
-     * @param pendingRowIds Row ids of write-intents to be finalized, either committed or rolled back.
-     * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
-     * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
-     * @param onApplication On application callback.
-     */
-    private void handleTransactionCleanup(Set<RowId> pendingRowIds, boolean commit,
-            @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
-        if (commit) {
-            handleTransactionCommit(pendingRowIds, commitTimestamp, onApplication);
-        } else {
-            handleTransactionAbortion(pendingRowIds, onApplication);
+                if (commit) {
+                    performCommitWrite(pendingRowIds, commitTimestamp);
+                } else {
+                    performAbortWrite(pendingRowIds);
+                }
+
+                if (onApplication != null) {
+                    onApplication.run();
+                }
+
+                return null;
+            });
         }
     }
 
     /**
-     * Handles the commit of a transaction.
+     * Commit write intents created by the provided transaction.
      *
      * @param pendingRowIds Row ids of write-intents to be committed.
      * @param commitTimestamp Commit timestamp.
-     * @param onApplication On application callback.
      */
-    private void handleTransactionCommit(Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp, Runnable onApplication) {
-        storage.runConsistently(locker -> {
-            pendingRowIds.forEach(locker::lock);
-
-            pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
-
-            onApplication.run();
-
-            return null;
-        });
+    private void performCommitWrite(Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
+        pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
     }
 
     /**
-     * Handles the abortion of a transaction.
+     * Abort write intents created by the provided transaction.
      *
-     * @param pendingRowIds Row ids of write-intents to be rolled back.
-     * @param onApplication On application callback.
+     * @param pendingRowIds Row ids of write-intents to be aborted.
      */
-    private void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onApplication) {
-        storage.runConsistently(locker -> {
-            for (RowId rowId : pendingRowIds) {
-                locker.lock(rowId);
+    private void performAbortWrite(Set<RowId> pendingRowIds) {
+        for (RowId rowId : pendingRowIds) {
+            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                if (!cursor.hasNext()) {
+                    continue;
+                }
 
-                try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                    if (!cursor.hasNext()) {
+                ReadResult item = cursor.next();
+
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Prevent double storage updates within primary
+                if (item.isWriteIntent()) {
+                    BinaryRow rowToRemove = item.binaryRow();
+
+                    if (rowToRemove == null) {
                         continue;
                     }
 
-                    ReadResult item = cursor.next();
-
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Prevent double storage updates within primary
-                    if (item.isWriteIntent()) {
-                        BinaryRow rowToRemove = item.binaryRow();
-
-                        if (rowToRemove == null) {
-                            continue;
-                        }
-
-                        indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
-                    }
+                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
                 }
             }
+        }
 
-            pendingRowIds.forEach(storage::abortWrite);
-
-            onApplication.run();
-
-            return null;
-        });
+        pendingRowIds.forEach(storage::abortWrite);
     }
 
     /**

@@ -22,10 +22,10 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Test implementation of {@link PageIoModule}.
