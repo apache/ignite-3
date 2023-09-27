@@ -178,19 +178,19 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         return new(x.Key, x.Value);
     }
 
-    private static KvPair<TK, TV> ToKv(TK k)
+    private static KvPair<TK, TV> ToKv(TK key)
     {
-        ArgumentNullException.ThrowIfNull(k);
+        ArgumentNullException.ThrowIfNull(key);
 
-        return new(k);
+        return new(key);
     }
 
-    private static KvPair<TK, TV> ToKv(TK k, TV v)
+    private static KvPair<TK, TV> ToKv(TK key, TV val)
     {
-        ArgumentNullException.ThrowIfNull(k);
-        ArgumentNullException.ThrowIfNull(v);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(val);
 
-        return new(k, v);
+        return new(key, val);
     }
 
     private static async IAsyncEnumerable<KvPair<TK, TV>> ToKv(IAsyncEnumerable<KeyValuePair<TK, TV>> pairs)
