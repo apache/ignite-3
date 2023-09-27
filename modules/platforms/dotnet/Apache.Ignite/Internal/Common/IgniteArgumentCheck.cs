@@ -19,6 +19,7 @@
 namespace Apache.Ignite.Internal.Common
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.CompilerServices;
 
     /// <summary>
@@ -34,9 +35,10 @@ namespace Apache.Ignite.Internal.Common
         /// <returns>Argument.</returns>
         public static string NotNullOrEmpty(string arg, [CallerArgumentExpression("arg")] string? argName = null)
         {
+            // The logic below matches ArgumentException.ThrowIfNullOrEmpty on .NET 8.
             if (string.IsNullOrEmpty(arg))
             {
-                throw new ArgumentException($"'{argName}' argument should not be null or empty.", argName);
+                ThrowNullOrEmptyException(arg, argName);
             }
 
             return arg;
@@ -54,6 +56,13 @@ namespace Apache.Ignite.Internal.Common
             {
                 throw new ArgumentException($"'{argName}' argument is invalid: {message}", argName);
             }
+        }
+
+        [DoesNotReturn]
+        private static void ThrowNullOrEmptyException(string? argument, string? paramName)
+        {
+            ArgumentNullException.ThrowIfNull(argument, paramName);
+            throw new ArgumentException("The value cannot be an empty string.", paramName);
         }
     }
 }

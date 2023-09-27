@@ -398,7 +398,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<ArgumentException>(
                 async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
 
-            Assert.AreEqual("Deployment unit name can't be null or empty.", ex!.Message);
+            Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Name')", ex!.Message);
         }
 
         [Test]
@@ -409,7 +409,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<ArgumentException>(
                 async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
 
-            Assert.AreEqual("Deployment unit version can't be null or empty.", ex!.Message);
+            Assert.AreEqual("Value cannot be null. (Parameter 'unit.Version')", ex!.Message);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
