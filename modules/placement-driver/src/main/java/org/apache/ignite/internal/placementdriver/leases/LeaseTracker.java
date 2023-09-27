@@ -129,9 +129,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
-        CompletableFuture<Void> fut = expirationFutureByGroup.get(grpId);
-
-        return fut == null ? completedFuture(null) : fut;
+        return expirationFutureByGroup.getOrDefault(grpId, completedFuture(null));
     }
 
     /**
@@ -188,7 +186,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                             }
                         }
 
-                        firePrimaryReplicaExpiredEvenIfNeed(event.revision(), lease);
+                        firePrimaryReplicaExpiredEventIfNeed(event.revision(), lease);
                     }
 
                     for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leasesMap.entrySet().iterator(); iterator.hasNext();) {
@@ -211,18 +209,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         public void onError(Throwable e) {
             LOG.warn("Unable to process update leases event", e);
         }
-    }
-
-    /**
-     * Checks the replication group change the leaseholder or not.
-     *
-     * @param lease True when the new leaseholder is chosen for this replication group false otherwise.
-     */
-    private boolean isLeaseExpired(Lease lease) {
-        ReplicationGroupId grpId = lease.replicationGroupId();
-        Lease previousLease = leases.leaseByGroupId().get(grpId);
-
-        return previousLease != null && !previousLease.getStartTime().equals(lease.getStartTime());
     }
 
     @Override
@@ -308,7 +294,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     fireEventFutures.add(fireEventReplicaBecomePrimary(recoveryRevision, lease));
                 }
 
-                firePrimaryReplicaExpiredEvenIfNeed(recoveryRevision, lease);
+                firePrimaryReplicaExpiredEventIfNeed(recoveryRevision, lease);
             });
 
             leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
@@ -327,20 +313,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param causalityToken Causality token.
      * @param lease Lease to check on expiration.
      */
-    private void firePrimaryReplicaExpiredEvenIfNeed(long causalityToken, Lease lease) {
-        if (isLeaseExpired(lease)) {
-            ReplicationGroupId grpId = lease.replicationGroupId();
+    private void firePrimaryReplicaExpiredEventIfNeed(long causalityToken, Lease lease) {
+        ReplicationGroupId grpId = lease.replicationGroupId();
+        Lease currentLease = leases.leaseByGroupId().get(grpId);
 
-            Lease epiredLease = leases.leaseByGroupId().get(grpId);
-
+        if (currentLease != null && currentLease.isAccepted() && !currentLease.getStartTime().equals(lease.getStartTime())) {
             CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
                     PRIMARY_REPLICA_EXPIRED,
-                    new PrimaryReplicaEventParameters(causalityToken, grpId, epiredLease.getLeaseholder())
+                    new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder())
             ));
 
-            if (prev != null && !prev.isDone()) {
-                LOG.warn("Previous lease expiration process has not completed yet [grpId={}]", grpId);
-            }
+            assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
         }
     }
 

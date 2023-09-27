@@ -376,6 +376,8 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Old lease to apply CAS in Meta storage.
          * @param candidate Lease candidate.
+         * @param renewedLeases Leases to renew.
+         * @param toBeNegotiated Leases that are required to be negotiated.
          */
         private void writeNewLease(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
                 Map<ReplicationGroupId, Lease> renewedLeases, Map<ReplicationGroupId, Boolean> toBeNegotiated) {

@@ -53,7 +53,8 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
     CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
 
     /**
-     * Returns a future that completes when all expiration listener of previous primary complete.
+     * Returns a future that completes when all expiration event {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED} listeners of previous
+     * primary complete.
      *
      * @param grpId Replication group id.
      * @return Future.

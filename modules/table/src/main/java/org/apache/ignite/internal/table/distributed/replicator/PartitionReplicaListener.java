@@ -337,17 +337,21 @@ public class PartitionReplicaListener implements ReplicaListener {
             ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
 
             for (UUID txId : txCleanupReadyFutures.keySet()) {
-                TxCleanupReadyFutureList txOps = txCleanupReadyFutures.get(txId);
+                txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+                    if (txOps == null || TxState.isFinalState(txOps.state)) {
+                        return null;
+                    }
 
-                if (txOps.state == COMMITED || txOps.state == ABORTED) {
-                    txCleanupReadyFutures.remove(txId);
-                } else if (!txOps.futures.isEmpty()) {
-                    ArrayList<CompletableFuture<?>> txFuts = new ArrayList<>();
+                    if (!txOps.futures.isEmpty()) {
+                        ArrayList<CompletableFuture<?>> txFuts = new ArrayList<>();
 
-                    txOps.futures.forEach((opType, futures) -> txFuts.addAll(futures));
+                        txOps.futures.forEach((opType, futures) -> txFuts.addAll(futures));
 
-                    futs.add(allOf(txFuts.toArray(CompletableFuture[]::new)).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
-                }
+                        futs.add(allOf(txFuts.toArray(CompletableFuture[]::new)).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
+                    }
+
+                    return txOps;
+                });
             }
 
             return allOf(futs.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
