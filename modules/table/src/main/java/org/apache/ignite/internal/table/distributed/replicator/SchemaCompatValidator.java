@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.stream.Collectors.toSet;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -57,7 +58,7 @@ class SchemaCompatValidator {
      */
     CompletableFuture<CompatValidationResult> validateForward(
             UUID txId,
-            List<TablePartitionId> enlistedGroupIds,
+            Collection<TablePartitionId> enlistedGroupIds,
             @Nullable HybridTimestamp commitTimestamp
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);

@@ -291,14 +291,9 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
         }
 
         @Override
-        public CompletableFuture<Void> cleanup(
-                ClusterNode recipientNode,
-                List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
-                UUID txId,
-                boolean commit,
-                @Nullable HybridTimestamp commitTimestamp
-        ) {
-            return null;
+        public CompletableFuture<Void> cleanup(String primaryConsistentId, TablePartitionId tablePartitionId, UUID txId,
+                boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+            return completedFuture(null);
         }
 
         @Override

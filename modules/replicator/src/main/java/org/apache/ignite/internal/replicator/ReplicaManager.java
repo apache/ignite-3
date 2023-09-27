@@ -206,13 +206,10 @@ public class ReplicaManager implements IgniteComponent {
                                     }
                                 }
                         );
-
-                        return replicaFut;
                     } else {
                         sendAwaitReplicaResponse(senderConsistentId, correlationId);
-
-                        return replicaFut;
                     }
+                    return replicaFut;
                 });
 
                 return;

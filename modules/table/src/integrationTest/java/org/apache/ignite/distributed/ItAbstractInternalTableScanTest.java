@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -34,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
@@ -91,7 +93,11 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     public void setUp(TestInfo testInfo) {
         when(mockStorage.scan(any(HybridTimestamp.class))).thenReturn(mock(PartitionTimestampCursor.class));
 
-        internalTbl = new DummyInternalTableImpl(mock(ReplicaService.class), mockStorage, ROW_SCHEMA);
+        ReplicaService replicaSvc = mock(ReplicaService.class);
+
+        lenient().when(replicaSvc.invoke(anyString(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+        internalTbl = new DummyInternalTableImpl(replicaSvc, mockStorage, ROW_SCHEMA);
     }
 
     /**

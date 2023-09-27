@@ -73,5 +73,5 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      * @return Raft term.
      */
     @Deprecated
-    Long term();
+    @Nullable Long term();
 }
