@@ -52,7 +52,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -62,7 +61,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -160,10 +158,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Zone name. */
     private static final String ZONE_NAME = "zone1";
-
-    /** Schema manager. */
-    @Mock
-    private BaselineManager bm;
 
     /** Topology service. */
     @Mock
@@ -537,7 +531,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(rm.raftNodeReadyFuture(any())).thenReturn(completedFuture(1L));
-        when(bm.nodes()).thenReturn(Set.of(node));
 
         createZone(1, 1);
 
@@ -718,7 +711,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 replicaMgr,
                 null,
                 null,
-                bm,
                 ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),

@@ -78,7 +78,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -220,9 +219,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
 
     /** Replica service. */
     private final ReplicaService replicaSvc;
-
-    /** Baseline manager. */
-    private final BaselineManager baselineMgr;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -370,7 +366,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
      * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
      * @param replicaSvc Replica service.
-     * @param baselineMgr Baseline manager.
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
@@ -389,7 +384,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
-            BaselineManager baselineMgr,
             TopologyService topologyService,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
@@ -410,7 +404,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
         this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
-        this.baselineMgr = baselineMgr;
         this.replicaMgr = replicaMgr;
         this.lockMgr = lockMgr;
         this.replicaSvc = replicaSvc;
@@ -2078,7 +2071,7 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
                             .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
                                 CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion);
 
-                                return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
+                                return distributionZoneManager.currentDataNodes(tableDescriptor.zoneId())
                                         .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
                                                 metaStorageMgr,
                                                 dataNodes,

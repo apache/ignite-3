@@ -68,7 +68,6 @@ dependencies {
     testAnnotationProcessor libs.jmh.annotation.processor
     testAnnotationProcessor libs.value.annotation.processor
     testImplementation project(':ignite-core')
-    testImplementation project(':ignite-baseline')
     testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-network-api')
     testImplementation project(':ignite-raft-api')

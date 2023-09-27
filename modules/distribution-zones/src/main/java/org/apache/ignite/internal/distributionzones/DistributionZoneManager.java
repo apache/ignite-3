@@ -289,6 +289,12 @@ public class DistributionZoneManager implements IgniteComponent {
         return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
     }
 
+    /**
+     * Returns the actual data nodes of the specified zone.
+     *
+     * @param zoneId Zone id.
+     * @return The future which will be completed with data nodes for the zoneId.
+     */
     public CompletableFuture<Set<String>> currentDataNodes(int zoneId) {
         return metaStorageManager.get(zoneDataNodesKey(zoneId)).thenApply(dataNodesEntry -> {
             int catalogVersion = catalogManager.latestCatalogVersion();
