@@ -102,7 +102,6 @@ public class IgniteExceptionMapperUtil {
         }
 
         if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
-            assert assertInternal(origin);
 
             return origin;
         }
@@ -141,23 +140,5 @@ public class IgniteExceptionMapperUtil {
      */
     private static <T extends Exception, R extends Exception> Exception map(IgniteExceptionMapper<T, R> mapper, Throwable t) {
         return mapper.map(mapper.mappingFrom().cast(t));
-    }
-
-    /**
-     * Assert that passed exception is not related to internal exceptions.
-     *
-     * @param ex Exception to be checked.
-     * @return {@code true} if canonical name of passed Exception doesn't contains word 'internal'.
-     * @throws AssertionError in case assertions is enabled and passed exception is fail check.
-     */
-    public static boolean assertInternal(Throwable ex) {
-        //IGNITE-20348: uncomment during implement the ticket.
-        //        boolean isPublic = !ex.getClass().getCanonicalName().toLowerCase().contains("internal");
-        //
-        //        assert isPublic : "public Exception can't be in internal package " + ex.getClass().getCanonicalName();
-        //
-        //        return isPublic;
-
-        return true;
     }
 }
