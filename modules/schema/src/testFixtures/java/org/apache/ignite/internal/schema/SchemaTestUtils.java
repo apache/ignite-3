@@ -186,7 +186,7 @@ public final class SchemaTestUtils {
             case BYTES:
                 return NativeTypes.blobOf(8);
             case BITMASK:
-                return NativeTypes.bitmaskOf(10);
+                return NativeTypes.bitmaskOf(16);
             default:
                 throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
         }
