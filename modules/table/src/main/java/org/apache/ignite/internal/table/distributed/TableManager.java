@@ -1493,7 +1493,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
 
         return distributionZoneManager.currentDataNodes(tableDescriptor.zoneId()).thenApply(dataNodes ->
                 AffinityUtils.calculateAssignmentForPartition(
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 we must use distribution zone keys here
                         dataNodes,
                         tablePartitionId.partitionId(),
                         getZoneDescriptor(tableDescriptor, catalogVersion).replicas()

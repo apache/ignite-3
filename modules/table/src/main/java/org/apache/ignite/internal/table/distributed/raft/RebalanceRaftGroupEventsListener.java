@@ -136,7 +136,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             TablePartitionId tablePartitionId,
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
-            Function<TablePartitionId,CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
+            Function<TablePartitionId, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
             ScheduledExecutorService rebalanceScheduler
     ) {
         this.metaStorageMgr = metaStorageMgr;
