@@ -150,6 +150,48 @@ public final class SchemaTestUtils {
         }
     }
 
+    /** Creates a native type from given type spec. */
+    public static NativeType specToType(NativeTypeSpec spec) {
+        switch (spec) {
+            case BOOLEAN:
+                return NativeTypes.BOOLEAN;
+            case INT8:
+                return NativeTypes.INT8;
+            case INT16:
+                return NativeTypes.INT16;
+            case INT32:
+                return NativeTypes.INT32;
+            case INT64:
+                return NativeTypes.INT64;
+            case FLOAT:
+                return NativeTypes.FLOAT;
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+            case DECIMAL:
+                return NativeTypes.decimalOf(10, 3);
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME:
+                return NativeTypes.time();
+            case DATETIME:
+                return NativeTypes.datetime();
+            case TIMESTAMP:
+                return NativeTypes.timestamp();
+            case NUMBER:
+                return NativeTypes.numberOf(10);
+            case STRING:
+                return NativeTypes.stringOf(8);
+            case UUID:
+                return NativeTypes.UUID;
+            case BYTES:
+                return NativeTypes.blobOf(8);
+            case BITMASK:
+                return NativeTypes.bitmaskOf(10);
+            default:
+                throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
+        }
+    }
+
     /**
      * Ensure specified columns contains all type spec, presented in NativeTypeSpec.
      *

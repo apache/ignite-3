@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.catalog;
 
-import static org.apache.ignite.internal.schema.serializer.AbstractSerializerTest.specToType;
+import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;

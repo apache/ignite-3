@@ -21,6 +21,7 @@ import static java.math.RoundingMode.HALF_UP;
 import static org.apache.ignite.internal.schema.DefaultValueGenerator.GEN_RANDOM_UUID;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.forValueGenerator;
+import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -374,48 +375,6 @@ public class AbstractSerializerTest {
         @Override
         public String toString() {
             return type.spec().name() + ": " + AbstractSerializerTest.toString(defaultValue);
-        }
-    }
-
-    /** Creates a native type from given type spec. */
-    public static NativeType specToType(NativeTypeSpec spec) {
-        switch (spec) {
-            case BOOLEAN:
-                return NativeTypes.BOOLEAN;
-            case INT8:
-                return NativeTypes.INT8;
-            case INT16:
-                return NativeTypes.INT16;
-            case INT32:
-                return NativeTypes.INT32;
-            case INT64:
-                return NativeTypes.INT64;
-            case FLOAT:
-                return NativeTypes.FLOAT;
-            case DOUBLE:
-                return NativeTypes.DOUBLE;
-            case DECIMAL:
-                return NativeTypes.decimalOf(10, 3);
-            case DATE:
-                return NativeTypes.DATE;
-            case TIME:
-                return NativeTypes.time();
-            case DATETIME:
-                return NativeTypes.datetime();
-            case TIMESTAMP:
-                return NativeTypes.timestamp();
-            case NUMBER:
-                return NativeTypes.numberOf(10);
-            case STRING:
-                return NativeTypes.stringOf(8);
-            case UUID:
-                return NativeTypes.UUID;
-            case BYTES:
-                return NativeTypes.blobOf(8);
-            case BITMASK:
-                return NativeTypes.bitmaskOf(10);
-            default:
-                throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
         }
     }
 }
