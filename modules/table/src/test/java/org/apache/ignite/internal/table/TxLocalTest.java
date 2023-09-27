@@ -121,6 +121,8 @@ public class TxLocalTest extends TxAbstractTest {
         txManager = new TxManagerImpl(replicaSvc, lockManager, DummyInternalTableImpl.CLOCK, new TransactionIdGenerator(0xdeadbeef),
                 () -> localNodeName);
 
+        txManager.start();
+
         igniteTransactions = new IgniteTransactionsImpl(txManager, timestampTracker);
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(

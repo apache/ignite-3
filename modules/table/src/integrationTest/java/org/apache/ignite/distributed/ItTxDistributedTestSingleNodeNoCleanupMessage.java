@@ -71,7 +71,6 @@ import org.junit.jupiter.api.TestInfo;
  * Test to Simulate missing cleanup action.
  */
 public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistributedTestSingleNode {
-
     /** A list of background cleanup futures. */
     private final List<CompletableFuture<?>> cleanupFutures = new CopyOnWriteArrayList<>();
 

@@ -198,7 +198,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         this(
                 replicaSvc,
                 mvPartStorage,
-                new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), () -> "local"),
+                new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), LOCAL_NODE::id),
                 false,
                 null,
                 schema,

@@ -114,6 +114,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
             TxManagerImpl txManager = new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef), () -> "local");
 
+            txManager.start();
+
             closeables.add(txManager::stop);
 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
