@@ -94,6 +94,8 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -111,7 +113,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     private static final int KEYS = 100;
 
     /** Dummy internal table for tests. */
-    private static final InternalTable INT_TABLE;
+    private static InternalTable intTable;
+
+    private static TxManager txManager;
 
     /** Map of the Raft commands are set by table operation. */
     private static final Int2ObjectMap<Set<Command>> CMDS_MAP = new Int2ObjectOpenHashMap<>();
@@ -127,7 +131,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private TupleMarshallerImpl marshaller;
 
-    static {
+    @BeforeAll
+    static void beforeAllTests() {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
@@ -135,7 +140,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        TxManager txManager = new TxManagerImpl(
+        txManager = new TxManagerImpl(
                 replicaService,
                 new HeapLockManager(),
                 new HybridClockImpl(),
@@ -225,7 +230,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }
         });
 
-        INT_TABLE = new InternalTableImpl(
+        intTable = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
                 partRafts,
@@ -239,6 +244,13 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(clusterNode.name())
         );
+    }
+
+    @AfterAll
+    static void afterAllTests() throws Exception {
+        if (txManager != null) {
+            txManager.stop();
+        }
     }
 
     @BeforeEach
@@ -363,7 +375,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
             BinaryRowEx r = marshaller.marshal(t);
 
-            int part = INT_TABLE.partition(r);
+            int part = intTable.partition(r);
 
             assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommand.class)));
         }
@@ -389,7 +401,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
             BinaryRowEx r = marshaller.marshal(t);
 
-            int part = INT_TABLE.partition(r);
+            int part = intTable.partition(r);
 
             partsMap.merge(part, 1, (cnt, ignore) -> ++cnt);
         }
@@ -403,7 +415,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             cmd.rowsToUpdate().values().forEach(rowMessage -> {
                 Row r = Row.wrapBinaryRow(schema, rowMessage.asBinaryRow());
 
-                assertEquals(INT_TABLE.partition(r), p);
+                assertEquals(intTable.partition(r), p);
             });
         });
     }
@@ -423,7 +435,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
+        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager());
 
         marshaller = new TupleMarshallerImpl(schemaRegistry);
     }

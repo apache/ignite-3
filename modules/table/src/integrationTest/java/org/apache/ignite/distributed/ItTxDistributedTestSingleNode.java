@@ -66,10 +66,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
-    private static RaftConfiguration raftConfiguration;
+    protected static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static GcConfiguration gcConfig;
+    protected static GcConfiguration gcConfig;
 
     /**
      * Returns a count of nodes.
@@ -98,7 +98,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return true;
     }
 
-    private final TestInfo testInfo;
+    protected final TestInfo testInfo;
 
     protected ItTxTestCluster txTestCluster;
 

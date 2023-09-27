@@ -2489,6 +2489,40 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
+     * Schedules an async cleanup action for the given write intent.
+     *
+     * @param txId Transaction id.
+     * @param rowId Id of a row that we want to clean up.
+     * @param meta Resolved transaction state.
+     */
+    private void scheduleTransactionRowAsyncCleanup(UUID txId, RowId rowId, TransactionMeta meta) {
+        TxState txState = meta.txState();
+
+        assert isFinalState(txState) : "Unexpected state [txId=" + txId + ", txState=" + txState + ']';
+
+        HybridTimestamp commitTimestamp = meta.commitTimestamp();
+
+        // Add the resolved row to the set of write intents the transaction created.
+        // If the volatile state was lost on restart, we'll have a single item in that set,
+        // otherwise the set already contains this value.
+        storageUpdateHandler.handleWriteIntentRead(txId, rowId);
+
+        // If the volatile state was lost and we no longer know which rows were affected by this transaction,
+        // it is possible that two concurrent RO transactions start resolving write intents for different rows
+        // but created by the same transaction.
+
+        // Both normal cleanup and single row cleanup are using txsPendingRowIds map to store write intents.
+        // So we don't need a separate method to handle single row case.
+        txManager.executeCleanupAsync(() ->
+                storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp)
+        ).exceptionally(e -> {
+            LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
+
+            return null;
+        });
+    }
+
+    /**
      * Check whether we can read from the provided write intent.
      *
      * @param writeIntent Write intent to resolve.
@@ -2503,7 +2537,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txId,
                         new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
                         timestamp)
-                .thenApply(txMeta -> canReadFromWriteIntent(txId, txMeta, timestamp));
+                .thenApply(transactionMeta -> {
+                    if (isFinalState(transactionMeta.txState())) {
+                        scheduleTransactionRowAsyncCleanup(txId, writeIntent.rowId(), transactionMeta);
+                    }
+
+                    return canReadFromWriteIntent(txId, transactionMeta, timestamp);
+                });
     }
 
     /**
