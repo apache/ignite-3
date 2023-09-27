@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,6 +55,11 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
+import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
+import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithNoDefaultConstructor;
+import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithPrivateConstructor;
+import org.apache.ignite.internal.marshaller.testobjects.TestSimpleObject;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -64,10 +68,6 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestBitmaskObject;
-import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
-import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
-import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
-import org.apache.ignite.internal.schema.testobjects.TestSimpleObject;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
@@ -158,7 +158,7 @@ public class RecordMarshallerTest {
                 "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
                         + "longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, primitiveFloatCol, "
                         + "primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] of type "
-                        + "org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes are not mapped to columns.",
+                        + "org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes are not mapped to columns",
                 ex.getMessage());
     }
 
@@ -209,14 +209,11 @@ public class RecordMarshallerTest {
                 }
         );
 
-        RecordMarshaller<TestSimpleObject> marshaller = factory.create(schema, TestSimpleObject.class);
+        Throwable ex = assertThrows(ClassCastException.class, () -> factory.create(schema, TestSimpleObject.class));
 
-        TestSimpleObject rec = TestSimpleObject.randomObject(rnd);
-
-        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec)).getCause();
-        assertThat(ex.getMessage(), containsString(
-                "expectedType=BitmaskNativeType [bits=42, typeSpec=NativeTypeSpec [name=BITMASK, fixed=true], len=6], "
-                        + "actualType=NativeType [name=INT64, sizeInBytes=8, fixed=true]"));
+        assertThat(
+                ex.getMessage(),
+                containsString("Column's type mismatch [column=LONGCOL, expectedType=BITSET, actualType=class java.lang.Long]"));
     }
 
     @ParameterizedTest
@@ -233,7 +230,7 @@ public class RecordMarshallerTest {
         TestBitmaskObject rec = new TestBitmaskObject(1, IgniteTestUtils.randomBitSet(rnd, 42));
 
         Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec)).getCause();
-        assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
+        assertThat(ex.getMessage(), containsString("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }
 
     @ParameterizedTest
@@ -505,6 +502,7 @@ public class RecordMarshallerTest {
 
             obj.primitiveIntCol = rnd.nextInt();
             obj.primitiveLongCol = rnd.nextLong();
+            obj.primitiveFloatCol = rnd.nextFloat();
             obj.primitiveDoubleCol = rnd.nextDouble();
 
             obj.uuidCol = java.util.UUID.randomUUID();
@@ -528,9 +526,9 @@ public class RecordMarshallerTest {
                     && primitiveLongCol == object.primitiveLongCol
                     && Float.compare(object.primitiveFloatCol, primitiveFloatCol) == 0
                     && Double.compare(object.primitiveDoubleCol, primitiveDoubleCol) == 0
-                    && Objects.equals(stringCol, ((TestTruncatedObject) o).stringCol)
-                    && Objects.equals(uuidCol, ((TestTruncatedObject) o).uuidCol)
-                    && Objects.equals(intCol, ((TestTruncatedObject) o).intCol);
+                    && Objects.equals(stringCol, object.stringCol)
+                    && Objects.equals(uuidCol, object.uuidCol)
+                    && Objects.equals(intCol, object.intCol);
         }
 
         @Override

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -185,7 +185,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         var ex = assertThrows(IgniteException.class, action::run);
         assertEquals(
                 "Fields [name] of type org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$Pojo "
-                        + "are not mapped to columns.",
+                        + "are not mapped to columns",
                 ex.getMessage());
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
@@ -221,7 +221,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         assertEquals(
                 "Fields [name] of type "
                         + "org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$ValPojo "
-                        + "are not mapped to columns.",
+                        + "are not mapped to columns",
                 ex.getMessage());
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,

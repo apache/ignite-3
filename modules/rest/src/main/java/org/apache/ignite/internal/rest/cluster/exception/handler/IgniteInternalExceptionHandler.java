@@ -22,10 +22,10 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Handles {@link IgniteInternalException} and represents it as a rest response.

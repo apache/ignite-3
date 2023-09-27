@@ -27,8 +27,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 

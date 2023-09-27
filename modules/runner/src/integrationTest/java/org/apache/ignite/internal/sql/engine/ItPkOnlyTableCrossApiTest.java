@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -142,7 +141,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         env.runInTransaction(
                 rwTx -> {
-                    assertThrows(SchemaMismatchException.class,
+                    assertThrows(IllegalArgumentException.class,
                             () -> tab.keyValueView(KeyObject.class, Integer.class).put(rwTx, key, 1));
 
                     kvView.put(rwTx, key, null);

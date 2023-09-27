@@ -46,7 +46,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Record view tests.
  */
-@SuppressWarnings("ZeroLengthArrayAllocation")
 public class ClientKeyValueViewTest extends AbstractClientTableTest {
     @Test
     public void testBinaryPutPojoGet() {
@@ -100,7 +99,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         key.gid = 1;
 
         IgniteException e = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
-        assertEquals("Failed to deserialize server response: No field found for column ZBOOLEAN", e.getMessage());
+        assertEquals("Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'", e.getMessage());
     }
 
     @Test
@@ -200,7 +199,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         IgniteException e = assertThrows(IgniteException.class, () -> kvView.get(null, new NamePojo()));
 
-        assertThat(e.getMessage(), containsString("No field found for column ID"));
+        assertThat(e.getMessage(), containsString("No mapped object field found for column 'ID'"));
     }
 
     @Test

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Exception thrown when a binary tuple contains invalid data.

@@ -430,7 +430,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 IgniteException.class,
                 () -> client().sql().createSession().execute(null, Mapper.of(Pojo.class), query));
 
-        assertEquals("Failed to deserialize server response: No field found for column FOO", e.getMessage());
+        assertEquals("Failed to deserialize server response: No mapped object field found for column 'FOO'", e.getMessage());
     }
 
     @Test

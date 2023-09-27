@@ -69,7 +69,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
             if (requiredCatalogVersion != NO_VERSION_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(
-                        "Metadata not yet available, group {}, required level {}; rejecting AppendEntriesRequest with EBUSY.",
+                        "Metadata not yet available, rejecting AppendEntriesRequest with EBUSY [group={}, requiredLevel={}].",
                         request.groupId(), requiredCatalogVersion
                 );
 
@@ -77,7 +77,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
                     .newResponse(
                             node.getRaftOptions().getRaftMessagesFactory(),
                             RaftError.EBUSY,
-                            "Metadata not yet available, group '%s', required level %d; rejecting AppendEntriesRequest with EBUSY.",
+                            "Metadata not yet available, rejecting AppendEntriesRequest with EBUSY [group=%s, requiredLevel=%d].",
                             request.groupId(), requiredCatalogVersion
                     );
             }

@@ -42,6 +42,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -54,8 +56,6 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.Lazy;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -221,7 +221,7 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public CompletableFuture<Void> finish(
-            HybridTimestampTracker timestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
@@ -256,7 +256,7 @@ public class TxManagerImpl implements TxManager {
             return completedFuture(null);
         }
 
-        timestampTracker.update(commitTimestamp);
+        observableTimestampTracker.update(commitTimestamp);
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
@@ -319,7 +319,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public int finished() {
         return (int) txStateMap.entrySet().stream()
-                .filter(e -> e.getValue().txState() == COMMITED || e.getValue().txState() == ABORTED)
+                .filter(e -> isFinalState(e.getValue().txState()))
                 .count();
     }
 

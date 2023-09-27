@@ -23,13 +23,13 @@ import java.util.Iterator;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.FilteringIterator;
 import org.apache.ignite.internal.util.TransformingIterator;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Abstract index scan.

@@ -70,24 +70,7 @@ public abstract class IgniteServerBase : IDisposable
 
     public void Dispose()
     {
-        lock (_disposeSyncRoot)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _cts.Cancel();
-            _handler?.Dispose();
-            _listener.Disconnect(false);
-            _listener.Dispose();
-            _cts.Dispose();
-
-            Dispose(true);
-            GC.SuppressFinalize(this);
-
-            _disposed = true;
-        }
+        Dispose(true);
     }
 
     internal static int ReceiveMessageSize(Socket handler)
@@ -125,7 +108,23 @@ public abstract class IgniteServerBase : IDisposable
     {
         if (disposing)
         {
-            // No-op.
+            lock (_disposeSyncRoot)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _cts.Cancel();
+                _handler?.Dispose();
+                _listener.Disconnect(false);
+                _listener.Dispose();
+                _cts.Dispose();
+
+                GC.SuppressFinalize(this);
+
+                _disposed = true;
+            }
         }
     }
 

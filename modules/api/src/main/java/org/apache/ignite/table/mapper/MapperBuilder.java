@@ -42,13 +42,13 @@ import org.apache.ignite.lang.util.IgniteNameUtils;
  */
 public final class MapperBuilder<T> {
     /** Target type. */
-    private Class<T> targetType;
+    private final Class<T> targetType;
 
     /** Column-to-field name mapping. */
-    private Map<String, String> columnToFields;
+    private final Map<String, String> columnToFields;
 
     /** Column converters. */
-    private Map<String, TypeConverter<?, ?>> columnConverters = new HashMap<>();
+    private final Map<String, TypeConverter<?, ?>> columnConverters = new HashMap<>();
 
     /** Column name for one-column mapping. */
     private final String mappedToColumn;

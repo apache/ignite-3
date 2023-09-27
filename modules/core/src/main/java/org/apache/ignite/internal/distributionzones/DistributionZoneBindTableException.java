@@ -20,7 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_DROP_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 // TODO https://issues.apache.org/jira/browse/IGNITE-20098

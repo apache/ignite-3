@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapper.unchecked;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.IgniteExceptionMapper.unchecked;
 
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
@@ -27,11 +27,11 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.lang.IgniteExceptionMapper;
+import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionMapper;
-import org.apache.ignite.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.sql.SqlException;
 
 /**

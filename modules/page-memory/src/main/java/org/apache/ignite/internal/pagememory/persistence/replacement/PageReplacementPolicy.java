@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Abstract page replacement policy.

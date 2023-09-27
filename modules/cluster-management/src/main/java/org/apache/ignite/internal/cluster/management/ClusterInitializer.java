@@ -34,7 +34,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.InitComple
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.util.StringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;

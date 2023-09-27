@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.EQUALITY_FLAG;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

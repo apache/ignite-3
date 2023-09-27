@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
-import static org.apache.ignite.lang.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.config.ConfigManager;
@@ -33,10 +33,10 @@ import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.rest.ApiClientSettings;
 import org.apache.ignite.internal.cli.core.rest.ApiClientSettingsBuilder;
-import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.model.NodeInfo;
 
 /**
  * Checks connection to the Ignite3 node. Creates {@link SessionInfo} on success.
@@ -94,11 +94,10 @@ public class ConnectionChecker {
     private SessionInfo checkConnection(ApiClientSettings apiClientSettings) throws ApiException {
         ApiClient apiClient = ApiClientFactory.buildClient(apiClientSettings);
 
-        String configuration = new NodeConfigurationApi(apiClient).getNodeConfiguration();
-        String nodeName = new NodeManagementApi(apiClient).nodeState().getName();
-        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, apiClientSettings.basePath());
+        NodeInfo nodeInfo = new NodeManagementApi(apiClient).nodeInfo();
+        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(apiClientSettings.basePath(), nodeInfo.getJdbcPort());
         return SessionInfo.builder().nodeUrl(apiClientSettings.basePath())
-                .nodeName(nodeName).jdbcUrl(jdbcUrl).username(apiClientSettings.basicAuthenticationUsername()).build();
+                .nodeName(nodeInfo.getName()).jdbcUrl(jdbcUrl).username(apiClientSettings.basicAuthenticationUsername()).build();
     }
 
     /**

@@ -25,11 +25,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Checkpoint lock for outer usage which should be used to protect data during writing to memory. It contains complex logic for the correct

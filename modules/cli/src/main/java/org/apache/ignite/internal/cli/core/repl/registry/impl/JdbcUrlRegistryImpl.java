@@ -29,8 +29,9 @@ import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.rest.client.api.NodeConfigurationApi;
+import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.model.NodeInfo;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link JdbcUrlRegistry}. */
@@ -77,14 +78,11 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, PeriodicSessionTask
     @Nullable
     private String fetchJdbcUrl(String nodeUrl) {
         try {
-            return jdbcUrlFactory.constructJdbcUrl(fetchNodeConfiguration(nodeUrl), nodeUrl);
+            NodeInfo nodeInfo = new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeInfo();
+            return jdbcUrlFactory.constructJdbcUrl(nodeUrl, nodeInfo.getJdbcPort());
         } catch (ApiException e) {
             LOG.warn("Couldn't fetch jdbc url of " + nodeUrl + " node: ", e);
             return null;
         }
-    }
-
-    private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
-        return new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
     }
 }

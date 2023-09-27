@@ -86,7 +86,8 @@ public class ReconnectTests
         var cfg = new IgniteClientConfiguration
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
-            ReconnectInterval = TimeSpan.FromMilliseconds(300)
+            ReconnectInterval = TimeSpan.FromMilliseconds(300),
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
 
         using var servers = FakeServerGroup.Create(10);
