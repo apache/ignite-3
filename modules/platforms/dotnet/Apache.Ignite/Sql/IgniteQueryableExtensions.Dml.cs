@@ -21,7 +21,6 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using Internal.Common;
 using Internal.Linq.Dml;
 using Table;
 
@@ -44,7 +43,7 @@ public static partial class IgniteQueryableExtensions
     /// <returns>Affected row count.</returns>
     public static async Task<long> ExecuteDeleteAsync<T>(this IQueryable<T> query)
     {
-        IgniteArgumentCheck.NotNull(query, nameof(query));
+        ArgumentNullException.ThrowIfNull(query);
 
         var method = ExecuteDeleteExpressionNode.MethodInfo.MakeGenericMethod(typeof(T));
         var provider = query.ToQueryableInternal().Provider;
@@ -65,7 +64,7 @@ public static partial class IgniteQueryableExtensions
     /// <returns>Affected row count.</returns>
     public static async Task<long> ExecuteDeleteAsync<T>(this IQueryable<T> query, Expression<Func<T, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(query, nameof(query));
+        ArgumentNullException.ThrowIfNull(query);
 
         var method = ExecuteDeleteExpressionNode.PredicateMethodInfo.MakeGenericMethod(typeof(T));
         var provider = query.ToQueryableInternal().Provider;
@@ -88,8 +87,8 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<T> query,
         Expression<Func<IUpdateDescriptor<T>, IUpdateDescriptor<T>>> updateDescriptor)
     {
-        IgniteArgumentCheck.NotNull(query, nameof(query));
-        IgniteArgumentCheck.NotNull(updateDescriptor, nameof(updateDescriptor));
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentNullException.ThrowIfNull(updateDescriptor);
 
         var method = ExecuteUpdateExpressionNode.MethodInfo.MakeGenericMethod(typeof(T));
         var provider = query.ToQueryableInternal().Provider;

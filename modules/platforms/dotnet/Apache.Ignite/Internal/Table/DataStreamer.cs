@@ -71,7 +71,7 @@ internal static class DataStreamer
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
-        IgniteArgumentCheck.NotNull(data);
+        ArgumentNullException.ThrowIfNull(data);
 
         IgniteArgumentCheck.Ensure(options.BatchSize > 0, $"{nameof(options.BatchSize)} should be positive.");
         IgniteArgumentCheck.Ensure(options.AutoFlushFrequency > TimeSpan.Zero, $"{nameof(options.AutoFlushFrequency)} should be positive.");

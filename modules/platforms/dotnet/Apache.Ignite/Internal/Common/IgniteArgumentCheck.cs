@@ -28,20 +28,6 @@ namespace Apache.Ignite.Internal.Common
     internal static class IgniteArgumentCheck
     {
         /// <summary>
-        /// Throws an ArgumentNullException if specified arg is null.
-        /// </summary>
-        /// <param name="arg">The argument.</param>
-        /// <param name="argName">Name of the argument.</param>
-        /// <typeparam name="T">Arg type.</typeparam>
-        public static void NotNull<T>([NoEnumeration] T arg, [CallerArgumentExpression("arg")] string? argName = null)
-        {
-            if (arg == null)
-            {
-                throw new ArgumentNullException(argName);
-            }
-        }
-
-        /// <summary>
         /// Throws an ArgumentException if specified arg is null or empty string.
         /// </summary>
         /// <param name="arg">The argument.</param>
