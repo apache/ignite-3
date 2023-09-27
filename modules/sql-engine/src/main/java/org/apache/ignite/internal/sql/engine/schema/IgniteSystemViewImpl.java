@@ -18,39 +18,44 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
-import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.Statistic;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Table implementation for sql engine.
+ * System view.
  */
-public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteTable {
-
-    private final Map<String, IgniteIndex> indexMap;
+public class IgniteSystemViewImpl extends AbstractIgniteDataSource implements IgniteSystemView {
 
     /** Constructor. */
-    public IgniteTableImpl(String name, int id,  int version, TableDescriptor desc,
-            Statistic statistic, Map<String, IgniteIndex> indexMap) {
-
-        super(name, id, version, desc, statistic);
-        this.indexMap = indexMap;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<String, IgniteIndex> indexes() {
-        return indexMap;
+    public IgniteSystemViewImpl(String name, int id, int version, TableDescriptor desc) {
+        super(name, id, version, desc, new SystemViewStatistic(desc.distribution()));
     }
 
     /** {@inheritDoc} */
     @Override
     protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
-        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
+        return IgniteLogicalSystemViewScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
+    }
+
+    private static final class SystemViewStatistic implements Statistic {
+
+        private final IgniteDistribution distribution;
+
+        private SystemViewStatistic(IgniteDistribution distribution) {
+            this.distribution = distribution;
+        }
+
+        @Override
+        public @Nullable RelDistribution getDistribution() {
+            return distribution;
+        }
     }
 }

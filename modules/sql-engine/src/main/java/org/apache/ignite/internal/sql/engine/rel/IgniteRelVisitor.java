@@ -77,6 +77,11 @@ public interface IgniteRelVisitor<T> {
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
+    T visit(IgniteSystemViewScan rel);
+
+    /**
+     * See {@link IgniteRelVisitor#visit(IgniteRel)}.
+     */
     T visit(IgniteReceiver rel);
 
     /**

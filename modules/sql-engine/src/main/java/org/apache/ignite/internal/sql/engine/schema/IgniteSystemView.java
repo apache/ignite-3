@@ -17,17 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.Map;
-
 /**
- * Table representation as object in SQL schema.
+ * System view representation as object in SQL schema.
  */
-public interface IgniteTable extends IgniteDataSource {
+public interface IgniteSystemView extends IgniteDataSource {
 
-    /**
-     * Returns all table indexes.
-     *
-     * @return Indexes for the current table.
-     */
-    Map<String, IgniteIndex> indexes();
 }
