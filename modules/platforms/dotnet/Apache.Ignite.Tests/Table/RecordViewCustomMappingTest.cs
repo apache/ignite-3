@@ -37,7 +37,7 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
     private const string Val = "val1";
 
     [SetUp]
-    public async Task SetUp()
+    public async Task InsertData()
     {
         await Table.RecordBinaryView.UpsertAsync(null, GetTuple(Key, Val));
     }
