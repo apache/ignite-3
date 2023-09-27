@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Common
 {
     using System;
     using System.Runtime.CompilerServices;
-    using JetBrains.Annotations;
 
     /// <summary>
     /// Arguments check helpers.
