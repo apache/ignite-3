@@ -636,25 +636,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> onTableDelete(DropTableEventParameters parameters) {
-        long causalityToken = parameters.causalityToken();
-        int catalogVersion = parameters.catalogVersion();
+        return inBusyLockAsync(busyLock, () -> {
+            long causalityToken = parameters.causalityToken();
+            int catalogVersion = parameters.catalogVersion();
 
-        int tableId = parameters.tableId();
+            int tableId = parameters.tableId();
 
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
             CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion - 1);
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion - 1);
 
             dropTableLocally(causalityToken, tableDescriptor, zoneDescriptor);
-        } finally {
-            busyLock.leaveBusy();
-        }
 
-        return completedFuture(null);
+            return completedFuture(null);
+        });
     }
 
     /**
@@ -1203,13 +1197,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(long causalityToken, int catalogVersion, CatalogTableDescriptor tableDescriptor) {
-        int tableId = tableDescriptor.id();
-
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
+        return inBusyLockAsync(busyLock, () -> {
+            int tableId = tableDescriptor.id();
             int zoneId = tableDescriptor.zoneId();
 
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
@@ -1243,9 +1232,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
                 }
             }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        });
     }
 
     /**

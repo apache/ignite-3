@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +34,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -144,53 +143,35 @@ public class IndexManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onIndexDrop(DropIndexEventParameters parameters) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
+        return inBusyLockAsync(busyLock, () ->
+                tableManager.tableAsync(parameters.causalityToken(), parameters.tableId())
+                        .thenApply(table -> {
+                            if (table != null) {
+                                // In case of DROP TABLE the table will be removed first.
+                                table.unregisterIndex(parameters.indexId());
+                            }
 
-        int indexId = parameters.indexId();
-
-        try {
-            return tableManager.tableAsync(parameters.causalityToken(), parameters.tableId())
-                    .thenApply(table -> {
-                        if (table != null) {
-                            // In case of DROP TABLE the table will be removed first.
-                            table.unregisterIndex(indexId);
-                        }
-
-                        return false;
-                    });
-        } catch (Throwable t) {
-            return failedFuture(t);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                            return false;
+                        })
+        );
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
-        CatalogIndexDescriptor index = parameters.indexDescriptor();
+        return inBusyLockAsync(busyLock, () -> {
+            CatalogIndexDescriptor index = parameters.indexDescriptor();
 
-        int indexId = index.id();
-        int tableId = index.tableId();
+            int indexId = index.id();
+            int tableId = index.tableId();
 
-        long causalityToken = parameters.causalityToken();
-        int catalogVersion = parameters.catalogVersion();
+            long causalityToken = parameters.causalityToken();
+            int catalogVersion = parameters.catalogVersion();
 
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
             CatalogTableDescriptor table = catalogManager.table(tableId, catalogVersion);
 
             assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
 
             return createIndexLocally(causalityToken, table, index).thenApply(unused -> false);
-        } catch (Throwable t) {
-            return failedFuture(t);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        });
     }
 
     private CompletableFuture<Void> createIndexLocally(

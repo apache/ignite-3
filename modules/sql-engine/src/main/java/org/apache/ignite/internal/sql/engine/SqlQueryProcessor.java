@@ -303,9 +303,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         Collections.reverse(services);
 
-        Stream<AutoCloseable> closableComponents = services.stream().map(s -> s::stop);
-
-        IgniteUtils.closeAll(closableComponents);
+        IgniteUtils.closeAll(services.stream().map(s -> s::stop));
     }
 
     /** {@inheritDoc} */
