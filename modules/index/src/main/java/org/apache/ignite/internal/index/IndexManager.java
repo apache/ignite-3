@@ -22,6 +22,9 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -50,6 +53,9 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
@@ -88,6 +94,9 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
     /** Versioned value used only at the start of the manager. */
     private final IncrementalVersionedValue<Void> startVv;
 
+    /** Version value of multi-version table storages by ID for which indexes were created. */
+    private final IncrementalVersionedValue<Int2ObjectMap<MvTableStorage>> mvTableStoragesByIdVv;
+
     /**
      * Constructor.
      *
@@ -108,6 +117,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         this.metaStorageManager = metaStorageManager;
 
         startVv = new IncrementalVersionedValue<>(registry);
+        mvTableStoragesByIdVv = new IncrementalVersionedValue<>(registry, Int2ObjectMaps::emptyMap);
     }
 
     @Override
@@ -146,6 +156,21 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         LOG.info("Index manager stopped");
     }
 
+    /**
+     * Returns a multi-version table storage for those index storages that should have been created for this table.
+     *
+     * <p>Example: when we start building an index, we will need {@link IndexStorage} (as well as storage {@link MvPartitionStorage}) to
+     * build it and we can get them in event 123 using this method.</p>
+     *
+     * @param causalityToken Causality token.
+     * @param tableId Table ID.
+     * @return Future with multi-version table storage, if indexes have not yet been created for the table or the table has been deleted, it
+     *      will complete with {@code null}.
+     */
+    CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
+        return mvTableStoragesByIdVv.get(causalityToken).thenApply(mvTableStoragesById -> mvTableStoragesById.get(tableId));
+    }
+
     private CompletableFuture<Boolean> onIndexDrop(DropIndexEventParameters parameters) {
         int indexId = parameters.indexId();
         int tableId = parameters.tableId();
@@ -163,19 +188,26 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         }
 
         try {
-            return tableManager.tableAsync(causalityToken, parameters.tableId())
-                    .thenCompose(table -> {
+            return mvTableStoragesByIdVv.update(
+                    causalityToken,
+                    (mvTableStorageById, throwable) -> tableManager.tableAsync(causalityToken, parameters.tableId()).thenCompose(table -> {
+                        Int2ObjectMap<MvTableStorage> localMvTableStorageById;
+
                         if (table != null) {
                             // In case of DROP TABLE the table will be removed first.
                             table.unregisterIndex(indexId);
+
+                            localMvTableStorageById = mvTableStorageById;
+                        } else {
+                            localMvTableStorageById = removeMvTableStorageIfPresent(mvTableStorageById, tableId);
                         }
 
                         return fireEvent(
                                 IndexEvent.DROP,
                                 new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId)
-                        );
+                        ).thenApply(unused -> localMvTableStorageById);
                     })
-                    .thenApply(unused -> false);
+            ).thenApply(unused -> false);
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -233,7 +265,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
         CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
 
-        CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken);
+        CompletableFuture<?> registerIndexFuture = registerIndexAsync(table, index, causalityToken);
 
         return allOf(fireCreateIndexEventFuture, registerIndexFuture);
     }
@@ -350,11 +382,12 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
             CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
 
-            CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken);
+            CompletableFuture<?> registerIndexFuture = registerIndexAsync(table, index, causalityToken);
 
             startIndexFutures.add(allOf(fireCreateIndexEventFuture, registerIndexFuture));
         }
 
+        // Forces to wait until recovery is complete before the metastore watches is deployed to avoid races with other components.
         startVv.update(causalityToken, (unused, throwable) -> allOf(startIndexFutures.toArray(CompletableFuture[]::new)))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
@@ -365,7 +398,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
                 });
     }
 
-    private CompletableFuture<Void> registerIndex(
+    private CompletableFuture<?> registerIndexAsync(
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index,
             long causalityToken
@@ -377,39 +410,13 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
         CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
 
-        return tablePartitionFuture.thenAcceptBoth(schemaRegistryFuture, (partitionSet, schemaRegistry) -> {
-            TableImpl tableImpl = tableManager.getTable(tableId);
-
-            assert tableImpl != null : "tableId=" + tableId + ", indexId=" + index.id();
-
-            var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
-
-            TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
-                    schemaRegistry,
-                    storageIndexDescriptor.columns().stream().map(StorageColumnDescriptor::name).toArray(String[]::new)
-            );
-
-            if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
-                tableImpl.registerSortedIndex(
-                        (StorageSortedIndexDescriptor) storageIndexDescriptor,
-                        tableRowConverter,
-                        partitionSet
-                );
-            } else {
-                boolean unique = index.unique();
-
-                tableImpl.registerHashIndex(
-                        (StorageHashIndexDescriptor) storageIndexDescriptor,
-                        unique,
-                        tableRowConverter,
-                        partitionSet
-                );
-
-                if (unique) {
-                    tableImpl.pkId(index.id());
-                }
-            }
-        });
+        return mvTableStoragesByIdVv.update(
+                causalityToken,
+                (mvTableStorageById, throwable) -> tablePartitionFuture.thenCombine(
+                        schemaRegistryFuture,
+                        (partitionSet, schemaRegistry) -> registerIndex(table, index, partitionSet, schemaRegistry)
+                ).thenApply(mvTableStorage -> addMvTableStorageIfAbsent(mvTableStorageById, mvTableStorage))
+        );
     }
 
     private CompletableFuture<?> fireCreateIndexEvent(
@@ -418,5 +425,80 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
             int catalogVersion
     ) {
         return fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, catalogVersion, index.tableId(), index.id()));
+    }
+
+    private MvTableStorage registerIndex(
+            CatalogTableDescriptor table,
+            CatalogIndexDescriptor index,
+            PartitionSet partitionSet,
+            SchemaRegistry schemaRegistry
+    ) {
+        int tableId = table.id();
+
+        TableImpl tableImpl = tableManager.getTable(tableId);
+
+        assert tableImpl != null : "tableId=" + tableId + ", indexId=" + index.id();
+
+        var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
+
+        TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                schemaRegistry,
+                storageIndexDescriptor.columns().stream().map(StorageColumnDescriptor::name).toArray(String[]::new)
+        );
+
+        if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
+            tableImpl.registerSortedIndex(
+                    (StorageSortedIndexDescriptor) storageIndexDescriptor,
+                    tableRowConverter,
+                    partitionSet
+            );
+        } else {
+            boolean unique = index.unique();
+
+            tableImpl.registerHashIndex(
+                    (StorageHashIndexDescriptor) storageIndexDescriptor,
+                    unique,
+                    tableRowConverter,
+                    partitionSet
+            );
+
+            if (unique) {
+                tableImpl.pkId(index.id());
+            }
+        }
+
+        return tableImpl.internalTable().storage();
+    }
+
+    private static Int2ObjectMap<MvTableStorage> addMvTableStorageIfAbsent(
+            Int2ObjectMap<MvTableStorage> mvTableStorageById,
+            MvTableStorage mvTableStorage
+    ) {
+        int tableId = mvTableStorage.getTableDescriptor().getId();
+
+        if (mvTableStorageById.containsKey(tableId)) {
+            return mvTableStorageById;
+        }
+
+        Int2ObjectMap<MvTableStorage> newMap = new Int2ObjectOpenHashMap<>(mvTableStorageById);
+
+        newMap.put(tableId, mvTableStorage);
+
+        return newMap;
+    }
+
+    private static Int2ObjectMap<MvTableStorage> removeMvTableStorageIfPresent(
+            Int2ObjectMap<MvTableStorage> mvTableStorageById,
+            int tableId
+    ) {
+        if (!mvTableStorageById.containsKey(tableId)) {
+            return mvTableStorageById;
+        }
+
+        Int2ObjectMap<MvTableStorage> newMap = new Int2ObjectOpenHashMap<>(mvTableStorageById);
+
+        newMap.remove(tableId);
+
+        return newMap;
     }
 }
