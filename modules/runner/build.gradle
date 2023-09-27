@@ -146,6 +146,7 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

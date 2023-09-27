@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failurehandler;
+package org.apache.ignite.internal.failurehandler.handlers;
+
+import org.apache.ignite.internal.failurehandler.FailureContext;
+import org.apache.ignite.internal.failurehandler.FailureProcessor;
 
 /**
  * Provides facility to handle failures by custom user implementations.

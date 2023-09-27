@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.failurehandler;
 
+import org.apache.ignite.internal.failurehandler.handlers.FailureHandler;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
