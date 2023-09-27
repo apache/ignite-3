@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
@@ -1511,31 +1512,34 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // This means that we can just resolve the state of this transaction.
                 checkWriteIntentsBelongSameTx(writeIntents);
 
-                return resolveWriteIntentReadability(writeIntent, ts)
-                        .thenApply(writeIntentReadable -> {
-                            if (writeIntentReadable) {
-                                return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow).orElse(null);
-                            } else {
-                                for (ReadResult wi : writeIntents) {
-                                    HybridTimestamp newestCommitTimestamp = wi.newestCommitTimestamp();
+                return inBusyLockAsync(busyLock, () ->
+                        resolveWriteIntentReadability(writeIntent, ts)
+                                .thenApply(writeIntentReadable ->
+                                        inBusyLock(busyLock, () -> {
+                                            if (writeIntentReadable) {
+                                                return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow).orElse(null);
+                                            } else {
+                                                for (ReadResult wi : writeIntents) {
+                                                    HybridTimestamp newestCommitTimestamp = wi.newestCommitTimestamp();
 
-                                    if (newestCommitTimestamp == null) {
-                                        continue;
-                                    }
+                                                    if (newestCommitTimestamp == null) {
+                                                        continue;
+                                                    }
 
-                                    ReadResult committedReadResult = mvDataStorage.read(wi.rowId(), newestCommitTimestamp);
+                                                    ReadResult committedReadResult = mvDataStorage.read(wi.rowId(), newestCommitTimestamp);
 
-                                    assert !committedReadResult.isWriteIntent() :
-                                            "The result is not committed [rowId=" + wi.rowId() + ", timestamp="
-                                                    + newestCommitTimestamp + ']';
+                                                    assert !committedReadResult.isWriteIntent() :
+                                                            "The result is not committed [rowId=" + wi.rowId() + ", timestamp="
+                                                                    + newestCommitTimestamp + ']';
 
-                                    return committedReadResult.binaryRow();
-                                }
+                                                    return committedReadResult.binaryRow();
+                                                }
 
-                                // No suitable value found in write intents, read the committed value (if exists)
-                                return findFirst(regularEntries).map(ReadResult::binaryRow).orElse(null);
-                            }
-                        });
+                                                // No suitable value found in write intents, read the committed value (if exists)
+                                                return findFirst(regularEntries).map(ReadResult::binaryRow).orElse(null);
+                                            }
+                                        }))
+                );
             }
         } catch (Exception e) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
@@ -2484,8 +2488,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp timestamp,
             Supplier<BinaryRow> lastCommitted
     ) {
-        return resolveWriteIntentReadability(readResult, timestamp)
-                .thenApply(writeIntentReadable -> writeIntentReadable ? readResult.binaryRow() : lastCommitted.get());
+        return inBusyLockAsync(busyLock, () ->
+                resolveWriteIntentReadability(readResult, timestamp)
+                        .thenApply(writeIntentReadable ->
+                                inBusyLock(busyLock, () ->
+                                        writeIntentReadable ? readResult.binaryRow() : lastCommitted.get()
+                                )
+                        )
+        );
     }
 
     /**
@@ -2514,7 +2524,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // Both normal cleanup and single row cleanup are using txsPendingRowIds map to store write intents.
         // So we don't need a separate method to handle single row case.
         txManager.executeCleanupAsync(() ->
-                storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp)
+                inBusyLock(busyLock, () -> storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp))
         ).exceptionally(e -> {
             LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
 
@@ -2809,7 +2819,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public void onBecomePrimary(ClusterNode clusterNode) {
-        inBusyLock(() -> {
+        inBusyLockNoException(() -> {
             if (clusterNode.equals(localNode)) {
                 if (primary) {
                     // Current replica has already become the primary, we do not need to do anything.
@@ -2897,8 +2907,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         return localNode.name().equals(nodeName);
     }
 
-    private void inBusyLock(Runnable runnable) {
+    private void inBusyLockNoException(Runnable runnable) {
         if (!busyLock.enterBusy()) {
+            // This method does not throw a NodeStoppingException to avoid killing JRaft.
+            // It's expected that the code will be rewritten together with index creation redesign.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20330
             return;
         }
 
