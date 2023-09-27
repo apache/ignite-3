@@ -210,18 +210,19 @@ public class SqlTestUtils {
     }
 
     /**
-     * Run SQL in given Ignite instance with given transaction and parameters.
+     * Run SQL on given Ignite instance with given transaction and parameters.
      *
      * @param ignite Ignite instance to run a query.
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param sql Query to be run.
      * @param args Dynamic parameters for a given query.
-     * @return List of lists , where outer list represents a rows, internal lists represents a columns.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
      */
     public static List<List<Object>> sql(Ignite ignite, @Nullable Transaction tx, String sql, Object... args) {
-        try (Session session = ignite.sql().createSession()) {
-            ResultSet<SqlRow> rs = session.execute(tx, sql, args);
-
+        try (
+                Session session = ignite.sql().createSession();
+                ResultSet<SqlRow> rs = session.execute(tx, sql, args)
+        ) {
             return getAllResultSet(rs);
         }
     }

@@ -101,13 +101,14 @@ public abstract class DataTypeTestSpec<T extends Comparable<T>> {
     /**
      * Wraps original {@link NativeType} into a {@link NativeTypeWrapper comparable wrapper}.
      * If storage type of this data type is {@link Comparable} then this method must return {@code null}.
-     * */
+     */
     public abstract T wrapIfNecessary(Object storageValue);
 
     /**
      * Unwraps {@link NativeTypeWrapper comparable wrapper} into a {@link NativeType}.
-     * If passed values in not wrapped then this method should return original instance.
-     * */
+     *
+     * <p>If passed values are not wrapped, then this method should return original instance.
+     */
     public Object unwrapIfNecessary(T value) {
         return value;
     }
