@@ -95,9 +95,10 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
     @BeforeEach
     void setUp(@InjectConfiguration GcConfiguration gcConfig) {
-        int pkIndexId = 1;
-        int sortedIndexId = 2;
-        int hashIndexId = 3;
+        int tableId = 1;
+        int pkIndexId = 2;
+        int sortedIndexId = 3;
+        int hashIndexId = 4;
 
         pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(pkIndexId, List.of(
                 new StorageHashIndexColumnDescriptor("INTKEY", NativeTypes.INT32, false),
@@ -140,7 +141,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 hashIndexId, hashIndexStorage
         );
 
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(storage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes));
 
