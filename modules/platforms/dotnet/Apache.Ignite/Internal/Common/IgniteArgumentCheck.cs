@@ -48,7 +48,7 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="condition">Condition.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <param name="message">Message.</param>
-        public static void Ensure(bool condition, string argName, string? message = null)
+        public static void Ensure(bool condition, string argName, string message)
         {
             if (!condition)
             {
