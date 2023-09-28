@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
