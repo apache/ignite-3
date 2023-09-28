@@ -312,7 +312,7 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes())).collect(toSet());
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.attributes())).collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -348,7 +348,7 @@ public class DistributionZonesTestUtil {
      */
     public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.attributes()))
                 .collect(toSet());
 
         byte[] newLogicalTopology = toBytes(nodesWithAttributes);

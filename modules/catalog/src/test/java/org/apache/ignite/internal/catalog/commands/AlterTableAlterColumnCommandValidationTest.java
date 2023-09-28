@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
@@ -180,7 +181,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(
-                        ColumnParams.builder().name(columnName).type(ColumnType.DECIMAL).precision(10).build())
+                        ColumnParams.builder().name(columnName).type(ColumnType.DECIMAL).precision(10).scale(0).build())
                 )
                 .primaryKeyColumns(List.of(columnName))
         );
@@ -280,9 +281,9 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .name("ID")
                                 .type(ColumnType.INT32)
                                 .build(),
-                        ColumnParams.builder()
+                        initializeColumnWithDefaults(from, ColumnParams.builder()
                                 .name(columnName)
-                                .type(from)
+                                .type(from))
                                 .build())
                 )
                 .primaryKeyColumns(List.of("ID"))
@@ -305,7 +306,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
     }
 
     @ParameterizedTest
-    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = "DECIMAL")
+    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"DECIMAL", "NULL"})
     void precisionCannotBeChangedIfTypeIsNotDecimal(ColumnType type) {
         String tableName = "TEST";
         String columnName = "VAL";
@@ -313,13 +314,13 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(
-                        ColumnParams.builder()
+                        initializeColumnWithDefaults(ColumnType.INT64, ColumnParams.builder()
                                 .name("ID")
-                                .type(ColumnType.INT64)
+                                .type(ColumnType.INT64))
                                 .build(),
-                        ColumnParams.builder()
+                        initializeColumnWithDefaults(type, ColumnParams.builder()
                                 .name(columnName)
-                                .type(type)
+                                .type(type))
                                 .build())
                 )
                 .primaryKeyColumns(List.of("ID"))
@@ -356,6 +357,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                         ColumnParams.builder()
                                 .name(columnName)
                                 .type(ColumnType.DECIMAL)
+                                .scale(0)
                                 .precision(10)
                                 .build())
                 )
@@ -419,7 +421,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
     }
 
     @ParameterizedTest
-    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"})
+    @EnumSource(mode = Mode.EXCLUDE, value = ColumnType.class, names = {"STRING", "BYTE_ARRAY", "NULL"})
     void lengthCannotBeChangedForNonVariableTypes(ColumnType type) {
         String tableName = "TEST";
         String columnName = "VAL";
@@ -431,9 +433,9 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .name("ID")
                                 .type(ColumnType.INT64)
                                 .build(),
-                        ColumnParams.builder()
+                        initializeColumnWithDefaults(type, ColumnParams.builder()
                                 .name(columnName)
-                                .type(type)
+                                .type(type))
                                 .build())
                 )
                 .primaryKeyColumns(List.of("ID"))
@@ -533,7 +535,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
         List<Arguments> arguments = new ArrayList<>();
         for (ColumnType from : ColumnType.values()) {
             for (ColumnType to : ColumnType.values()) {
-                if (from != to && !CatalogUtils.isSupportedColumnTypeChange(from, to)) {
+                if (from != to && !CatalogUtils.isSupportedColumnTypeChange(from, to) && from != ColumnType.NULL) {
                     arguments.add(Arguments.of(from, to));
                 }
             }

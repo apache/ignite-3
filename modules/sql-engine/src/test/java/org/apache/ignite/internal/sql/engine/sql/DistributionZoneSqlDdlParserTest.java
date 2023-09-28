@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -26,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -36,7 +36,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
@@ -178,7 +178,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void alterZoneRenameToWithCompoundIdIsIllegal() {
-        assertThrows(SqlException.class, () -> parse("alter zone a.test_zone rename to b.zone1"));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query", () -> parse("alter zone a.test_zone rename to b.zone1"));
     }
 
     /**
@@ -243,7 +243,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void alterZoneSetNoOptionsIsIllegal() {
-        assertThrows(SqlException.class, () -> parse("alter zone test_zone set"));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query", () -> parse("alter zone test_zone set"));
     }
 
     /**

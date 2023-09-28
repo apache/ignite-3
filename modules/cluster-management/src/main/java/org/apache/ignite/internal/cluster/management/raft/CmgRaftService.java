@@ -23,13 +23,13 @@ import static java.util.stream.Collectors.toSet;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -139,7 +139,7 @@ public class CmgRaftService implements ManuallyCloseable {
      *         otherwise.
      * @see ValidationManager
      */
-    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag, Map<String, String> nodeAttributes) {
+    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag, NodeAttributes nodeAttributes) {
         ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), nodeAttributes);
 
         JoinRequestCommand command = msgFactory.joinRequestCommand()
@@ -165,10 +165,10 @@ public class CmgRaftService implements ManuallyCloseable {
      *
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> completeJoinCluster(Map<String, String> nodeAttributes) {
+    public CompletableFuture<Void> completeJoinCluster(NodeAttributes attributes) {
         LOG.info("Node is ready to join the logical topology");
 
-        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), nodeAttributes);
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), attributes);
 
         return raftService.run(msgFactory.joinReadyCommand().node(localNodeMessage).build())
                 .thenAccept(response -> {
@@ -262,13 +262,14 @@ public class CmgRaftService implements ManuallyCloseable {
         return completedFuture(result);
     }
 
-    private ClusterNodeMessage nodeMessage(ClusterNode node, Map<String, String> nodeAttributes) {
+    private ClusterNodeMessage nodeMessage(ClusterNode node, NodeAttributes attributes) {
         return msgFactory.clusterNodeMessage()
                 .id(node.id())
                 .name(node.name())
                 .host(node.address().host())
                 .port(node.address().port())
-                .nodeAttributes(nodeAttributes)
+                .attributes(attributes == null ? null : attributes.configAttributes())
+                .systemAttributes(attributes == null ? null : attributes.systemAttributes())
                 .build();
     }
 
@@ -278,7 +279,6 @@ public class CmgRaftService implements ManuallyCloseable {
                 .name(node.name())
                 .host(node.address().host())
                 .port(node.address().port())
-                .nodeAttributes(null)
                 .build();
     }
 

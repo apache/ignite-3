@@ -19,28 +19,14 @@
 namespace Apache.Ignite.Internal.Common
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Runtime.CompilerServices;
-    using JetBrains.Annotations;
 
     /// <summary>
     /// Arguments check helpers.
     /// </summary>
     internal static class IgniteArgumentCheck
     {
-        /// <summary>
-        /// Throws an ArgumentNullException if specified arg is null.
-        /// </summary>
-        /// <param name="arg">The argument.</param>
-        /// <param name="argName">Name of the argument.</param>
-        /// <typeparam name="T">Arg type.</typeparam>
-        public static void NotNull<T>([NoEnumeration] T arg, [CallerArgumentExpression("arg")] string? argName = null)
-        {
-            if (arg == null)
-            {
-                throw new ArgumentNullException(argName);
-            }
-        }
-
         /// <summary>
         /// Throws an ArgumentException if specified arg is null or empty string.
         /// </summary>
@@ -49,9 +35,10 @@ namespace Apache.Ignite.Internal.Common
         /// <returns>Argument.</returns>
         public static string NotNullOrEmpty(string arg, [CallerArgumentExpression("arg")] string? argName = null)
         {
+            // The logic below matches ArgumentException.ThrowIfNullOrEmpty on .NET 8.
             if (string.IsNullOrEmpty(arg))
             {
-                throw new ArgumentException($"'{argName}' argument should not be null or empty.", argName);
+                ThrowNullOrEmptyException(arg, argName);
             }
 
             return arg;
@@ -63,12 +50,19 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="condition">Condition.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <param name="message">Message.</param>
-        public static void Ensure(bool condition, string argName, string? message = null)
+        public static void Ensure(bool condition, string argName, string message)
         {
             if (!condition)
             {
                 throw new ArgumentException($"'{argName}' argument is invalid: {message}", argName);
             }
+        }
+
+        [DoesNotReturn]
+        private static void ThrowNullOrEmptyException(string? argument, string? paramName)
+        {
+            ArgumentNullException.ThrowIfNull(argument, paramName);
+            throw new ArgumentException("The value cannot be an empty string.", paramName);
         }
     }
 }

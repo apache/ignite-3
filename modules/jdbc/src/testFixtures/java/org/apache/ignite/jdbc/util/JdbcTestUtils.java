@@ -37,8 +37,9 @@ public class JdbcTestUtils {
      * @return Thrown the {@link SQLException}.
      */
     public static <T extends SQLException> T assertThrowsSqlException(Class<T> expectedType, Executable executable) {
-        return assertThrows(expectedType, executable);
+        T ex = assertThrows(expectedType, executable);
 
+        return ex;
     }
 
     /**

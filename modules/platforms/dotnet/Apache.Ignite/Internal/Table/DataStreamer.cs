@@ -71,11 +71,22 @@ internal static class DataStreamer
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
-        IgniteArgumentCheck.NotNull(data);
+        ArgumentNullException.ThrowIfNull(data);
 
-        IgniteArgumentCheck.Ensure(options.BatchSize > 0, $"{nameof(options.BatchSize)} should be positive.");
-        IgniteArgumentCheck.Ensure(options.AutoFlushFrequency > TimeSpan.Zero, $"{nameof(options.AutoFlushFrequency)} should be positive.");
-        IgniteArgumentCheck.Ensure(options.RetryLimit >= 0, $"{nameof(options.RetryLimit)} should be non-negative.");
+        IgniteArgumentCheck.Ensure(
+            options.BatchSize > 0,
+            nameof(options.BatchSize),
+            $"{nameof(options.BatchSize)} should be positive.");
+
+        IgniteArgumentCheck.Ensure(
+            options.AutoFlushFrequency > TimeSpan.Zero,
+            nameof(options.AutoFlushFrequency),
+            $"{nameof(options.AutoFlushFrequency)} should be positive.");
+
+        IgniteArgumentCheck.Ensure(
+            options.RetryLimit >= 0,
+            nameof(options.RetryLimit),
+            $"{nameof(options.RetryLimit)} should be non-negative.");
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.

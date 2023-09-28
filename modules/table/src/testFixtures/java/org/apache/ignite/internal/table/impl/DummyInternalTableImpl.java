@@ -195,7 +195,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             MvPartitionStorage mvPartStorage,
             SchemaDescriptor schema
     ) {
-        this(replicaSvc, mvPartStorage, null, false, null, schema, new HybridTimestampTracker());
+        this(
+                replicaSvc,
+                mvPartStorage,
+                new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), LOCAL_NODE::id),
+                false,
+                null,
+                schema,
+                new HybridTimestampTracker()
+        );
     }
 
     /**
@@ -203,7 +211,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
-     * @param txManager Transaction manager, if {@code null}, then default one will be created.
+     * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
      *         ReplicaService by itself.
      * @param transactionStateResolver Transaction state resolver.
@@ -212,9 +220,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
-            @Nullable TxManager txManager,
+            TxManager txManager,
             boolean crossTableUsage,
-            TransactionStateResolver transactionStateResolver,
+            @Nullable TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
@@ -224,9 +232,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> LOCAL_NODE,
-                txManager == null
-                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), () -> "local")
-                        : txManager,
+                txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,

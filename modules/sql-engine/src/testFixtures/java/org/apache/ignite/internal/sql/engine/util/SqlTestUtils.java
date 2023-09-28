@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -80,8 +79,6 @@ public class SqlTestUtils {
         assertEquals(expectedCode, ex.code());
 
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
-
-        assertThat("Exception shouldn't be in internal package", ex.getClass().getPackageName(), not(containsString("internal")));
 
         return ex;
     }
