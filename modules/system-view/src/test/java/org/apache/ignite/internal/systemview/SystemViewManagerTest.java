@@ -38,13 +38,21 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -65,8 +73,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void registerDuplicateNameFails() {
         String name = "testView1";
 
-        ClusterSystemView<Object> view = dummyView(name);
-        ClusterSystemView<Object> viewWithSameName = dummyView(name);
+        SystemView<?> view = dummyView(name);
+        SystemView<?> viewWithSameName = dummyView(name);
 
         viewMgr.register(view);
 
@@ -103,6 +111,20 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         verifyNoMoreInteractions(catalog);
 
+        assertTrue(viewMgr.completeRegistration().isDone());
+    }
+
+    @ParameterizedTest
+    @EnumSource(NativeTypeSpec.class)
+    public void registerAllColumnTypes(NativeTypeSpec typeSpec) {
+        NativeType type = SchemaTestUtils.specToType(typeSpec);
+
+        Mockito.when(catalog.execute(anyList())).thenReturn(completedFuture(null));
+
+        viewMgr.register(dummyView("test", type));
+        viewMgr.start();
+
+        verify(catalog, only()).execute(anyList());
         assertTrue(viewMgr.completeRegistration().isDone());
     }
 
@@ -170,9 +192,15 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         viewMgr.stop();
     }
 
-    private static ClusterSystemView<Object> dummyView(String name) {
-        return SystemViews.clusterViewBuilder().name(name)
-                .addColumn("c1", int.class, (d) -> 1)
+    private static SystemView<?> dummyView(String name) {
+        return dummyView(name, NativeTypes.INT32);
+    }
+
+    private static <T> SystemView<T> dummyView(String name, NativeType type) {
+        return (SystemView<T>) SystemViews.nodeViewBuilder()
+                .nodeNameColumnAlias("NODE")
+                .name(name)
+                .addColumn("c1", (Class<T>) Commons.nativeTypeToClass(type), (Function<Object, T>) Function.identity())
                 .dataProvider(() -> new AsyncCursor<>() {
                     @Override
                     public CompletableFuture<BatchedResult<Object>> requestNextAsync(int rows) {

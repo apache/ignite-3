@@ -20,26 +20,21 @@ package org.apache.ignite.internal.systemview;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.systemview.utils.SystemViewUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.sql.ColumnType;
 
 /**
  * SQL system views manager implementation.
@@ -89,7 +84,11 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
                 return;
             }
 
-            catalogManager.execute(prepareCatalogCommands(views.values())).whenComplete(
+            List<CatalogCommand> commands = views.values().stream()
+                    .map(SystemViewUtils::toSystemViewCreateCommand)
+                    .collect(Collectors.toList());
+
+            catalogManager.execute(commands).whenComplete(
                     (r, t) -> {
                         viewsRegistrationFuture.complete(null);
 
@@ -142,49 +141,5 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
      */
     public CompletableFuture<Void> completeRegistration() {
         return viewsRegistrationFuture;
-    }
-
-    private List<CatalogCommand> prepareCatalogCommands(Collection<SystemView<?>> views) {
-        List<CatalogCommand> catalogCommands = new ArrayList<>(views.size());
-
-        for (SystemView<?> view : views) {
-            catalogCommands.add(prepareCatalogCommand(view));
-        }
-
-        return catalogCommands;
-    }
-
-    private CatalogCommand prepareCatalogCommand(SystemView<?> view) {
-        List<ColumnParams> columnParams = new ArrayList<>(view.columns().size());
-
-        if (view.type() == SystemViewType.LOCAL) {
-            columnParams.add(
-                    ColumnParams.builder()
-                            .name(((NodeSystemView<?>) view).nodeNameColumnAlias())
-                            .type(ColumnType.STRING)
-                            .build()
-            );
-        }
-
-        for (SystemViewColumn<?, ?> col : view.columns()) {
-            columnParams.add(prepareColumnParams(col));
-        }
-
-        return CreateSystemViewCommand.builder()
-                .name(view.name())
-                .columns(columnParams)
-                .type(view.type())
-                .build();
-    }
-
-    private ColumnParams prepareColumnParams(SystemViewColumn<?, ?> column) {
-        NativeTypeSpec typeSpec = NativeTypeSpec.fromClass(column.type());
-
-        assert typeSpec != null : column.type();
-
-        return ColumnParams.builder()
-                .name(column.name())
-                .type(typeSpec.asColumnType())
-                .build();
     }
 }
