@@ -151,7 +151,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.DirectCatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
@@ -980,7 +979,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
-                new DirectCatalogTables(catalogService),
                 placementDriver
         );
     }
