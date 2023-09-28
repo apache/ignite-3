@@ -870,17 +870,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
 
-            clusterCfgGenerator = new ConfigurationTreeGenerator(
-                    List.of(
-                            GcConfiguration.KEY
-                    ),
-                    List.of(),
-                    List.of(
-                            VolatilePageMemoryDataStorageConfigurationSchema.class,
-                            PersistentPageMemoryDataStorageConfigurationSchema.class,
-                            TestDataStorageConfigurationSchema.class
-                    )
-            );
+            clusterCfgGenerator = new ConfigurationTreeGenerator(GcConfiguration.KEY);
+
             clusterCfgMgr = new ConfigurationManager(
                     List.of(
                             GcConfiguration.KEY
