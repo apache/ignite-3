@@ -343,11 +343,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (!txOps.futures.isEmpty()) {
-                        ArrayList<CompletableFuture<?>> txFuts = new ArrayList<>();
+                        CompletableFuture<?>[] txFuts = txOps.futures.values().stream()
+                                .flatMap(Collection::stream)
+                                .toArray(CompletableFuture[]::new);
 
-                        txOps.futures.forEach((opType, futures) -> txFuts.addAll(futures));
-
-                        futs.add(allOf(txFuts.toArray(CompletableFuture[]::new)).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
+                        futs.add(allOf(txFuts).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
                     }
 
                     return txOps;
