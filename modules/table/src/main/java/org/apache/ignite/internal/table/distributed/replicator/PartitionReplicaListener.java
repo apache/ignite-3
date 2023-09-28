@@ -79,6 +79,7 @@ import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -328,6 +329,36 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatValidator(schemas, catalogTables);
+
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+            if (!localNode.name().equals(evt.leaseholder())) {
+                return completedFuture(false);
+            }
+
+            LOG.info("Primary replica expired [grp={}]", replicationGroupId);
+
+            ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
+
+            for (UUID txId : txCleanupReadyFutures.keySet()) {
+                txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+                    if (txOps == null || TxState.isFinalState(txOps.state)) {
+                        return null;
+                    }
+
+                    if (!txOps.futures.isEmpty()) {
+                        CompletableFuture<?>[] txFuts = txOps.futures.values().stream()
+                                .flatMap(Collection::stream)
+                                .toArray(CompletableFuture[]::new);
+
+                        futs.add(allOf(txFuts).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
+                    }
+
+                    return txOps;
+                });
+            }
+
+            return allOf(futs.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
+        });
     }
 
     @Override

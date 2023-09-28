@@ -805,6 +805,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var placementDriver = new TestPlacementDriver(name);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -821,7 +822,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService,
                     cmgManager,
                     hybridClock,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    placementDriver
             ));
 
             ReplicaService replicaSvc = new ReplicaService(
@@ -963,7 +965,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaSyncService,
                     catalogManager,
                     new HybridTimestampTracker(),
-                    new TestPlacementDriver(name)
+                    placementDriver
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

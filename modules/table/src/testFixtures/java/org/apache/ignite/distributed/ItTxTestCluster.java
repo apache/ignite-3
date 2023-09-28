@@ -325,7 +325,8 @@ public class ItTxTestCluster {
                     cluster.get(i),
                     cmgManager,
                     clock,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    placementDriver
             );
 
             replicaMgr.start();
