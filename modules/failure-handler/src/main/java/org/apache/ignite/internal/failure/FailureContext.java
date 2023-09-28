@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failurehandler;
+package org.apache.ignite.internal.failure;
 
 import org.apache.ignite.internal.tostring.S;
 

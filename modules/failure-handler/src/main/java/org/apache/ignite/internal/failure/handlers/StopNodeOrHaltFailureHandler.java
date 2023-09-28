@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failurehandler.handlers;
+package org.apache.ignite.internal.failure.handlers;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.failurehandler.FailureContext;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.tostring.S;
 
 /**

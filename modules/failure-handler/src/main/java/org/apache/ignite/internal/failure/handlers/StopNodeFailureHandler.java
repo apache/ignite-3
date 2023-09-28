@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failurehandler.handlers;
+package org.apache.ignite.internal.failure.handlers;
 
-import org.apache.ignite.internal.failurehandler.FailureContext;
-import org.apache.ignite.internal.failurehandler.FailureProcessor;
+import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.failure.FailureContext;
 
 /**
- * Provides facility to handle failures by custom user implementations.
+ * Handler will stop node in case of critical error using {@code IgnitionManager.stop(nodeName)} call.
  */
-public interface FailureHandler {
-    /**
-     * Handles failure occurred on {@code ignite} instance.
-     * Failure details is contained in {@code failureCtx}.
-     * Returns {@code true} if Ignite node must be invalidated by {@link FailureProcessor} after calling this method.
-     *
-     * @param nodeName Node name.
-     * @param failureCtx Failure context.
-     * @return Whether Ignite node must be invalidated or not.
-     */
-    boolean onFailure(String nodeName, FailureContext failureCtx);
+public class StopNodeFailureHandler implements FailureHandler {
+    /** {@inheritDoc} */
+    @Override
+    public boolean onFailure(String nodeName, FailureContext failureCtx) {
+        new Thread(
+                () -> IgnitionManager.stop(nodeName),
+                "node-stopper"
+        ).start();
+
+        return true;
+    }
 }

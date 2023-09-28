@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failurehandler;
+package org.apache.ignite.internal.failure.handlers;
+
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 
 /**
- * Types of failures.
+ * Provides facility to handle failures.
  */
-public enum FailureType {
-    /** System worker termination. */
-    SYSTEM_WORKER_TERMINATION,
-
-    /** System worker has not updated its heartbeat for a long time. */
-    SYSTEM_WORKER_BLOCKED,
-
-    /** Critical error - error which leads to the system's inoperability. */
-    CRITICAL_ERROR,
-
-    /** System-critical operation has been timed out. */
-    SYSTEM_CRITICAL_OPERATION_TIMEOUT
+public interface FailureHandler {
+    /**
+     * Handles failure occurred on {@code ignite} instance.
+     * Failure details is contained in {@code failureCtx}.
+     * Returns {@code true} if Ignite node must be invalidated by {@link FailureProcessor} after calling this method.
+     *
+     * @param nodeName Node name.
+     * @param failureCtx Failure context.
+     * @return Whether Ignite node must be invalidated or not.
+     */
+    boolean onFailure(String nodeName, FailureContext failureCtx);
 }
