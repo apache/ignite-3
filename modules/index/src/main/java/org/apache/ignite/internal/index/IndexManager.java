@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -29,18 +31,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -127,13 +131,17 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         startIndexes();
 
         catalogManager.listen(INDEX_CREATE, (parameters, exception) -> {
-            assert exception == null : parameters;
+            if (exception != null) {
+                return failedFuture(exception);
+            }
 
             return onIndexCreate((CreateIndexEventParameters) parameters);
         });
 
         catalogManager.listen(INDEX_DROP, (parameters, exception) -> {
-            assert exception == null;
+            if (exception != null) {
+                return failedFuture(exception);
+            }
 
             return onIndexDrop((DropIndexEventParameters) parameters);
         });
@@ -157,15 +165,15 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
     }
 
     /**
-     * Returns a multi-version table storage for those index storages that should have been created for this table.
+     * Returns a multi-version table storage with created index storages by passed parameters.
      *
      * <p>Example: when we start building an index, we will need {@link IndexStorage} (as well as storage {@link MvPartitionStorage}) to
-     * build it and we can get them in event 123 using this method.</p>
+     * build it and we can get them in {@link CatalogEvent#INDEX_CREATE} using this method.</p>
      *
      * @param causalityToken Causality token.
      * @param tableId Table ID.
-     * @return Future with multi-version table storage, if indexes have not yet been created for the table or the table has been deleted, it
-     *      will complete with {@code null}.
+     * @return Future with multi-version table storage, completes with {@code null} if the table does not exist according to the passed
+     *      parameters.
      */
     CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
         return mvTableStoragesByIdVv.get(causalityToken).thenApply(mvTableStoragesById -> mvTableStoragesById.get(tableId));
@@ -176,43 +184,22 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         int tableId = parameters.tableId();
 
         long causalityToken = parameters.causalityToken();
-        int catalogVersion = parameters.catalogVersion();
 
-        if (!busyLock.enterBusy()) {
-            fireEvent(IndexEvent.DROP,
-                    new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId),
-                    new NodeStoppingException()
-            );
+        CompletableFuture<TableImpl> tableFuture = tableManager.tableAsync(causalityToken, tableId);
 
-            return failedFuture(new NodeStoppingException());
-        }
+        return inBusyLockAsync(busyLock, () -> mvTableStoragesByIdVv.update(
+                causalityToken,
+                updater(mvTableStorageById -> tableFuture.thenApply(table -> inBusyLock(busyLock, () -> {
+                    if (table != null) {
+                        // In case of DROP TABLE the table will be removed first.
+                        table.unregisterIndex(indexId);
 
-        try {
-            return mvTableStoragesByIdVv.update(
-                    causalityToken,
-                    (mvTableStorageById, throwable) -> tableManager.tableAsync(causalityToken, parameters.tableId()).thenCompose(table -> {
-                        Int2ObjectMap<MvTableStorage> localMvTableStorageById;
-
-                        if (table != null) {
-                            // In case of DROP TABLE the table will be removed first.
-                            table.unregisterIndex(indexId);
-
-                            localMvTableStorageById = mvTableStorageById;
-                        } else {
-                            localMvTableStorageById = removeMvTableStorageIfPresent(mvTableStorageById, tableId);
-                        }
-
-                        return fireEvent(
-                                IndexEvent.DROP,
-                                new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId)
-                        ).thenApply(unused -> localMvTableStorageById);
-                    })
-            ).thenApply(unused -> false);
-        } catch (Throwable t) {
-            return failedFuture(t);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                        return mvTableStorageById;
+                    } else {
+                        return removeMvTableStorageIfPresent(mvTableStorageById, tableId);
+                    }
+                })))
+        )).thenApply(unused -> false);
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
@@ -224,32 +211,17 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         long causalityToken = parameters.causalityToken();
         int catalogVersion = parameters.catalogVersion();
 
-        if (!busyLock.enterBusy()) {
-            fireEvent(
-                    IndexEvent.CREATE,
-                    new IndexEventParameters(causalityToken, catalogVersion, tableId, indexId),
-                    new NodeStoppingException()
-            );
-
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
+        return inBusyLockAsync(busyLock, () -> {
             CatalogTableDescriptor table = catalogManager.table(tableId, catalogVersion);
 
             assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
 
-            return createIndexLocally(causalityToken, catalogVersion, table, index).thenApply(unused -> false);
-        } catch (Throwable t) {
-            return failedFuture(t);
-        } finally {
-            busyLock.leaveBusy();
-        }
+            return createIndexLocallyBusy(causalityToken, table, index).thenApply(unused -> false);
+        });
     }
 
-    private CompletableFuture<Void> createIndexLocally(
+    private CompletableFuture<?> createIndexLocallyBusy(
             long causalityToken,
-            int catalogVersion,
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index
     ) {
@@ -263,11 +235,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
             );
         }
 
-        CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
-
-        CompletableFuture<?> registerIndexFuture = registerIndexAsync(table, index, causalityToken);
-
-        return allOf(fireCreateIndexEventFuture, registerIndexFuture);
+        return registerIndexBusyAsync(table, index, causalityToken);
     }
 
     /**
@@ -380,11 +348,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
             assert table != null : "tableId=" + tableId + ", indexId=" + index.id();
 
-            CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, catalogVersion);
-
-            CompletableFuture<?> registerIndexFuture = registerIndexAsync(table, index, causalityToken);
-
-            startIndexFutures.add(allOf(fireCreateIndexEventFuture, registerIndexFuture));
+            startIndexFutures.add(registerIndexBusyAsync(table, index, causalityToken));
         }
 
         // Forces to wait until recovery is complete before the metastore watches is deployed to avoid races with other components.
@@ -398,7 +362,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
                 });
     }
 
-    private CompletableFuture<?> registerIndexAsync(
+    private CompletableFuture<?> registerIndexBusyAsync(
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index,
             long causalityToken
@@ -412,32 +376,22 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
         return mvTableStoragesByIdVv.update(
                 causalityToken,
-                (mvTableStorageById, throwable) -> tablePartitionFuture.thenCombine(
-                        schemaRegistryFuture,
-                        (partitionSet, schemaRegistry) -> registerIndex(table, index, partitionSet, schemaRegistry)
-                ).thenApply(mvTableStorage -> addMvTableStorageIfAbsent(mvTableStorageById, mvTableStorage))
+                updater(mvTableStorageById -> tablePartitionFuture.thenCombine(schemaRegistryFuture,
+                        (partitionSet, schemaRegistry) -> inBusyLock(busyLock, () -> {
+                            registerIndexBusy(table, index, partitionSet, schemaRegistry);
+
+                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableImplStrictBusy(tableId).internalTable().storage());
+                        })))
         );
     }
 
-    private CompletableFuture<?> fireCreateIndexEvent(
-            CatalogIndexDescriptor index,
-            long causalityToken,
-            int catalogVersion
-    ) {
-        return fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, catalogVersion, index.tableId(), index.id()));
-    }
-
-    private MvTableStorage registerIndex(
+    private void registerIndexBusy(
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index,
             PartitionSet partitionSet,
             SchemaRegistry schemaRegistry
     ) {
-        int tableId = table.id();
-
-        TableImpl tableImpl = tableManager.getTable(tableId);
-
-        assert tableImpl != null : "tableId=" + tableId + ", indexId=" + index.id();
+        TableImpl tableImpl = getTableImplStrictBusy(table.id());
 
         var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
 
@@ -466,8 +420,6 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
                 tableImpl.pkId(index.id());
             }
         }
-
-        return tableImpl.internalTable().storage();
     }
 
     private static Int2ObjectMap<MvTableStorage> addMvTableStorageIfAbsent(
@@ -500,5 +452,23 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         newMap.remove(tableId);
 
         return newMap;
+    }
+
+    private TableImpl getTableImplStrictBusy(int tableId) {
+        TableImpl table = tableManager.getTable(tableId);
+
+        assert table != null : tableId;
+
+        return table;
+    }
+
+    private static <T> BiFunction<T, Throwable, CompletableFuture<T>> updater(Function<T, CompletableFuture<T>> updateFunction) {
+        return (t, throwable) -> {
+            if (throwable != null) {
+                return failedFuture(throwable);
+            }
+
+            return updateFunction.apply(t);
+        };
     }
 }
