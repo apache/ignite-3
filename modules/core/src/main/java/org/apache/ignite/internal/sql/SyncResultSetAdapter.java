@@ -40,9 +40,6 @@ class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** Iterator. */
     private final IteratorImpl<T> it;
 
-    /** Flag indicate that result set has been closed or not. */
-    private AtomicBoolean finished = new AtomicBoolean(false);
-
     /**
      * Constructor.
      *
@@ -82,19 +79,17 @@ class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        if (finished.compareAndSet(false, true)) {
-            try {
-                ars.closeAsync().toCompletableFuture().join();
-            } catch (CompletionException e) {
-                throw ExceptionUtils.wrap(e);
-            }
+        try {
+            ars.closeAsync().toCompletableFuture().join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.wrap(e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasNext() {
-        if (it == null || finished.get()) {
+        if (it == null) {
             return false;
         }
 
