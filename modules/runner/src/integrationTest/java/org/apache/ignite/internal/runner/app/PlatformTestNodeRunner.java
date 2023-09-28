@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
@@ -70,7 +71,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -284,12 +284,12 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("VAL").type(STRING).nullable(true).build()
+                        ColumnParams.builder().name("VAL").type(STRING).length(1000).nullable(true).build()
                 ),
                 List.of(keyCol)
         );
 
-        int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
+        int maxTimePrecision = MAX_TIME_PRECISION;
 
         createTable(
                 ignite.catalogManager(),
@@ -298,7 +298,7 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME_ALL_COLUMNS,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
+                        ColumnParams.builder().name("STR").type(STRING).nullable(true).length(1000).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
@@ -307,14 +307,14 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
                         ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
-                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(64).nullable(true).build(),
+                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(3).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(4).nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
@@ -329,7 +329,7 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME_ALL_COLUMNS_SQL,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
+                        ColumnParams.builder().name("STR").type(STRING).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
@@ -344,7 +344,7 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
@@ -395,8 +395,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.UUID).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.UUID).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(UUID).build(),
+                ColumnParams.builder().name("VAL").type(UUID).nullable(true).build()
         );
 
         createTwoColumnTable(
@@ -407,8 +407,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(STRING).build(),
-                ColumnParams.builder().name("VAL").type(STRING).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(STRING).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(STRING).length(1000).nullable(true).build()
         );
 
         createTwoColumnTable(
@@ -437,20 +437,20 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(NUMBER).precision(Integer.MAX_VALUE).build(),
-                ColumnParams.builder().name("VAL").type(NUMBER).precision(Integer.MAX_VALUE).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(NUMBER).precision(15).build(),
+                ColumnParams.builder().name("VAL").type(NUMBER).precision(15).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(BYTE_ARRAY).build(),
-                ColumnParams.builder().name("VAL").type(BYTE_ARRAY).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(BYTE_ARRAY).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(BYTE_ARRAY).length(1000).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(BITMASK).length(32).build(),
-                ColumnParams.builder().name("VAL").type(BITMASK).length(32).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(BITMASK).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(BITMASK).length(1000).nullable(true).build()
         );
     }
 

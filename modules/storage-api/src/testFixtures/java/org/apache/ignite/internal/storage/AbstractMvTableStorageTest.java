@@ -775,9 +775,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 1,
                 List.of(
                         CatalogUtils.fromParams(ColumnParams.builder().name("INTKEY").type(INT32).build()),
-                        CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").type(STRING).build()),
+                        CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").length(100).type(STRING).build()),
                         CatalogUtils.fromParams(ColumnParams.builder().name("INTVAL").type(INT32).build()),
-                        CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").type(STRING).build())
+                        CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").length(100).type(STRING).build())
                 ),
                 List.of("INTKEY"),
                 null

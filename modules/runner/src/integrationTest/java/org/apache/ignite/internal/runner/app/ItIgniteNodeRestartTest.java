@@ -870,6 +870,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         for (int i = 0; i < 100; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
 
+            Objects.requireNonNull(row, "row");
+
             assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
         }
     }
