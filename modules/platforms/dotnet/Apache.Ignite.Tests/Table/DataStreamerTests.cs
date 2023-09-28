@@ -37,7 +37,7 @@ public class DataStreamerTests : IgniteTestsBase
     private const int Count = 100;
 
     [SetUp]
-    public async Task SetUp() =>
+    public async Task DeleteAll() =>
         await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
 
     [Test]

@@ -126,26 +126,22 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
-    /** Key count. */
     private static final int KEY_COUNT = 100;
 
-    /** Partition id. */
+    private static final int TABLE_ID = 1;
+
     private static final int PARTITION_ID = 0;
 
-    /** Schema. */
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT32, false)},
             new Column[]{new Column("value", NativeTypes.INT32, false)}
     );
 
-    /** Table command listener. */
     private PartitionListener commandListener;
 
-    /** RAFT index. */
     private final AtomicLong raftIndex = new AtomicLong();
 
-    /** Primary index. */
     private final TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
             1,
             new TestHashIndexStorage(
@@ -155,28 +151,19 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
 
-    /** Partition storage. */
     private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-    private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(mvPartitionStorage));
+    private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage));
 
-    /** Transaction meta storage. */
     private final TxStateStorage txStateStorage = spy(new TestTxStateStorage());
 
-    /** Work directory. */
     @WorkDirectory
     private Path workDir;
 
-    /** Factory for command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
 
-    /** Factory for replica messages. */
-    private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
-
-    /** Hybrid clock. */
     private final HybridClock hybridClock = new HybridClockImpl();
 
-    /** Safe time tracker. */
     private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker;
 
     @Captor
@@ -300,7 +287,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectConfiguration GcConfiguration gcConfig) {
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage);
 
         IndexUpdateHandler indexUpdateHandler1 = new IndexUpdateHandler(
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
@@ -524,12 +511,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
         return msgFactory.buildIndexCommand()
-                .tablePartitionId(
-                        msgFactory.tablePartitionIdMessage()
-                                .tableId(1)
-                                .partitionId(PARTITION_ID)
-                                .build()
-                )
                 .indexId(indexId)
                 .rowIds(rowUuids)
                 .finish(finish)
@@ -636,7 +617,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private void insertAll() {
         Map<UUID, BinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(1, PARTITION_ID);
+        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             rows.put(TestTransactionIds.newTransactionId(), getTestRow(i, i));
@@ -672,7 +653,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      */
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(1, PARTITION_ID);
+        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
         Map<UUID, BinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
@@ -709,7 +690,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      */
     private void deleteAll() {
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(1, PARTITION_ID);
+        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
         Map<UUID, BinaryRowMessage> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {

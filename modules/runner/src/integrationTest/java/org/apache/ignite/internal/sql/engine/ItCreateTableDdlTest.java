@@ -235,4 +235,17 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
                 () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)")
         );
     }
+
+    @Test
+    public void dummyAlterColumnDataType() {
+        sql("CREATE TABLE t0 (ID INT PRIMARY KEY, C2 varbinary, C3 varchar, C4 varbinary(10), C5 varchar(11))");
+        sql("ALTER TABLE t0 ALTER COLUMN C2 SET DATA TYPE varbinary");
+        sql("ALTER TABLE t0 ALTER COLUMN C4 SET DATA TYPE varbinary(10)");
+        sql("ALTER TABLE t0 ALTER COLUMN C5 SET DATA TYPE varchar(11)");
+
+        sql("CREATE TABLE t1 (ID INT PRIMARY KEY, DECIMAL_C2 DECIMAL(2))");
+        sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL");
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Decreasing the precision is not allowed",
+                () -> sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL(1)"));
+    }
 }

@@ -47,7 +47,7 @@ public abstract class DataTypeTestSpec<T extends Comparable<T>> {
         // javaType is only used to restrict the generic parameter.
         this.columnType = columnType;
         this.typeName = typeName;
-        this.storageType = ColumnType.columnTypeToClass(columnType);
+        this.storageType = columnType.javaClass();
     }
 
     /** {@link ColumnType}. */

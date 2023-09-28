@@ -488,7 +488,7 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
 
         lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
 
-        indexBuilder = new IndexBuilder(nodeName, cpus);
+        indexBuilder = new IndexBuilder(nodeName, cpus, replicaSvc);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 

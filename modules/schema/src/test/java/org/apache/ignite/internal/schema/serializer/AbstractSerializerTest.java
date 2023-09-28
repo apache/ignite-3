@@ -21,6 +21,7 @@ import static java.math.RoundingMode.HALF_UP;
 import static org.apache.ignite.internal.schema.DefaultValueGenerator.GEN_RANDOM_UUID;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.forValueGenerator;
+import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -45,7 +46,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.NativeType;
@@ -318,48 +318,6 @@ public class AbstractSerializerTest {
         }
 
         return val;
-    }
-
-    /** Creates a column type from given type spec. */
-    protected static NativeType specToType(NativeTypeSpec spec) {
-        switch (spec) {
-            case BOOLEAN:
-                return NativeTypes.BOOLEAN;
-            case INT8:
-                return NativeTypes.INT8;
-            case INT16:
-                return NativeTypes.INT16;
-            case INT32:
-                return NativeTypes.INT32;
-            case INT64:
-                return NativeTypes.INT64;
-            case FLOAT:
-                return NativeTypes.FLOAT;
-            case DOUBLE:
-                return NativeTypes.DOUBLE;
-            case DECIMAL:
-                return NativeTypes.decimalOf(CatalogUtils.DEFAULT_DECIMAL_PRECISION, CatalogUtils.DEFAULT_SCALE);
-            case DATE:
-                return NativeTypes.DATE;
-            case TIME:
-                return NativeTypes.time();
-            case DATETIME:
-                return NativeTypes.datetime();
-            case TIMESTAMP:
-                return NativeTypes.timestamp();
-            case NUMBER:
-                return NativeTypes.numberOf(CatalogUtils.DEFAULT_DECIMAL_PRECISION);
-            case STRING:
-                return NativeTypes.stringOf(Byte.MAX_VALUE);
-            case UUID:
-                return NativeTypes.UUID;
-            case BYTES:
-                return NativeTypes.blobOf(Byte.MAX_VALUE);
-            case BITMASK:
-                return NativeTypes.bitmaskOf(Byte.MAX_VALUE);
-            default:
-                throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
-        }
     }
 
     /** Creates a bit set from binary string. */

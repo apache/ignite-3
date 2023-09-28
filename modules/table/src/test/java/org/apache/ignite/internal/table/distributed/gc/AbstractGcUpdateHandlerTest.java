@@ -54,6 +54,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 1000;
 
+    protected static final int TABLE_ID = 1;
+
     private static final int PARTITION_ID = 0;
 
     private MvTableStorage tableStorage;
@@ -193,7 +195,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     }
 
     private TestPartitionDataStorage createPartitionDataStorage() {
-        return new TestPartitionDataStorage(getOrCreateMvPartition(tableStorage, PARTITION_ID));
+        return new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, getOrCreateMvPartition(tableStorage, PARTITION_ID));
     }
 
     private static IndexUpdateHandler createIndexUpdateHandler() {
