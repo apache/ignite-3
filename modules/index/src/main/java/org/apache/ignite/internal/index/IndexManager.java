@@ -351,7 +351,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
             startIndexFutures.add(registerIndexBusyAsync(table, index, causalityToken));
         }
 
-        // Forces to wait until recovery is complete before the metastore watches is deployed to avoid races with other components.
+        // Forces to wait until recovery is complete before the metastore watches are deployed to avoid races with other components.
         startVv.update(causalityToken, (unused, throwable) -> allOf(startIndexFutures.toArray(CompletableFuture[]::new)))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {

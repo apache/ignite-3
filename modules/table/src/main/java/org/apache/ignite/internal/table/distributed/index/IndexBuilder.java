@@ -158,8 +158,8 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void stopBuildIndexes(int tableId, int partitionId) {
-        stopBuildIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
+    public void stopBuildingIndexes(int tableId, int partitionId) {
+        stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
     }
 
     /**
@@ -167,11 +167,11 @@ public class IndexBuilder implements ManuallyCloseable {
      *
      * @param indexId Index ID.
      */
-    public void stopBuildIndexes(int indexId) {
-        stopBuildIndexes(taskId -> indexId == taskId.getIndexId());
+    public void stopBuildingIndexes(int indexId) {
+        stopBuildingIndexes(taskId -> indexId == taskId.getIndexId());
     }
 
-    private void stopBuildIndexes(Predicate<IndexBuildTaskId> stopBuildIndexPredicate) {
+    private void stopBuildingIndexes(Predicate<IndexBuildTaskId> stopBuildIndexPredicate) {
         for (Iterator<Entry<IndexBuildTaskId, IndexBuildTask>> it = indexBuildTaskById.entrySet().iterator(); it.hasNext(); ) {
             inBusyLockSafe(busyLock, () -> {
                 Entry<IndexBuildTaskId, IndexBuildTask> entry = it.next();
