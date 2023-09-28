@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -459,6 +460,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 plan.metadata(),
                 txWrapper,
                 new AsyncCursor<>() {
+                    private AtomicBoolean finished = new AtomicBoolean(false);
+
                     @Override
                     public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                         session.touch();
@@ -469,9 +472,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                     @Override
                     public CompletableFuture<Void> closeAsync() {
                         session.touch();
-                        numberOfOpenCursors.decrementAndGet();
 
-                        return dataCursor.closeAsync();
+                        if (finished.compareAndSet(false, true)) {
+                            numberOfOpenCursors.decrementAndGet();
+
+                            return dataCursor.closeAsync();
+                        } else {
+                            return CompletableFuture.completedFuture(null);
+                        }
                     }
                 }
         );

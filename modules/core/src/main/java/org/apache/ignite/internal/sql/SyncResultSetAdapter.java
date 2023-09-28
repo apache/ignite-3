@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
@@ -38,6 +39,9 @@ class SyncResultSetAdapter<T> implements ResultSet<T> {
 
     /** Iterator. */
     private final IteratorImpl<T> it;
+
+    /** Flag indicate that result set has been closed or not. */
+    private AtomicBoolean finished = new AtomicBoolean(false);
 
     /**
      * Constructor.
@@ -78,17 +82,19 @@ class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        try {
-            ars.closeAsync().toCompletableFuture().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+        if (finished.compareAndSet(false, true)) {
+            try {
+                ars.closeAsync().toCompletableFuture().join();
+            } catch (CompletionException e) {
+                throw ExceptionUtils.wrap(e);
+            }
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasNext() {
-        if (it == null) {
+        if (it == null || finished.get()) {
             return false;
         }
 
