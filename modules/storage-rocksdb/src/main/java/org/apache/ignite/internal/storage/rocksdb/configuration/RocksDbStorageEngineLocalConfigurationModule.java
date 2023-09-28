@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 
 /**
@@ -47,7 +48,7 @@ public class RocksDbStorageEngineLocalConfigurationModule implements Configurati
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of();
+        return List.of(RocksDbDataStorageConfigurationSchema.class);
     }
 
     /** {@inheritDoc} */

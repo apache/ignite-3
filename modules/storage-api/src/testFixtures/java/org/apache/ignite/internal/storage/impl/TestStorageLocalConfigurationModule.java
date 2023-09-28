@@ -28,11 +28,11 @@ import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurati
  * Implementation for {@link TestStorageEngine}.
  */
 @AutoService(ConfigurationModule.class)
-public class TestStorageDistributedConfigurationModule implements ConfigurationModule {
+public class TestStorageLocalConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
+        return ConfigurationType.LOCAL;
     }
 
     /** {@inheritDoc} */
