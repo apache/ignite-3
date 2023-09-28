@@ -784,7 +784,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             VolatilePageMemoryStorageEngineConfiguration.KEY),
                     List.of(),
                     List.of(UnsafeMemoryAllocatorConfigurationSchema.class)
-                    );
+            );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
             nodeCfgMgr = new ConfigurationManager(
