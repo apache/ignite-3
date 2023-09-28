@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failurehandler;
+package org.apache.ignite.internal.failure;
 
 import org.apache.ignite.internal.manager.IgniteComponent;
 
@@ -24,7 +24,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
  */
 public class FailureProcessor implements IgniteComponent {
     /** Handler. */
-    private final FailureHandler hnd;
+    private final FailureHandler handler;
 
     /** Node name. */
     private final String nodeName;
@@ -33,11 +33,11 @@ public class FailureProcessor implements IgniteComponent {
      * Creates a new instance of a failure processor.
      *
      * @param nodeName Node name.
-     * @param hnd Handler.
+     * @param handler Handler.
      */
-    public FailureProcessor(String nodeName, FailureHandler hnd) {
+    public FailureProcessor(String nodeName, FailureHandler handler) {
         this.nodeName = nodeName;
-        this.hnd = hnd;
+        this.handler = handler;
     }
 
     /** {@inheritDoc} */
@@ -59,17 +59,17 @@ public class FailureProcessor implements IgniteComponent {
      * @return {@code True} If this very call led to Ignite node invalidation.
      */
     public boolean process(FailureContext failureCtx) {
-        return process(failureCtx, hnd);
+        return process(failureCtx, handler);
     }
 
     /**
      * Processes failure accordingly to given failure handler.
      *
      * @param failureCtx Failure context.
-     * @param hnd Failure handler.
+     * @param handler Failure handler.
      * @return {@code True} If this very call led to Ignite node invalidation.
      */
-    public boolean process(FailureContext failureCtx, FailureHandler hnd) {
-        return hnd.onFailure(nodeName, failureCtx);
+    private boolean process(FailureContext failureCtx, FailureHandler handler) {
+        return handler.onFailure(nodeName, failureCtx);
     }
 }

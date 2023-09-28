@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failurehandler;
-
-import org.apache.ignite.IgnitionManager;
+package org.apache.ignite.internal.failure;
 
 /**
- * Handler will stop node in case of critical error using {@code IgnitionManager.stop(nodeName)} call.
+ * Types of failures.
  */
-public class StopNodeFailureHandler implements FailureHandler {
-    /** {@inheritDoc} */
-    @Override
-    public boolean onFailure(String nodeName, FailureContext failureCtx) {
-        //Dummy implementation. It will be implemented in https://issues.apache.org/jira/browse/IGNITE-20448.
-        IgnitionManager.stop(nodeName);
+public enum FailureType {
+    /** System worker termination. */
+    SYSTEM_WORKER_TERMINATION,
 
-        return true;
-    }
+    /** System worker has not updated its heartbeat for a long time. */
+    SYSTEM_WORKER_BLOCKED,
+
+    /** Critical error - error which leads to the system's inoperability. */
+    CRITICAL_ERROR,
+
+    /** System-critical operation has been timed out. */
+    SYSTEM_CRITICAL_OPERATION_TIMEOUT
 }
