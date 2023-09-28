@@ -131,7 +131,7 @@ namespace Apache.Ignite.Internal.Sql
             RowReaderFactory<T> rowReaderFactory,
             ICollection<object?>? args)
         {
-            IgniteArgumentCheck.NotNull(statement, nameof(statement));
+            ArgumentNullException.ThrowIfNull(statement);
 
             var tx = transaction.ToInternal();
 

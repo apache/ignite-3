@@ -49,6 +49,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
@@ -155,7 +156,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     clusterService,
                     cmgManager,
                     clock,
-                    Set.of(ReplicaMessageTestGroup.class)
+                    Set.of(ReplicaMessageTestGroup.class),
+                    new TestPlacementDriver(nodeName)
             );
 
             replicaManagers.put(nodeName, replicaManager);

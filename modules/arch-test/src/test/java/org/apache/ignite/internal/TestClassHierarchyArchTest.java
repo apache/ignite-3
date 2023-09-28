@@ -58,5 +58,6 @@ public class TestClassHierarchyArchTest {
             .and(hasMockitoDependency)
             .should()
             .beAssignableTo(BaseIgniteAbstractTest.class)
-            .as("Test classes which use Mockito must extends BaseIgniteAbstractTest");
+            .as("Test classes which use Mockito must extends BaseIgniteAbstractTest.\n"
+                    + "This is a workaround for memory leaks in Mockito, see MockitoFramework#clearInlineMocks for details.");
 }

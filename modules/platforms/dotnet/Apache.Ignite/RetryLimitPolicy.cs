@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite
 {
+    using System;
     using Internal.Common;
 
     /// <summary>
@@ -38,7 +39,7 @@ namespace Apache.Ignite
         /// <inheritdoc />
         public virtual bool ShouldRetry(IRetryPolicyContext context)
         {
-            IgniteArgumentCheck.NotNull(context, nameof(context));
+            ArgumentNullException.ThrowIfNull(context);
 
             if (RetryLimit <= 0)
             {
