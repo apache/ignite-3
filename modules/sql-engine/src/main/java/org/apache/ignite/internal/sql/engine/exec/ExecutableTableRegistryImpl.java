@@ -93,20 +93,16 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
                     replicaService, clock, converterFactory.create(null), schemaDescriptor);
 
-            return new ExecutableTableImpl(internalTable, scannableTable, updatableTable);
+            return new ExecutableTableImpl(scannableTable, updatableTable);
         });
     }
 
     private static final class ExecutableTableImpl implements ExecutableTable {
-
-        private final InternalTable internalTable;
-
         private final ScannableTable scannableTable;
 
         private final UpdatableTable updatableTable;
 
-        private ExecutableTableImpl(InternalTable internalTable, ScannableTable scannableTable, UpdatableTable updatableTable) {
-            this.internalTable = internalTable;
+        private ExecutableTableImpl(ScannableTable scannableTable, UpdatableTable updatableTable) {
             this.scannableTable = scannableTable;
             this.updatableTable = updatableTable;
         }
