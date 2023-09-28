@@ -95,34 +95,29 @@ class FragmentMapper {
     public FragmentMapping map(Fragment fragment) throws FragmentMappingException {
         Mapping mapping = fragment.root().accept(new MapperVisitor());
 
-        if (fragment.rootFragment()) {
-            // root fragment must be colocated with local node, because it's where
-            // cursor should be opened
-            Mapping localNodeMapping = newMapping(-1, context.targetFactory().oneOf(List.of(context.localNode())));
-
-            try {
-                mapping = mapping.colocate(localNodeMapping);
-            } catch (ColocationMappingException e) {
-                throw new FragmentMappingException(e.getMessage(), fragment.root(), e);
-            }
-        } else if (fragment.single()) {
+        if (fragment.single()) {
             // if this fragment is supposed to be mapped to a single node, then let's try
             // to map it to a local node. That way simple queries like SELECT x FROM TABLE(system_range(1, 5))
-            // will be executed locally.
+            // will be executed locally. Also, root fragment must be colocated with local node, because
+            // it's where cursor should be opened
             Mapping localNodeMapping = newMapping(-1, context.targetFactory().oneOf(List.of(context.localNode())));
 
             try {
                 mapping = mapping.colocate(localNodeMapping);
-            } catch (ColocationMappingException ignored) {
+            } catch (ColocationMappingException e1) {
+                if (fragment.rootFragment()) {
+                    throw new FragmentMappingException(e1.getMessage(), fragment.root(), e1);
+                }
+
                 // if we were unable to map it to local node, then let's try to map it to any available
                 // node from current topology
                 Mapping anyNodeMapping = newMapping(-1, context.targetFactory().oneOf(context.nodes()));
 
                 try {
                     mapping = mapping.colocate(anyNodeMapping);
-                } catch (ColocationMappingException e) {
+                } catch (ColocationMappingException e2) {
                     // we've got problem
-                    throw new FragmentMappingException(e.getMessage(), fragment.root(), e);
+                    throw new FragmentMappingException(e2.getMessage(), fragment.root(), e2);
                 }
             }
         }

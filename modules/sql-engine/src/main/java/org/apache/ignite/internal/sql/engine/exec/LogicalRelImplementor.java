@@ -375,6 +375,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         ColocationGroup group = ctx.group(rel.sourceId());
+
+        assert group != null;
+
         Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
 
         if (!group.nodeNames().contains(ctx.localNode().name())) {
@@ -417,6 +420,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
 
         ColocationGroup group = ctx.group(rel.sourceId());
+
+        assert group != null;
 
         if (!group.nodeNames().contains(ctx.localNode().name())) {
             return new ScanNode<>(ctx, Collections.emptyList());

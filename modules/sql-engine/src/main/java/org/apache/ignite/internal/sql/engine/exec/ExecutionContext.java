@@ -180,7 +180,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param sourceId SourceId to find colocation group for.
      * @return Colocation group for given sourceId.
      */
-    public ColocationGroup group(long sourceId) {
+    public @Nullable ColocationGroup group(long sourceId) {
         return description.group(sourceId);
     }
 

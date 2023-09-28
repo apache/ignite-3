@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
@@ -43,23 +42,23 @@ public class ColocationGroup implements Serializable {
 
     /** Constructor. */
     public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, List<NodeWithTerm> assignments) {
-        this.sourceIds = sourceIds;
-        this.nodeNames = nodeNames;
-        this.assignments = assignments;
+        this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");
+        this.nodeNames = Objects.requireNonNull(nodeNames, "nodeNames");
+        this.assignments = Objects.requireNonNull(assignments, "assignments");
     }
 
     /**
      * Get lists of colocation group sources.
      */
     public List<Long> sourceIds() {
-        return sourceIds == null ? Collections.emptyList() : sourceIds;
+        return sourceIds;
     }
 
     /**
      * Get lists of nodes the query fragment should be executed on.
      */
     public List<String> nodeNames() {
-        return nodeNames == null ? Collections.emptyList() : nodeNames;
+        return nodeNames;
     }
 
     /**
@@ -67,7 +66,7 @@ public class ColocationGroup implements Serializable {
      * distributed tables, involved in query execution.
      */
     public List<NodeWithTerm> assignments() {
-        return assignments == null ? Collections.emptyList() : assignments;
+        return assignments;
     }
 
     /**

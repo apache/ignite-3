@@ -41,6 +41,7 @@ public class FragmentDescription implements Serializable {
      *
      * @param fragmentId An identifier of the fragment.
      * @param prefetch A flag denoting whether this fragment may be executed in advance.
+     * @param groupsBySourceId A mapping of colocation groups by source id.
      * @param target A target group this fragment should stream data to.
      * @param sourcesByExchangeId A mapping of sources this fragment should receive data from.
      */
@@ -91,7 +92,7 @@ public class FragmentDescription implements Serializable {
     /**
      * Get mapping.
      */
-    public ColocationGroup group(long sourceId) {
+    public @Nullable ColocationGroup group(long sourceId) {
         return groupsBySourceId.get(sourceId);
     }
 }
