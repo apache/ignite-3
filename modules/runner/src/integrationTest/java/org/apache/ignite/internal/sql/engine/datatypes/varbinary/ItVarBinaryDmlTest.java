@@ -35,7 +35,7 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
         runSql("CREATE TABLE t_def (id INT PRIMARY KEY, test_key VARBINARY DEFAULT $0)");
         runSql("INSERT INTO t_def (id) VALUES (0)");
 
-        VarBinary value = values.get(0);
+        byte[] value = values.get(0).get();
         checkQuery("SELECT test_key FROM t_def WHERE id=0")
                 .returns(value)
                 .check();
@@ -44,7 +44,7 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
     /** {@code INSERT} an empty varbinary. */
     @Test
     public void testEmptyVarBinary() {
-        VarBinary value = VarBinary.fromBytes(new byte[0]);
+        byte[] value = new byte[0];
 
         runSql("INSERT INTO t VALUES (1, ?)", value);
 
@@ -61,7 +61,7 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
         runSql("INSERT INTO t VALUES (1, x'AABBCC')");
 
         checkQuery("SELECT test_key FROM t WHERE id = 1")
-                .returns(VarBinary.fromBytes(value))
+                .returns(value)
                 .check();
     }
 

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -126,7 +127,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 clusterService,
                 cmgManager,
                 clock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                new TestPlacementDriver(name)
         );
 
         replicaManager.start();

@@ -15,34 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.event;
+package org.apache.ignite.internal.systemview;
 
-import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
- * Table event parameters. There are properties which associate with a concrete table.
+ * The system view manager is responsible for registering system views in the cluster.
  */
-public class TableEventParameters extends EventParameters {
-    /** Table identifier. */
-    private final int tableId;
-
+public interface SystemViewManager extends IgniteComponent {
     /**
-     * Constructor.
+     * Registers a system view.
      *
-     * @param causalityToken Causality token.
-     * @param tableId   Table identifier.
-     */
-    public TableEventParameters(long causalityToken, int tableId) {
-        super(causalityToken);
-        this.tableId = tableId;
-    }
-
-    /**
-     * Get the table identifier.
+     * <p>Registration of views is completed when the system view manager starts. Therefore,
+     * it is necessary for other components to register the views before the manager is started.
      *
-     * @return Table id.
+     * @param view System view to register.
      */
-    public int tableId() {
-        return tableId;
-    }
+    void register(SystemView<?> view);
 }

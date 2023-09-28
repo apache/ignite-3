@@ -34,6 +34,7 @@ import org.apache.calcite.rex.RexSimplify;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.immutables.value.Value;
@@ -50,6 +51,10 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
     public static final RelOptRule TABLE_SCAN = Config.TABLE_SCAN.toRule();
 
     public static final RelOptRule TABLE_SCAN_SKIP_CORRELATED = Config.TABLE_SCAN_SKIP_CORRELATED.toRule();
+
+    public static final RelOptRule SYSTEM_VIEW_SCAN = Config.SYSTEM_VIEW_SCAN.toRule();
+
+    public static final RelOptRule SYSTEM_VIEW_SCAN_SKIP_CORRELATED = Config.SYSTEM_VIEW_SCAN_SKIP_CORRELATED.toRule();
 
     /**
      * Constructor.
@@ -140,6 +145,24 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
         }
     }
 
+    private static class FilterSystemViewScanMergeRule extends FilterScanMergeRule<IgniteLogicalSystemViewScan> {
+        private FilterSystemViewScanMergeRule(FilterScanMergeRule.Config cfg) {
+            super(cfg);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected IgniteLogicalSystemViewScan createNode(
+                RelOptCluster cluster,
+                IgniteLogicalSystemViewScan scan,
+                RelTraitSet traits,
+                RexNode cond
+        ) {
+            return IgniteLogicalSystemViewScan.create(cluster, traits, scan.getHints(), scan.getTable(), scan.projects(),
+                    cond, scan.requiredColumns());
+        }
+    }
+
     /**
      * Rule's configuration.
      */
@@ -159,6 +182,14 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
         Config INDEX_SCAN = DEFAULT
                 .withRuleFactory(FilterIndexScanMergeRule::new)
                 .withScanRuleConfig(IgniteLogicalIndexScan.class, "FilterIndexScanMergeRule", false);
+
+        Config SYSTEM_VIEW_SCAN = DEFAULT
+                .withRuleFactory(FilterSystemViewScanMergeRule::new)
+                .withScanRuleConfig(IgniteLogicalSystemViewScan.class, "FilterSystemViewScanMergeRule", false);
+
+        Config SYSTEM_VIEW_SCAN_SKIP_CORRELATED = DEFAULT
+                .withRuleFactory(FilterSystemViewScanMergeRule::new)
+                .withScanRuleConfig(IgniteLogicalSystemViewScan.class, "FilterSystemViewScanMergeSkipCorrelatedRule", true);
 
         /**
          * Create configuration for specified scan.

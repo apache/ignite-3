@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -264,7 +265,7 @@ public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
         UUID uuid = new UUID(0, 0);
         SQLType sqlType = Mockito.mock(SQLType.class);
 
-        SQLException err = checkSetParameterFails((s) -> s.setObject(1, uuid, sqlType, 1));
+        SQLException err = checkSetParameterFails("setObject not implemented", (s) -> s.setObject(1, uuid, sqlType, 1));
         assertInstanceOf(SQLFeatureNotSupportedException.class, err);
     }
 
@@ -297,12 +298,12 @@ public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
     public void testSetNullForNotSupportedTypes(JDBCType jdbcType) {
         int typeCode = jdbcType.getVendorTypeNumber();
 
-        SQLException err = checkSetParameterFails((s) -> s.setNull(1, typeCode));
+        SQLException err = checkSetParameterFails("Type is not supported", (s) -> s.setNull(1, typeCode));
         assertInstanceOf(SQLFeatureNotSupportedException.class, err);
         assertThat(err.getMessage(), containsString("Type is not supported"));
 
         // setNull with typename
-        SQLException err2 = checkSetParameterFails((s) -> s.setNull(1, typeCode, jdbcType.getName()));
+        SQLException err2 = checkSetParameterFails("Type is not supported", (s) -> s.setNull(1, typeCode, jdbcType.getName()));
         assertInstanceOf(SQLFeatureNotSupportedException.class, err2);
         assertThat(err2.getMessage(), containsString("Type is not supported"));
     }
@@ -335,12 +336,14 @@ public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
     }
 
     /** Expects that the given action that uses {@code PreparedStatement} throws an {@link SQLException}. */
-    private SQLException checkSetParameterFails(StatementConsumer action) {
-        return Assertions.assertThrows(SQLException.class, () -> {
-            try (PreparedStatement pstmt = conn.prepareStatement("SELECT ?")) {
-                action.consume(pstmt);
-            }
-        });
+    private SQLException checkSetParameterFails(String expectedErrorMessage, StatementConsumer action) {
+        return assertThrowsSqlException(
+                expectedErrorMessage,
+                () -> {
+                    try (PreparedStatement pstmt = conn.prepareStatement("SELECT ?")) {
+                        action.consume(pstmt);
+                    }
+                });
     }
 
     /**

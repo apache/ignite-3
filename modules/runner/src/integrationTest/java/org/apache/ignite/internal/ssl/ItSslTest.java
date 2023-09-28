@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResour
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -154,7 +155,7 @@ public class ItSslTest extends IgniteIntegrationTest {
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
                             + "&trustStorePassword=" + password;
-            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+            assertThrowsSqlException(SQLException.class, () -> DriverManager.getConnection(url));
         }
     }
 
@@ -221,7 +222,7 @@ public class ItSslTest extends IgniteIntegrationTest {
         @Test
         void jdbcCannotConnectWithoutSsl() {
             var url = "jdbc:ignite:thin://127.0.0.1:10800";
-            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+            assertThrowsSqlException(SQLException.class, () -> DriverManager.getConnection(url));
         }
 
         @Test
@@ -296,7 +297,7 @@ public class ItSslTest extends IgniteIntegrationTest {
         @Test
         void jdbcCannotConnectWithoutSsl() {
             var url = "jdbc:ignite:thin://127.0.0.1:10800";
-            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+            assertThrowsSqlException(SQLException.class, () -> DriverManager.getConnection(url));
         }
 
         @Test
@@ -348,7 +349,7 @@ public class ItSslTest extends IgniteIntegrationTest {
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
                             + "&trustStorePassword=" + password;
-            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+            assertThrowsSqlException(SQLException.class, () -> DriverManager.getConnection(url));
         }
 
         @Test
@@ -437,7 +438,7 @@ public class ItSslTest extends IgniteIntegrationTest {
         @Test
         void jdbcCannotConnectWithoutSsl() {
             var url = "jdbc:ignite:thin://127.0.0.1:10800";
-            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+            assertThrowsSqlException(SQLException.class, () -> DriverManager.getConnection(url));
         }
 
         @Test

@@ -15,17 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index.event;
-
-import org.apache.ignite.internal.event.Event;
+package org.apache.ignite.internal.sql.engine.schema;
 
 /**
- * Index management events.
+ * System view representation as object in SQL schema.
  */
-public enum IndexEvent implements Event {
-    /** This event is fired when an index was created. */
-    CREATE,
+public interface IgniteSystemView extends IgniteDataSource {
 
-    /** This event is fired when an index was dropped. */
-    DROP
 }

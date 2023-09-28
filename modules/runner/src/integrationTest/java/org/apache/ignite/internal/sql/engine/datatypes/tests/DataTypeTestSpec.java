@@ -47,7 +47,7 @@ public abstract class DataTypeTestSpec<T extends Comparable<T>> {
         // javaType is only used to restrict the generic parameter.
         this.columnType = columnType;
         this.typeName = typeName;
-        this.storageType = ColumnType.columnTypeToClass(columnType);
+        this.storageType = columnType.javaClass();
     }
 
     /** {@link ColumnType}. */
@@ -101,8 +101,17 @@ public abstract class DataTypeTestSpec<T extends Comparable<T>> {
     /**
      * Wraps original {@link NativeType} into a {@link NativeTypeWrapper comparable wrapper}.
      * If storage type of this data type is {@link Comparable} then this method must return {@code null}.
-     * */
+     */
     public abstract T wrapIfNecessary(Object storageValue);
+
+    /**
+     * Unwraps {@link NativeTypeWrapper comparable wrapper} into a {@link NativeType}.
+     *
+     * <p>If passed values are not wrapped, then this method should return original instance.
+     */
+    public Object unwrapIfNecessary(T value) {
+        return value;
+    }
 
     /** Creates {@link TestDataSamples test samples} for the given type. */
     public abstract TestDataSamples<T> createSamples(IgniteTypeFactory typeFactory);

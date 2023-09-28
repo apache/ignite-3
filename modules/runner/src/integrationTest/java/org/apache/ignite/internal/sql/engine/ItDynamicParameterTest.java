@@ -32,10 +32,8 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -92,8 +90,10 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT id FROM person WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?").withParams("I%", 1, 1).returns(2).check();
         assertQuery("SELECT id from person WHERE salary<? and id<?").withParams(15, 3).returns(0).check();
 
-        IgniteTestUtils.assertThrowsWithCause(() -> sql("SELECT LAST_DAY(?)", Date.valueOf("2022-01-01")),
-                SqlException.class, "Unsupported dynamic parameter defined");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Unsupported dynamic parameter defined",
+                () -> sql("SELECT LAST_DAY(?)", Date.valueOf("2022-01-01")));
 
         LocalDate date1 = LocalDate.parse("2022-01-01");
         LocalDate date2 = LocalDate.parse("2022-01-31");

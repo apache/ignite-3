@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.StringUtils;
 
@@ -123,6 +124,11 @@ public abstract class SystemView<T> {
     public Supplier<AsyncCursor<T>> dataProvider() {
         return dataProvider;
     }
+
+    /**
+     * Returns the {@link SystemViewType type} of the system view.
+     */
+    public abstract SystemViewType type();
 
     /**
      * System view builder.

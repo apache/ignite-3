@@ -201,6 +201,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             if (!txManagers.containsKey(i)) {
                 TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
                         () -> "local");
+
+                txManager.start();
+
                 txManagers.put(i, txManager);
                 closeables.add(txManager::stop);
             }
@@ -208,6 +211,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1),
                 () -> "local");
+
+        txManager.start();
+
         closeables.add(txManager::stop);
 
         table = new InternalTableImpl(

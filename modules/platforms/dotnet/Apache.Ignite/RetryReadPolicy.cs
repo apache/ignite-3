@@ -18,7 +18,6 @@
 namespace Apache.Ignite
 {
     using System;
-    using Internal.Common;
 
     /// <summary>
     /// Retry policy that returns true for all read-only operations that do not modify data.
@@ -28,7 +27,7 @@ namespace Apache.Ignite
         /// <inheritdoc />
         public override bool ShouldRetry(IRetryPolicyContext context)
         {
-            IgniteArgumentCheck.NotNull(context, nameof(context));
+            ArgumentNullException.ThrowIfNull(context);
 
             if (!base.ShouldRetry(context))
             {
