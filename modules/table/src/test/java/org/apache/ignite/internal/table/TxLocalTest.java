@@ -50,9 +50,11 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.mockito.invocation.InvocationOnMock;
 
 /**
  * Local table tests.
@@ -81,9 +83,15 @@ public class TxLocalTest extends TxAbstractTest {
 
         Map<ReplicationGroupId, DummyInternalTableImpl> tables = new HashMap<>();
         doAnswer(invocationOnMock -> {
+            MethodAnswer answer = invokeOnMessagingMock(invocationOnMock);
+
+            if (answer.hasAnswer) {
+                return answer.answer;
+            }
+
             ReplicaRequest request = invocationOnMock.getArgument(1);
             ReplicaListener replicaListener = tables.get(request.groupId()).getReplicaListener();
-
+            System.err.println("call from main "+request);
             if (request instanceof TimestampAware) {
                 TimestampAware aware = (TimestampAware) request;
                 HybridTimestamp updated = DummyInternalTableImpl.CLOCK.update(aware.timestamp());
@@ -151,6 +159,10 @@ public class TxLocalTest extends TxAbstractTest {
         tables.put(table2.groupId(), table2);
     }
 
+    protected MethodAnswer invokeOnMessagingMock(InvocationOnMock invocationOnMock) {
+        return MethodAnswer.NO_ANSWER;
+    }
+
     @AfterEach
     public void tearDown() throws Exception {
         if (txManager != null) {
@@ -187,5 +199,20 @@ public class TxLocalTest extends TxAbstractTest {
     @Override
     protected Collection<TxManager> txManagers() {
         return List.of(txManager);
+    }
+
+    protected static class MethodAnswer {
+        static final MethodAnswer NO_ANSWER = new MethodAnswer(null, false);
+        final Object answer;
+        final boolean hasAnswer;
+
+        public MethodAnswer(@Nullable Object answer, boolean hasAnswer) {
+            this.answer = answer;
+            this.hasAnswer = hasAnswer;
+        }
+
+        public MethodAnswer(@Nullable Object answer) {
+            this(answer, true);
+        }
     }
 }

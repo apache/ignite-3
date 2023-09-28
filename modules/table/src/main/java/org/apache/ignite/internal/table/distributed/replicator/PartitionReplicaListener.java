@@ -1210,7 +1210,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         return txManager.cleanup(primaryConsistentId, partitionId, txId, commit, commitTimestamp)
                 .handle((res, ex) -> {
                     if (ex != null) {
+                        LOG.error("Failed to perform cleanup on Tx {}", txId, ex);
+
                         if (attempts > 0) {
+                            LOG.debug("Retrying cleanup for Tx {}, attempts left {}", txId, attempts - 1);
+
                             return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
                         }
 
@@ -1239,6 +1243,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return primaryReplica.getLeaseholder();
+                }).whenComplete((s, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to retrieve primary replica for partition {}", partitionId, e);
+                    }
                 });
     }
 
