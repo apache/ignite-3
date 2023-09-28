@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cluster.management;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
@@ -28,7 +27,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -42,8 +40,6 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
-import org.apache.ignite.internal.cluster.management.configuration.NodeAttributeView;
-import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
@@ -137,8 +133,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
 
-    /** Node's attributes configuration. */
-    private final NodeAttributesConfiguration nodeAttributes;
+    /** Local node's attributes. */
+    private final NodeAttributes nodeAttributes;
 
     private final ConfigurationValidator clusterConfigurationValidator;
 
@@ -150,7 +146,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
-            NodeAttributesConfiguration nodeAttributes,
+            NodeAttributes nodeAttributes,
             ConfigurationValidator clusterConfigurationValidator) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
@@ -556,7 +552,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private CompletableFuture<CmgRaftService> joinCluster(CmgRaftService service, ClusterTag clusterTag) {
-        return service.startJoinCluster(clusterTag, mapNodeAttributes())
+        return service.startJoinCluster(clusterTag, nodeAttributes)
                 .thenApply(v -> service)
                 .whenComplete((v, e) -> {
                     if (e == null) {
@@ -843,7 +839,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         }
 
         try {
-            return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(mapNodeAttributes()));
+            return raftServiceAfterJoin().thenCompose(svc -> svc.completeJoinCluster(nodeAttributes));
         } finally {
             busyLock.leaveBusy();
         }
@@ -880,16 +876,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                     return serviceFuture;
                 });
-    }
-
-    /**
-     * Returns a map of node's attributes produced from the local configuration of a node.
-     *
-     * @return A map of node's attributes.
-     */
-    private Map<String, String> mapNodeAttributes() {
-        return nodeAttributes.nodeAttributes().value().stream()
-                .collect(toMap(NodeAttributeView::name, NodeAttributeView::attribute));
     }
 
     @TestOnly

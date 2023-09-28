@@ -33,134 +33,98 @@ import java.util.UUID;
  */
 public enum ColumnType {
     /** Boolean. */
-    BOOLEAN,
+    BOOLEAN(Boolean.class, false, false, false),
 
     /** 8-bit signed integer. */
-    INT8,
+    INT8(Byte.class, false, false, false),
 
     /** 16-bit signed integer. */
-    INT16,
+    INT16(Short.class, false, false, false),
 
     /** 32-bit signed integer. */
-    INT32,
+    INT32(Integer.class, false, false, false),
 
     /** 64-bit signed integer. */
-    INT64,
+    INT64(Long.class, false, false, false),
 
     /** 32-bit single-precision floating-point number. */
-    FLOAT,
-
-    /** 64-bit double-precision floating-point number. */
-    DOUBLE,
-
-    /** Arbitrary-precision signed decimal number. */
-    DECIMAL,
-
-    /** Timezone-free date. */
-    DATE,
-
-    /** Timezone-free time with precision. */
-    TIME,
-
-    /** Timezone-free datetime. */
-    DATETIME,
-
-    /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
-    TIMESTAMP,
-
-    /** 128-bit UUID. */
-    UUID,
-
-    /** Bit mask. */
-    BITMASK,
-
-    /** String. */
-    STRING,
-
-    /** Binary data. */
-    BYTE_ARRAY,
-
-    /** Date interval. */
-    PERIOD,
-
-    /** Time interval. */
-    DURATION,
-
-    /** Number. */
-    NUMBER,
-
-    /** Null. */
-    NULL;
+    FLOAT(Float.class, false, false, false),
 
     /**
-     * Column type to Java class.
+     * 64-bit double-precision floating-point number.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 31, implementation-defined precision
      */
-    public static Class<?> columnTypeToClass(ColumnType type) {
-        assert type != null;
+    DOUBLE(Double.class, false, false, false),
 
-        switch (type) {
-            case BOOLEAN:
-                return Boolean.class;
+    /** Arbitrary-precision signed decimal number. */
+    DECIMAL(BigDecimal.class, true, true, false),
 
-            case INT8:
-                return Byte.class;
+    /** Timezone-free date. */
+    DATE(LocalDate.class, false, false, false),
 
-            case INT16:
-                return Short.class;
+    /** Timezone-free time with precision. */
+    TIME(LocalTime.class, true, false, false),
 
-            case INT32:
-                return Integer.class;
+    /** Timezone-free datetime. */
+    DATETIME(LocalDateTime.class, true, false, false),
 
-            case INT64:
-                return Long.class;
+    /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
+    TIMESTAMP(Instant.class, true, false, false),
 
-            case FLOAT:
-                return Float.class;
+    /** 128-bit UUID. */
+    UUID(UUID.class, false, false, false),
 
-            case DOUBLE:
-                return Double.class;
+    /** Bit mask. */
+    BITMASK(BitSet.class, false, false, true),
 
-            case NUMBER:
-                return BigInteger.class;
+    /** String. */
+    STRING(String.class, false, false, true),
 
-            case DECIMAL:
-                return BigDecimal.class;
+    /** Binary data. */
+    BYTE_ARRAY(byte[].class, false, false, true),
 
-            case UUID:
-                return UUID.class;
+    /** Date interval. */
+    PERIOD(Period.class, true, false, false),
 
-            case STRING:
-                return String.class;
+    /** Time interval. */
+    DURATION(Duration.class, true, false, false),
 
-            case BYTE_ARRAY:
-                return byte[].class;
+    /** Number. */
+    NUMBER(BigInteger.class, true, false, false),
 
-            case BITMASK:
-                return BitSet.class;
+    /** Null. */
+    NULL(Void.class, false, false, false);
 
-            case DATE:
-                return LocalDate.class;
+    private final Class<?> javaClass;
+    private final boolean precisionAllowed;
+    private final boolean scaleAllowed;
+    private final boolean lengthAllowed;
 
-            case TIME:
-                return LocalTime.class;
+    ColumnType(Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined) {
+        javaClass = clazz;
+        this.precisionAllowed = precisionDefined;
+        this.scaleAllowed = scaleDefined;
+        this.lengthAllowed = lengthDefined;
+    }
 
-            case DATETIME:
-                return LocalDateTime.class;
+    /** Appropriate java match type. */
+    public Class<?> javaClass() {
+        return javaClass;
+    }
 
-            case TIMESTAMP:
-                return Instant.class;
+    /** If {@code true} precision need to be specified, {@code false} otherwise. */
+    public boolean precisionAllowed() {
+        return precisionAllowed;
+    }
 
-            case PERIOD:
-                return Period.class;
+    /** If {@code true} scale need to be specified, {@code false} otherwise. */
+    public boolean scaleAllowed() {
+        return scaleAllowed;
+    }
 
-            case DURATION:
-                return Duration.class;
-
-            case NULL:
-                return Void.class;
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type);
-        }
+    /** If {@code true} length need to be specified, {@code false} otherwise. */
+    public boolean lengthAllowed() {
+        return lengthAllowed;
     }
 }

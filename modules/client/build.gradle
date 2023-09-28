@@ -53,6 +53,7 @@ dependencies {
     testImplementation project(':ignite-metrics')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-sql-engine')))
     testImplementation libs.hamcrest.core
     testImplementation libs.junit5.params
     testImplementation libs.mockito.junit

@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.schema.testutils.definition;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIMESTAMP_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIME_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 
 /**
  * Predefined column types.
@@ -171,11 +174,11 @@ public class ColumnType {
      * of 0 (seconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_TIME_PRECISION
+     * @see CatalogUtils#DEFAULT_TIME_PRECISION
      * @see #time(int)
      */
     public static TemporalColumnType time() {
-        return new TemporalColumnType(ColumnTypeSpec.TIME, TemporalColumnType.DEFAULT_TIME_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.TIME, DEFAULT_TIME_PRECISION);
     }
 
     /**
@@ -199,11 +202,11 @@ public class ColumnType {
      * Returns timezone-free datetime encoded as (date, time) with the default time precision of 6 (microseconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_TIMESTAMP_PRECISION
+     * @see CatalogUtils#DEFAULT_TIMESTAMP_PRECISION
      * @see #datetime(int)
      */
     public static TemporalColumnType datetime() {
-        return new TemporalColumnType(ColumnTypeSpec.DATETIME, TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.DATETIME, DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
@@ -229,11 +232,11 @@ public class ColumnType {
      * (microseconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_TIMESTAMP_PRECISION
+     * @see CatalogUtils#DEFAULT_TIMESTAMP_PRECISION
      * @see #timestamp(int)
      */
     public static TemporalColumnType timestamp() {
-        return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
@@ -453,27 +456,6 @@ public class ColumnType {
      * Column type of variable length.
      */
     public static class TemporalColumnType extends ColumnType {
-        /**
-         * Default TIMESTAMP type precision: microseconds.
-         *
-         * <p>SQL99 part 2 section 6.1 syntax rule 30
-         */
-        public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
-
-        /**
-         * Default TIME type precision: seconds.
-         *
-         * <p>SQL99 part 2 section 6.1 syntax rule 30
-         */
-        public static final int DEFAULT_TIME_PRECISION = 0;
-
-        /**
-         * Max TIME precision.
-         *
-         * <p>SQL99 part 2 section 6.1 syntax rule 32
-         */
-        public static final int MAX_TIME_PRECISION = 9;
-
         /** Fractional seconds precision. */
         private final int precision;
 

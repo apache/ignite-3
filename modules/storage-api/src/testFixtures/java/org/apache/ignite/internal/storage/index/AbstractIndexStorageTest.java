@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
-import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -93,10 +92,10 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 columnParamsBuilder(ColumnType.DOUBLE).nullable(true).build(),
                 columnParamsBuilder(ColumnType.UUID).nullable(true).build(),
                 columnParamsBuilder(ColumnType.DATE).nullable(true).build(),
-                columnParamsBuilder(ColumnType.BITMASK).length(32).nullable(true).build(),
-                columnParamsBuilder(ColumnType.STRING).nullable(true).build(),
-                columnParamsBuilder(ColumnType.BYTE_ARRAY).nullable(true).build(),
-                columnParamsBuilder(ColumnType.NUMBER).precision(Integer.MAX_VALUE).nullable(true).build(),
+                columnParamsBuilder(ColumnType.BITMASK).length(100).nullable(true).build(),
+                columnParamsBuilder(ColumnType.STRING).length(100).nullable(true).build(),
+                columnParamsBuilder(ColumnType.BYTE_ARRAY).length(100).nullable(true).build(),
+                columnParamsBuilder(ColumnType.NUMBER).precision(10).nullable(true).build(),
                 columnParamsBuilder(ColumnType.DECIMAL).precision(19).scale(3).nullable(true).build(),
                 columnParamsBuilder(ColumnType.TIME).precision(0).nullable(true).build(),
                 columnParamsBuilder(ColumnType.DATETIME).precision(6).nullable(true).build(),
@@ -146,7 +145,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      * Configures a test table with columns of all supported types.
      */
     private static void createTestTable(CatalogService catalogService, AtomicInteger catalogId) {
-        ColumnParams pkColumn = ColumnParams.builder().name("pk").type(INT32).nullable(false).build();
+        ColumnParams pkColumn = ColumnParams.builder().name("pk").type(ColumnType.INT32).nullable(false).build();
 
         int tableId = catalogId.getAndIncrement();
         int zoneId = catalogId.getAndIncrement();
