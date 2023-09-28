@@ -89,6 +89,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -425,6 +426,12 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteSystemViewScan rel) {
+        throw new UnsupportedOperationException("System view scan is not implemented");
     }
 
     /** {@inheritDoc} */

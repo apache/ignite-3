@@ -157,6 +157,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+        return CompletableFuture.runAsync(runnable);
+    }
+
+    @Override
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
     }
 

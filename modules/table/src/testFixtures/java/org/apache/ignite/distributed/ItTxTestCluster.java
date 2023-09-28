@@ -44,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -83,6 +84,7 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
@@ -105,6 +107,7 @@ import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -322,7 +325,8 @@ public class ItTxTestCluster {
                     cluster.get(i),
                     cmgManager,
                     clock,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    placementDriver
             );
 
             replicaMgr.start();
@@ -338,7 +342,7 @@ public class ItTxTestCluster {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, new TransactionIdGenerator(i), node::id);
+            TxManagerImpl txMgr = newTxManager(replicaSvc, clock, new TransactionIdGenerator(i), node);
 
             txMgr.start();
 
@@ -363,6 +367,10 @@ public class ItTxTestCluster {
         igniteTransactions = new IgniteTransactionsImpl(clientTxManager, timestampTracker);
 
         assertNotNull(clientTxManager);
+    }
+
+    protected TxManagerImpl newTxManager(ReplicaService replicaSvc, HybridClock clock, TransactionIdGenerator generator, ClusterNode node) {
+        return new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, generator, node::id);
     }
 
     public IgniteTransactions igniteTransactions() {
@@ -448,7 +456,7 @@ public class ItTxTestCluster {
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
-                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
+                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
 
                 IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
@@ -493,34 +501,35 @@ public class ItTxTestCluster {
                                 CatalogTables catalogTables = mock(CatalogTables.class);
                                 lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
 
+                                PartitionReplicaListener listener = newReplicaListener(
+                                        mvPartStorage,
+                                        raftSvc,
+                                        txManagers.get(assignment),
+                                        Runnable::run,
+                                        partId,
+                                        tableId,
+                                        () -> Map.of(pkLocker.id(), pkLocker),
+                                        pkStorage,
+                                        Map::of,
+                                        clocks.get(assignment),
+                                        safeTime,
+                                        txStateStorage,
+                                        transactionStateResolver,
+                                        storageUpdateHandler,
+                                        new DummySchemas(schemaManager),
+                                        consistentIdToNode.apply(assignment),
+                                        mvTableStorage,
+                                        mock(IndexBuilder.class),
+                                        mock(SchemaSyncService.class, invocation -> completedFuture(null)),
+                                        mock(CatalogService.class),
+                                        catalogTables,
+                                        placementDriver
+                                );
+
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
                                         completedFuture(null),
-                                        new PartitionReplicaListener(
-                                                mvPartStorage,
-                                                raftSvc,
-                                                txManagers.get(assignment),
-                                                txManagers.get(assignment).lockManager(),
-                                                Runnable::run,
-                                                partId,
-                                                tableId,
-                                                () -> Map.of(pkLocker.id(), pkLocker),
-                                                pkStorage,
-                                                Map::of,
-                                                clocks.get(assignment),
-                                                safeTime,
-                                                txStateStorage,
-                                                transactionStateResolver,
-                                                storageUpdateHandler,
-                                                new DummySchemas(schemaManager),
-                                                consistentIdToNode.apply(assignment),
-                                                mvTableStorage,
-                                                mock(IndexBuilder.class),
-                                                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                                                mock(CatalogService.class),
-                                                catalogTables,
-                                                placementDriver
-                                        ),
+                                        listener,
                                         raftSvc,
                                         storageIndexTracker
                                 );
@@ -584,6 +593,56 @@ public class ItTxTestCluster {
                 timestampTracker,
                 placementDriver
         ), new DummySchemaManagerImpl(schemaDescriptor), clientTxManager.lockManager());
+    }
+
+    protected PartitionReplicaListener newReplicaListener(
+            MvPartitionStorage mvDataStorage,
+            RaftGroupService raftClient,
+            TxManager txManager,
+            Executor scanRequestExecutor,
+            int partId,
+            int tableId,
+            Supplier<Map<Integer, IndexLocker>> indexesLockers,
+            Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
+            Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
+            HybridClock hybridClock,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
+            TxStateStorage txStateStorage,
+            TransactionStateResolver transactionStateResolver,
+            StorageUpdateHandler storageUpdateHandler,
+            Schemas schemas,
+            ClusterNode localNode,
+            MvTableStorage mvTableStorage,
+            IndexBuilder indexBuilder,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService,
+            CatalogTables catalogTables,
+            PlacementDriver placementDriver) {
+        return new PartitionReplicaListener(
+                mvDataStorage,
+                raftClient,
+                txManager,
+                txManager.lockManager(),
+                Runnable::run,
+                partId,
+                tableId,
+                indexesLockers,
+                pkIndexStorage,
+                secondaryIndexStorages,
+                hybridClock,
+                safeTime,
+                txStateStorage,
+                transactionStateResolver,
+                storageUpdateHandler,
+                schemas,
+                localNode,
+                mvTableStorage,
+                indexBuilder,
+                schemaSyncService,
+                catalogService,
+                catalogTables,
+                placementDriver
+        );
     }
 
     private LogicalTopologyService logicalTopologyService(ClusterService clusterService) {
@@ -671,6 +730,10 @@ public class ItTxTestCluster {
             for (TxManager txMgr : txManagers.values()) {
                 txMgr.stop();
             }
+        }
+
+        if (clientTxManager != null) {
+            clientTxManager.stop();
         }
 
         for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {

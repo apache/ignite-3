@@ -529,12 +529,12 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(2, r.columnCount());
         assertEquals(0, r.columnIndex("COL_A"));
+        assertEquals(0, r.columnIndex("col_a"));
         assertEquals(1, r.columnIndex("COL_B"));
         assertEquals(-1, r.columnIndex("notExistColumn"));
 
         assertEquals(1, r.intValue("COL_A"));
-        // Unmute after https://issues.apache.org/jira/browse/IGNITE-19894
-        //assertEquals(1, r.intValue("COL_a"));
+        assertEquals(1, r.intValue("COL_a"));
         assertEquals(2, r.intValue("COL_B"));
 
         assertThrowsWithCause(

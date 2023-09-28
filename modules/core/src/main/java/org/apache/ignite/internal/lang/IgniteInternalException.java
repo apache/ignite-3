@@ -207,11 +207,11 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      *
      * @param code Full error code.
      * @param messagePattern Error message pattern.
-     * @param cause Non-null throwable cause.
+     * @param cause Throwable cause.
      * @param params Error message params.
      * @see IgniteStringFormatter#format(String, Object...)
      */
-    public IgniteInternalException(int code, String messagePattern, Throwable cause, Object... params) {
+    public IgniteInternalException(int code, String messagePattern, @Nullable Throwable cause, Object... params) {
         this(code, IgniteStringFormatter.format(messagePattern, params), cause);
     }
 

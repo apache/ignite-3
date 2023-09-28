@@ -21,9 +21,14 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.generate;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.MAX_LENGTH_OF_ALIASES;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -255,5 +260,42 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
                         new MetadataMatcher().name("NON_NULL_C").nullable(false)
                 )
                 .check();
+    }
+
+    @Test
+    public void caseSensitivity() {
+        sql("CREATE TABLE sens(\"Col1\" int, col2 int, \"Col3.a\" int, COL4 int, PRIMARY KEY(\"Col1\", col2))");
+
+        assertQuery("select * from sens")
+                .columnMetadata(
+                        new MetadataMatcher().name("Col1"),
+                        new MetadataMatcher().name("COL2"),
+                        new MetadataMatcher().name("Col3.a"),
+                        new MetadataMatcher().name("COL4"))
+                .check();
+
+        sql("INSERT INTO sens VALUES (1, 1, 1, 1)");
+
+        Session ses = igniteSql().createSession();
+        ResultSet<SqlRow> res = ses.execute(null, "select * from sens");
+        SqlRow row = res.next();
+        assertNotNull(row.intValue("\"Col1\""));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("col1"));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("Col1"));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("COL1"));
+
+        assertNotNull(row.intValue("col2"));
+        assertNotNull(row.intValue("COL2"));
+
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("\""));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue(""));
+
+        assertNotNull(row.intValue("\"Col3.a\""));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("col3.a"));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("Col3.a"));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("COL3.a"));
+
+        assertNotNull(row.intValue("col4"));
+        assertNotNull(row.intValue("COL4"));
     }
 }

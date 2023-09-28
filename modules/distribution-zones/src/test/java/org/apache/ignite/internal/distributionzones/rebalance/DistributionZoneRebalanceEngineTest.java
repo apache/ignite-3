@@ -508,7 +508,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 DEFAULT_SCHEMA_NAME,
                 zoneName,
                 tableName,
-                List.of(ColumnParams.builder().name("k1").type(STRING).build()),
+                List.of(ColumnParams.builder().name("k1").type(STRING).length(100).build()),
                 List.of("k1")
         );
     }

@@ -248,6 +248,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        var placementDriver = new TestPlacementDriver(name);
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
@@ -263,7 +265,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc,
                 cmgManager,
                 hybridClock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                placementDriver
         );
 
         var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
@@ -384,7 +387,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaSyncService,
                 catalogManager,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(name)
+                placementDriver
         );
 
         var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
@@ -866,6 +869,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Check data that was added after flush.
         for (int i = 0; i < 100; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
+
+            Objects.requireNonNull(row, "row");
 
             assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
         }

@@ -28,8 +28,7 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * IgniteLogicalTableScan.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Logical relational expression for reading data from a table.
  */
 public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     /** Creates a IgniteTableScan. */

@@ -41,7 +41,7 @@ public class JdbcConverterUtils {
             case TIMESTAMP:
                 return Timestamp.class;
             default:
-                return ColumnType.columnTypeToClass(type);
+                return type.javaClass();
         }
     }
 }
