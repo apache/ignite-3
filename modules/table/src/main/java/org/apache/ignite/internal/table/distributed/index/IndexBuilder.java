@@ -28,6 +28,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -157,25 +158,30 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void stopBuildIndexes(int tableId, int partitionId) {
-        for (Iterator<Entry<IndexBuildTaskId, IndexBuildTask>> it = indexBuildTaskById.entrySet().iterator(); it.hasNext(); ) {
-            if (!busyLock.enterBusy()) {
-                return;
-            }
+    public void stopBuildingIndexes(int tableId, int partitionId) {
+        stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
+    }
 
-            try {
+    /**
+     * Stops building indexes for all table partition if they are in progress.
+     *
+     * @param indexId Index ID.
+     */
+    public void stopBuildingIndexes(int indexId) {
+        stopBuildingIndexes(taskId -> indexId == taskId.getIndexId());
+    }
+
+    private void stopBuildingIndexes(Predicate<IndexBuildTaskId> stopBuildIndexPredicate) {
+        for (Iterator<Entry<IndexBuildTaskId, IndexBuildTask>> it = indexBuildTaskById.entrySet().iterator(); it.hasNext(); ) {
+            inBusyLockSafe(busyLock, () -> {
                 Entry<IndexBuildTaskId, IndexBuildTask> entry = it.next();
 
-                IndexBuildTaskId taskId = entry.getKey();
-
-                if (tableId == taskId.getTableId() && partitionId == taskId.getPartitionId()) {
+                if (stopBuildIndexPredicate.test(entry.getKey())) {
                     it.remove();
 
                     entry.getValue().stop();
                 }
-            } finally {
-                busyLock.leaveBusy();
-            }
+            });
         }
     }
 

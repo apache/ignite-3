@@ -2982,7 +2982,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             catalogService.removeListener(INDEX_DROP, dropIndexListener);
         }
 
-        indexBuilder.stopBuildIndexes(tableId(), partId());
+        indexBuilder.stopBuildingIndexes(tableId(), partId());
     }
 
     /**
