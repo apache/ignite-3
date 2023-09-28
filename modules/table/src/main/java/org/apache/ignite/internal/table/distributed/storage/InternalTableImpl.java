@@ -40,6 +40,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -549,28 +550,163 @@ public class InternalTableImpl implements InternalTable {
         }).thenCompose(x -> x);
     }
 
+    /**
+     * Evaluates the single-row request to the cluster for a read-only single-partition transaction.
+     *
+     * @param row Binary row.
+     * @param op Operation.
+     * @param <R> Result type.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            BinaryRowEx row,
+            Function<ReplicationGroupId, ReplicaRequest> op
+    ) {
+        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+
+        int partId = partitionId(row);
+
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(tablePartitionId, tx.startTimestamp())
+                .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS);
+
+        CompletableFuture<R>  fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
+            try {
+                ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
+
+                if (node == null) {
+                    throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
+                            + primaryReplica.getLeaseholder() + ']');
+                }
+
+                return replicaSvc.invoke(node, op.apply(tablePartitionId));
+            } catch (Throwable e) {
+                throw new TransactionException(
+                        INTERNAL_ERR,
+                        IgniteStringFormatter.format(
+                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                                tableName,
+                                partId
+                        ),
+                        e
+                );
+            }
+        });
+
+        return postEvaluate(fut, tx);
+    }
+
+    /**
+     * Evaluates the multi-row request to the cluster for a read-only single-partition transaction.
+     *
+     * @param rows Rows.
+     * @param op Replica requests factory.
+     * @param <R> Result type.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            Collection<BinaryRowEx> rows,
+            Function<ReplicationGroupId, ReplicaRequest> op
+    ) {
+        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+
+        int partId = partitionId(rows.iterator().next());
+
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(tablePartitionId, tx.startTimestamp())
+                .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS);
+
+        CompletableFuture<R>  fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
+            try {
+                ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
+
+                if (node == null) {
+                    throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
+                            + primaryReplica.getLeaseholder() + ']');
+                }
+
+                return replicaSvc.invoke(node, op.apply(tablePartitionId));
+            } catch (Throwable e) {
+                throw new TransactionException(
+                        INTERNAL_ERR,
+                        IgniteStringFormatter.format(
+                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                                tableName,
+                                partId
+                        ),
+                        e
+                );
+            }
+        });
+
+        return postEvaluate(fut, tx);
+    }
+
+    /**
+     * Performs post evaluate operation.
+     *
+     * @param fut The future.
+     * @param tx The transaction.
+     * @param <R> Operation return type.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> postEvaluate(CompletableFuture<R> fut, InternalTransaction tx) {
+        return fut.handle((BiFunction<R, Throwable, CompletableFuture<R>>) (r, e) -> {
+            if (e != null) {
+                RuntimeException e0 = wrapReplicationException(e);
+
+                return tx.rollbackAsync().handle((ignored, err) -> {
+
+                    if (err != null) {
+                        e0.addSuppressed(err);
+                    }
+                    throw e0;
+                }); // Preserve failed state.
+            }
+
+            return tx.commitAsync()
+                    .exceptionally(ex -> {
+                        throw wrapReplicationException(ex);
+                    })
+                    .thenApply(ignored -> r);
+        }).thenCompose(x -> x);
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        if (tx != null && tx.isReadOnly()) {
-            return evaluateReadOnlyRecipientNode(partitionId(keyRow))
-                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
-        } else {
-            return enlistInTx(
+        if (tx == null) {
+            return evaluateReadOnlyPrimaryNode(
                     keyRow,
-                    tx,
-                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
+                    groupId -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
                             .groupId(groupId)
                             .primaryKey(keyRow.tupleSlice())
-                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                            .transactionId(txo.id())
-                            .term(term)
-                            .requestType(RequestType.RW_GET)
-                            .timestampLong(clock.nowLong())
-                            .full(tx == null)
+                            .requestType(RequestType.RO_GET)
                             .build()
             );
         }
+
+        if (tx.isReadOnly()) {
+            return evaluateReadOnlyRecipientNode(partitionId(keyRow))
+                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
+        }
+
+        return enlistInTx(
+                keyRow,
+                tx,
+                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
+                        .groupId(groupId)
+                        .primaryKey(keyRow.tupleSlice())
+                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .transactionId(txo.id())
+                        .term(term)
+                        .requestType(RequestType.RW_GET)
+                        .timestampLong(clock.nowLong())
+                        .full(tx == null)
+                        .build()
+        );
     }
 
     @Override
@@ -591,9 +727,42 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+    /**
+     * Checks that the batch of rows belongs to one partition.
+     *
+     * @param rows Batch of rows.
+     * @return If all rows belong to one partition, the method returns true; otherwise, it returns false.
+     */
+    private boolean isOnePartitionBatch(Collection<BinaryRowEx> rows) {
+        Iterator<BinaryRowEx> rowIterator = rows.iterator();
+
+        int partId = partitionId(rowIterator.next());
+
+        while (rowIterator.hasNext()) {
+            BinaryRowEx row = rowIterator.next();
+
+            if (partId != partitionId(row)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
+        if (tx == null && isOnePartitionBatch(keyRows)) {
+            return evaluateReadOnlyPrimaryNode(
+                    keyRows,
+                    groupId -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
+                            .groupId(groupId)
+                            .primaryKeys(serializePrimaryKeys(keyRows))
+                            .requestType(RequestType.RO_GET_ALL)
+                            .build()
+            );
+        }
+
         if (tx != null && tx.isReadOnly()) {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
@@ -603,23 +772,23 @@ public class InternalTableImpl implements InternalTable {
                 return evaluateReadOnlyRecipientNode(partitionId(firstRow))
                         .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
             }
-        } else {
-            return enlistInTx(
-                    keyRows,
-                    tx,
-                    (keyRows0, txo, groupId, term, full) -> tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
-                            .groupId(groupId)
-                            .primaryKeys(serializePrimaryKeys(keyRows0))
-                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                            .transactionId(txo.id())
-                            .term(term)
-                            .requestType(RequestType.RW_GET_ALL)
-                            .timestampLong(clock.nowLong())
-                            .full(full)
-                            .build(),
-                    InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder
-            );
         }
+
+        return enlistInTx(
+                keyRows,
+                tx,
+                (keyRows0, txo, groupId, term, full) -> tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
+                        .groupId(groupId)
+                        .primaryKeys(serializePrimaryKeys(keyRows0))
+                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                        .transactionId(txo.id())
+                        .term(term)
+                        .requestType(RequestType.RW_GET_ALL)
+                        .timestampLong(clock.nowLong())
+                        .full(full)
+                        .build(),
+                InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder
+        );
     }
 
     /** {@inheritDoc} */
