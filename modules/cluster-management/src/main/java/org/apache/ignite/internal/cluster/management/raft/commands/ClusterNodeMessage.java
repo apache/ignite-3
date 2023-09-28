@@ -45,5 +45,8 @@ public interface ClusterNodeMessage extends NetworkMessage, Serializable {
     }
 
     @Nullable
-    Map<String, String> nodeAttributes();
+    Map<String, String> attributes();
+
+    @Nullable
+    Map<String, String> systemAttributes();
 }

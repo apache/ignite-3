@@ -19,6 +19,7 @@ package org.apache.ignite.internal.systemview;
 
 import java.util.List;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.StringUtils;
@@ -72,6 +73,12 @@ public class NodeSystemView<T> extends SystemView<T> {
      */
     public String nodeNameColumnAlias() {
         return nodeNameColumnAlias;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SystemViewType type() {
+        return SystemViewType.LOCAL;
     }
 
     /** {@inheritDoc} */

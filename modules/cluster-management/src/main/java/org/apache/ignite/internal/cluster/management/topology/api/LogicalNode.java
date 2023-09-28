@@ -36,7 +36,10 @@ public class LogicalNode extends ClusterNodeImpl {
      *         documentation</a>
      */
     @IgniteToStringInclude
-    private final Map<String, String> nodeAttributes;
+    private final Map<String, String> attributes;
+
+    @IgniteToStringInclude
+    private final Map<String, String> systemAttributes;
 
     /**
      * Constructor.
@@ -52,19 +55,32 @@ public class LogicalNode extends ClusterNodeImpl {
     ) {
         super(id, name, address);
 
-        this.nodeAttributes = Collections.emptyMap();
+        this.attributes = Collections.emptyMap();
+        this.systemAttributes = Collections.emptyMap();
     }
 
     /**
      * Constructor.
      *
-     * @param clusterNode    Represents a node in a cluster.
-     * @param nodeAttributes Node attributes.
+     * @param clusterNode Represents a node in a cluster.
+     * @param attributes  Node attributes defined in configuration.
      */
-    public LogicalNode(ClusterNode clusterNode, Map<String, String> nodeAttributes) {
+    public LogicalNode(ClusterNode clusterNode, Map<String, String> attributes) {
+        this(clusterNode, attributes, Collections.emptyMap());
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param clusterNode Represents a node in a cluster.
+     * @param attributes Node attributes defined in configuration.
+     * @param systemAttributes Internal node attributes provided by system components at startup.
+     */
+    public LogicalNode(ClusterNode clusterNode, Map<String, String> attributes, Map<String, String> systemAttributes) {
         super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());
 
-        this.nodeAttributes = nodeAttributes;
+        this.attributes = attributes == null ? Collections.emptyMap() : attributes;
+        this.systemAttributes = systemAttributes == null ? Collections.emptyMap() : systemAttributes;
     }
 
     /**
@@ -73,18 +89,25 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param clusterNode    Represents a node in a cluster.
      */
     public LogicalNode(ClusterNode clusterNode) {
-        super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());
-
-        this.nodeAttributes = Collections.emptyMap();
+        this(clusterNode, Collections.emptyMap(), Collections.emptyMap());
     }
 
     /**
-     * Returns node's attributes.
+     * Returns node's attributes defined in node's configuration.
      *
-     * @return Node's attributes.
+     * @return Node's attributes defined in node's configuration.
      */
-    public Map<String, String> nodeAttributes() {
-        return nodeAttributes;
+    public Map<String, String> attributes() {
+        return attributes;
+    }
+
+    /**
+     * Returns Internal node attributes provided by system components at startup.
+     *
+     * @return Internal node attributes provided by system components at startup.
+     */
+    public Map<String, String> systemAttributes() {
+        return systemAttributes;
     }
 
     /** {@inheritDoc} */
