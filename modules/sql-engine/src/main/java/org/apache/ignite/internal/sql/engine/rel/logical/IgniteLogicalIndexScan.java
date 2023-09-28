@@ -36,8 +36,7 @@ import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * IgniteLogicalIndexScan.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Logical relational expression for reading data from an index.
  */
 public class IgniteLogicalIndexScan extends AbstractIndexScan {
     /** Creates a IgniteLogicalIndexScan. */

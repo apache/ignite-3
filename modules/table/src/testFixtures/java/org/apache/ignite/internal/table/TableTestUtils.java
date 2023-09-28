@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -76,6 +77,35 @@ public class TableTestUtils {
                 catalogManager.execute(DropTableCommand.builder().schemaName(schemaName).tableName(tableName).build()),
                 willCompleteSuccessfully()
         );
+    }
+
+    /**
+     * Creates hash index in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param tableName Table name.
+     * @param indexName Index name.
+     * @param columns Index columns.
+     * @param unique Unique constraint flag.
+     */
+    public static void createHashIndex(
+            CatalogManager catalogManager,
+            String schemaName,
+            String tableName,
+            String indexName,
+            List<String> columns,
+            boolean unique
+    ) {
+        CatalogCommand command = CreateHashIndexCommand.builder()
+                .schemaName(schemaName)
+                .tableName(tableName)
+                .indexName(indexName)
+                .columns(columns)
+                .unique(unique)
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
     }
 
     /**

@@ -442,6 +442,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         doAnswer(invocation -> txStateMeta).when(txManager).stateMeta(any());
 
+        doAnswer(invocation -> completedFuture(null)).when(txManager).executeCleanupAsync(any());
+
         doAnswer(invocation -> {
             var resp = new TxMessagesFactory().txStateResponse().txStateMeta(txStateMeta).build();
             return completedFuture(resp);

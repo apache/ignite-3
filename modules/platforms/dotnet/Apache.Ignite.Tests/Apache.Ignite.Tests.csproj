@@ -49,4 +49,11 @@
       </None>
     </ItemGroup>
 
+    <ItemGroup>
+        <AssemblyAttribute Include="NUnit.Framework.TimeoutAttribute">
+            <_Parameter1>15000</_Parameter1>
+            <_Parameter1_TypeName>System.Int32</_Parameter1_TypeName>
+        </AssemblyAttribute>
+    </ItemGroup>
+
 </Project>

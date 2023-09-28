@@ -85,6 +85,14 @@ public interface TxManager extends IgniteComponent {
     public LockManager lockManager();
 
     /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param runnable Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
+
+    /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
      *
      * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be

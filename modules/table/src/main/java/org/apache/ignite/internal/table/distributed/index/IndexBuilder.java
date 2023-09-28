@@ -158,18 +158,31 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void stopBuildIndexes(int tableId, int partitionId) {
-        stopBuildIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
+    public void stopBuildingIndexes(int tableId, int partitionId) {
+        stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
     }
 
     /**
-     * Stops building indexes for all partitions of all tables if they are in progress.
+     * Stops building indexes for all table partition if they are in progress.
      *
      * @param indexId Index ID.
      */
-    // TODO: IGNITE-20330 написать тест
-    public void stopBuildIndexes(int indexId) {
-        stopBuildIndexes(taskId -> indexId == taskId.getIndexId());
+    public void stopBuildingIndexes(int indexId) {
+        stopBuildingIndexes(taskId -> indexId == taskId.getIndexId());
+    }
+
+    private void stopBuildingIndexes(Predicate<IndexBuildTaskId> stopBuildIndexPredicate) {
+        for (Iterator<Entry<IndexBuildTaskId, IndexBuildTask>> it = indexBuildTaskById.entrySet().iterator(); it.hasNext(); ) {
+            inBusyLockSafe(busyLock, () -> {
+                Entry<IndexBuildTaskId, IndexBuildTask> entry = it.next();
+
+                if (stopBuildIndexPredicate.test(entry.getKey())) {
+                    it.remove();
+
+                    entry.getValue().stop();
+                }
+            });
+        }
     }
 
     @Override
@@ -181,21 +194,5 @@ public class IndexBuilder implements ManuallyCloseable {
         busyLock.block();
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-    }
-
-    private void stopBuildIndexes(Predicate<IndexBuildTaskId> predicate) {
-        for (Iterator<Entry<IndexBuildTaskId, IndexBuildTask>> it = indexBuildTaskById.entrySet().iterator(); it.hasNext(); ) {
-            inBusyLockSafe(busyLock, () -> {
-                Entry<IndexBuildTaskId, IndexBuildTask> entry = it.next();
-
-                IndexBuildTaskId taskId = entry.getKey();
-
-                if (predicate.test(taskId)) {
-                    it.remove();
-
-                    entry.getValue().stop();
-                }
-            });
-        }
     }
 }

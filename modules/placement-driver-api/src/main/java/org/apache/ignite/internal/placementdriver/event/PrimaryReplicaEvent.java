@@ -39,5 +39,10 @@ public enum PrimaryReplicaEvent implements Event {
      *     {@link ReplicaMeta#getExpirationTime()}.</li>
      * </ul>
      */
-    PRIMARY_REPLICA_ELECTED;
+    PRIMARY_REPLICA_ELECTED,
+
+    /**
+     * This event is fired when the primary replica lost its leasehold privileges.
+     */
+    PRIMARY_REPLICA_EXPIRED;
 }
