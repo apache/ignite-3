@@ -26,7 +26,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -34,7 +33,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 /**
  * Implementation of {@link ExecutableTableRegistry}.
  */
-public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, SchemaUpdateListener {
+public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final TableManager tableManager;
 
@@ -64,12 +63,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
     @Override
     public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
         return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableId, tableVersion, tableDescriptor));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onSchemaUpdated() {
-        tableCache.clear();
     }
 
     private CompletableFuture<ExecutableTable> loadTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
