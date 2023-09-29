@@ -25,11 +25,15 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -108,7 +112,6 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
-import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -557,17 +560,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
-        //noinspection ThrowableNotThrown
-        SqlTestUtils.assertThrowsSqlException(NODE_LEFT_ERR,
-                "cause=Node left the cluster",
-                () -> {
-                    try {
-                        // Wait till the query fails due to nodes' unavailability.
-                        cursor.closeAsync().get(10, TimeUnit.SECONDS);
-                    } catch (ExecutionException e) {
-                        throw e.getCause();
-                    }
-                });
+        // Wait till the query fails due to nodes' unavailability.
+        ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.closeAsync().get(10, TimeUnit.SECONDS));
+        assertThat(eex.getCause(), instanceOf(IgniteInternalException.class));
+        assertThat(eex.getCause().getMessage(), containsString("cause=Node left the cluster"));
+        assertThat(((IgniteInternalException) eex.getCause()).code(), equalTo(NODE_LEFT_ERR));
 
         // Let the root fragment be executed.
         queryFailedLatch.countDown();

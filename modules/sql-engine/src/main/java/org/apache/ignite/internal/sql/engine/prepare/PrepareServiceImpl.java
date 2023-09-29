@@ -192,7 +192,7 @@ public class PrepareServiceImpl implements PrepareService {
                                 "Planning of a query aborted due to planner timeout threshold is reached");
                     }
 
-                    throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicException(th));
+                    throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
     }
