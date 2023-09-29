@@ -111,12 +111,14 @@ public class IndexBuildController implements ManuallyCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
+
+        indexBuilder.close();
     }
 
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {

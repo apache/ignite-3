@@ -85,6 +85,7 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.index.IndexBuildController;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -132,6 +133,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -146,6 +148,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -307,6 +310,9 @@ public class IgniteImpl implements Ignite {
 
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
+
+    /** Index build controller. */
+    private final IndexBuildController indexBuildController;
 
     /**
      * The Constructor.
@@ -577,6 +583,17 @@ public class IgniteImpl implements Ignite {
         );
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
+
+        IndexBuilder indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors(), replicaSvc);
+
+        indexBuildController = new IndexBuildController(
+                indexBuilder,
+                catalogManager,
+                clusterSvc,
+                indexManager,
+                placementDriverMgr.placementDriver(),
+                clock
+        );
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -851,17 +868,18 @@ public class IgniteImpl implements Ignite {
 
         LOG.debug(errMsg, e);
 
-        lifecycleManager.stopNode();
+        try {
+            stop();
+        } catch (Exception exception) {
+            exception.addSuppressed(exception);
+        }
 
         return new IgniteException(errMsg, e);
     }
 
-    /**
-     * Stops ignite node.
-     */
-    public void stop() {
-        lifecycleManager.stopNode();
-        restAddressReporter.removeReport();
+    /** Stops ignite node. */
+    public void stop() throws Exception {
+        IgniteUtils.closeAll(lifecycleManager::stopNode, restAddressReporter::removeReport, indexBuildController::close);
     }
 
     /** {@inheritDoc} */
@@ -872,11 +890,6 @@ public class IgniteImpl implements Ignite {
 
     public QueryProcessor queryEngine() {
         return qryEngine;
-    }
-
-    @TestOnly
-    public IndexManager indexManager() {
-        return indexManager;
     }
 
     @TestOnly

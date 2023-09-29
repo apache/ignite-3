@@ -139,7 +139,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
@@ -345,8 +344,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
 
     private final LowWatermark lowWatermark;
 
-    private final IndexBuilder indexBuilder;
-
     private final Marshaller raftCommandsMarshaller;
 
     private final HybridTimestampTracker observableTimestampTracker;
@@ -487,8 +484,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
         mvGc = new MvGc(nodeName, gcConfig);
 
         lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
-
-        indexBuilder = new IndexBuilder(nodeName, cpus, replicaSvc);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 
@@ -976,8 +971,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
                 partitionUpdateHandlers.storageUpdateHandler,
                 new NonHistoricSchemas(schemaManager),
                 localNode(),
-                table.internalTable().storage(),
-                indexBuilder,
                 schemaSyncService,
                 catalogService,
                 new DirectCatalogTables(catalogService),
@@ -1088,7 +1081,7 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
         cleanUpTablesResources(tablesToStop);
 
         try {
-            IgniteUtils.closeAllManually(lowWatermark, mvGc, indexBuilder);
+            IgniteUtils.closeAllManually(lowWatermark, mvGc);
         } catch (Throwable t) {
             LOG.error("Failed to close internal components", t);
         }
