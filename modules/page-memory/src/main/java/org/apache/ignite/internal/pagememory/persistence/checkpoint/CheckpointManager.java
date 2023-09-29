@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -234,6 +234,13 @@ public class CheckpointManager {
      */
     public @Nullable CheckpointProgress lastCheckpointProgress() {
         return checkpointer.lastCheckpointProgress();
+    }
+
+    /**
+     * Marks partition as dirty, forcing partition's meta-page to be written on disk during next checkpoint.
+     */
+    public void markPartitionAsDirty(DataRegion<?> dataRegion, int groupId, int partitionId) {
+        checkpointer.markPartitionAsDirty(dataRegion, groupId, partitionId);
     }
 
     /**

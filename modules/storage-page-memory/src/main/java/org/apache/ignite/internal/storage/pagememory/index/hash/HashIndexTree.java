@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.bi
 import static org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo.ITEM_SIZE_WITHOUT_COLUMNS;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTree
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
@@ -34,6 +35,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
@@ -55,7 +57,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     public void mapReduceSum() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -94,7 +96,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     public void mapReduceMin() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -133,7 +135,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     public void mapReduceMax() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -172,7 +174,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     public void mapReduceCount() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -204,19 +206,20 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 accFactory(ctx, reduceAggCall.getReduceCall(), REDUCE, hashRowType), rowFactory());
         reduce.register(map);
 
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(reduce);
+        try (RootNode<Object[]> root = new RootNode<>(ctx)) {
+            root.register(reduce);
 
-        assertTrue(root.hasNext());
-        assertEquals(4, root.next()[0]);
-        assertFalse(root.hasNext());
+            assertTrue(root.hasNext());
+            assertEquals(4, root.next()[0]);
+            assertFalse(root.hasNext());
+        }
     }
 
     @Test
     public void singleAvg() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -252,7 +255,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     public void singleSum() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -276,19 +279,20 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         HashAggregateNode<Object[]> agg = newHashAggNode(ctx, SINGLE, grpSets, rowType, call);
         agg.register(scan);
 
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(agg);
+        try (RootNode<Object[]> root = new RootNode<>(ctx)) {
+            root.register(agg);
 
-        assertTrue(root.hasNext());
-        assertEquals(2900, root.next()[0]);
-        assertFalse(root.hasNext());
+            assertTrue(root.hasNext());
+            assertEquals(2900, root.next()[0]);
+            assertFalse(root.hasNext());
+        }
     }
 
     @Test
     public void singleMin() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -324,7 +328,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     public void singleMax() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -360,7 +364,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     public void singleCount() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row("Igor", 200),
                 row("Roman", 300),
@@ -373,6 +377,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 ImmutableIntList.of(),
                 -1,
                 null,
@@ -387,15 +392,16 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         agg.register(scan);
 
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(agg);
+        try (RootNode<Object[]> root = new RootNode<>(ctx)) {
+            root.register(agg);
 
-        assertTrue(root.hasNext());
-        assertEquals(4, root.next()[0]);
-        assertFalse(root.hasNext());
+            assertTrue(root.hasNext());
+            assertEquals(4, root.next()[0]);
+            assertFalse(root.hasNext());
+        }
     }
 
-    protected Supplier<List<AccumulatorWrapper<Object[]>>> accFactory(
+    Supplier<List<AccumulatorWrapper<Object[]>>> accFactory(
             ExecutionContext<Object[]> ctx,
             AggregateCall call,
             AggregateType type,

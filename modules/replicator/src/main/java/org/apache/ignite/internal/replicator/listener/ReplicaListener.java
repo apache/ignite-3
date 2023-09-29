@@ -31,9 +31,10 @@ public interface ReplicaListener {
      * Invokes a replica listener to process request.
      *
      * @param request Replica request.
+     * @param senderId Sender id.
      * @return Listener response.
      */
-    CompletableFuture<ReplicaResult> invoke(ReplicaRequest request);
+    CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
 
     /**
      * Callback on becoming the primary replica.

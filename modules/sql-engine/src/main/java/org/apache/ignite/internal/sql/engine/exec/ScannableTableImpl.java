@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
+
 import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -42,14 +44,14 @@ public class ScannableTableImpl implements ScannableTable {
 
     private final InternalTable internalTable;
 
-    private final TableRowConverter rowConverter;
+    private final TableRowConverterFactory converterFactory;
 
     private final TableDescriptor tableDescriptor;
 
     /** Constructor. */
-    public ScannableTableImpl(InternalTable internalTable, TableRowConverter rowConverter, TableDescriptor tableDescriptor) {
+    public ScannableTableImpl(InternalTable internalTable, TableRowConverterFactory converterFactory, TableDescriptor tableDescriptor) {
         this.internalTable = internalTable;
-        this.rowConverter = rowConverter;
+        this.converterFactory = converterFactory;
         this.tableDescriptor = tableDescriptor;
     }
 
@@ -73,7 +75,9 @@ public class ScannableTableImpl implements ScannableTable {
             pub = internalTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
         }
 
-        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
 
     /** {@inheritDoc} */
@@ -98,15 +102,15 @@ public class ScannableTableImpl implements ScannableTable {
         int flags = 0;
 
         if (cond == null) {
-            flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
+            flags = LESS_OR_EQUAL | GREATER_OR_EQUAL;
             lower = null;
             upper = null;
         } else {
             lower = toBinaryTuplePrefix(ctx, indexRowSchema, cond.lower(), rowFactory);
             upper = toBinaryTuplePrefix(ctx, indexRowSchema, cond.upper(), rowFactory);
 
-            flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
-            flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
+            flags |= (cond.lowerInclude()) ? GREATER_OR_EQUAL : 0;
+            flags |= (cond.upperInclude()) ? LESS_OR_EQUAL : 0;
         }
 
         if (txAttributes.readOnly()) {
@@ -133,7 +137,9 @@ public class ScannableTableImpl implements ScannableTable {
             );
         }
 
-        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
 
     /** {@inheritDoc} */
@@ -173,7 +179,9 @@ public class ScannableTableImpl implements ScannableTable {
             );
         }
 
-        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
 
     private <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(ExecutionContext<RowT> ctx,

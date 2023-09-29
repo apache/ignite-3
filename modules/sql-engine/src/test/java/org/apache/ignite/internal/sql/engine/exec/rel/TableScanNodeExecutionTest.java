@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
@@ -34,6 +37,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -53,12 +57,15 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -66,18 +73,18 @@ import org.junit.jupiter.api.Test;
  */
 public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
+    private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
+
     // Ensures that all data from TableScanNode is being propagated correctly.
     @Test
     public void testScanNodeDataPropagation() throws InterruptedException {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
 
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.INT32)
-                .build();
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+
+        RowSchema rowSchema = rowSchemaFromRelTypes(List.of(rowType));
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
@@ -97,20 +104,30 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         int i = 0;
 
+        HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
-            TestInternalTableImpl internalTable = new TestInternalTableImpl(mock(ReplicaService.class), size);
+            ReplicaService replicaSvc = mock(ReplicaService.class);
+
+            TxManagerImpl txManager = new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(),
+                    new TransactionIdGenerator(0xdeadbeef), () -> "local");
+
+            txManager.start();
+
+            closeables.add(txManager::stop);
+
+            TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 
             TableRowConverter rowConverter = new TableRowConverter() {
                 @Override
-                public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                        @Nullable BitSet requiredColumns) {
+                public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
             TableDescriptor descriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
-            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rowConverter, descriptor);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter, descriptor);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
                     partsWithTerms, null, null, null);
 
@@ -130,6 +147,11 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         }
     }
 
+    @AfterEach
+    public void afterEach() throws Exception {
+        closeAll(closeables);
+    }
+
     private static class TestInternalTableImpl extends InternalTableImpl {
 
         private static final Object[] ROW = {1, "2", 3};
@@ -146,18 +168,20 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         private final CountDownLatch scanComplete = new CountDownLatch(1);
 
-        TestInternalTableImpl(ReplicaService replicaSvc, int dataAmount) {
+        TestInternalTableImpl(ReplicaService replicaSvc, int dataAmount, HybridTimestampTracker timestampTracker, TxManager txManager) {
             super(
                     "test",
                     1,
                     Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
                     addr -> mock(ClusterNode.class),
-                    new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(), new TransactionIdGenerator(0xdeadbeef)),
+                    txManager,
                     mock(MvTableStorage.class),
                     mock(TxStateTableStorage.class),
                     replicaSvc,
-                    mock(HybridClock.class)
+                    mock(HybridClock.class),
+                    timestampTracker,
+                    mock(PlacementDriver.class)
             );
             this.dataAmount = dataAmount;
 

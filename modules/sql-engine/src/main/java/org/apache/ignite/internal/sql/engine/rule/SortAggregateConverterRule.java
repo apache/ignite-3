@@ -34,6 +34,7 @@ import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.AggregateRelBuilder;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -118,8 +120,14 @@ public class SortAggregateConverterRule {
             RelOptCluster cluster = agg.getCluster();
             RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
 
-            RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
-            RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
+            // Create mapping to adjust fields on REDUCE phase.
+            Mapping fieldMappingOnReduce = Commons.trimmingMapping(agg.getGroupSet().length(), agg.getGroupSet());
+
+            // Adjust columns in output collation.
+            RelCollation outputCollation = collation.apply(fieldMappingOnReduce);
+
+            RelTraitSet inTraits = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
+            RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(outputCollation);
 
             AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
                 @Override
@@ -128,10 +136,10 @@ public class SortAggregateConverterRule {
 
                     return new IgniteMapSortAggregate(
                             cluster,
-                            outTrait.replace(IgniteDistributions.random()),
-                            convert(input, inTrait.replace(IgniteDistributions.random())),
-                            agg.getGroupSet(),
-                            agg.getGroupSets(),
+                            outTraits.replace(IgniteDistributions.random()),
+                            convert(input, inTraits.replace(IgniteDistributions.random())),
+                            groupSet,
+                            groupSets,
                             aggregateCalls,
                             collation
                     );
@@ -143,18 +151,18 @@ public class SortAggregateConverterRule {
 
                     return new IgniteReduceSortAggregate(
                             cluster,
-                            outTrait.replace(IgniteDistributions.single()),
-                            convert(map, inTrait.replace(IgniteDistributions.single())),
-                            agg.getGroupSet(),
-                            agg.getGroupSets(),
+                            outTraits.replace(IgniteDistributions.single()),
+                            convert(map, outTraits.replace(IgniteDistributions.single())),
+                            groupSet,
+                            groupSets,
                             aggregateCalls,
                             outputType,
-                            collation
+                            outputCollation
                     );
                 }
             };
 
-            return MapReduceAggregates.buildAggregates(agg, relBuilder);
+            return MapReduceAggregates.buildAggregates(agg, relBuilder, fieldMappingOnReduce);
         }
     }
 }

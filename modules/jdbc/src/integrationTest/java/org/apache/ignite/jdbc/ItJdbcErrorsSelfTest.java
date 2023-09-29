@@ -20,11 +20,8 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_TRANSACTION_LEVEL;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -33,6 +30,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -72,9 +70,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                             + "NAME VARCHAR)"
             );
 
-            SQLException ex = assertThrows(SQLException.class, () -> stmt.executeUpdate("non sql stuff"));
-
-            assertThat(ex.getMessage(), containsString("Failed to parse query"));
+            JdbcTestUtils.assertThrowsSqlException("Failed to parse query", () -> stmt.executeUpdate("non sql stuff"));
         }
 
         try (Statement stmt = conn.createStatement()) {
@@ -87,12 +83,11 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                             + "    BALANCE    DOUBLE)"
             );
 
-            SQLException ex = assertThrows(
-                    SQLException.class,
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Table with name 'PUBLIC.ACCOUNTS' already exists",
                     () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)")
-            );
 
-            assertThat(ex.getMessage(), containsString("Table already exists"));
+            );
         }
     }
 

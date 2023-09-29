@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.core.exception.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.http.HttpStatus;
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -82,6 +83,11 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                     errorComponentBuilder.header(header(e));
                 }
             }
+        } else if (e.getCause() instanceof IOException || e.getCause() instanceof IllegalArgumentException) {
+            errorComponentBuilder
+                    .header("Unexpected error")
+                    .details(e.getCause().getMessage())
+                    .verbose(e.getMessage());
         } else {
             errorComponentBuilder.header(header(e));
         }

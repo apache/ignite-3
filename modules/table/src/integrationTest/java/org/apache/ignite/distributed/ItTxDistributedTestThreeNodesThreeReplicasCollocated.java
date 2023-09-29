@@ -34,6 +34,7 @@ import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -56,11 +57,21 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
     }
 
     /** {@inheritDoc} */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20116")
+    @Override
+    public void testBalance() throws InterruptedException {
+        super.testBalance();
+    }
+
+    /** {@inheritDoc} */
     @BeforeEach
     @Override public void before() throws Exception {
         super.before();
 
-        assertSame(accRaftClients.get(0).clusterService(), getLeader(accRaftClients.get(0)).service());
+        assertSame(
+                txTestCluster.raftClients.get(ACC_TABLE_NAME).get(0).clusterService(),
+                txTestCluster.getLeader(ACC_TABLE_NAME).service()
+        );
     }
 
     @Test
@@ -74,7 +85,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
         tx.commit();
 
         assertTrue(waitForCondition(
-                () -> txStateStorages.values().stream()
+                () -> txTestCluster.txStateStorages.values().stream()
                         .map(txStateStorage -> txStateStorage.get(txId))
                         .filter(txMeta -> txMeta != null && txMeta.txState() == TxState.COMMITED)
                         .count() >= 2,

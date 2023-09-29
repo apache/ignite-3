@@ -33,8 +33,10 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
@@ -46,7 +48,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
+
+    @Mock
+    private CatalogService catalogService;
 
     private OutgoingSnapshot snapshot;
 
@@ -82,7 +86,7 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
         lenient().when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
     }
 
     @Test

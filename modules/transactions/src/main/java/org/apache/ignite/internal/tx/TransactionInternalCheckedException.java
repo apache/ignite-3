@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
-import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
+import static org.apache.ignite.lang.ErrorGroups.extractGroupCode;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
  * Base class for checked transaction exceptions.

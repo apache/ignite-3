@@ -48,6 +48,11 @@ public class TestStorageEngine implements StorageEngine {
     }
 
     @Override
+    public boolean isVolatile() {
+        return true;
+    }
+
+    @Override
     public TestMvTableStorage createMvTable(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier

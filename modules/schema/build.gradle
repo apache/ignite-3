@@ -27,6 +27,8 @@ dependencies {
     annotationProcessor libs.auto.service
 
     api project(':ignite-binary-tuple')
+    api project(':ignite-marshaller-common')
+
     implementation project(':ignite-api')
     implementation project(':ignite-bytecode')
     implementation project(':ignite-catalog')
@@ -46,6 +48,8 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-vault')))
+    testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-marshaller-common')))
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.mockito.core

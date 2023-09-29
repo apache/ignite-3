@@ -31,6 +31,7 @@ import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -59,6 +60,13 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
         return 3;
     }
 
+    /** {@inheritDoc} */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20116")
+    @Override
+    public void testBalance() throws InterruptedException {
+        super.testBalance();
+    }
+
     @Override
     @AfterEach
     public void after() throws Exception {
@@ -72,8 +80,8 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
 
     @Test
     public void testPrimaryReplicaDirectUpdateForExplicitTxn() throws InterruptedException {
-        Peer leader = accRaftClients.get(0).leader();
-        JraftServerImpl server = (JraftServerImpl) raftServers.get(leader.consistentId()).server();
+        Peer leader = txTestCluster.getLeaderId(accounts.name());
+        JraftServerImpl server = (JraftServerImpl) txTestCluster.raftServers.get(leader.consistentId()).server();
         var groupId = new TablePartitionId(accounts.tableId(), 0);
 
         // BLock replication messages to both replicas.

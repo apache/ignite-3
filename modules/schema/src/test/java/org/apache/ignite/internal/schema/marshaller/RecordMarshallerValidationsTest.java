@@ -20,11 +20,13 @@ package org.apache.ignite.internal.schema.marshaller;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -147,7 +149,10 @@ public class RecordMarshallerValidationsTest {
 
         assertTrue(fullRec.getClass().isInstance(restoredRec));
 
-        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestK2V1.class), "No field found for column k1");
+        assertThrowsWithCause(
+                () -> factory.create(schema, TestK2V1.class),
+                IllegalArgumentException.class,
+                "No mapped object field found for column 'K1'");
     }
 
     /**

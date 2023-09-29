@@ -272,7 +272,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override int GetValues(object[] values)
     {
-        IgniteArgumentCheck.NotNull(values, nameof(values));
+        ArgumentNullException.ThrowIfNull(values);
 
         var cols = Metadata.Columns;
         var count = Math.Min(values.Length, cols.Count);
@@ -537,7 +537,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         {
             var reader = _pageEnumerator.Current.GetReader();
 
-            _pageRowCount = reader.ReadArrayHeader();
+            _pageRowCount = reader.ReadInt32();
             _pageRowOffset = reader.Consumed;
             _pageRowIndex = 0;
             _pageRowSize = (_pageRowCount > 0 ? reader.ReadBinaryHeader() : 0) + reader.Consumed - _pageRowOffset;

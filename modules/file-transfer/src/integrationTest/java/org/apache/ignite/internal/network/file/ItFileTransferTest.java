@@ -55,6 +55,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -186,6 +188,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS) // Windows doesn't support posix file permissions.
     void downloadNonReadableFiles() {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
@@ -244,6 +247,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS) // Windows doesn't support posix file permissions.
     void downloadFilesWhenDoNotHaveAccessToWrite() {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
@@ -380,6 +384,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS) // Windows doesn't support posix file permissions.
     void uploadNonReadableFiles() {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);
@@ -463,6 +468,7 @@ public class ItFileTransferTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS) // Windows doesn't support posix file permissions.
     void uploadFilesWhenDoNotHaveAccessToWrite() {
         // Generate files on the source node.
         Node sourceNode = cluster.members.get(0);

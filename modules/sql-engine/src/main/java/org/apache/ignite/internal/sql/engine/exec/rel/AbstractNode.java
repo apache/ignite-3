@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -156,7 +156,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     protected void checkState() throws Exception {
         if (context().isCancelled() || Thread.interrupted()) {
-            throw new ExecutionCancelledException();
+            throw new QueryCancelledException();
         }
         if (!IgniteUtils.assertionsEnabled()) {
             return;

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -28,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.io.Closeable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -60,11 +62,9 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -87,8 +87,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
-    private final HybridClock clock = new HybridClockImpl();
-
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
@@ -99,7 +97,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     private List<String> nodeNames;
 
-    private List<Closeable> servicesToClose;
+    private List<AutoCloseable> servicesToClose;
 
     /** The manager is used to read a data from Meta storage in the tests. */
     private MetaStorageManagerImpl metaStorageManager;
@@ -113,7 +111,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
     @BeforeEach
-    public void beforeTest(TestInfo testInfo, @WorkDirectory Path workDir) {
+    public void beforeTest(TestInfo testInfo) {
         this.placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(Collectors.toList());
         this.nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
@@ -123,7 +121,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         List<LogicalTopologyServiceTestImpl> logicalTopManagers = new ArrayList<>();
 
-        servicesToClose = startPlacementDriver(clusterServices, logicalTopManagers, workDir);
+        servicesToClose = (List<AutoCloseable>) startPlacementDriver(clusterServices, logicalTopManagers, workDir);
 
         for (String nodeName : nodeNames) {
             if (!placementDriverNodeNames.contains(nodeName)) {
@@ -132,13 +130,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                 service.start();
 
                 servicesToClose.add(() -> {
-                    try {
-                        service.beforeNodeStop();
+                    service.beforeNodeStop();
 
-                        service.stop();
-                    } catch (Exception e) {
-                        log.info("Fail to stop services [node={}]", e, nodeName);
-                    }
+                    service.stop();
                 });
             }
         }
@@ -216,14 +210,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @param logicalTopManagers The list to update in the method. The list might be used for driving of the logical topology.
      * @return List of closures to stop the services.
      */
-    public List<Closeable> startPlacementDriver(
+    private List<? extends AutoCloseable> startPlacementDriver(
             Map<String, ClusterService> services,
             List<LogicalTopologyServiceTestImpl> logicalTopManagers,
             Path workDir
     ) {
-        var res = new ArrayList<Closeable>(placementDriverNodeNames.size());
-
-        var msFutures = new CompletableFuture[placementDriverNodeNames.size()];
+        var res = new ArrayList<Node>(placementDriverNodeNames.size());
 
         for (int i = 0; i < placementDriverNodeNames.size(); i++) {
             String nodeName = placementDriverNodeNames.get(i);
@@ -277,46 +269,21 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             var placementDriverManager = new PlacementDriverManager(
                     nodeName,
+                    (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply),
                     metaStorageManager,
-                    vaultManager,
                     MetastorageGroupId.INSTANCE,
                     clusterService,
                     cmgManager::metaStorageNodes,
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    clock
+                    nodeClock
             );
 
-            vaultManager.start();
-            clusterService.start();
-            raftManager.start();
-            metaStorageManager.start();
-            placementDriverManager.start();
-
-            msFutures[i] = metaStorageManager.deployWatches();
-
-            res.add(() -> {
-                        try {
-                            placementDriverManager.beforeNodeStop();
-                            metaStorageManager.beforeNodeStop();
-                            raftManager.beforeNodeStop();
-                            clusterService.beforeNodeStop();
-                            vaultManager.beforeNodeStop();
-
-                            placementDriverManager.stop();
-                            metaStorageManager.stop();
-                            raftManager.stop();
-                            clusterService.stop();
-                            vaultManager.stop();
-                        } catch (Exception e) {
-                            log.info("Fail to stop services [node={}]", e, nodeName);
-                        }
-                    }
-            );
+            res.add(new Node(nodeName, vaultManager, clusterService, raftManager, metaStorageManager, placementDriverManager));
         }
 
-        assertThat("Nodes were not started", CompletableFuture.allOf(msFutures), willCompleteSuccessfully());
+        assertThat(allOf(res.stream().map(Node::startAsync).toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
 
         return res;
     }

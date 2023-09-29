@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -34,16 +32,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -94,7 +86,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             while (rs1.hasNext()) {
                 rs1.next();
             }
-        }, ExecutionCancelledException.class);
+        }, QueryCancelledException.class);
 
         rs1.close();
 
@@ -111,9 +103,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void checkTimestampOperations() {
         String kvTblName = "tbl_all_columns_sql";
-        String schemaName = "PUBLIC";
-        String keyCol = "key";
-        int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
+        String keyCol = "KEY";
 
         Ignite node = CLUSTER_NODES.get(0);
 
@@ -125,23 +115,14 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE timestamps(id INTEGER PRIMARY KEY, i TIMESTAMP(9))");
 
-        TableDefinition schTblAllSql = SchemaBuilders.tableBuilder(schemaName, kvTblName).columns(
-                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
-                SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build()
-        ).withPrimaryKey(keyCol).build();
-
-        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), DEFAULT_ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
-        ));
+        // TODO: IGNITE-19274 Add column with TIMESTAMP WITH LOCAL TIME ZONE
+        sql(String.format("CREATE TABLE %s(\"%s\" INTEGER PRIMARY KEY, \"TIMESTAMP\" TIMESTAMP(9))", kvTblName, keyCol));
 
         Table tbl = node.tables().table(kvTblName);
 
         Tuple rec = Tuple.create()
-                .set("KEY", 1L)
-                .set("TIMESTAMP", ins)
-                .set("DATETIME", LocalDateTime.of(2023, 1, 18, 18, 9, 29));
+                .set("KEY", 1)
+                .set("TIMESTAMP", LocalDateTime.of(2023, 3, 29, 8, 22, 33, 5000000));
 
         tbl.recordView().insert(null, rec);
 
@@ -156,13 +137,15 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
             String srtRepr = ins.toString();
 
-            assertEquals(srtRepr.substring(0, srtRepr.length() - 1), res.next().datetimeValue(0).toString());
+            String expDateTimeStr = srtRepr.substring(0, srtRepr.length() - 1);
 
-            String query = "select \"KEY\", \"TIME\", \"DATETIME\", \"TIMESTAMP\" from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
+            assertEquals(expDateTimeStr, res.next().datetimeValue(0).toString());
+
+            String query = "select \"KEY\", \"TIMESTAMP\" from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
 
             res = ses.execute(null, query);
 
-            assertEquals(ins, res.next().timestampValue(3));
+            assertEquals(expDateTimeStr, res.next().datetimeValue(1).toString());
         }
     }
 
@@ -233,7 +216,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> schemaReadyFuture(long version) {
+        public CompletableFuture<Void> schemaReadyFuture(int version) {
             throw new UnsupportedOperationException();
         }
     }

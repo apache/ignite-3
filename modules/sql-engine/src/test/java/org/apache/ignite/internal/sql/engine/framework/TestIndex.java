@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /**
  * A test index that implements all the necessary for the optimizer methods to be used to prepare a query, as well as provides access to the
@@ -34,20 +37,31 @@ public class TestIndex extends IgniteIndex {
             "DataProvider is not configured [index={}, node={}]";
 
     /** Factory method for creating hash-index. */
-    static TestIndex createHash(String name, List<String> indexedColumns, Map<String, DataProvider<?>> dataProviders) {
-        return new TestIndex(name, Type.HASH, indexedColumns, null, dataProviders);
+    static TestIndex createHash(
+            String name,
+            List<String> columns,
+            TableDescriptor tableDescriptor,
+            Map<String, DataProvider<?>> dataProviders
+    ) {
+        RelCollation collation = TraitUtils.createCollation(columns, null, tableDescriptor);
+
+        return new TestIndex(name, Type.HASH, tableDescriptor.distribution(), collation, dataProviders);
     }
 
     /** Factory method for creating sorted-index. */
-    static TestIndex createSorted(String name, List<String> columns, List<Collation> collations,
-            Map<String, DataProvider<?>> dataProviders) {
-        return new TestIndex(name, Type.SORTED, columns, collations, dataProviders);
+    static TestIndex createSorted(
+            String name,
+            List<String> columns,
+            List<Collation> collations,
+            TableDescriptor tableDescriptor,
+            Map<String, DataProvider<?>> dataProviders
+    ) {
+        RelCollation collation = TraitUtils.createCollation(columns, collations, tableDescriptor);
+
+        return new TestIndex(name, Type.SORTED, tableDescriptor.distribution(), collation, dataProviders);
     }
 
     private static final AtomicInteger ID = new AtomicInteger();
-
-    private final int id = ID.incrementAndGet();
-    private final String name;
 
     private final Map<String, DataProvider<?>> dataProviders;
 
@@ -55,26 +69,13 @@ public class TestIndex extends IgniteIndex {
     TestIndex(
             String name,
             Type type,
-            List<String> columns,
-            @Nullable List<Collation> collations,
+            IgniteDistribution distribution,
+            RelCollation collation,
             Map<String, DataProvider<?>> dataProviders
     ) {
-        super(type, columns, collations);
+        super(ID.incrementAndGet(), name, type, distribution, collation);
 
-        this.name = name;
         this.dataProviders = dataProviders;
-    }
-
-    /** Returns an id of the index. */
-    @Override
-    public int id() {
-        return id;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String name() {
-        return name;
     }
 
     /**

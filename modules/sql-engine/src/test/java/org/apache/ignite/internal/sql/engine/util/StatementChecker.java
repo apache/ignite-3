@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Description;
@@ -89,7 +92,6 @@ import org.opentest4j.AssertionFailedError;
  * </pre>
  *
  * <p><b>Schema initialization</b>
- * Tables can be added to schema via {@code table} methods and initial schema can be set via {@link #withSchema(Consumer)} method.
  *
  * <pre>
  *     new StatementChecker()
@@ -115,8 +117,6 @@ public class StatementChecker {
     private final Map<String, Function<TestBuilders.TableBuilder, TestTable>> testTables = new HashMap<>();
 
     private boolean dumpPlan;
-
-    private Consumer<IgniteSchema> initSchema = (schema) -> {};
 
     private Consumer<StatementChecker> setup = (checker) -> {};
 
@@ -147,12 +147,6 @@ public class StatementChecker {
     /** Sets a function that is going to be called prior to test run. */
     public StatementChecker setup(Consumer<StatementChecker> setup) {
         this.setup = setup;
-        return this;
-    }
-
-    /** Sets a function that initializes initial schema. */
-    public StatementChecker withSchema(Consumer<IgniteSchema> initSchema) {
-        this.initSchema = initSchema;
         return this;
     }
 
@@ -376,16 +370,17 @@ public class StatementChecker {
     }
 
     private IgniteSchema createSchema() {
-        IgniteSchema schema = new IgniteSchema("PUBLIC");
-        this.initSchema.accept(schema);
+        List<IgniteTable> tables = new ArrayList<>();
         for (Map.Entry<String, Function<TestBuilders.TableBuilder, TestTable>> entry : testTables.entrySet()) {
             String tableName = entry.getKey();
             Function<TableBuilder, TestTable> addTable = entry.getValue();
 
             TestTable table = addTable.apply(TestBuilders.table().name(tableName));
-            schema.addTable(table);
+
+            tables.add(table);
         }
-        return schema;
+
+        return new IgniteSchema(DEFAULT_SCHEMA_NAME, 0, tables);
     }
 
     private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check, boolean relCheck) {

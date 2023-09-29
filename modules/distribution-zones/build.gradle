@@ -21,7 +21,6 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-
 dependencies {
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor libs.auto.service
@@ -62,6 +61,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-storage-page-memory')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-table')))
 
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core
@@ -72,6 +72,7 @@ dependencies {
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
 }

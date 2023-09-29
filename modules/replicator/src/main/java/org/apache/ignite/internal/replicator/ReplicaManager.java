@@ -39,9 +39,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -62,7 +64,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -109,6 +110,9 @@ public class ReplicaManager implements IgniteComponent {
     /** Message handler for placement driver messages. */
     private final NetworkMessageHandler placementDriverMessageHandler;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
@@ -125,6 +129,8 @@ public class ReplicaManager implements IgniteComponent {
     // TODO: IGNITE-20063 Maybe get rid of it
     private final ExecutorService executor;
 
+    private String localNodeId;
+
     /**
      * Constructor for a replica service.
      *
@@ -139,7 +145,8 @@ public class ReplicaManager implements IgniteComponent {
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
             HybridClock clock,
-            Set<Class<?>> messageGroupsToHandle
+            Set<Class<?>> messageGroupsToHandle,
+            PlacementDriver placementDriver
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -147,6 +154,7 @@ public class ReplicaManager implements IgniteComponent {
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
+        this.placementDriver = placementDriver;
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -235,7 +243,10 @@ public class ReplicaManager implements IgniteComponent {
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
-            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request);
+            // TODO IGNITE-20296 Id of the node should come along with the message itself.
+            String senderId = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId).id();
+
+            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
 
             HybridTimestamp finalSendTimestamp = sendTimestamp;
             resFut.handle((res, ex) -> {
@@ -412,7 +423,16 @@ public class ReplicaManager implements IgniteComponent {
     ) {
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
-        Replica newReplica = new Replica(replicaGrpId, whenReplicaReady, listener, storageIndexTracker, raftClient, localNode, executor);
+        Replica newReplica = new Replica(
+                replicaGrpId,
+                whenReplicaReady,
+                listener,
+                storageIndexTracker,
+                raftClient,
+                localNode,
+                executor,
+                placementDriver
+        );
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {
@@ -506,6 +526,8 @@ public class ReplicaManager implements IgniteComponent {
                     }
                 }
         );
+
+        localNodeId = clusterNetSvc.topologyService().localMember().id();
     }
 
     /** {@inheritDoc} */
@@ -637,9 +659,19 @@ public class ReplicaManager implements IgniteComponent {
                         .groupId(r.join().groupId())
                         .build();
 
-                r.join().processRequest(req);
+                r.join().processRequest(req, localNodeId);
             }
         });
+    }
+
+    /**
+     * Check if replica is started.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return True if the replica is started.
+     */
+    public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        return replicas.containsKey(replicaGrpId);
     }
 
     /**

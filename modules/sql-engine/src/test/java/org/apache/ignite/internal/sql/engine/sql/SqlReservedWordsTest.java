@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
-import org.apache.ignite.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -158,8 +158,6 @@ public class SqlReservedWordsTest extends AbstractDdlParserTest {
             "OUTER", // OUTER JOIN
             "OVER",
             "PARTITION",
-            "PERCENTILE_CONT",
-            "PERCENTILE_DISC",
             "PERCENT_RANK",
             "PERIOD",
             "PERMUTE",

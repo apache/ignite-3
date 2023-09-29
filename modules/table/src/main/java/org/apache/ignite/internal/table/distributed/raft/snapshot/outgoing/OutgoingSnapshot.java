@@ -25,6 +25,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -44,7 +46,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
@@ -62,6 +63,8 @@ public class OutgoingSnapshot {
     private final UUID id;
 
     private final PartitionAccess partition;
+
+    private final CatalogService catalogService;
 
     /**
      * Lock that is used for mutual exclusion of MV snapshot reading (by this class) and threads that write MV data to the same
@@ -113,9 +116,10 @@ public class OutgoingSnapshot {
     /**
      * Creates a new instance.
      */
-    public OutgoingSnapshot(UUID id, PartitionAccess partition) {
+    public OutgoingSnapshot(UUID id, PartitionAccess partition, CatalogService catalogService) {
         this.id = id;
         this.partition = partition;
+        this.catalogService = catalogService;
 
         lastRowId = RowId.lowestRowId(partition.partitionKey().partitionId());
     }
@@ -159,7 +163,7 @@ public class OutgoingSnapshot {
 
         assert config != null : "Configuration should never be null when installing a snapshot";
 
-        return SnapshotMetaUtils.snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config);
+        return SnapshotMetaUtils.snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config, catalogService.latestCatalogVersion());
     }
 
     /**

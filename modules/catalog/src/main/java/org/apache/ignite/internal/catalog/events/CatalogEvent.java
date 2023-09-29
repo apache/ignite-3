@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.event.Event;
 
 /**
  * Catalog management events.
@@ -45,5 +45,8 @@ public enum CatalogEvent implements Event {
     ZONE_DROP,
 
     /** This event is fired, when a distribution zone was changed in Catalog. */
-    ZONE_ALTER
+    ZONE_ALTER,
+
+    /** This event is fired, when a system view was created in Catalog. */
+    SYSTEM_VIEW_CREATE,
 }

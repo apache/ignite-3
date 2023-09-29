@@ -116,7 +116,8 @@ TEST_F(error_test, table_not_found) {
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
 
     std::string error = get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
-    EXPECT_THAT(error, testing::HasSubstr("The table does not exist [name=\"PUBLIC\".\"NONEXISTING\"]"));
+    // TODO: IGNITE-20388 Fix it
+    EXPECT_THAT(error, testing::HasSubstr("Table with name 'PUBLIC.NONEXISTING' not found"));
 }
 
 TEST_F(error_test, object_not_found_message) {

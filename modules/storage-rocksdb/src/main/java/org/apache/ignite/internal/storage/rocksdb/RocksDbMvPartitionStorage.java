@@ -52,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -67,7 +68,6 @@ import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.ColumnFamilyHandle;
@@ -1431,7 +1431,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
-        // Changed storage states and expect all storage operations to stop soon.
+        // Change storage states and expect all storage operations to stop soon.
         busyLock.block();
 
         try {

@@ -41,12 +41,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
@@ -205,8 +205,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
 
         ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer();
 
-        // One message only.
-        for (int i = 0; i < (NetworkMessage.MSG_TYPE_SIZE_BYTES + 1); i++) {
+        // One message only. 1 byte for group type, 1 byte for message type, 1 byte for payload.
+        for (int i = 0; i < 3; i++) {
             buffer.writeByte(1);
         }
 

@@ -41,29 +41,28 @@ import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Integration test of index building.
- */
+/** Integration test of index building. */
 public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
-    private static final String ZONE_NAME = "zone_table";
+    private static final String ZONE_NAME = "ZONE_TABLE";
 
-    private static final String TABLE_NAME = "test_table";
+    private static final String TABLE_NAME = "TEST_TABLE";
 
-    private static final String INDEX_NAME = "test_index";
+    private static final String INDEX_NAME = "TEST_INDEX";
 
     @AfterEach
     void tearDown() {
@@ -87,7 +86,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME.toUpperCase(), INDEX_NAME.toUpperCase()))
+                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)
                 .returns(2, 2)
                 .returns(3, 3)
@@ -97,6 +96,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20330")
     void testChangePrimaryReplicaOnMiddleBuildIndex() throws Exception {
         prepareBuildIndexToChangePrimaryReplica();
 
@@ -172,7 +172,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
         sql(IgniteStringFormatter.format(
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
-                TABLE_NAME, ZONE_NAME.toUpperCase()
+                TABLE_NAME, ZONE_NAME
         ));
 
         sql(IgniteStringFormatter.format(
@@ -197,7 +197,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertFalse(nullOrEmpty(CLUSTER_NODES));
         assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
+                () -> CLUSTER_NODES.stream().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
     }

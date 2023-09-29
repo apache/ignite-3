@@ -89,6 +89,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -334,7 +335,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
         ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
-        IgniteIndex idx = tbl.getIndex(rel.indexName());
+        IgniteIndex idx = tbl.indexes().get(rel.indexName());
 
         List<SearchBounds> searchBounds = rel.searchBounds();
         RexNode condition = rel.condition();
@@ -348,11 +349,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         if (searchBounds != null) {
             Comparator<RowT> searchRowComparator = null;
 
-            if (idx.collations() != null) {
-                searchRowComparator = expressionFactory.comparator(TraitUtils.createCollation(idx.collations()));
+            if (idx.type() == Type.SORTED) {
+                searchRowComparator = expressionFactory.comparator(IgniteIndex.createSearchRowCollation(idx.collation()));
             }
 
-            ranges = expressionFactory.ranges(searchBounds, idx.getRowType(typeFactory, tbl.descriptor()), searchRowComparator);
+            ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator);
         }
 
         RelCollation outputCollation = rel.collation();
@@ -425,6 +426,12 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteSystemViewScan rel) {
+        throw new UnsupportedOperationException("System view scan is not implemented");
     }
 
     /** {@inheritDoc} */

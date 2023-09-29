@@ -17,31 +17,25 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findIndexView;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
-
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Index descriptor supplier.
+ * Index descriptor supplier from catalog.
  */
 // TODO: IGNITE-19717 Get rid of it
 public class StorageIndexDescriptorSupplier {
-    private final TablesConfiguration tablesConfig;
+    private final CatalogService catalogService;
 
     /**
      * Constructor.
      *
-     * @param tablesConfig Tables configuration.
+     * @param catalogService Catalog service.
      */
-    public StorageIndexDescriptorSupplier(TablesConfiguration tablesConfig) {
-        this.tablesConfig = tablesConfig;
+    public StorageIndexDescriptorSupplier(CatalogService catalogService) {
+        this.catalogService = catalogService;
     }
 
     /**
@@ -49,20 +43,19 @@ public class StorageIndexDescriptorSupplier {
      *
      * @param id Index ID.
      */
-    @Nullable
-    public StorageIndexDescriptor get(int id) {
-        TablesView tablesView = tablesConfig.value();
+    public @Nullable StorageIndexDescriptor get(int id) {
+        int catalogVersion = catalogService.latestCatalogVersion();
 
-        TableIndexView indexView = findIndexView(tablesView, id);
+        CatalogIndexDescriptor index = catalogService.index(id, catalogVersion);
 
-        if (indexView == null) {
+        if (index == null) {
             return null;
         }
 
-        TableView tableView = findTableView(tablesView, indexView.tableId());
+        CatalogTableDescriptor table = catalogService.table(index.tableId(), catalogVersion);
 
-        assert tableView != null : "tableId=" + indexView.tableId() + " ,indexId=" + id;
+        assert table != null : "tableId=" + index.tableId() + ", indexId=" + index.id();
 
-        return StorageIndexDescriptor.create(toTableDescriptor(tableView), toIndexDescriptor(indexView));
+        return StorageIndexDescriptor.create(table, index);
     }
 }

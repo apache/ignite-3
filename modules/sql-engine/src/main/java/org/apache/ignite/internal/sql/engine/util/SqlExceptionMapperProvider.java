@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapper.unchecked;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.IgniteExceptionMapper.unchecked;
 
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
-import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.lang.IgniteExceptionMapper;
+import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionMapper;
-import org.apache.ignite.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.sql.SqlException;
 
 /**
@@ -43,9 +43,7 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
     public Collection<IgniteExceptionMapper<?, ?>> mappers() {
         List<IgniteExceptionMapper<?, ?>> mappers = new ArrayList<>();
 
-        mappers.add(unchecked(ExecutionCancelledException.class, err -> new SqlException(err.traceId(), err.code(), err)));
-
-        mappers.add(unchecked(QueryValidationException.class, err -> new SqlException(err.traceId(), err.code(), err)));
+        mappers.add(unchecked(QueryCancelledException.class, err -> new SqlException(err.traceId(), err.code(), err.getMessage(), err)));
 
         mappers.add(unchecked(RemoteFragmentExecutionException.class, err -> {
             if (err.groupCode() == SQL_ERR_GROUP.groupCode()) {
@@ -57,6 +55,9 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
 
         mappers.add(unchecked(CalciteContextException.class,
                 err -> new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + err.getMessage(), err)));
+
+        mappers.add(unchecked(CatalogValidationException.class,
+                err -> new SqlException(err.traceId(), STMT_VALIDATION_ERR, "Failed to validate query. " + err.getMessage(), err)));
 
         return mappers;
     }

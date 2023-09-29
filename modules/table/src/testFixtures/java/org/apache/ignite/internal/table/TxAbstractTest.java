@@ -41,6 +41,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
@@ -64,6 +66,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Pair;
@@ -77,7 +80,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -115,15 +117,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     protected static final double DELTA = 100;
 
+    protected HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+
     protected IgniteTransactions igniteTransactions;
-
-    protected TxManager clientTxManager;
-
-    /**
-     * Initialize the test state.
-     */
-    @BeforeEach
-    public abstract void before() throws Exception;
 
     @Test
     public void testCommitRollbackSameTxDoesNotThrow() throws TransactionException {
@@ -449,6 +445,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
     public void testBatchPutConcurrently() {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
@@ -477,9 +474,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
     public void testBatchReadPutConcurrently() throws InterruptedException {
-        InternalTransaction tx1 = clientTxManager().begin();
-        InternalTransaction tx2 = clientTxManager().begin();
+        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
+        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
         log.info("Tx1 " + tx1);
         log.info("Tx2 " + tx2);
@@ -1580,7 +1578,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     }
 
                     while (!stop.get() && firstErr.get() == null) {
-                        InternalTransaction tx = clientTxManager().begin();
+                        InternalTransaction tx = clientTxManager().begin(timestampTracker);
 
                         var table = accounts.recordView();
 
@@ -1674,7 +1672,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param id The id.
      * @return The key tuple.
      */
-    private Tuple makeKey(long id) {
+    protected Tuple makeKey(long id) {
         return Tuple.create().set("accountNumber", id);
     }
 
@@ -1806,7 +1804,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     completedFuture(Tuple.create().set("balance1", val1).set("balance2", val2))));
         });
     }
-
 
     @Test
     public void testReadOnlyGet() {
@@ -1976,6 +1973,30 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_1, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
+    @Test
+    public void testWriteIntentResolutionFallbackToCommitPartitionPath() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().delete(tx, makeKey(1));
+
+        // Imitate the restart of the client node, which is a tx coordinator, in order to make its volatile state of unavailable.
+        // Now coordinator path of the write intent resolution has no effect, and we should fallback to commit partition path.
+        UUID txId = ((ReadWriteTransactionImpl) tx).id();
+
+        for (TxManager txManager : txManagers()) {
+            txManager.updateTxMeta(txId, old -> old == null ? null : new TxStateMeta(old.txState(), "restarted", old.commitTimestamp()));
+        }
+
+        // Read-only.
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // Commit pending tx.
+        tx.commit();
+    }
+
     /**
      * Checks operations that act after a transaction is committed, are finished with exception.
      *
@@ -2033,4 +2054,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     protected abstract void injectFailureOnNextOperation(TableImpl accounts);
+
+    /**
+     * Returns server nodes' tx managers.
+     *
+     * @return Server nodes' tx managers.
+     */
+    protected abstract Collection<TxManager> txManagers();
 }

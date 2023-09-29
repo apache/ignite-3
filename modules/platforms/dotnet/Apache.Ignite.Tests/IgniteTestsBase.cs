@@ -29,6 +29,8 @@ namespace Apache.Ignite.Tests
 
     /// <summary>
     /// Base class for client tests.
+    /// <para />
+    /// NOTE: Timeout is set for the entire assembly in csproj file.
     /// </summary>
     public class IgniteTestsBase
     {
@@ -51,7 +53,7 @@ namespace Apache.Ignite.Tests
         protected const string TableTimeName = "TBL_TIME";
         protected const string TableTimestampName = "TBL_TIMESTAMP";
         protected const string TableNumberName = "TBL_NUMBER";
-        protected const string TableBytesName = "TBL_BYTES";
+        protected const string TableBytesName = "TBL_BYTE_ARRAY";
         protected const string TableBitmaskName = "TBL_BITMASK";
 
         protected const string KeyCol = "key";
@@ -124,13 +126,23 @@ namespace Apache.Ignite.Tests
             _eventListener.Dispose();
         }
 
+        [SetUp]
+        public void SetUp()
+        {
+            Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
+        }
+
         [TearDown]
         public void TearDown()
         {
+            Console.WriteLine("TearDown start: " + TestContext.CurrentContext.Test.Name);
+
             CheckPooledBufferLeak();
 
             _disposables.ForEach(x => x.Dispose());
             _disposables.Clear();
+
+            Console.WriteLine("TearDown end: " + TestContext.CurrentContext.Test.Name);
         }
 
         internal static string GetRequestTargetNodeName(IEnumerable<IgniteProxy> proxies, ClientOp op)
@@ -172,7 +184,10 @@ namespace Apache.Ignite.Tests
         };
 
         protected static IgniteClientConfiguration GetConfig(IEnumerable<IgniteProxy> proxies) =>
-            new(proxies.Select(x => x.Endpoint).ToArray());
+            new(proxies.Select(x => x.Endpoint).ToArray())
+            {
+                Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            };
 
         protected List<IgniteProxy> GetProxies()
         {

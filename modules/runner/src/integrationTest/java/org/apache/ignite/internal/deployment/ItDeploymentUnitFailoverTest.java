@@ -45,7 +45,7 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
     }
 
     @Test
-    @Disabled("IGNITE-19009")
+    @Disabled("IGNITE-20204")
     public void testDeployWithNodeStop() {
         int nodeIndex = 1;
         IgniteImpl node = node(nodeIndex);

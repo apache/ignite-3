@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.event;
 
-import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.internal.event.EventParameters;
 
 /**
  * Table event parameters. There are properties which associate with a concrete table.

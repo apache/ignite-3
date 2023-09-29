@@ -19,14 +19,13 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toHashIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toSortedIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
@@ -45,7 +44,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -53,23 +56,21 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -81,7 +82,6 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteTuple3;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -91,6 +91,8 @@ import org.junit.jupiter.api.Test;
  * Abstract class that contains tests for {@link MvTableStorage} implementations.
  */
 public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
+    private static final String TABLE_NAME = "foo";
+
     private static final String SORTED_INDEX_NAME = "SORTED_IDX";
 
     private static final String HASH_INDEX_NAME = "HASH_IDX";
@@ -111,31 +113,26 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected StorageHashIndexDescriptor hashIdx;
 
-    protected TablesConfiguration tablesConfig;
+    protected final CatalogService catalogService = mock(CatalogService.class);
 
     /**
      * Initializes the internal structures needed for tests.
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(TablesConfiguration tablesConfig) {
-        createTestTable(tablesConfig.tables().get("foo"));
-        createTestIndexes(tablesConfig);
-
-        this.tablesConfig = tablesConfig;
+    protected final void initialize() {
+        createTestTableAndIndexes(catalogService);
 
         this.tableStorage = createMvTableStorage();
         this.tableStorage.start();
 
-        TablesView tablesView = tablesConfig.value();
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
-        SortedIndexView sortedIndexView = (SortedIndexView) tablesView.indexes().get(SORTED_INDEX_NAME);
-        HashIndexView hashIndexView = (HashIndexView) tablesView.indexes().get(HASH_INDEX_NAME);
+        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalogService.index(SORTED_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor catalogHashIndexDescriptor = catalogService.index(HASH_INDEX_NAME, clock.nowLong());
 
-        CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(findTableView(tablesView, sortedIndexView.tableId()));
-
-        sortedIdx = new StorageSortedIndexDescriptor(catalogTableDescriptor, toSortedIndexDescriptor(sortedIndexView));
-        hashIdx = new StorageHashIndexDescriptor(catalogTableDescriptor, toHashIndexDescriptor(hashIndexView));
+        sortedIdx = new StorageSortedIndexDescriptor(catalogTableDescriptor, (CatalogSortedIndexDescriptor) catalogSortedIndexDescriptor);
+        hashIdx = new StorageHashIndexDescriptor(catalogTableDescriptor, (CatalogHashIndexDescriptor) catalogHashIndexDescriptor);
     }
 
     @AfterEach
@@ -437,7 +434,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
 
-        checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
 
         // Let's finish rebalancing.
@@ -462,7 +459,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsBeforeRebalanceStart);
         checkForPresenceRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
 
-        checkLastApplied(mvPartitionStorage, 10, 10, 20);
+        checkLastApplied(mvPartitionStorage, 10, 20);
         checkRaftGroupConfigs(raftGroupConfig, mvPartitionStorage.committedGroupConfiguration());
     }
 
@@ -496,7 +493,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
 
-        checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
         // Let's abort rebalancing.
 
@@ -509,7 +506,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsBeforeRebalanceStart);
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
 
-        checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        checkLastApplied(mvPartitionStorage, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
     }
 
@@ -612,11 +609,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             // Let's check the repositories: they should be empty.
             checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-            checkLastApplied(mvPartitionStorage, 0, 0, 0);
+            checkLastApplied(mvPartitionStorage, 0, 0);
         } else {
             checkForPresenceRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-            checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+            checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
         }
     }
 
@@ -634,7 +631,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Let's check the cleanup for an empty partition.
         assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully());
 
-        checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        checkLastApplied(mvPartitionStorage, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
 
         // Let's fill the storages and clean them.
@@ -658,7 +655,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Let's clear the storages and check them out.
         assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully());
 
-        checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        checkLastApplied(mvPartitionStorage, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
 
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
@@ -762,43 +759,53 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         }
     }
 
-    private static void createTestIndexes(TablesConfiguration tablesConfig) {
-        List<IndexDefinition> indexDefinitions = List.of(
-                SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
-                        .addIndexColumn("strKey").done()
-                        .build(),
-                SchemaBuilders.hashIndex(HASH_INDEX_NAME)
-                        .withColumns("strKey")
-                        .build()
+    private static void createTestTableAndIndexes(CatalogService catalogService) {
+        int id = 0;
+
+        int tableId = id++;
+        int zoneId = id++;
+        int sortedIndexId = id++;
+        int hashIndexId = id++;
+
+        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
+                tableId,
+                hashIndexId,
+                TABLE_NAME,
+                zoneId,
+                1,
+                List.of(
+                        CatalogUtils.fromParams(ColumnParams.builder().name("INTKEY").type(INT32).build()),
+                        CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").length(100).type(STRING).build()),
+                        CatalogUtils.fromParams(ColumnParams.builder().name("INTVAL").type(INT32).build()),
+                        CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").length(100).type(STRING).build())
+                ),
+                List.of("INTKEY"),
+                null
         );
 
-        int tableId = tablesConfig.tables().value().get("foo").id();
-
-        CompletableFuture<Void> indexCreateFut = tablesConfig.indexes().change(ch ->
-                indexDefinitions.forEach(idxDef -> ch.create(idxDef.name(),
-                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, idxDef.name().hashCode(), c)
-                ))
+        CatalogSortedIndexDescriptor sortedIndex = new CatalogSortedIndexDescriptor(
+                sortedIndexId,
+                SORTED_INDEX_NAME,
+                tableId,
+                false,
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
-        assertThat(indexCreateFut, willCompleteSuccessfully());
-    }
-
-    private static void createTestTable(TableConfiguration tableConfig) {
-        TableDefinition tableDefinition = SchemaBuilders.tableBuilder("PUBLIC", "foo")
-                .columns(
-                        SchemaBuilders.column("intKey", ColumnType.INT32).build(),
-                        SchemaBuilders.column("strKey", ColumnType.string()).build(),
-                        SchemaBuilders.column("intVal", ColumnType.INT32).build(),
-                        SchemaBuilders.column("strVal", ColumnType.string()).build()
-                )
-                .withPrimaryKey("intKey")
-                .build();
-
-        CompletableFuture<Void> createTableFuture = tableConfig.change(
-                tableChange -> SchemaConfigurationConverter.convert(tableDefinition, tableChange)
+        CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
+                hashIndexId,
+                HASH_INDEX_NAME,
+                tableId,
+                true,
+                List.of("STRKEY")
         );
 
-        assertThat(createTableFuture, willCompleteSuccessfully());
+        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
+        when(catalogService.index(eq(SORTED_INDEX_NAME), anyLong())).thenReturn(sortedIndex);
+        when(catalogService.index(eq(HASH_INDEX_NAME), anyLong())).thenReturn(hashIndex);
+
+        when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
+        when(catalogService.index(eq(sortedIndexId), anyInt())).thenReturn(sortedIndex);
+        when(catalogService.index(eq(hashIndexId), anyInt())).thenReturn(hashIndex);
     }
 
     private static <T> List<T> getAll(Cursor<T> cursor) {
@@ -905,7 +912,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private void checkMvPartitionStorageMethodsAfterStartRebalance(MvPartitionStorage storage) {
-        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
         assertNull(storage.committedGroupConfiguration());
 
@@ -1049,7 +1056,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static void checkLastApplied(
             MvPartitionStorage storage,
             long expLastAppliedIndex,
-            long expPersistentIndex,
             long expLastAppliedTerm
     ) {
         assertEquals(expLastAppliedIndex, storage.lastAppliedIndex());

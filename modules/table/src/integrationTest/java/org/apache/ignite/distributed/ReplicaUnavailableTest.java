@@ -18,8 +18,8 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
+import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -40,6 +40,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.Replica;
@@ -59,6 +61,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -66,7 +69,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -125,7 +127,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 clusterService,
                 cmgManager,
                 clock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                new TestPlacementDriver(name)
         );
 
         replicaManager.start();
@@ -149,7 +152,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId)
+                .commitPartitionId(tablePartitionId())
                 .timestampLong(clock.nowLong())
                 .binaryRowMessage(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
@@ -163,7 +166,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 completedFuture(null),
-                                request0 -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
+                                (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
                                         .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
@@ -191,7 +194,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId)
+                .commitPartitionId(tablePartitionId())
                 .timestampLong(clock.nowLong())
                 .binaryRowMessage(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
@@ -223,7 +226,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId)
+                .commitPartitionId(tablePartitionId())
                 .timestampLong(clock.nowLong())
                 .binaryRowMessage(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
@@ -265,7 +268,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 new CompletableFuture<>(),
-                                request0 -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
+                                (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
                                         .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
@@ -280,7 +283,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
                 .groupId(tablePartitionId)
                 .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId)
+                .commitPartitionId(tablePartitionId())
                 .timestampLong(clock.nowLong())
                 .binaryRowMessage(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
@@ -310,6 +313,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         return tableMessagesFactory.binaryRowMessage()
                 .binaryTuple(row.tupleSlice())
                 .schemaVersion(row.schemaVersion())
+                .build();
+    }
+
+    private TablePartitionIdMessage tablePartitionId() {
+        return tableMessagesFactory.tablePartitionIdMessage()
+                .tableId(1)
+                .partitionId(1)
                 .build();
     }
 }

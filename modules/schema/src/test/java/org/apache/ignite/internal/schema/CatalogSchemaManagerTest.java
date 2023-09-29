@@ -56,7 +56,8 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
-import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.subscription.ListAccumulator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -171,7 +171,9 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("k2", ColumnType.STRING, false, 0, 0, 0, null),
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
-        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(TABLE_ID, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null);
+        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
+                TABLE_ID, -1, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null
+        );
 
         CompletableFuture<Boolean> future = tableCreatedListener()
                 .notify(new CreateTableEventParameters(CAUSALITY_TOKEN_1, CATALOG_VERSION_1, tableDescriptor), null);
@@ -240,7 +242,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
     }
 
     private void completeCausalityToken(long causalityToken) {
@@ -276,7 +278,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("k2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
     }
 
     @Test
@@ -314,7 +316,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT64, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
     }
 
     @Test

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.externalize;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.Commons.rexBuilder;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -95,6 +96,7 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelectKeyword;
 import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.SqlWindow;
+import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
@@ -102,6 +104,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlNameMatchers;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -116,7 +119,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Utilities for converting {@link RelNode} into JSON format.
@@ -337,6 +339,11 @@ class RelJson {
         map.put("operands", node.getArgList());
         map.put("filter", node.filterArg);
         map.put("name", node.getName());
+        // workaround for https://issues.apache.org/jira/browse/CALCITE-5969
+        if (node.getAggregation() == SqlLiteralAggFunction.INSTANCE) {
+            RexNode boolLiteral = rexBuilder().makeLiteral(true);
+            map.put("rexList", toJson(boolLiteral));
+        }
         return map;
     }
 

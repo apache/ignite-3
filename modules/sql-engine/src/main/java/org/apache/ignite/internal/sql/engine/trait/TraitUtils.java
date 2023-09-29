@@ -22,9 +22,9 @@ import static java.util.Collections.singletonList;
 import static org.apache.calcite.plan.RelOptUtil.permutationPushDownProject;
 import static org.apache.calcite.rel.RelDistribution.Type.BROADCAST_DISTRIBUTED;
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
@@ -58,7 +58,7 @@ import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.index.ColumnCollation;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -69,7 +69,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -468,21 +467,6 @@ public class TraitUtils {
      */
     public static RelFieldCollation createFieldCollation(int fieldIdx) {
         return new RelFieldCollation(fieldIdx, Direction.ASCENDING, NullDirection.LAST);
-    }
-
-    /**
-     * Creates field collation.
-     */
-    public static RelFieldCollation createFieldCollation(int fieldIdx, ColumnCollation collation) {
-        RelFieldCollation.Direction direction = collation.asc()
-                ? RelFieldCollation.Direction.ASCENDING
-                : RelFieldCollation.Direction.DESCENDING;
-
-        RelFieldCollation.NullDirection nullDirection = collation.nullsFirst()
-                ? RelFieldCollation.NullDirection.FIRST
-                : RelFieldCollation.NullDirection.LAST;
-
-        return new RelFieldCollation(fieldIdx, direction, nullDirection);
     }
 
     /** Creates field collation. */

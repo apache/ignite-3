@@ -126,6 +126,11 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
+    public boolean isVolatile() {
+        return true;
+    }
+
+    @Override
     public VolatilePageMemoryTableStorage createMvTable(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier

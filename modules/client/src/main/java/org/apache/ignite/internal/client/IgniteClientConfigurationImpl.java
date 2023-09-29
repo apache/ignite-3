@@ -23,7 +23,7 @@ import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.SslConfiguration;
-import org.apache.ignite.lang.LoggerFactory;
+import org.apache.ignite.internal.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -36,12 +36,15 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.network.annotations.MessageGroup;
@@ -90,12 +93,12 @@ public interface TableMessageGroup {
     short HAS_DATA_RESPONSE = 6;
 
     /**
-     * Message type for {@link ReadOnlySingleRowReplicaRequest}.
+     * Message type for {@link ReadOnlySingleRowPkReplicaRequest}.
      */
     short RO_SINGLE_ROW_REPLICA_REQUEST = 7;
 
     /**
-     * Message type for {@link ReadOnlyMultiRowReplicaRequest}.
+     * Message type for {@link ReadOnlyMultiRowPkReplicaRequest}.
      */
     short RO_MULTI_ROW_REPLICA_REQUEST = 8;
 
@@ -150,7 +153,22 @@ public interface TableMessageGroup {
     short BINARY_ROW_MESSAGE = 18;
 
     /**
+     * Message type for {@link ReadWriteSingleRowPkReplicaRequest}.
+     */
+    short RW_SINGLE_ROW_PK_REPLICA_REQUEST = 19;
+
+    /**
+     * Message type for {@link ReadWriteMultiRowPkReplicaRequest}.
+     */
+    short RW_MULTI_ROW_PK_REPLICA_REQUEST = 20;
+
+    /** Message type for {@link BuildIndexReplicaRequest}. */
+    short BUILD_INDEX_REPLICA_REQUEST = 21;
+
+    /**
      * Message types for Table module RAFT commands.
+     *
+     * <p>NOTE: Commands must be immutable because they will be stored in the replication log.</p>
      */
     interface Commands {
         /** Message type for {@link FinishTxCommand}. */

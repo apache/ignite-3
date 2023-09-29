@@ -277,8 +277,17 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public <T> Supplier<T> execute(RexNode node) {
-        RelDataType nodeType = node.getType();
-        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(List.of(nodeType));
+        RelDataType exprType = node.getType();
+        List<RelDataType> typesList;
+
+        if (exprType.getSqlTypeName() == SqlTypeName.ROW) {
+            // Convert a row returned from a table function into a list of columns.
+            typesList = RelOptUtil.getFieldTypeList(exprType);
+        } else {
+            typesList = List.of(exprType);
+        }
+
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typesList);
 
         RowFactory<RowT> factory = ctx.rowHandler().factory(rowSchema);
 
@@ -526,14 +535,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         assert nodes.size() == projects.size();
 
-        BlockBuilder tryCatchBlock = new BlockBuilder();
-
         for (int i = 0; i < projects.size(); i++) {
             Expression val = unspecifiedValues.get(i)
                     ? Expressions.field(null, ExpressionFactoryImpl.class, "UNSPECIFIED_VALUE_PLACEHOLDER")
                     : projects.get(i);
 
-            tryCatchBlock.add(
+            builder.add(
                         Expressions.statement(
                                 Expressions.call(hnd,
                                         IgniteMethod.ROW_HANDLER_SET.method(),
@@ -542,8 +549,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
         Expression sqlException = Expressions.new_(SqlException.class, Expressions.constant(Sql.RUNTIME_ERR), ex);
+        BlockBuilder tryCatchBlock = new BlockBuilder();
 
-        builder.add(Expressions.tryCatch(tryCatchBlock.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
+        tryCatchBlock.add(Expressions.tryCatch(builder.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
 
         String methodName = biInParams ? IgniteMethod.BI_SCALAR_EXECUTE.method().getName() :
                 IgniteMethod.SCALAR_EXECUTE.method().getName();
@@ -553,7 +561,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         MethodDeclaration decl = Expressions.methodDecl(
                 Modifier.PUBLIC, void.class, methodName,
-                params, builder.toBlock());
+                params, tryCatchBlock.toBlock());
 
         Class<? extends Scalar> clazz = biInParams ? BiScalar.class : SingleScalar.class;
 

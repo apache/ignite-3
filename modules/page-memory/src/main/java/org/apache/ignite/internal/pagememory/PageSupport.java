@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Class responsible for acquiring/releasing and locking/unlocking pages.

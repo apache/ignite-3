@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIMESTAMP_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIME_PRECISION;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -63,7 +65,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Tuple;
@@ -640,8 +641,8 @@ public class MutableRowTupleAdapterTest {
     }
 
     private <T extends Temporal> T truncateToDefaultPrecision(T temporal) {
-        int precision = temporal instanceof Instant ? ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION
-                : ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION;
+        int precision = temporal instanceof Instant ? DEFAULT_TIMESTAMP_PRECISION
+                : DEFAULT_TIME_PRECISION;
 
         return (T) temporal.with(NANO_OF_SECOND,
                 truncatePrecision(temporal.get(NANO_OF_SECOND), tailFactor(precision)));

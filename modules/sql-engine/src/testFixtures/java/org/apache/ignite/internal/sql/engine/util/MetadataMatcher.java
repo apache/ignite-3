@@ -34,7 +34,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Column metadata checker.
  */
-public class MetadataMatcher {
+public class MetadataMatcher implements ColumnMatcher {
     /** Marker object. */
     private static final Object NO_CHECK = new Object() {
         @Override
@@ -132,7 +132,8 @@ public class MetadataMatcher {
      *
      * @param actualMeta Metadata to check.
      */
-    void check(ColumnMetadata actualMeta) {
+    @Override
+    public void check(ColumnMetadata actualMeta) {
         List<Executable> matchers = new ArrayList<>();
 
         if (name != NO_CHECK) {
@@ -142,7 +143,7 @@ public class MetadataMatcher {
         if (type != NO_CHECK) {
             ColumnType type0 = (ColumnType) type;
             matchers.add(() -> assertSame(type0, actualMeta.type(), "type"));
-            matchers.add(() -> assertSame(ColumnType.columnTypeToClass(type0), actualMeta.valueClass(), "value class"));
+            matchers.add(() -> assertSame(type0.javaClass(), actualMeta.valueClass(), "value class"));
         }
 
         if (precision != NO_CHECK) {

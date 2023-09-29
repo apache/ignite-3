@@ -18,7 +18,9 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
@@ -333,6 +335,79 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         Assert.IsTrue(res.HasValue);
         Assert.AreEqual("name1", res.Value);
+    }
+
+    [Test]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
+    public async Task TestSchemaUpdateWhileStreaming([Values(true, false)] bool insertNewColumn)
+    {
+        using var metricListener = new MetricsTests.Listener();
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        var options = DataStreamerOptions.Default with { BatchSize = 2 };
+        await view.StreamDataAsync(GetData(), options);
+
+        // Inserted with old schema.
+        var res1 = await view.GetAsync(null, GetTuple(1));
+        Assert.AreEqual("FOO", res1.Value["VAL"]);
+
+        // Inserted with new schema.
+        var res2 = await view.GetAsync(null, GetTuple(19));
+        Assert.AreEqual(insertNewColumn ? "BAR_19" : "FOO", res2.Value["VAL"]);
+
+        async IAsyncEnumerable<IIgniteTuple> GetData()
+        {
+            // First set of batches uses old schema.
+            for (int i = 0; i < 10; i++)
+            {
+                yield return GetTuple(i);
+            }
+
+            // Wait for background streaming to complete.
+            // TODO: Remove this workaround when IGNITE-20416 is fixed.
+            metricListener.AssertMetric("streamer-items-sent", 6, 3000);
+
+            // Update schema.
+            // New schema has a new column with a default value, so it is not required to provide it in the streamed data.
+            await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
+            await WaitForNewSchemaOnAllNodes(TestTableName, 2);
+
+            for (int i = 10; i < 20; i++)
+            {
+                yield return insertNewColumn ? GetTuple(i, "BAR_" + i) : GetTuple(i);
+            }
+        }
+    }
+
+    [Test]
+    public async Task TestSchemaUpdateBeforeStreaming()
+    {
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        // Insert some data - old schema gets cached.
+        await view.InsertAsync(null, GetTuple(-1));
+
+        // Update schema.
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
+        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
+
+        // Stream data with new schema. Client does not yet know about the new schema,
+        // but unmapped column exception will trigger schema reload.
+        await view.StreamDataAsync(new[] { GetTuple(1, "BAR") }.ToAsyncEnumerable());
+
+        // Inserted with old schema.
+        var res1 = await view.GetAsync(null, GetTuple(-1));
+        Assert.AreEqual("FOO", res1.Value["VAL"]);
+
+        // Inserted with new schema.
+        var res2 = await view.GetAsync(null, GetTuple(1));
+        Assert.AreEqual("BAR", res2.Value["VAL"]);
     }
 
     private async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)

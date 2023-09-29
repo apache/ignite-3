@@ -35,13 +35,14 @@ import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelOptTable.ToRelContext;
+import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
-import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Statistic;
@@ -58,7 +59,6 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.framework.TestStatistic;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -561,7 +561,8 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     }
 
     //TODO https://issues.apache.org/jira/browse/IGNITE-15200 Replace with TestTable from test framework.
-    // This class allows to verify some negative type-coercion tests, and can be dropped when INTERVAL type will be supported natively.
+    //TODO: https://issues.apache.org/jira/browse/IGNITE-17373: Remove when INTERVAL type will be supported natively,
+    // or this issue is resolved.
 
     /** Test table. */
     @Deprecated
@@ -590,30 +591,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             return 0;
         }
 
-        @Override
-        public IgniteLogicalTableScan toRel(
-                RelOptCluster cluster,
-                RelOptTable relOptTbl,
-                List<RelHint> hints,
-                @Nullable List<RexNode> proj,
-                @Nullable RexNode cond,
-                @Nullable ImmutableBitSet requiredColumns
-        ) {
-            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTbl, proj, cond, requiredColumns);
-        }
-
-        @Override
-        public IgniteLogicalIndexScan toRel(
-                RelOptCluster cluster,
-                RelOptTable relOptTbl,
-                String idxName,
-                @Nullable List<RexNode> proj,
-                @Nullable RexNode cond,
-                @Nullable ImmutableBitSet requiredColumns
-        ) {
-            return IgniteLogicalIndexScan.create(cluster, cluster.traitSet(), relOptTbl, idxName, proj, cond, requiredColumns);
-        }
-
         /** {@inheritDoc} */
         @Override
         public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
@@ -628,6 +605,14 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             }
 
             return rowType;
+        }
+
+        @Override
+        public TableScan toRel(ToRelContext context, RelOptTable relOptTable) {
+            RelOptCluster cluster = context.getCluster();
+            List<RelHint> hints = context.getTableHints();
+
+            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTable, null, null, null);
         }
 
         @Override
@@ -666,23 +651,16 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         }
 
         @Override
-        public void addIndex(IgniteIndex idxTbl) {
-            throw new AssertionError();
-        }
-
-        @Override
-        public IgniteIndex getIndex(String idxName) {
-            throw new AssertionError();
-        }
-
-        @Override
-        public void removeIndex(String idxName) {
-            throw new AssertionError();
-        }
-
-        @Override
         public String name() {
             return name;
+        }
+
+        @Override
+        public <C> @Nullable C unwrap(Class<C> cls) {
+            if (cls.isInstance(this)) {
+                return cls.cast(this);
+            }
+            return null;
         }
     }
 }

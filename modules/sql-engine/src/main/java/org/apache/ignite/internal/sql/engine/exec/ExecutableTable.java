@@ -25,7 +25,6 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
  * Execution related APIs of a table.
  */
 public interface ExecutableTable {
-
     /**
      * Returns read API.
      */

@@ -845,7 +845,7 @@ TEST_F(record_binary_view_test, remove_all_nonexisting_keys_return_all) {
 
     EXPECT_EQ(res.size(), 2);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    // TODO: Key order should be preserved by the server (IGNITE-20435).
     EXPECT_EQ(1, res[0].column_count());
     EXPECT_EQ(2, res[0].get<int64_t>("key"));
 
@@ -880,7 +880,7 @@ TEST_F(record_binary_view_test, remove_all_overlapped) {
 
     EXPECT_EQ(res.size(), 2);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    // TODO: Key order should be preserved by the server (IGNITE-20435).
     EXPECT_EQ(1, res[0].column_count());
     EXPECT_EQ(12, res[0].get<int64_t>("key"));
 
@@ -896,7 +896,7 @@ TEST_F(record_binary_view_test, remove_all_empty) {
 TEST_F(record_binary_view_test, remove_all_exact_nonexisting) {
     auto res = tuple_view.remove_all_exact(nullptr, {get_tuple(1, "foo"), get_tuple(2, "bar")});
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
+    // TODO: Key order should be preserved by the server (IGNITE-20435).
     ASSERT_EQ(2, res.size());
 }
 
@@ -986,6 +986,7 @@ TEST_F(record_binary_view_test, types_test) {
         } else if (column == "timestamp2") {
             EXPECT_EQ(res->get(column), primitive{ignite_timestamp(3875238472, 248700000)});
         } else {
+            std::cout << "Column " + column << std::endl;
             EXPECT_EQ(res->get(column), inserted.get(column));
         }
     }

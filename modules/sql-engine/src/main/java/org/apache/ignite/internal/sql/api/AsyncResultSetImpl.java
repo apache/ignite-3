@@ -28,10 +28,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -225,18 +224,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
 
         /** {@inheritDoc} */
         @Override
-        public BinaryObject binaryObjectValue(String columnName) {
-            return (BinaryObject) row.get(columnIndexChecked(columnName));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public BinaryObject binaryObjectValue(int columnIndex) {
-            return (BinaryObject) row.get(columnIndex);
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public boolean booleanValue(String columnName) {
             return (boolean) row.get(columnIndexChecked(columnName));
         }
@@ -413,6 +400,11 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public ResultSetMetadata metadata() {
             return meta;
+        }
+
+        @Override
+        public String toString() {
+            return "Row " + row;
         }
     }
 }

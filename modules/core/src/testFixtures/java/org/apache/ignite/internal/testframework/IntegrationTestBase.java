@@ -34,11 +34,10 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -182,24 +181,4 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
         TestIgnitionManager.start(nodeName, NODE_CONFIGS.get(nodeName), WORK_DIR.resolve(nodeName));
         CLUSTER_NODE_NAMES.add(nodeName);
     }
-
-    /**
-     * Invokes before the test will start.
-     *
-     * @param testInfo Test information object.
-     */
-    public void setUp(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, WORK_DIR);
-    }
-
-    /**
-     * Invokes after the test has finished.
-     *
-     * @param testInfo Test information object.
-     */
-    @AfterEach
-    public void tearDown(TestInfo testInfo) {
-        tearDownBase(testInfo);
-    }
 }
-

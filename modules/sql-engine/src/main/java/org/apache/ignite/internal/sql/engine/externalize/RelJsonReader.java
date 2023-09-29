@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -48,10 +49,10 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * RelJsonReader.
@@ -360,16 +361,21 @@ public class RelJsonReader {
 
         private AggregateCall toAggCall(Map<String, Object> jsonAggCall) {
             Map<String, Object> aggMap = (Map) jsonAggCall.get("agg");
-            SqlAggFunction aggregation = (SqlAggFunction) relJson.toOp(aggMap);
+            SqlAggFunction aggregation =
+                    requireNonNull((SqlAggFunction) relJson.toOp(aggMap),
+                            () -> "relJson.toAggregation output for " + aggMap);
             Boolean distinct = (Boolean) jsonAggCall.get("distinct");
             List<Integer> operands = (List<Integer>) jsonAggCall.get("operands");
             Integer filterOperand = (Integer) jsonAggCall.get("filter");
             RelDataType type = relJson.toType(Commons.typeFactory(), jsonAggCall.get("type"));
             String name = (String) jsonAggCall.get("name");
-            return AggregateCall.create(aggregation, distinct, false, false, operands,
-                    filterOperand == null ? -1 : filterOperand,
-                    RelCollations.EMPTY,
-                    type, name);
+
+            Object rexList = jsonAggCall.get("rexList");
+            RexNode r0 = relJson.toRex(this, rexList);
+
+            return AggregateCall.create(aggregation, distinct, false, false,
+                    r0 == null ? ImmutableList.of() : List.of(r0), operands, filterOperand == null ? -1 : filterOperand,
+                    null, RelCollations.EMPTY, type, name);
         }
     }
 }

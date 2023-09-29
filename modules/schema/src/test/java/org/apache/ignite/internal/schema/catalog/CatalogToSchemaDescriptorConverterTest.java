@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.catalog;
 
+import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -128,6 +129,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     public void convertTableDescriptor() {
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 1,
+                -1,
                 "test",
                 0,
                 1,

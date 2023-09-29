@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.catalog;
 
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.ErrorGroups;
 
 /**
  * Catalog validation exception.
@@ -29,12 +30,21 @@ public class CatalogValidationException extends IgniteInternalException {
     /**
      * Constructor.
      *
+     * @param message Error message.
+     */
+    public CatalogValidationException(String message) {
+        super(ErrorGroups.Catalog.VALIDATION_ERR, message);
+    }
+
+    /**
+     * Constructor.
+     *
      * @param code Full error code.
      * @param messagePattern Error message pattern.
      * @param params Error message params.
      * @see IgniteStringFormatter#format(String, Object...)
      */
-    CatalogValidationException(int code, String messagePattern, Object... params) {
+    public CatalogValidationException(int code, String messagePattern, Object... params) {
         super(code, messagePattern, params);
     }
 

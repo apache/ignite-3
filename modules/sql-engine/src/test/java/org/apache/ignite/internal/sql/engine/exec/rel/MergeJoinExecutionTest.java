@@ -40,9 +40,10 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -474,10 +475,13 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
     private void verifyJoin(Object[][] left, Object[][] right, JoinRelType joinType, Object[][] expRes, boolean equalNulls) {
         ExecutionContext<Object[]> ctx = executionContext(true);
 
-        RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> leftNode = new ScanNode<>(ctx, Arrays.asList(left));
 
-        RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), Integer.class, String.class);
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
         ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
         IgniteTypeFactory typeFactory = Commons.typeFactory();
@@ -511,16 +515,17 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
         }
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx);
-        node.register(project);
+        try (RootNode<Object[]> node = new RootNode<>(ctx)) {
+            node.register(project);
 
-        ArrayList<Object[]> rows = new ArrayList<>();
+            ArrayList<Object[]> rows = new ArrayList<>();
 
-        while (node.hasNext()) {
-            rows.add(node.next());
+            while (node.hasNext()) {
+                rows.add(node.next());
+            }
+
+            assertThat(rows.toArray(EMPTY), equalTo(expRes));
         }
-
-        assertThat(rows.toArray(EMPTY), equalTo(expRes));
     }
 
     /**

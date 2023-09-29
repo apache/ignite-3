@@ -34,6 +34,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -44,8 +46,6 @@ import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
@@ -54,11 +54,13 @@ import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * The class has tests of cluster recovery when no all committed RAFT commands applied to the state machine.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20393")
 public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassIntegrationTest {
 
     private final Object[][] dataSet = {
@@ -223,7 +225,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      * @param leaderAndGroupRef Pair contains of leader and RAFT group name.
      * @return Atomic long that represents an applied index.
      */
-    private static AtomicLong partitionUpdateInhibitor(
+    private AtomicLong partitionUpdateInhibitor(
             IgniteImpl node,
             AtomicReference<IgniteBiTuple<ClusterNode, String>> leaderAndGroupRef
     ) {
@@ -327,7 +329,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      *
      * @param ignite Ignite instance.
      */
-    private static void transferLeadershipToLocalNode(IgniteImpl ignite) {
+    private void transferLeadershipToLocalNode(IgniteImpl ignite) {
         TableImpl table = (TableImpl) ignite.tables().table(DEFAULT_TABLE_NAME);
 
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);

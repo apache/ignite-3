@@ -96,6 +96,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
@@ -109,7 +110,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -154,7 +154,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
     /** Cluster ID. */
-    private final UUID clusterId;
+    private final CompletableFuture<UUID> clusterId;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -200,7 +200,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             IgniteCompute compute,
             ClusterService clusterService,
             IgniteSql sql,
-            UUID clusterId,
+            CompletableFuture<UUID> clusterId,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             HybridClock clock
@@ -303,10 +303,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClusterNode localMember = clusterService.topologyService().localMember();
             packer.packString(localMember.id());
             packer.packString(localMember.name());
-            packer.packUuid(clusterId);
+            packer.packUuid(clusterId.join());
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             write(packer, ctx);
 
@@ -436,7 +436,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         // Extensions.
         if (schemaVersionMismatchException != null) {
-            packer.packMapHeader(1);
+            packer.packInt(1);
             packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
             packer.packInt(schemaVersionMismatchException.expectedVersion());
         } else {
@@ -642,7 +642,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, sql, resources, metrics);
+                return ClientSqlExecuteRequest.process(in, out, sql, resources, metrics, igniteTransactions);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, out, resources);
@@ -713,7 +713,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
-        int mapSize = unpacker.unpackMapHeader();
+        int mapSize = unpacker.unpackInt();
         for (int i = 0; i < mapSize; i++) {
             HandshakeExtension handshakeExtension = HandshakeExtension.fromKey(unpacker.unpackString());
             if (handshakeExtension != null) {

@@ -61,4 +61,12 @@ public interface TopologyService {
      * @return The node object; {@code null} if the node has not been discovered or is offline.
      */
     @Nullable ClusterNode getByConsistentId(String consistentId);
+
+    /**
+     * Returns a cluster node specified by its ID.
+     *
+     * @param id Node ID.
+     * @return The node object; {@code null} if the node has not been discovered or is offline.
+     */
+    @Nullable ClusterNode getById(String id);
 }

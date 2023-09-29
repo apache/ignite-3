@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,7 +44,7 @@ class ClientResultSetMetadata implements ResultSetMetadata {
      * @param unpacker Unpacker.
      */
     public ClientResultSetMetadata(ClientMessageUnpacker unpacker) {
-        var size = unpacker.unpackArrayHeader();
+        var size = unpacker.unpackInt();
         assert size > 0 : "ResultSetMetadata should not be empty.";
 
         var columns = new ArrayList<ColumnMetadata>(size);
@@ -66,8 +68,6 @@ class ClientResultSetMetadata implements ResultSetMetadata {
     /** {@inheritDoc} */
     @Override
     public int indexOf(String columnName) {
-        Integer index = columnIndices.get(columnName);
-
-        return index == null ? -1 : index;
+        return columnIndices.getOrDefault(parseSimpleName(columnName), -1);
     }
 }

@@ -17,24 +17,21 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneCatalogDescriptorUtils.toZoneDescriptor;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
@@ -46,7 +43,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -57,7 +53,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -81,30 +76,30 @@ import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -112,6 +107,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -127,17 +123,9 @@ import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesChange;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
-import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -163,8 +151,9 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.replicator.DirectCatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -173,27 +162,21 @@ import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.lang.TableAlreadyExistsException;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -208,9 +191,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Table manager.
  */
-public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
+public class TableManager extends AbstractEventProducer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
@@ -222,20 +203,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Transaction storage flush delay. */
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 1000;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
-
-    /**
-     * If this property is set to {@code true} then an attempt to get the configuration property directly from Meta storage will be skipped,
-     * and the local property will be returned.
-     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through Meta storage,
-     * TODO: will be removed after fix of the issue.
-     */
-    private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
-
-    /** Tables configuration. */
-    private final TablesConfiguration tablesCfg;
-
-    /** Distribution zones configuration. */
-    private final DistributionZonesConfiguration zonesConfig;
 
     /** Garbage collector configuration. */
     private final GcConfiguration gcConfig;
@@ -269,8 +236,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
 
-    /** Placement driver. */
-    private final PlacementDriver placementDriver;
+    /** Transaction state resolver. */
+    private final TransactionStateResolver transactionStateResolver;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
@@ -285,14 +252,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Versioned store for local partition set by table id.
-     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
+     *
+     * <p>Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
      */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, int, TableImpl)}.
-     * Completed strictly after {@link #localPartsByTableIdVv}.
+     *
+     * <p>Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, TableImpl)}.
+     *
+     * <p>Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -315,7 +285,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Schema manager. */
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
@@ -341,8 +311,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
-
-    private final ClusterManagementGroupManager cmgMgr;
 
     private final DistributionZoneManager distributionZoneManager;
 
@@ -379,17 +347,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final IndexBuilder indexBuilder;
 
-    private final ConfiguredTablesCache configuredTablesCache;
-
     private final Marshaller raftCommandsMarshaller;
+
+    private final HybridTimestampTracker observableTimestampTracker;
+
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
+    /** Versioned value used only at manager startup to correctly fire table creation events. */
+    private final IncrementalVersionedValue<Void> startVv;
+
+    /** Ends at the {@link #stop()} with an {@link NodeStoppingException}. */
+    private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
     /**
      * Creates a new table manager.
      *
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
-     * @param tablesCfg Tables configuration.
-     * @param zonesConfig Distribution zones configuration.
      * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
@@ -403,12 +378,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
+     * @param placementDriver Placement driver.
      */
     public TableManager(
             String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
-            TablesConfiguration tablesCfg,
-            DistributionZonesConfiguration zonesConfig,
             GcConfiguration gcConfig,
             ClusterService clusterService,
             RaftManager raftMgr,
@@ -421,19 +395,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DataStorageManager dataStorageMgr,
             Path storagePath,
             MetaStorageManager metaStorageMgr,
-            SchemaManager schemaManager,
+            CatalogSchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
-            ClusterManagementGroupManager cmgMgr,
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
-            CatalogService catalogService
+            CatalogService catalogService,
+            HybridTimestampTracker observableTimestampTracker,
+            PlacementDriver placementDriver
     ) {
-        this.tablesCfg = tablesCfg;
-        this.zonesConfig = zonesConfig;
         this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -451,14 +424,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
-        this.cmgMgr = cmgMgr;
         this.distributionZoneManager = distributionZoneManager;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.observableTimestampTracker = observableTimestampTracker;
+        this.placementDriver = placementDriver;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
-        placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
+        transactionStateResolver = new TransactionStateResolver(
+                replicaSvc,
+                txManager,
+                clock,
+                clusterNodeResolver,
+                topologyService::getById,
+                clusterService.messagingService()
+        );
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -507,52 +488,91 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
 
-        indexBuilder = new IndexBuilder(nodeName, cpus);
-
-        configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
+        indexBuilder = new IndexBuilder(nodeName, cpus, replicaSvc);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
+
+        startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
     public void start() {
-        mvGc.start();
+        inBusyLock(busyLock, () -> {
+            mvGc.start();
 
-        lowWatermark.start();
+            lowWatermark.start();
 
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
+            transactionStateResolver.start();
 
-        tablesCfg.tables().listenElements(new ConfigurationNamedListListener<>() {
-            @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableCreate(ctx);
-            }
+            CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
-            @Override
-            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<TableView> ctx) {
-                // TODO: IGNITE-15485 Support table rename operation.
+            assert recoveryFinishFuture.isDone();
 
-                return completedFuture(null);
-            }
+            long recoveryRevision = recoveryFinishFuture.join();
 
-            @Override
-            public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableDelete(ctx);
-            }
-        });
+            startTables(recoveryRevision);
 
-        schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
-            @Override
-            public CompletableFuture<Boolean> notify(SchemaEventParameters parameters, @Nullable Throwable exception) {
+            performRebalanceOnRecovery(recoveryRevision);
+
+            metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
+            metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
+            metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
+
+            catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
+                assert exception == null : parameters;
+
+                return onTableCreate((CreateTableEventParameters) parameters).thenApply(unused -> false);
+            });
+
+            catalogService.listen(CatalogEvent.TABLE_DROP, (parameters, exception) -> {
+                assert exception == null : parameters;
+
+                return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
+            });
+
+            schemaManager.listen(SchemaEvent.CREATE, (parameters, exception) -> inBusyLockAsync(busyLock, () -> {
                 var eventParameters = new TableEventParameters(parameters.causalityToken(), parameters.tableId());
 
                 return fireEvent(TableEvent.ALTER, eventParameters).thenApply(v -> false);
-            }
-        });
+            }));
 
-        addMessageHandler(clusterService.messagingService());
+            addMessageHandler(clusterService.messagingService());
+        });
+    }
+
+    private void performRebalanceOnRecovery(long recoveryRevision) {
+        CompletableFuture<Void> pendingAssignmentsRecoveryFuture;
+
+        var prefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
+
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, recoveryRevision)) {
+            CompletableFuture<?>[] futures = cursor.stream()
+                    .map(pendingAssignmentEntry -> {
+                        if (LOG.isInfoEnabled()) {
+                            LOG.info(
+                                    "Missed pending assignments for key '{}' discovered, performing recovery",
+                                    new String(pendingAssignmentEntry.key(), UTF_8)
+                            );
+                        }
+
+                        // We use the Meta Storage recovery revision here instead of the entry revision, because
+                        // 'handleChangePendingAssignmentEvent' accesses some Versioned Values that only store values starting with
+                        // tokens equal to Meta Storage recovery revision. In other words, if the entry has a lower revision than the
+                        // recovery revision, there will never be a Versioned Value corresponding to its revision.
+                        return handleChangePendingAssignmentEvent(pendingAssignmentEntry, recoveryRevision);
+                    })
+                    .toArray(CompletableFuture[]::new);
+
+            pendingAssignmentsRecoveryFuture = allOf(futures)
+                    // Simply log any errors, we don't want to block watch processing.
+                    .exceptionally(e -> {
+                        LOG.error("Error when performing pending assignments recovery", e);
+
+                        return null;
+                    });
+        }
+
+        startVv.update(recoveryRevision, (v, e) -> pendingAssignmentsRecoveryFuture);
     }
 
     /**
@@ -592,60 +612,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
     }
 
-    /**
-     * Listener of table create configuration change.
-     *
-     * @param ctx Table configuration context.
-     * @return A future.
-     */
-    private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
-        if (!busyLock.enterBusy()) {
-            fireEvent(TableEvent.CREATE,
-                    new TableEventParameters(ctx.storageRevision(), ctx.newValue().id()),
-                    new NodeStoppingException()
-            );
-
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
-
-            CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
-
-            int tableId = tableDescriptor.id();
-
-            // Check if the table already has assignments in the vault.
-            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
-            if (partitionAssignments(vaultManager, tableId, 0) != null) {
-                assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
-            } else {
-                assignmentsFuture = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId())
-                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
-                                dataNodes,
-                                zoneDescriptor.partitions(),
-                                zoneDescriptor.replicas()
-                        ));
-            }
-
-            CompletableFuture<?> createTableFut = createTableLocally(
-                    ctx.storageRevision(),
-                    tableDescriptor,
-                    zoneDescriptor,
-                    assignmentsFuture
-            ).whenComplete((v, e) -> {
-                if (e == null) {
-                    for (var listener : assignmentsChangeListeners) {
-                        listener.accept(this);
-                    }
-                }
-            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
-
-            return createTableFut;
-        } finally {
-            busyLock.leaveBusy();
-        }
+    private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
+        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor());
     }
 
     private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(
@@ -676,28 +644,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
     }
 
-    /**
-     * Listener of table drop configuration change.
-     *
-     * @param ctx Table configuration context.
-     * @return A future.
-     */
-    private CompletableFuture<?> onTableDelete(ConfigurationNotificationEvent<TableView> ctx) {
+    private CompletableFuture<Void> onTableDelete(DropTableEventParameters parameters) {
+        long causalityToken = parameters.causalityToken();
+        int catalogVersion = parameters.catalogVersion();
+
+        int tableId = parameters.tableId();
+
         if (!busyLock.enterBusy()) {
-            fireEvent(
-                    TableEvent.DROP,
-                    new TableEventParameters(ctx.storageRevision(), ctx.oldValue().id()),
-                    new NodeStoppingException()
-            );
+            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tableId), new NodeStoppingException());
 
             return failedFuture(new NodeStoppingException());
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.oldValue());
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
+            CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion - 1);
+            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion - 1);
 
-            dropTableLocally(ctx.storageRevision(), tableDescriptor, zoneDescriptor);
+            dropTableLocally(causalityToken, tableDescriptor, zoneDescriptor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -710,14 +673,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param causalityToken Causality token.
      * @param assignmentsFuture Table assignments.
-     * @param zoneId Distributed zone ID.
      * @param table Initialized table entity.
      * @return future, which will be completed when the partitions creations done.
      */
     private CompletableFuture<?> createTablePartitionsLocally(
             long causalityToken,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
-            int zoneId,
             TableImpl table
     ) {
         int tableId = table.tableId();
@@ -759,7 +720,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
-                placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
+                transactionStateResolver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
                         .collect(toList()));
 
                 var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
@@ -773,6 +734,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
                         internalTbl, partId);
+
+                storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
 
                 PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                         partId,
@@ -843,6 +806,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     raftNodeId,
                                     newConfiguration,
                                     new PartitionListener(
+                                            txManager,
                                             partitionDataStorage,
                                             partitionUpdateHandlers.storageUpdateHandler,
                                             txStatePartitionStorage,
@@ -936,14 +900,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
                 })));
 
+        // We bring the future outside to avoid OutdatedTokenException.
+        CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
+
         return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
             return localPartsUpdateFuture.thenCompose(unused ->
-                    tablesByIdVv.get(causalityToken)
-                            .thenComposeAsync(tablesById -> inBusyLock(busyLock, updateAssignmentsClosure), ioExecutor)
+                    tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(busyLock, updateAssignmentsClosure), ioExecutor)
             );
         });
     }
@@ -1006,7 +972,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 clock,
                 safeTimeTracker,
                 txStatePartitionStorage,
-                placementDriver,
+                transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
                 new NonHistoricSchemas(schemaManager),
                 localNode(),
@@ -1014,7 +980,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
-                tablesCfg
+                new DirectCatalogTables(catalogService),
+                placementDriver
         );
     }
 
@@ -1030,7 +997,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
     }
 
-    private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
+    private static PartitionKey partitionKey(InternalTable internalTbl, int partId) {
         return new PartitionKey(internalTbl.tableId(), partId);
     }
 
@@ -1092,6 +1059,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partitionUpdateHandlers.indexUpdateHandler,
                         partitionUpdateHandlers.gcUpdateHandler
                 ),
+                catalogService,
                 incomingSnapshotsExecutor
         ));
 
@@ -1105,6 +1073,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
+
+        stopManagerFuture.completeExceptionally(new NodeStoppingException());
 
         busyLock.block();
 
@@ -1239,16 +1209,74 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Creates local structures for a table.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version on which the table was created.
+     * @param tableDescriptor Catalog table descriptor.
+     * @return Future that will be completed when local changes related to the table creation are applied.
+     */
+    private CompletableFuture<?> createTableLocally(long causalityToken, int catalogVersion, CatalogTableDescriptor tableDescriptor) {
+        int tableId = tableDescriptor.id();
+
+        if (!busyLock.enterBusy()) {
+            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId), new NodeStoppingException());
+
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            int zoneId = tableDescriptor.zoneId();
+
+            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
+
+            // Check if the table already has assignments in the vault.
+            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
+            // TODO: IGNITE-20210 Fix it
+            if (partitionAssignments(vaultManager, tableId, 0) != null) {
+                assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
+            } else {
+                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, zoneId)
+                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                                dataNodes,
+                                zoneDescriptor.partitions(),
+                                zoneDescriptor.replicas()
+                        ));
+            }
+
+            return createTableLocally(
+                    causalityToken,
+                    tableDescriptor,
+                    zoneDescriptor,
+                    assignmentsFuture,
+                    catalogVersion
+            ).whenComplete((v, e) -> {
+                if (e == null) {
+                    for (var listener : assignmentsChangeListeners) {
+                        listener.accept(this);
+                    }
+                }
+            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Creates local structures for a table.
+     *
+     * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
      * @param assignmentsFuture Future with assignments.
+     * @param catalogVersion Catalog version on which the table was created.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
-    private CompletableFuture<?> createTableLocally(
+    private CompletableFuture<Void> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            CompletableFuture<List<Set<Assignment>>> assignmentsFuture
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
+            int catalogVersion
     ) {
         String tableName = tableDescriptor.name();
         int tableId = tableDescriptor.id();
@@ -1260,15 +1288,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         int partitions = zoneDescriptor.partitions();
 
-        InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
+        InternalTableImpl internalTable = new InternalTableImpl(
+                tableName,
+                tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock);
+                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
         var table = new TableImpl(internalTable, lockMgr);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
-        table.addIndexesToWait(collectTableIndexIds(tableId));
+        table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1287,7 +1317,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, zoneDescriptor.id(), table);
+        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, table);
 
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
@@ -1296,8 +1326,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             pendingTables.remove(tableId);
         }));
 
-        tablesById(causalityToken)
-                .thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
+        tablesById(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
         // We use the event notification future as the result so that dependent components can complete the schema updates.
@@ -1321,7 +1350,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         MvTableStorage tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
-                new StorageIndexDescriptorSupplier(tablesCfg)
+                new StorageIndexDescriptorSupplier(catalogService)
         );
 
         tableStorage.start();
@@ -1361,7 +1390,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Completes appropriate future to return result from API {@link TableManager#createTableAsync(String, String, Consumer)}.
+     * Completes appropriate future to return result from API {@link TableManager#createTableLocally}.
      *
      * @param table Table.
      */
@@ -1465,454 +1494,77 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private Set<Assignment> calculateAssignments(TablePartitionId tablePartitionId) {
-        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId());
+        int catalogVersion = catalogService.latestCatalogVersion();
 
-        assert tableDescriptor != null : tablePartitionId;
+        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
 
         return AffinityUtils.calculateAssignmentForPartition(
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 we must use distribution zone keys here
                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                 tablePartitionId.partitionId(),
-                getZoneDescriptor(tableDescriptor.zoneId()).replicas()
+                getZoneDescriptor(tableDescriptor, catalogVersion).replicas()
         );
     }
 
-    /**
-     * Creates a new table with the given {@code name} asynchronously. If a table with the same name already exists, a future will be
-     * completed with {@link TableAlreadyExistsException}.
-     *
-     * @param name Table name.
-     * @param zoneName Distribution zone name.
-     * @param tableInitChange Table changer.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
-     *         <ul>
-     *             <li>the node is stopping.</li>
-     *         </ul>
-     * @see TableAlreadyExistsException
-     */
-    public CompletableFuture<Table> createTableAsync(String name, String zoneName, Consumer<TableChange> tableInitChange) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return createTableAsyncInternal(name, zoneName, tableInitChange);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /** See {@link #createTableAsync(String, String, Consumer)} for details. */
-    private CompletableFuture<Table> createTableAsyncInternal(
-            String name,
-            String zoneName,
-            Consumer<TableChange> tableInitChange
-    ) {
-        CompletableFuture<Table> tblFut = new CompletableFuture<>();
-
-        tableAsyncInternal(name)
-                .handle((tbl, tblEx) -> {
-                    if (tbl != null) {
-                        tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
-                    } else if (tblEx != null) {
-                        tblFut.completeExceptionally(tblEx);
-                    } else {
-                        if (!busyLock.enterBusy()) {
-                            NodeStoppingException nodeStoppingException = new NodeStoppingException();
-
-                            tblFut.completeExceptionally(nodeStoppingException);
-
-                            throw new IgniteException(nodeStoppingException);
-                        }
-
-                        try {
-                            distributionZoneManager.zoneIdAsyncInternal(zoneName).handle((zoneId, zoneIdEx) -> {
-                                if (zoneId == null) {
-                                    tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
-                                } else if (zoneIdEx != null) {
-                                    tblFut.completeExceptionally(zoneIdEx);
-                                } else {
-                                    if (!busyLock.enterBusy()) {
-                                        NodeStoppingException nodeStoppingException = new NodeStoppingException();
-
-                                        tblFut.completeExceptionally(nodeStoppingException);
-
-                                        throw new IgniteException(nodeStoppingException);
-                                    }
-
-                                    try {
-                                        cmgMgr.logicalTopology()
-                                                .handle((cmgTopology, e) -> {
-                                                    if (e == null) {
-                                                        if (!busyLock.enterBusy()) {
-                                                            NodeStoppingException nodeStoppingException = new NodeStoppingException();
-
-                                                            tblFut.completeExceptionally(nodeStoppingException);
-
-                                                            throw new IgniteException(nodeStoppingException);
-                                                        }
-
-                                                        try {
-                                                            changeTablesConfigurationOnTableCreate(
-                                                                    name,
-                                                                    zoneId,
-                                                                    tableInitChange,
-                                                                    tblFut
-                                                            );
-                                                        } finally {
-                                                            busyLock.leaveBusy();
-                                                        }
-                                                    } else {
-                                                        tblFut.completeExceptionally(e);
-                                                    }
-
-                                                    return null;
-                                                });
-                                    } finally {
-                                        busyLock.leaveBusy();
-                                    }
-                                }
-
-                                return null;
-                            });
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
-                    }
-
-                    return null;
-                });
-
-        return tblFut;
-    }
-
-    /**
-     * Creates a new table in {@link TablesConfiguration}.
-     *
-     * @param name Table name.
-     * @param zoneId Distribution zone id.
-     * @param tableInitChange Table changer.
-     * @param tblFut Future representing pending completion of the table creation.
-     */
-    private void changeTablesConfigurationOnTableCreate(
-            String name,
-            int zoneId,
-            Consumer<TableChange> tableInitChange,
-            CompletableFuture<Table> tblFut
-    ) {
-        tablesCfg.change(tablesChange -> {
-            incrementTablesGeneration(tablesChange);
-
-            tablesChange.changeTables(tablesListChange -> {
-                if (tablesListChange.get(name) != null) {
-                    throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
-                }
-
-                tablesListChange.create(name, (tableChange) -> {
-                    tableInitChange.accept(tableChange);
-
-                    tableChange.changeZoneId(zoneId);
-
-                    var extConfCh = ((ExtendedTableChange) tableChange);
-
-                    int tableId = tablesChange.globalIdCounter() + 1;
-
-                    extConfCh.changeId(tableId);
-
-                    tablesChange.changeGlobalIdCounter(tableId);
-
-                    extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
-
-                    tableCreateFuts.put(extConfCh.id(), tblFut);
-                });
-            });
-        }).exceptionally(t -> {
-            Throwable ex = getRootCause(t);
-
-            if (ex instanceof TableAlreadyExistsException) {
-                tblFut.completeExceptionally(ex);
-            } else {
-                LOG.debug("Unable to create table [name={}]", ex, name);
-
-                tblFut.completeExceptionally(ex);
-
-                tableCreateFuts.values().removeIf(fut -> fut == tblFut);
-            }
-
-            return null;
-        });
-    }
-
-    private static void incrementTablesGeneration(TablesChange tablesChange) {
-        tablesChange.changeTablesGeneration(tablesChange.tablesGeneration() + 1);
-    }
-
-    /**
-     * Alters a cluster table. If an appropriate table does not exist, a future will be completed with {@link TableNotFoundException}.
-     *
-     * @param name Table name.
-     * @param tableChange Table changer.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
-     *         <ul>
-     *             <li>the node is stopping.</li>
-     *         </ul>
-     * @see TableNotFoundException
-     */
-    public CompletableFuture<Void> alterTableAsync(String name, Function<TableChange, Boolean> tableChange) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return alterTableAsyncInternal(name, tableChange);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /** See {@link #alterTableAsync(String, Function)} for details. */
-    private CompletableFuture<Void> alterTableAsyncInternal(String name, Function<TableChange, Boolean> tableChange) {
-        CompletableFuture<Void> tblFut = new CompletableFuture<>();
-
-        tableAsync(name).thenAccept(tbl -> {
-            if (tbl == null) {
-                tblFut.completeExceptionally(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
-            } else {
-                tablesCfg.tables().change(ch -> {
-                    if (ch.get(name) == null) {
-                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
-                    }
-
-                    ch.update(name, tblCh -> {
-                        if (!tableChange.apply(tblCh)) {
-                            return;
-                        }
-
-                        ExtendedTableChange exTblChange = (ExtendedTableChange) tblCh;
-
-                        exTblChange.changeSchemaId(exTblChange.schemaId() + 1);
-                    });
-                }).whenComplete((res, t) -> {
-                    if (t != null) {
-                        Throwable ex = getRootCause(t);
-
-                        if (ex instanceof TableNotFoundException) {
-                            tblFut.completeExceptionally(ex);
-                        } else {
-                            LOG.debug("Unable to modify table [name={}]", ex, name);
-
-                            tblFut.completeExceptionally(ex);
-                        }
-                    } else {
-                        tblFut.complete(res);
-                    }
-                });
-            }
-        }).exceptionally(th -> {
-            tblFut.completeExceptionally(th);
-
-            return null;
-        });
-
-        return tblFut;
-    }
-
-    /**
-     * Gets a cause exception for a client.
-     *
-     * @param t Exception wrapper.
-     * @return A root exception which will be acceptable to throw for public API.
-     */
-    //TODO: IGNITE-16051 Implement exception converter for public API.
-    private IgniteException getRootCause(Throwable t) {
-        Throwable ex;
-
-        if (t instanceof CompletionException) {
-            if (t.getCause() instanceof ConfigurationChangeException) {
-                ex = t.getCause().getCause();
-            } else {
-                ex = t.getCause();
-            }
-
-        } else {
-            ex = t;
-        }
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19539
-        return (ex instanceof IgniteException) ? (IgniteException) ex : ExceptionUtils.wrap(ex);
-    }
-
-    /**
-     * Drops a table with the name specified. If appropriate table does not be found, a future will be completed with
-     * {@link TableNotFoundException}.
-     *
-     * @param name Table name.
-     * @return Future representing pending completion of the operation.
-     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
-     *         <ul>
-     *             <li>the node is stopping.</li>
-     *         </ul>
-     * @see TableNotFoundException
-     */
-    public CompletableFuture<Void> dropTableAsync(String name) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return dropTableAsyncInternal(name);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /** See {@link #dropTableAsync(String)} for details. */
-    private CompletableFuture<Void> dropTableAsyncInternal(String name) {
-        return tableAsyncInternal(name).thenCompose(tbl -> {
-            // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
-            // distributed table and the local config has lagged behind.
-            if (tbl == null) {
-                return failedFuture(new TableNotFoundException(DEFAULT_SCHEMA_NAME, name));
-            }
-
-            return tablesCfg
-                    .change(chg -> {
-                        incrementTablesGeneration(chg);
-
-                        chg
-                                .changeTables(tblChg -> {
-                                    if (tblChg.get(name) == null) {
-                                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, name);
-                                    }
-
-                                    tblChg.delete(name);
-                                })
-                                .changeIndexes(idxChg -> {
-                                    for (TableIndexView index : idxChg) {
-                                        if (index.tableId() == tbl.tableId()) {
-                                            idxChg.delete(index.name());
-                                        }
-                                    }
-                                });
-                    })
-                    .exceptionally(t -> {
-                        Throwable ex = getRootCause(t);
-
-                        if (!(ex instanceof TableNotFoundException)) {
-                            LOG.debug("Unable to drop table [name={}]", ex, name);
-                        }
-
-                        throw new CompletionException(ex);
-                    });
-        });
-    }
-
-    /** {@inheritDoc} */
     @Override
     public List<Table> tables() {
         return join(tablesAsync());
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return tablesAsyncInternal();
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLockAsync(busyLock, this::tablesAsyncInternalBusy);
     }
 
-    /**
-     * Internal method for getting table.
-     *
-     * @return Future representing pending completion of the operation.
-     */
-    private CompletableFuture<List<Table>> tablesAsyncInternal() {
-        return supplyAsync(() -> inBusyLock(busyLock, this::directTableIds), ioExecutor)
-                .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
-                    var tableFuts = new CompletableFuture[tableIds.size()];
+    private CompletableFuture<List<Table>> tablesAsyncInternalBusy() {
+        HybridTimestamp now = clock.now();
 
-                    var i = 0;
+        return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
+                .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                    int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
 
-                    for (int tblId : tableIds) {
-                        tableFuts[i++] = tableAsyncInternal(tblId, false);
+                    Collection<CatalogTableDescriptor> tableDescriptors = catalogService.tables(catalogVersion);
+
+                    if (tableDescriptors.isEmpty()) {
+                        return completedFuture(List.of());
                     }
 
-                    return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
-                        var tables = new ArrayList<Table>(tableIds.size());
+                    CompletableFuture<TableImpl>[] tableImplFutures = tableDescriptors.stream()
+                            .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
+                            .toArray(CompletableFuture[]::new);
 
-                        for (var fut : tableFuts) {
-                            var table = fut.join();
-
-                            if (table != null) {
-                                tables.add((Table) table);
-                            }
-                        }
-
-                        return tables;
-                    }));
-                }));
-    }
-
-    /**
-     * Collects a list of direct table ids.
-     *
-     * @return A list of direct table ids.
-     */
-    private List<Integer> directTableIds() {
-        return configuredTablesCache.configuredTableIds();
-    }
-
-    /**
-     * Gets direct id of table with {@code tblName}.
-     *
-     * @param tblName Name of the table.
-     * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
-     */
-    @Nullable
-    private Integer directTableId(String tblName) {
-        try {
-            TableConfiguration exTblCfg = directProxy(tablesCfg.tables()).get(tblName);
-
-            if (exTblCfg == null) {
-                return null;
-            } else {
-                return exTblCfg.id().value();
-            }
-        } catch (NoSuchElementException e) {
-            return null;
-        }
+                    return allOf(tableImplFutures)
+                            .thenApply(unused1 -> Stream.of(tableImplFutures).map(CompletableFuture::join).collect(toList()));
+                }), ioExecutor);
     }
 
     /**
      * Returns the tables by ID future for the given causality token.
-     * The future will only be completed when corresponding assignments update completes.
+     *
+     * <p>The future will only be completed when corresponding assignments update completes.
      *
      * @param causalityToken Causality token.
      * @return The future with tables map.
      * @see #assignmentsUpdatedVv
      */
     private CompletableFuture<Map<Integer, TableImpl>> tablesById(long causalityToken) {
-        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tablesByIdVv.get(causalityToken));
+        // We bring the future outside to avoid OutdatedTokenException.
+        CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
+
+        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tablesByIdFuture);
     }
 
     /**
      * Returns the latest tables by ID map, for which all assignment updates have been completed.
      */
     private Map<Integer, TableImpl> latestTablesById() {
-        long latestCausalityToken = assignmentsUpdatedVv.latestCausalityToken();
-
-        if (latestCausalityToken < 0L) {
+        if (assignmentsUpdatedVv.latestCausalityToken() < 0L) {
             // No tables at all in case of empty causality token.
             return emptyMap();
         } else {
-            CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
+            CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(tablesByIdVv.latestCausalityToken());
 
-            assert tablesByIdFuture.isDone()
-                    : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
+            assert tablesByIdFuture.isDone() : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
 
             return tablesByIdFuture.join();
         }
@@ -1928,19 +1580,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return unmodifiableMap(latestTablesById());
     }
 
-    /** {@inheritDoc} */
     @Override
     public Table table(String name) {
         return join(tableAsync(name));
     }
 
-    /** {@inheritDoc} */
     @Override
     public TableImpl table(int id) throws NodeStoppingException {
         return join(tableAsync(id));
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
@@ -1965,17 +1614,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(int id) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return tableAsyncInternal(id, true);
-        } finally {
-            busyLock.leaveBusy();
-        }
+    public CompletableFuture<TableImpl> tableAsync(int tableId) {
+        return inBusyLockAsync(busyLock, () -> {
+            HybridTimestamp now = clock.now();
+
+            return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
+                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                        int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
+
+                        // Check if the table has been deleted.
+                        if (catalogService.table(tableId, catalogVersion) == null) {
+                            return completedFuture(null);
+                        }
+
+                        return tableAsyncInternalBusy(tableId);
+                    }), ioExecutor);
+        });
     }
 
     /**
@@ -1996,13 +1651,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public TableImpl tableImpl(String name) {
         return join(tableImplAsync(name));
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<TableImpl> tableImplAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
@@ -2015,94 +1668,66 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
     public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
+        return inBusyLockAsync(busyLock, () -> {
+            HybridTimestamp now = clock.now();
 
-        try {
-            return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
-                    .thenCompose(tableId -> inBusyLock(busyLock, () -> {
-                        if (tableId == null) {
+            return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
+                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                        CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
+
+                        // Check if the table has been deleted.
+                        if (tableDescriptor == null) {
                             return completedFuture(null);
                         }
 
-                        return tableAsyncInternal(tableId, false);
+                        return tableAsyncInternalBusy(tableDescriptor.id());
                     }));
-        } finally {
-            busyLock.leaveBusy();
+        });
+    }
+
+    private CompletableFuture<TableImpl> tableAsyncInternalBusy(int tableId) {
+        TableImpl tableImpl = latestTablesById().get(tableId);
+
+        if (tableImpl != null) {
+            return completedFuture(tableImpl);
         }
-    }
 
-    /**
-     * Internal method for getting table by id.
-     *
-     * @param id Table id.
-     * @param checkConfiguration {@code True} when the method checks a configuration before trying to get a table, {@code false}
-     *         otherwise.
-     * @return Future representing pending completion of the operation.
-     */
-    public CompletableFuture<TableImpl> tableAsyncInternal(int id, boolean checkConfiguration) {
-        CompletableFuture<Boolean> tblCfgFut = checkConfiguration
-                ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
-                : completedFuture(true);
+        CompletableFuture<TableImpl> getLatestTableFuture = new CompletableFuture<>();
 
-        return tblCfgFut.thenCompose(isCfg -> inBusyLock(busyLock, () -> {
-            if (!isCfg) {
-                return completedFuture(null);
-            }
+        CompletionListener<Void> tablesListener = (token, v, th) -> {
+            if (th == null) {
+                CompletableFuture<Map<Integer, TableImpl>> tablesFuture = tablesByIdVv.get(token);
 
-            TableImpl tbl = latestTablesById().get(id);
+                tablesFuture.whenComplete((tables, e) -> {
+                    if (e != null) {
+                        getLatestTableFuture.completeExceptionally(e);
+                    } else {
+                        TableImpl table = tables.get(tableId);
 
-            if (tbl != null) {
-                return completedFuture(tbl);
-            }
-
-            CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
-
-            CompletionListener<Void> tablesListener = (token, v, th) -> {
-                if (th == null) {
-                    CompletableFuture<Map<Integer, TableImpl>> tablesFut = tablesByIdVv.get(token);
-
-                    tablesFut.whenComplete((tables, e) -> {
-                        if (e != null) {
-                            getTblFut.completeExceptionally(e);
-                        } else {
-                            TableImpl table = tables.get(id);
-
-                            if (table != null) {
-                                getTblFut.complete(table);
-                            }
+                        if (table != null) {
+                            getLatestTableFuture.complete(table);
                         }
-                    });
-                } else {
-                    getTblFut.completeExceptionally(th);
-                }
-            };
-
-            assignmentsUpdatedVv.whenComplete(tablesListener);
-
-            // This check is needed for the case when we have registered tablesListener,
-            // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
-            tbl = latestTablesById().get(id);
-
-            if (tbl != null) {
-                assignmentsUpdatedVv.removeWhenComplete(tablesListener);
-
-                return completedFuture(tbl);
+                    }
+                });
+            } else {
+                getLatestTableFuture.completeExceptionally(th);
             }
+        };
 
-            return getTblFut.whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
-        }));
-    }
+        assignmentsUpdatedVv.whenComplete(tablesListener);
 
-    /**
-     * Checks that the table is configured with specific id.
-     *
-     * @param id Table id.
-     * @return True when the table is configured into cluster, false otherwise.
-     */
-    private boolean isTableConfigured(int id) {
-        return configuredTablesCache.isTableConfigured(id);
+        // This check is needed for the case when we have registered tablesListener,
+        // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
+        tableImpl = latestTablesById().get(tableId);
+
+        if (tableImpl != null) {
+            assignmentsUpdatedVv.removeWhenComplete(tablesListener);
+
+            return completedFuture(tableImpl);
+        }
+
+        return orStopManagerFuture(getLatestTableFuture)
+                .whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
     }
 
     /**
@@ -2111,17 +1736,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param future Completable future.
      * @return Future result.
      */
-    private <T> T join(CompletableFuture<T> future) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
+    private static <T> T join(CompletableFuture<T> future) {
         try {
             return future.join();
         } catch (CompletionException ex) {
             throw convertThrowable(ex.getCause());
-        } finally {
-            busyLock.leaveBusy();
         }
     }
 
@@ -2131,7 +1750,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param th Throwable.
      * @return Public throwable.
      */
-    private RuntimeException convertThrowable(Throwable th) {
+    private static RuntimeException convertThrowable(Throwable th) {
         if (th instanceof RuntimeException) {
             return (RuntimeException) th;
         }
@@ -2153,7 +1772,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    return handleChangePendingAssignmentEvent(evt);
+                    Entry newEntry = evt.entryEvent().newEntry();
+
+                    return handleChangePendingAssignmentEvent(newEntry, evt.revision());
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -2166,36 +1787,44 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(WatchEvent evt) {
-        assert evt.single();
-
-        Entry pendingAssignmentsWatchEntry = evt.entryEvent().newEntry();
-
-        if (pendingAssignmentsWatchEntry.value() == null) {
+    private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
+        if (pendingAssignmentsEntry.value() == null) {
             return completedFuture(null);
         }
 
-        int partId = extractPartitionNumber(pendingAssignmentsWatchEntry.key());
-        int tblId = extractTableId(pendingAssignmentsWatchEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
+        int partId = extractPartitionNumber(pendingAssignmentsEntry.key());
+        int tblId = extractTableId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
 
         var replicaGrpId = new TablePartitionId(tblId, partId);
 
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
-        CompletableFuture<Entry> stableAssignmentsFuture = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId), evt.revision());
+        CompletableFuture<Entry> stableAssignmentsFuture = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId), revision);
 
-        return tablesById(evt.revision())
+        return tablesById(revision)
                 .thenCombineAsync(stableAssignmentsFuture, (tables, stableAssignmentsEntry) -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.<Void>failedFuture(new NodeStoppingException());
                     }
 
                     try {
+                        TableImpl table = tables.get(tblId);
+
+                        // Table can be null only recovery, because we use a revision from the future. See comment inside
+                        // performRebalanceOnRecovery.
+                        if (table == null) {
+                            if (LOG.isInfoEnabled()) {
+                                LOG.info("Skipping Pending Assignments update, because table {} does not exist", tblId);
+                            }
+
+                            return CompletableFuture.<Void>completedFuture(null);
+                        }
+
                         return handleChangePendingAssignmentEvent(
-                                evt.revision(),
                                 replicaGrpId,
-                                tables.get(tblId),
-                                pendingAssignmentsWatchEntry,
-                                stableAssignmentsEntry
+                                table,
+                                pendingAssignmentsEntry,
+                                stableAssignmentsEntry,
+                                revision
                         );
                     } finally {
                         busyLock.leaveBusy();
@@ -2205,132 +1834,146 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
-            long causalityToken,
             TablePartitionId replicaGrpId,
             TableImpl tbl,
             Entry pendingAssignmentsEntry,
-            Entry stableAssignmentsEntry
+            Entry stableAssignmentsEntry,
+            long revision
     ) {
-        // Assignments of the pending rebalance that we received through the Meta storage watch mechanism.
-        Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
+        ClusterNode localMember = localNode();
 
-        PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
-
-        int tableId = tbl.tableId();
         int partId = replicaGrpId.partitionId();
 
-        byte[] stableAssignmentsBytes = stableAssignmentsEntry.value();
+        if (LOG.isInfoEnabled()) {
+            var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
-        Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsBytes);
+            LOG.info("Received update on pending assignments. Check if new raft group should be started"
+                            + " [key={}, partition={}, table={}, localMemberAddress={}]",
+                    stringKey, partId, tbl.name(), localMember.address());
+        }
 
-        PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
+        Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
 
-        placementDriver.updateAssignment(
+        Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsEntry.value());
+
+        transactionStateResolver.updateAssignment(
                 replicaGrpId,
-                stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
+                stableAssignments.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toList())
         );
-
-        ClusterNode localMember = localNode();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalServices = pendingAssignments.stream()
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
-                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-        PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
-
-        InternalTable internalTable = tbl.internalTable();
-
-        LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                        + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address());
-
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalServices) {
-            localServicesStartFuture = localPartsByTableIdVv.get(causalityToken).thenComposeAsync(oldMap -> {
-                PartitionSet partitionSet = oldMap.get(tableId).copy();
+            localServicesStartFuture = localPartsByTableIdVv.get(revision)
+                    .thenComposeAsync(oldMap -> {
+                        int tableId = tbl.tableId();
 
-                return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
-                    var newMap = new HashMap<>(oldMap);
+                        PartitionSet partitionSet = oldMap.get(tableId).copy();
 
-                    newMap.put(tableId, partitionSet);
+                        return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
+                            var newMap = new HashMap<>(oldMap);
 
-                    return newMap;
-                });
-            }).thenComposeAsync(unused -> {
-                PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
+                            newMap.put(tableId, partitionSet);
 
-                MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
-                TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
+                            return newMap;
+                        });
+                    }, ioExecutor)
+                    .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                        InternalTable internalTable = tbl.internalTable();
 
-                PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
+                        var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
+                        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
-                PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                        partId,
-                        partitionDataStorage,
-                        tbl,
-                        safeTimeTracker
-                );
+                        PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
 
-                return runAsync(() -> inBusyLock(busyLock, () -> {
-                    try {
-                        startPartitionRaftGroupNode(
-                                replicaGrpId,
-                                pendingConfiguration,
-                                stableConfiguration,
-                                safeTimeTracker,
-                                storageIndexTracker,
-                                internalTable,
-                                txStatePartitionStorage,
+                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
+                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
+
+                        PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
+
+                        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                                partId,
                                 partitionDataStorage,
-                                partitionUpdateHandlers
+                                tbl,
+                                safeTimeTracker
                         );
 
-                        startReplicaWithNewListener(
-                                replicaGrpId,
-                                tbl,
-                                safeTimeTracker,
-                                storageIndexTracker,
-                                mvPartitionStorage,
-                                txStatePartitionStorage,
-                                partitionUpdateHandlers,
-                                (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
-                        );
-                    } catch (NodeStoppingException ignored) {
-                        // No-op.
-                    }
-                }), ioExecutor);
-            });
+                        PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
+
+                        try {
+                            Peer serverPeer = pendingConfiguration.peer(localMember.name());
+
+                            RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                            if (!((Loza) raftMgr).isStarted(raftNodeId)) {
+                                PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
+
+                                startPartitionRaftGroupNode(
+                                        replicaGrpId,
+                                        pendingConfiguration,
+                                        stableConfiguration,
+                                        safeTimeTracker,
+                                        storageIndexTracker,
+                                        internalTable,
+                                        txStatePartitionStorage,
+                                        partitionDataStorage,
+                                        partitionUpdateHandlers
+                                );
+                            }
+
+                            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+                                startReplicaWithNewListener(
+                                        replicaGrpId,
+                                        tbl,
+                                        safeTimeTracker,
+                                        storageIndexTracker,
+                                        mvPartitionStorage,
+                                        txStatePartitionStorage,
+                                        partitionUpdateHandlers,
+                                        (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
+                                );
+                            }
+                        } catch (NodeStoppingException ignored) {
+                            // No-op.
+                        }
+                    }), ioExecutor);
         } else {
             localServicesStartFuture = completedFuture(null);
         }
 
         return localServicesStartFuture
-                .thenCompose(v -> metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId)))
-                .thenCompose(latestPendingAssignmentsEntry -> {
-                    // Do not change peers of the raft group if this is a stale event.
-                    // Note that we start raft node before for the sake of the consistency in a starting and stopping raft nodes.
-                    if (pendingAssignmentsEntry.revision() < latestPendingAssignmentsEntry.revision()) {
-                        return completedFuture(null);
-                    }
-
-                    RaftGroupService partGrpSvc = internalTable.partitionRaftGroupService(partId);
+                .thenCompose(v -> {
+                    RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(partId);
 
                     return partGrpSvc.refreshAndGetLeaderWithTerm()
                             .thenCompose(leaderWithTerm -> {
-                                // run update of raft configuration if this node is a leader
-                                if (isLocalPeer(leaderWithTerm.leader())) {
-                                    LOG.info("Current node={} is the leader of partition raft group={}. "
-                                                    + "Initiate rebalance process for partition={}, table={}",
-                                            localMember.address(), replicaGrpId, partId, tbl.name());
-
-                                    return partGrpSvc.changePeersAsync(pendingConfiguration, leaderWithTerm.term());
-                                } else {
+                                if (!isLocalPeer(leaderWithTerm.leader())) {
                                     return completedFuture(null);
                                 }
+
+                                // run update of raft configuration if this node is a leader
+                                LOG.info("Current node={} is the leader of partition raft group={}. "
+                                                + "Initiate rebalance process for partition={}, table={}",
+                                        leaderWithTerm.leader(), replicaGrpId, partId, tbl.name());
+
+                                return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
+                                        .thenCompose(latestPendingAssignmentsEntry -> {
+                                            // Do not change peers of the raft group if this is a stale event.
+                                            // Note that we start raft node before for the sake of the consistency in a starting and
+                                            // stopping raft nodes.
+                                            if (revision < latestPendingAssignmentsEntry.revision()) {
+                                                return completedFuture(null);
+                                            }
+
+                                            PeersAndLearners newConfiguration = configurationFromAssignments(pendingAssignments);
+
+                                            return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
+                                        });
                             });
                 });
     }
@@ -2356,6 +1999,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
 
         RaftGroupListener raftGrpLsnr = new PartitionListener(
+                txManager,
                 partitionDataStorage,
                 partitionUpdateHandlers.storageUpdateHandler,
                 txStatePartitionStorage,
@@ -2413,20 +2057,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
-    /**
-     * Creates Meta storage listener for switch reduce assignments updates.
-     *
-     * @return The watch listener.
-     */
+    /** Creates Meta storage listener for switch reduce assignments updates. */
     private WatchListener createAssignmentsSwitchRebalanceListener() {
         return new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-
-                try {
+                return inBusyLockAsync(busyLock, () -> {
                     byte[] key = evt.entryEvent().newEntry().key();
 
                     int partitionId = extractPartitionNumber(key);
@@ -2434,32 +2070,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
+                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                    int catalogVersion = catalogService.latestCatalogVersion();
+
                     return tablesById(evt.revision())
-                            .thenCompose(tables -> {
-                                if (!busyLock.enterBusy()) {
-                                    return failedFuture(new NodeStoppingException());
-                                }
+                            .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
+                                CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion);
 
-                                try {
-                                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId);
-
-                                    assert tableDescriptor != null : replicaGrpId;
-
-                                    return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
-                                            .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
-                                                    metaStorageMgr,
-                                                    dataNodes,
-                                                    getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
-                                                    replicaGrpId,
-                                                    evt
-                                            ));
-                                } finally {
-                                    busyLock.leaveBusy();
-                                }
-                            });
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                                return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
+                                        .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
+                                                metaStorageMgr,
+                                                dataNodes,
+                                                getZoneDescriptor(tableDescriptor, catalogVersion).replicas(),
+                                                replicaGrpId,
+                                                evt
+                                        ));
+                            }));
+                });
             }
 
             @Override
@@ -2471,19 +2098,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private PartitionMover createPartitionMover(InternalTable internalTable, int partId) {
         return new PartitionMover(busyLock, () -> internalTable.partitionRaftGroupService(partId));
-    }
-
-    /**
-     * Gets a direct accessor for the configuration distributed property. If the metadata access only locally configured the method will
-     * return local property accessor.
-     *
-     * @param property Distributed configuration property to receive direct access.
-     * @param <T> Type of the property accessor.
-     * @return An accessor for distributive property.
-     * @see #getMetadataLocallyOnly
-     */
-    private <T extends ConfigurationProperty<?>> T directProxy(T property) {
-        return getMetadataLocallyOnly ? property : (T) property.directProxy();
     }
 
     private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
@@ -2671,10 +2285,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private int[] collectTableIndexIds(int tableId) {
-        return tablesCfg.value().indexes().stream()
-                .filter(tableIndexView -> tableIndexView.tableId() == tableId)
-                .mapToInt(TableIndexView::id)
+    private int[] collectTableIndexIds(int tableId, int catalogVersion) {
+        return catalogService.indexes(catalogVersion).stream()
+                .filter(indexDescriptor -> indexDescriptor.tableId() == tableId)
+                .mapToInt(CatalogIndexDescriptor::id)
                 .toArray();
     }
 
@@ -2727,13 +2341,66 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return startedTables.get(tableId);
     }
 
-    private @Nullable CatalogTableDescriptor getTableDescriptor(int id) {
-        TableView tableView = findTableView(tablesCfg.value(), id);
-
-        return tableView == null ? null : toTableDescriptor(tableView);
+    /**
+     * Returns a table instance if it exists, {@code null} otherwise.
+     *
+     * @param name Table name.
+     */
+    @TestOnly
+    public @Nullable TableImpl getTable(String name) {
+        return findTableImplByName(startedTables.values(), name);
     }
 
-    private CatalogZoneDescriptor getZoneDescriptor(int id) {
-        return toZoneDescriptor(getZoneById(zonesConfig, id).value());
+    private CatalogTableDescriptor getTableDescriptor(int tableId, int catalogVersion) {
+        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+
+        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
+
+        return tableDescriptor;
+    }
+
+    private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
+        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+
+        assert zoneDescriptor != null :
+                "tableId=" + tableDescriptor.id() + ", zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
+
+        return zoneDescriptor;
+    }
+
+    private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
+        return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
+    }
+
+    private void startTables(long recoveryRevision) {
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        List<CompletableFuture<?>> startTableFutures = new ArrayList<>();
+
+        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from volt and metastore
+        for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
+            startTableFutures.add(createTableLocally(recoveryRevision, catalogVersion, tableDescriptor));
+        }
+
+        // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
+        startVv.update(recoveryRevision, (unused, throwable) -> allOf(startTableFutures.toArray(CompletableFuture[]::new)))
+                .whenComplete((unused, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Error starting tables", throwable);
+                    } else {
+                        LOG.debug("Tables started successfully");
+                    }
+                });
+    }
+
+    /**
+     * Returns the future that will complete when, either the future from the argument or {@link #stopManagerFuture} will complete,
+     * successfully or exceptionally. Allows to protect from getting stuck at {@link #stop()} when someone is blocked (by using
+     * {@link #busyLock}) for a long time.
+     *
+     * @param future Future.
+     */
+    private <T> CompletableFuture<T> orStopManagerFuture(CompletableFuture<T> future) {
+        return anyOf(future, stopManagerFuture).thenApply(o -> (T) o);
     }
 }

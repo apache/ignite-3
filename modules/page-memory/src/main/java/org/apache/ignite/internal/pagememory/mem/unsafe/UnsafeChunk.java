@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.mem.unsafe;
 
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Basic implementation of {@link DirectMemoryRegion} that stores direct memory address and the length of the region.
@@ -58,7 +58,7 @@ public class UnsafeChunk implements DirectMemoryRegion {
     @Override
     public DirectMemoryRegion slice(long offset) {
         if (offset < 0 || offset >= len) {
-            throw new IllegalArgumentException("Failed to create a memory region slice [ptr=" + IgniteUtils.hexLong(ptr)
+            throw new IllegalArgumentException("Failed to create a memory region slice [ptr=" + StringUtils.hexLong(ptr)
                     + ", len=" + len + ", offset=" + offset + ']');
         }
 

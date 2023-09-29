@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
@@ -303,6 +303,14 @@ public interface MessageReader {
      * @return {@link IgniteUuid}.
      */
     IgniteUuid readIgniteUuid(String name);
+
+    /**
+     * Reads a group type or a message type of the message. Unlike regular {@link #readShort(String)}, this method never accepts a field
+     * name, because there are no names assigned to the header values.
+     *
+     * @return {@code short} value.
+     */
+    short readHeaderShort();
 
     /**
      * Reads a nested message.

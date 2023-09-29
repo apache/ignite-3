@@ -38,6 +38,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -116,7 +117,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 storageIndexTracker,
                 raftClient,
                 LOCAL_NODE,
-                executor
+                executor,
+                new TestPlacementDriver(LOCAL_NODE.name())
         );
     }
 

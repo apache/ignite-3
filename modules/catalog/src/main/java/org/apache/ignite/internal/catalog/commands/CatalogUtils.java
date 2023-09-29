@@ -18,19 +18,20 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.IntStream;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -70,26 +71,8 @@ public class CatalogUtils {
     /** Max number of distribution zone partitions. */
     public static final int MAX_PARTITION_COUNT = 65_000;
 
-    /**
-     * Default TIMESTAMP type precision: microseconds.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 36
-     */
-    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
-
-    /**
-     * Default TIME type precision: seconds.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 36
-     */
-    public static final int DEFAULT_TIME_PRECISION = 0;
-
-    /**
-     * Default DECIMAL precision is implementation-defined.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 20
-     */
-    public static final int DEFAULT_DECIMAL_PRECISION = 19;
+    /** Precision if not specified. */
+    public static final int DEFAULT_PRECISION = 0;
 
     /**
      * Default scale is 0.
@@ -120,6 +103,20 @@ public class CatalogUtils {
     public static final int MAX_DECIMAL_SCALE = Short.MAX_VALUE;
 
     /**
+     * Default TIMESTAMP type precision: microseconds.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 36
+     */
+    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+
+    /**
+     * Default TIME type precision: seconds.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 36
+     */
+    public static final int DEFAULT_TIME_PRECISION = 0;
+
+    /**
      * Default length is `1` if implicit.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 5
@@ -140,58 +137,6 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
-    }
-
-    /**
-     * Converts CreateTable command params to descriptor.
-     *
-     * @param id Table ID.
-     * @param zoneId Distributed zone ID.
-     * @param params Parameters.
-     * @return Table descriptor.
-     */
-    public static CatalogTableDescriptor fromParams(int id, int zoneId, CreateTableParams params) {
-        return new CatalogTableDescriptor(
-                id,
-                params.tableName(),
-                zoneId,
-                CatalogTableDescriptor.INITIAL_TABLE_VERSION,
-                params.columns().stream().map(CatalogUtils::fromParams).collect(toList()),
-                params.primaryKeyColumns(),
-                params.colocationColumns()
-        );
-    }
-
-    /**
-     * Converts CreateIndex command params to hash index descriptor.
-     *
-     * @param id Index ID.
-     * @param tableId Table ID.
-     * @param params Parameters.
-     * @return Index descriptor.
-     */
-    public static CatalogHashIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(id, params.indexName(), tableId, params.unique(), params.columns());
-    }
-
-    /**
-     * Converts CreateIndex command params to sorted index descriptor.
-     *
-     * @param id Index ID.
-     * @param tableId Table ID.
-     * @param params Parameters.
-     * @return Index descriptor.
-     */
-    public static CatalogSortedIndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
-        List<CatalogColumnCollation> collations = params.collations();
-
-        assert collations.size() == params.columns().size() : "tableId=" + tableId + ", indexId=" + id;
-
-        List<CatalogIndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
-                .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
-                .collect(toList());
-
-        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.unique(), columnDescriptors);
     }
 
     /**
@@ -248,13 +193,13 @@ public class CatalogUtils {
     /**
      * Converts AlterTableAdd command columns parameters to column descriptor.
      *
-     * @param params Parameters.
+     * @param params Column description.
      * @return Column descriptor.
      */
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
-        int precision = Objects.requireNonNullElse(params.precision(), defaultPrecision(params.type()));
+        int precision = Objects.requireNonNullElse(params.precision(), DEFAULT_PRECISION);
         int scale = Objects.requireNonNullElse(params.scale(), DEFAULT_SCALE);
-        int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type()));
+        int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type(), precision));
 
         DefaultValue defaultValue = params.defaultValueDefinition();
 
@@ -275,31 +220,40 @@ public class CatalogUtils {
         return supportedTransitions != null && supportedTransitions.contains(target);
     }
 
-    private static int defaultPrecision(ColumnType columnType) {
-        //TODO IGNITE-19938: Add REAL,FLOAT and DOUBLE precision. See SQL`16 part 2 section 6.1 syntax rule 29-31
-        switch (columnType) {
-            case NUMBER:
-            case DECIMAL:
-                return DEFAULT_DECIMAL_PRECISION;
-            case TIME:
-                return DEFAULT_TIME_PRECISION;
-            case TIMESTAMP:
-            case DATETIME:
-                return DEFAULT_TIMESTAMP_PRECISION;
-            default:
-                return 0;
-        }
+    /**
+     * Returns a list of schemas, replacing any schema with {@code newSchema} if its id equal to {@code newSchema.id()}.
+     *
+     * @param newSchema A schema.
+     * @param schemas A list of schemas.
+     * @return A List of schemas.
+     */
+    public static List<CatalogSchemaDescriptor> replaceSchema(CatalogSchemaDescriptor newSchema,
+            Collection<CatalogSchemaDescriptor> schemas) {
+
+        return schemas.stream().map(s -> {
+            if (Objects.equals(s.id(), newSchema.id())) {
+                return newSchema;
+            } else {
+                return s;
+            }
+        }).collect(toList());
     }
 
-    private static int defaultLength(ColumnType columnType) {
-        //TODO IGNITE-19938: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
+    /**
+     * Return default length according to supplied type.
+     *
+     * @param columnType Column type.
+     * @param precision Type precision.
+     */
+    public static int defaultLength(ColumnType columnType, int precision) {
+        //TODO IGNITE-20432: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
         switch (columnType) {
             case BITMASK:
             case STRING:
             case BYTE_ARRAY:
                 return DEFAULT_VARLEN_LENGTH;
             default:
-                return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
+                return Math.max(DEFAULT_LENGTH, precision);
         }
     }
 
@@ -352,5 +306,65 @@ public class CatalogUtils {
                 Objects.requireNonNullElse(params.filter(), previous.filter()),
                 dataStorageDescriptor
         );
+    }
+
+    /**
+     * Returns schema with given name, or throws {@link CatalogValidationException} if schema with given name not exists.
+     *
+     * @param catalog Catalog to look up schema in.
+     * @param name Name of the schema of interest.
+     * @return Schema with given name. Never null.
+     * @throws CatalogValidationException If schema with given name is not exists.
+     */
+    static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+        name = Objects.requireNonNull(name, "schemaName");
+
+        CatalogSchemaDescriptor schema = catalog.schema(name);
+
+        if (schema == null) {
+            throw new CatalogValidationException(format("Schema with name '{}' not found", name));
+        }
+
+        return schema;
+    }
+
+    /**
+     * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
+     *
+     * @param schema Schema to look up table in.
+     * @param name Name of the table of interest.
+     * @return Table with given name. Never null.
+     * @throws TableNotFoundValidationException If table with given name is not exists.
+     */
+    static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+        name = Objects.requireNonNull(name, "tableName");
+
+        CatalogTableDescriptor table = schema.table(name);
+
+        if (table == null) {
+            throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return table;
+    }
+
+    /**
+     * Returns zone with given name, or throws {@link CatalogValidationException} if zone with given name not exists.
+     *
+     * @param catalog Catalog to look up zone in.
+     * @param name Name of the zone of interest.
+     * @return Zone with given name. Never null.
+     * @throws CatalogValidationException If zone with given name is not exists.
+     */
+    static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+        name = Objects.requireNonNull(name, "zoneName");
+
+        CatalogZoneDescriptor zone = catalog.zone(name);
+
+        if (zone == null) {
+            throw new CatalogValidationException(format("Distribution zone with name '{}' not found", name));
+        }
+
+        return zone;
     }
 }

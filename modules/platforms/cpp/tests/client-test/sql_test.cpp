@@ -100,8 +100,7 @@ TEST_F(sql_test, sql_simple_select) {
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
 
-    // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
-    // check_columns(result_set.metadata(), {{"42", ignite_type::INT32}, {"'Lorem'", ignite_type::STRING}});
+    check_columns(result_set.metadata(), {{"42", ignite_type::INT32}, {"'Lorem'", ignite_type::STRING}});
 
     auto page = result_set.current_page();
 
@@ -289,7 +288,8 @@ TEST_F(sql_test, sql_create_existing_table) {
             try {
                 m_client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table already exists"));
+                // TODO: IGNITE-20388 Fix it
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.TEST' already exists"));
                 throw;
             }
         },
@@ -302,7 +302,8 @@ TEST_F(sql_test, sql_add_existing_column) {
             try {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE TEST ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column already exists"));
+                // TODO: IGNITE-20388 Fix it
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Column with name 'ID' already exists"));
                 throw;
             }
         },
@@ -315,7 +316,8 @@ TEST_F(sql_test, sql_alter_nonexisting_table) {
             try {
                 m_client.get_sql().execute(nullptr, {"ALTER TABLE UNKNOWN_TABLE ADD COLUMN ID INT"}, {});
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("The table does not exist"));
+                // TODO: IGNITE-20388 Fix it
+                EXPECT_THAT(e.what_str(), ::testing::HasSubstr("Table with name 'PUBLIC.UNKNOWN_TABLE' not found"));
                 throw;
             }
         },
@@ -397,8 +399,8 @@ TEST_F(sql_test, uuid_literal) {
 
 TEST_F(sql_test, uuid_argument) {
     uuid req{0x123e4567e89b12d3, 0x7456426614174000};
-    auto result_set =
-        m_client.get_sql().execute(nullptr, {"select MAX(\"UUID\") from TBL_ALL_COLUMNS_SQL WHERE \"UUID\" = ?"}, {req});
+    auto result_set = m_client.get_sql().execute(
+        nullptr, {"select MAX(\"UUID\") from TBL_ALL_COLUMNS_SQL WHERE \"UUID\" = ?"}, {req});
 
     EXPECT_TRUE(result_set.has_rowset());
 

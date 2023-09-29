@@ -20,8 +20,7 @@ package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 import static java.lang.Math.max;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -44,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.VersionedValue;
@@ -54,13 +54,12 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundExce
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 
 /**
  * Causality data nodes engine. Contains logic for obtaining zone's data nodes with causality token.
@@ -89,7 +88,7 @@ public class CausalityDataNodesEngine {
      * zoneId -> (revision -> zoneConfiguration).
      * TODO IGNITE-20050 Clean up this map.
      */
-    private final ConcurrentHashMap<Integer, ConcurrentSkipListMap<Long, ZoneConfiguration>> zonesVersionedCfg;
+    private final ConcurrentHashMap<Integer, ConcurrentSkipListMap<Long, ZoneConfiguration>> zonesVersionedCfg = new ConcurrentHashMap<>();
 
     /** Used to guarantee that the zone will be created before other components use the zone. */
     private final VersionedValue<Void> zonesVv;
@@ -117,7 +116,6 @@ public class CausalityDataNodesEngine {
         this.zonesState = zonesState;
         this.distributionZoneManager = distributionZoneManager;
 
-        zonesVersionedCfg = new ConcurrentHashMap<>();
         zonesVv = new IncrementalVersionedValue<>(registry);
     }
 
@@ -137,7 +135,7 @@ public class CausalityDataNodesEngine {
             throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
         }
 
-        if (zoneId < DEFAULT_ZONE_ID) {
+        if (zoneId < 0) {
             throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
         }
 
@@ -583,10 +581,10 @@ public class CausalityDataNodesEngine {
      * We save versioned configuration in the Vault every time we receive event which triggers the data nodes recalculation.
      *
      * @param revision Revision.
-     * @param zone Zone's view.
+     * @param zone Zone descriptor.
      */
-    public void onCreateOrRestoreZoneState(long revision, DistributionZoneView zone) {
-        int zoneId = zone.zoneId();
+    public void onCreateOrRestoreZoneState(long revision, CatalogZoneDescriptor zone) {
+        int zoneId = zone.id();
 
         VaultEntry versionedCfgEntry = vaultMgr.get(zoneVersionedConfigurationKey(zoneId)).join();
 
@@ -605,7 +603,6 @@ public class CausalityDataNodesEngine {
             zonesVersionedCfg.put(zoneId, versionedCfg);
 
             vaultMgr.put(zoneVersionedConfigurationKey(zoneId), toBytes(versionedCfg)).join();
-
         } else {
             zonesVersionedCfg.put(zoneId, fromBytes(versionedCfgEntry.value()));
         }

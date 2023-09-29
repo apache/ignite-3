@@ -109,7 +109,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return ColumnType.columnTypeToClass(type);
+        return type.javaClass();
     }
 
     /** {@inheritDoc} */

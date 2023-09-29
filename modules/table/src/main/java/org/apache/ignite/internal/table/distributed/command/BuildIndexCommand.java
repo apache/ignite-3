@@ -23,28 +23,15 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
-/**
- * State machine command to build a table index.
- */
+/** State machine command to build a table index. */
 @Transferable(TableMessageGroup.Commands.BUILD_INDEX)
 public interface BuildIndexCommand extends WriteCommand {
-    /**
-     * Returns ID of table partition.
-     */
-    TablePartitionIdMessage tablePartitionId();
-
-    /**
-     * Returns index ID.
-     */
+    /** Returns index ID. */
     int indexId();
 
-    /**
-     * Returns row IDs for which to build indexes.
-     */
+    /** Returns row IDs for which to build indexes. */
     List<UUID> rowIds();
 
-    /**
-     * Returns {@code true} if this batch is the last one.
-     */
+    /** Returns {@code true} if this batch is the last one. */
     boolean finish();
 }

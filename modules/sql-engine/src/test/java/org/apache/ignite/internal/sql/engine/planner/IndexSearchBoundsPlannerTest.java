@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -178,11 +178,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .andThen(t -> t.sortedIndex()
                         .name("C4")
                         .addColumn("C4", Collation.DESC_NULLS_LAST)
-                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
-                        .end())
-                .andThen(t -> t.sortedIndex()
-                        .name("C4_IDX")
-                        .addColumn("C4", Collation.ASC_NULLS_FIRST)
                         .addColumn("C3", Collation.ASC_NULLS_FIRST)
                         .end())
         );

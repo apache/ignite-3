@@ -136,9 +136,7 @@ public class IniConfigManager implements ConfigManager {
             throw new ProfileNotFoundException(profile);
         }
 
-        IniSection secretSection = secretConfigFile.getSection(profile) == null
-                ? secretConfigFile.createSection(profile)
-                : secretConfigFile.getSection(profile);
+        IniSection secretSection = secretConfigFile.getOrCreateSection(profile);
 
         IniConfig config = new IniConfig(section, configFile::store);
         IniConfig secretConfig = new IniConfig(secretSection, secretConfigFile::store);

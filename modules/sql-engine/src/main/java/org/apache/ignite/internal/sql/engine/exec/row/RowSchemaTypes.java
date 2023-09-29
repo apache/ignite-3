@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines methods to provide instances of {@link TypeSpec}s.
@@ -81,5 +82,28 @@ public final class RowSchemaTypes {
         } else {
             return new BaseTypeSpec(nativeType, nullable);
         }
+    }
+
+    /**
+     * Convert specified schema {@link TypeSpec type} to {@link NativeType native type}.
+     *
+     * @param type Row schema type.
+     * @return Native type or {@code null} if type is a {@link NullTypeSpec}.
+     * @throws IllegalArgumentException If provided type cannot be converted to a native type.
+     */
+    public static @Nullable NativeType toNativeType(TypeSpec type) {
+        if (type instanceof NullTypeSpec) {
+            return null;
+        }
+
+        if (!(type instanceof BaseTypeSpec)) {
+            throw new IllegalArgumentException("Unexpected type; " + type);
+        }
+
+        NativeType nativeType = ((BaseTypeSpec) type).nativeType();
+
+        assert nativeType != null : type;
+
+        return nativeType;
     }
 }

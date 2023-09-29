@@ -33,12 +33,13 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
@@ -128,7 +129,10 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             }
         }
 
-        assertEquals(100 + nodes(), checkData(null, id -> id < 100 ? ("str " + id) : ("new str " + id)));
+        assertTrue(IgniteTestUtils.waitForCondition(
+                () -> checkData(null, id -> id < 100 ? ("str " + id) : ("new str " + id)) == 100 + nodes(),
+                10_000
+        ));
     }
 
     @Test

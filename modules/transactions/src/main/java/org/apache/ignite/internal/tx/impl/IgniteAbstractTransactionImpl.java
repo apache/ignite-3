@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,7 +61,9 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Nullable
     @Override
     public TxState state() {
-        return txManager.state(id);
+        TxStateMeta meta = txManager.stateMeta(id);
+
+        return meta == null ? null : meta.txState();
     }
 
     /** {@inheritDoc} */

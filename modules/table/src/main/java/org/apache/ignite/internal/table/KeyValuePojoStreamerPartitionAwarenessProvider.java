@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Map.Entry;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 
@@ -52,7 +52,7 @@ class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClien
 
             return hashCalc.hash();
         } catch (MarshallerException e) {
-            throw new RuntimeException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 }

@@ -51,4 +51,9 @@ public interface FinishTxCommand extends PartitionCommand {
      * Returns an ordered replication groups ids.
      */
     List<TablePartitionIdMessage> tablePartitionIds();
+
+    /**
+     * Transaction coordinator id.
+     */
+    String txCoordinatorId();
 }

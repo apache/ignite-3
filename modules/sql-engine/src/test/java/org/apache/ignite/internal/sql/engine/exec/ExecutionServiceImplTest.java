@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasProperty;
@@ -58,12 +59,12 @@ import java.util.stream.Collectors;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -71,7 +72,9 @@ import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
@@ -85,8 +88,8 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.CatalogColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -104,13 +107,15 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -136,10 +141,15 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             nodeNames.get(2), List.of(new Object[]{2, 2}, new Object[]{5, 5}, new Object[]{8, 8})
     );
 
-    private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
-            "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
+    private final TestTable table = TestBuilders.table()
+            .name("TEST_TBL")
+            .addColumn("ID", NativeTypes.INT32)
+            .addColumn("VAL", NativeTypes.INT32)
+            .distribution(IgniteDistributions.random())
+            .size(1_000_000)
+            .build();
 
-    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null, SCHEMA_VERSION);
+    private final IgniteSchema schema = new IgniteSchema(DEFAULT_SCHEMA_NAME, SCHEMA_VERSION, List.of(table));
 
     private final List<CapturingMailboxRegistry> mailboxes = new ArrayList<>();
 
@@ -217,7 +227,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(ExecutionCancelledException.class, ex.getCause());
+            assertInstanceOf(QueryCancelledException.class, ex.getCause());
 
             return null;
         }));
@@ -257,7 +267,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(ExecutionCancelledException.class, ex.getCause());
+            assertInstanceOf(QueryCancelledException.class, ex.getCause());
 
             return null;
         }));
@@ -589,7 +599,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.schemaReadyFuture(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
+        when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
         executableTableRegistry.setColocatioGroupProvider((tableId) -> {
@@ -856,8 +866,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      *               String.class)}.
      * @return Instance of the {@link TestTable}.
      */
-    // TODO: copy-pasted from AbstractPlannerTest. Should be derived to an independent class.
-    protected TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
+    private static TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
         if (ArrayUtils.nullOrEmpty(fields) || fields.length % 2 != 0) {
             throw new IllegalArgumentException("'fields' should be non-null array with even number of elements");
         }
@@ -865,10 +874,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         List<ColumnDescriptor> columns = new ArrayList<>();
 
         for (int i = 0; i < fields.length; i += 2) {
+            NativeType nativeType = (NativeType) fields[i + 1];
+            ColumnType columnType = nativeType.spec().asColumnType();
+
             columns.add(
-                    new ColumnDescriptorImpl(
-                            (String) fields[i], false, true, i, i,
-                            (NativeType) fields[i + 1], DefaultValueStrategy.DEFAULT_NULL, null
+                    new CatalogColumnDescriptor(
+                            (String) fields[i], false, true, i,
+                            columnType, 0, 0, 0, DefaultValueStrategy.DEFAULT_NULL, null
                     )
             );
         }
@@ -876,10 +888,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         return new TestTable(
                 new TableDescriptorImpl(columns, distr),
                 name,
-                size
-        ) {
-
-        };
+                size,
+                List.of()
+        );
     }
 
     private static class CapturingMailboxRegistry implements MailboxRegistry {

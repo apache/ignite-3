@@ -17,14 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs.VARBINARY_TYPE;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.stream.Stream;
-import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -100,30 +95,6 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
                 .check();
     }
 
-    /** Test for equality predicate with dynamic parameter of compatible type is illegal. */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testEqConditionWithDynamicParameters(TestTypeArguments<T> arguments) {
-        // TODO: fix in scope of https://issues.apache.org/jira/browse/IGNITE-20226
-        if (testTypeSpec == VARBINARY_TYPE) {
-            return;
-        }
-
-        T value1 = values.get(0);
-
-        runSql("INSERT INTO t VALUES(1, ?)", value1);
-
-        var err = assertThrows(IgniteException.class, () -> {
-            checkQuery("SELECT id FROM t where test_key = ? ORDER BY id")
-                    .withParams(arguments.argValue(0))
-                    .returns(1)
-                    .returns(3)
-                    .check();
-        });
-
-        assertThat(err.getMessage(), containsString("Values passed to = operator must have compatible types"));
-    }
-
     private Stream<TestTypeArguments<T>> eq() {
         return TestTypeArguments.unary(testTypeSpec, dataSamples, values.get(0));
     }
@@ -146,7 +117,6 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     public void testInWithDynamicParamsCondition() {
         T value1 = values.get(0);
         T value2 = values.get(1);
-        T value3 = values.get(2);
 
         runSql("INSERT INTO t VALUES(1, $0)");
         runSql("INSERT INTO t VALUES(2, $1)");

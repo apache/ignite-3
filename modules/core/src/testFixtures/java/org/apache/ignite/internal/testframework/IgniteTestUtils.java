@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.testframework;
 
 import static java.lang.Thread.sleep;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.invoke.MethodHandles;
@@ -48,15 +50,17 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Utility class for tests.
@@ -190,9 +194,9 @@ public final class IgniteTestUtils {
      * @param fieldName     name of the field
      * @return field value
      */
-    public static Object getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
+    public static <T> T getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
         try {
-            return getField(target, declaredClass, fieldName).get(target);
+            return (T) getField(target, declaredClass, fieldName).get(target);
         } catch (IllegalAccessException e) {
             throw new IgniteInternalException("Cannot get field value", e);
         }
@@ -248,6 +252,28 @@ public final class IgniteTestUtils {
         }
 
         return null;
+    }
+
+    /**
+     * Checks whether runnable throws exception, which is itself of a specified class.
+     *
+     * @param cls Expected exception class.
+     * @param run Runnable to check.
+     * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrows(
+            Class<? extends Throwable> cls,
+            Executable run,
+            @Nullable String errorMessageFragment
+    ) {
+        Throwable throwable = Assertions.assertThrows(cls, run);
+
+        if (errorMessageFragment != null) {
+            assertThat(throwable.getMessage(), containsString(errorMessageFragment));
+        }
+
+        return throwable;
     }
 
     /**
@@ -832,7 +858,7 @@ public final class IgniteTestUtils {
      * @return A file system path matching the path component of the resource URL.
      */
     public static String getResourcePath(Class<?> cls, String resourceName) {
-        return getPath(cls.getClassLoader().getResource(resourceName));
+        return getPath(cls.getClassLoader().getResource(resourceName)).toString();
     }
 
     /**
@@ -853,9 +879,9 @@ public final class IgniteTestUtils {
      * @param url A resource URL.
      * @return A file system path matching the path component of the URL.
      */
-    public static String getPath(URL url) {
+    public static Path getPath(URL url) {
         try {
-            return Path.of(url.toURI()).toString();
+            return Path.of(url.toURI());
         } catch (URISyntaxException e) {
             throw new RuntimeException(e); // Shouldn't happen if the URL is obtained from the class loader.
         }

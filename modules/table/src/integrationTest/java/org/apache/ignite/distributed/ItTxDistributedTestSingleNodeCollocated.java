@@ -47,8 +47,14 @@ public class ItTxDistributedTestSingleNodeCollocated extends ItTxDistributedTest
     public void before() throws Exception {
         super.before();
 
-        assertSame(accRaftClients.get(0).clusterService(), getLeader(accRaftClients.get(0)).service());
-        assertSame(custRaftClients.get(0).clusterService(), getLeader(custRaftClients.get(0)).service());
+        assertSame(
+                txTestCluster.raftClients.get(ACC_TABLE_NAME).get(0).clusterService(),
+                txTestCluster.getLeader(ACC_TABLE_NAME).service()
+        );
+        assertSame(
+                txTestCluster.raftClients.get(CUST_TABLE_NAME).get(0).clusterService(),
+                txTestCluster.getLeader(CUST_TABLE_NAME).service()
+        );
     }
 }
 

@@ -341,7 +341,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @throws SchemaMismatchException If a tuple column value doesn't match the current column type.
      */
     private static void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
-        RowAssembler.writeValue(rowAsm, col, tup.value(col.name()));
+        rowAsm.appendValue(tup.value(col.name()));
     }
 
     /**

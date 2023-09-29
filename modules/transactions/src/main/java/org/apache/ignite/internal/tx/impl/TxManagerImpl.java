@@ -18,10 +18,15 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -32,33 +37,41 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * A transaction manager implementation.
@@ -66,7 +79,8 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler {
-    private static final IgniteLogger LOGGER = Loggers.forClass(TxManagerImpl.class);
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
 
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
@@ -79,16 +93,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Lock manager. */
     private final LockManager lockManager;
 
+    /** Executor that runs async transaction cleanup actions. */
+    private final ExecutorService cleanupExecutor;
+
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
     /** Generates transaction IDs. */
     private final TransactionIdGenerator transactionIdGenerator;
 
-    // TODO: IGNITE-20033 Consider using Txn state map instead of states.
-    /** The storage for tx states. */
-    @TestOnly
-    private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
+    /** The local map for tx states. */
+    private final ConcurrentHashMap<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
 
     /** Txn contexts. */
     private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
@@ -107,6 +122,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Lock to update and read the low watermark. */
     private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
 
+    private final Lazy<String> localNodeId;
+
     /**
      * The constructor.
      *
@@ -119,34 +136,48 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             ReplicaService replicaService,
             LockManager lockManager,
             HybridClock clock,
-            TransactionIdGenerator transactionIdGenerator
+            TransactionIdGenerator transactionIdGenerator,
+            Supplier<String> localNodeIdSupplier
     ) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
+        this.localNodeId = new Lazy<>(localNodeIdSupplier);
+
+        int cpus = Runtime.getRuntime().availableProcessors();
+
+        cleanupExecutor = new ThreadPoolExecutor(
+                cpus,
+                cpus,
+                100,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory("tx-async-cleanup", LOG));
     }
 
     @Override
-    public InternalTransaction begin() {
-        return begin(false, null);
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker) {
+        return begin(timestampTracker, false);
     }
 
     @Override
-    public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
-        assert readOnly || observableTimestamp == null : "Observable timestamp is applicable just for read-only transactions.";
-
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        changeState(txId, null, PENDING);
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, txId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
         }
+
+        HybridTimestamp observableTimestamp = timestampTracker.get();
 
         HybridTimestamp readTimestamp = observableTimestamp != null
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
-                : clock.now();
+                : currentReadTimestamp();
+
+        timestampTracker.update(readTimestamp);
 
         lowWatermarkReadWriteLock.readLock().lock();
 
@@ -179,33 +210,54 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp() {
-        HybridTimestamp now = clock.now();
+        return clock.now();
 
-        return new HybridTimestamp(now.getPhysical()
-                - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
-                - HybridTimestamp.CLOCK_SKEW,
-                0
-        );
+        // TODO: IGNITE-20378 Fix it
+        // return new HybridTimestamp(now.getPhysical()
+        //         - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+        //         - HybridTimestamp.CLOCK_SKEW,
+        //         0
+        // );
     }
 
     @Override
-    public TxState state(UUID txId) {
-        return states.get(txId);
+    public TxStateMeta stateMeta(UUID txId) {
+        return txStateMap.get(txId);
     }
 
     @Override
-    public void changeState(UUID txId, TxState before, TxState after) {
-        states.compute(txId, (k, v) -> {
-            if (v == before) {
-                return after;
-            } else {
-                return v;
+    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        txStateMap.compute(txId, (k, oldMeta) -> {
+            TxStateMeta newMeta = updater.apply(oldMeta);
+
+            if (newMeta == null) {
+                return null;
             }
+
+            TxState oldState = oldMeta == null ? null : oldMeta.txState();
+
+            return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });
     }
 
     @Override
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
+        TxState finalState;
+
+        if (commit) {
+            timestampTracker.update(clock.now());
+
+            finalState = COMMITED;
+        } else {
+            finalState = ABORTED;
+        }
+
+        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitTimestamp()));
+    }
+
+    @Override
     public CompletableFuture<Void> finish(
+            HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
@@ -213,11 +265,36 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
             UUID txId
     ) {
-        assert groups != null && !groups.isEmpty();
+        assert groups != null;
+
+        // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
+        // with using read timestamp could see that this transaction is finishing, see #transactionMetaReadTimestampAware(txId, timestamp).
+        // None of them now are able to update node's clock with read timestamp and we can create the commit timestamp that is greater
+        // than all the read timestamps processed before.
+        // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
+        // state after the transaction is finished.
+        TxStateMetaFinishing finishingStateMeta = new TxStateMetaFinishing(localNodeId.get());
+        updateTxMeta(txId, old -> finishingStateMeta);
+        HybridTimestamp commitTimestamp = commit ? clock.now() : null;
+
+        // If there are no enlisted groups, just return - we already marked the tx as finished.
+        boolean finishRequestNeeded = !groups.isEmpty();
+
+        if (!finishRequestNeeded) {
+            updateTxMeta(txId, old -> {
+                TxStateMeta finalStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+
+                finishingStateMeta.txFinishFuture().complete(finalStateMeta);
+
+                return finalStateMeta;
+            });
+
+            return completedFuture(null);
+        }
+
+        observableTimestampTracker.update(commitTimestamp);
 
         Function<Void, CompletableFuture<Void>> clo = ignored -> {
-            HybridTimestamp commitTimestamp = commit ? clock.now() : null;
-
             TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                     .txId(txId)
                     .timestampLong(clock.nowLong())
@@ -229,8 +306,23 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     .build();
 
             return replicaService.invoke(recipientNode, req)
-                    // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-                    .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
+                    .thenRun(() -> {
+                        updateTxMeta(txId, old -> {
+                            if (isFinalState(old.txState())) {
+                                finishingStateMeta.txFinishFuture().complete(old);
+
+                                return old;
+                            }
+
+                            assert old instanceof TxStateMetaFinishing;
+
+                            TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+
+                            finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+
+                            return finalTxStateMeta;
+                        });
+                    });
         };
 
         if (!commit) {
@@ -326,12 +418,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public int finished() {
-        return (int) states.entrySet().stream().filter(e -> e.getValue() == COMMITED || e.getValue() == ABORTED).count();
+        return (int) txStateMap.entrySet().stream()
+                .filter(e -> isFinalState(e.getValue().txState()))
+                .count();
     }
 
     @Override
     public int pending() {
-        return (int) states.entrySet().stream().filter(e -> e.getValue() == PENDING).count();
+        return (int) txStateMap.entrySet().stream()
+                .filter(e -> e.getValue().txState() == PENDING)
+                .count();
     }
 
     @Override
@@ -341,12 +437,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void stop() {
-        // No-op.
+        shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
 
     @Override
     public LockManager lockManager() {
         return lockManager;
+    }
+
+    @Override
+    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+        return runAsync(runnable, cleanupExecutor);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
@@ -447,6 +548,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (result instanceof UUID) {
             removeInflight((UUID) result);
         }
+    }
+
+    /**
+     * Creates final {@link TxStateMeta} for coordinator node.
+     *
+     * @param commit Commit flag.
+     * @param commitTimestamp Commit timestamp.
+     * @return Transaction meta.
+     */
+    private TxStateMeta coordinatorFinalTxStateMeta(boolean commit, HybridTimestamp commitTimestamp) {
+        return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId.get(), commitTimestamp);
     }
 
     private static class TxContext {
