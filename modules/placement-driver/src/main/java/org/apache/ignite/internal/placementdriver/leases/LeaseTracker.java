@@ -291,10 +291,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     getOrCreatePrimaryReplicaWaiter(grpId).update(lease.getExpirationTime(), lease);
 
                     // needFireEventReplicaBecomePrimary is not needed because we need to recover the last leases.
-                    fireEventFutures.add(fireEventReplicaBecomePrimary(recoveryRevision, lease));
+                    // TODO: IGNITE-20330 из-за этого возникает ошибка на рестарте узла
+                    //fireEventFutures.add(fireEventReplicaBecomePrimary(recoveryRevision, lease));
                 }
-
-                firePrimaryReplicaExpiredEventIfNeed(recoveryRevision, lease);
             });
 
             leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
@@ -348,6 +347,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     private static boolean needFireEventReplicaBecomePrimary(@Nullable Lease previousLease, Lease newLease) {
         assert newLease.isAccepted() : newLease;
 
-        return previousLease == null || !previousLease.getStartTime().equals(newLease.getStartTime());
+        return previousLease == null || !previousLease.isAccepted() || !previousLease.getStartTime().equals(newLease.getStartTime());
     }
 }

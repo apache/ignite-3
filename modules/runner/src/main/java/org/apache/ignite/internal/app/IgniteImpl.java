@@ -788,10 +788,10 @@ public class IgniteImpl implements Ignite {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
+                                    catalogManager,
                                     clusterCfgMgr,
                                     placementDriverMgr,
                                     metricManager,
-                                    catalogManager,
                                     distributionZoneManager,
                                     computeComponent,
                                     replicaMgr,

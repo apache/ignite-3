@@ -186,7 +186,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         assertThat(ignite1Fut, willCompleteSuccessfully());
 
-        ignite1 = (IgniteImpl) ignite1Fut.get();
+        ignite1 = (IgniteImpl) ignite1Fut.join();
 
         table = (TableImpl) ignite1.tables().table(TABLE_NAME);
 
@@ -236,7 +236,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    public void checkSchemasCorrectlyRestore() throws Exception {
+    public void checkSchemasCorrectlyRestore() {
         Ignite ignite1 = clusterNodes.get(1);
 
         sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
@@ -260,7 +260,9 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .findFirst().get();
 
-        ignite1 = ignite1Fut.get();
+        assertThat(ignite1Fut, willCompleteSuccessfully());
+
+        ignite1 = ignite1Fut.join();
 
         try (Session ses = ignite1.sql().createSession()) {
             ResultSet<SqlRow> res = ses.execute(null, "SELECT valint2 FROM tbl1");
