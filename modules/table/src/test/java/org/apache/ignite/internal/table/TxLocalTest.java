@@ -91,7 +91,7 @@ public class TxLocalTest extends TxAbstractTest {
 
             ReplicaRequest request = invocationOnMock.getArgument(1);
             ReplicaListener replicaListener = tables.get(request.groupId()).getReplicaListener();
-            System.err.println("call from main "+request);
+
             if (request instanceof TimestampAware) {
                 TimestampAware aware = (TimestampAware) request;
                 HybridTimestamp updated = DummyInternalTableImpl.CLOCK.update(aware.timestamp());
@@ -201,9 +201,16 @@ public class TxLocalTest extends TxAbstractTest {
         return List.of(txManager);
     }
 
+    /**
+     * A class that represents the result of method execution.
+     */
     protected static class MethodAnswer {
         static final MethodAnswer NO_ANSWER = new MethodAnswer(null, false);
-        final Object answer;
+
+        /** The result of method invocation. */
+        final @Nullable Object answer;
+
+        /** If {@code true} the method was called. */
         final boolean hasAnswer;
 
         public MethodAnswer(@Nullable Object answer, boolean hasAnswer) {
