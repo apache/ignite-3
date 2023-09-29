@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.datatypes.tests;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.stream.Stream;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -54,8 +55,8 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     @ParameterizedTest
     @MethodSource("eq")
     public void testEqCondition(TestTypeArguments<T> arguments) {
-        T value1 = values.get(0);
-        T value2 = values.get(1);
+        Object value1 = testTypeSpec.unwrapIfNecessary(values.get(0));
+        Object value2 = testTypeSpec.unwrapIfNecessary(values.get(1));
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
         runSql("INSERT INTO t VALUES(2, ?)", value2);
@@ -76,8 +77,8 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     /** Test for equality predicate with dynamic parameter. */
     @Test
     public void testEqConditionDynamicParam() {
-        T value1 = values.get(0);
-        T value2 = values.get(1);
+        Object value1 = unwrap(values.get(0));
+        Object value2 = unwrap(values.get(1));
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
         runSql("INSERT INTO t VALUES(2, ?)", value2);
@@ -183,9 +184,9 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     @ParameterizedTest
     @MethodSource("between")
     public void testBetweenCondition(TestTypeArguments<T> arguments) {
-        T min = orderedValues.first();
-        T mid = orderedValues.higher(min);
-        T max = orderedValues.last();
+        Object min = unwrap(orderedValues.first());
+        Object mid = unwrap(orderedValues.higher(orderedValues.first()));
+        Object max = unwrap(orderedValues.last());
 
         runSql("INSERT INTO t VALUES(1, ?)", min);
         runSql("INSERT INTO t VALUES(2, ?)", mid);
@@ -216,9 +217,9 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     @ParameterizedTest
     @MethodSource("distinctFrom")
     public void testIsNotDistinctFrom(TestTypeArguments<T> arguments) {
-        T value1 = values.get(0);
-        T value2 = values.get(1);
-        T value3 = values.get(2);
+        Object value1 = unwrap(values.get(0));
+        Object value2 = unwrap(values.get(1));
+        Object value3 = unwrap(values.get(2));
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
         runSql("INSERT INTO t VALUES(2, ?)", value2);
@@ -236,9 +237,9 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     @ParameterizedTest
     @MethodSource("distinctFrom")
     public void testIsNotDistinctFromWithDynamicParameters(TestTypeArguments<T> arguments) {
-        T value1 = values.get(0);
-        T value2 = values.get(1);
-        T value3 = values.get(2);
+        Object value1 = unwrap(values.get(0));
+        Object value2 = unwrap(values.get(1));
+        Object value3 = unwrap(values.get(2));
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
         runSql("INSERT INTO t VALUES(2, ?)", value2);
@@ -254,9 +255,9 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     @ParameterizedTest
     @MethodSource("distinctFrom")
     public void testIsDistinctFrom(TestTypeArguments<T> arguments) {
-        T value1 = values.get(0);
-        T value2 = values.get(1);
-        T value3 = values.get(2);
+        Object value1 = unwrap(values.get(0));
+        Object value2 = unwrap(values.get(1));
+        Object value3 = unwrap(values.get(2));
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
         runSql("INSERT INTO t VALUES(2, ?)", value2);
@@ -277,9 +278,9 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     /** Ascending ordering.*/
     @Test
     public void testAscOrdering() {
-        T min = orderedValues.first();
-        T mid = orderedValues.higher(min);
-        T max = orderedValues.last();
+        Object min = unwrap(orderedValues.first());
+        Object mid = unwrap(orderedValues.higher(orderedValues.first()));
+        Object max = unwrap(orderedValues.last());
 
         runSql("INSERT INTO t VALUES(1, ?)", min);
         runSql("INSERT INTO t VALUES(2, ?)", mid);
@@ -295,9 +296,9 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     /** Descending ordering. */
     @Test
     public void testDescOrdering() {
-        T min = orderedValues.first();
-        T mid = orderedValues.higher(min);
-        T max = orderedValues.last();
+        Object min = unwrap(orderedValues.first());
+        Object mid = unwrap(orderedValues.higher(orderedValues.first()));
+        Object max = unwrap(orderedValues.last());
 
         runSql("INSERT INTO t VALUES(1, ?)", min);
         runSql("INSERT INTO t VALUES(2, ?)", mid);
@@ -312,8 +313,8 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     public void testFilter(TestTypeArguments<T> arguments) {
         String query = format("SELECT id FROM t WHERE t.test_key > {}", arguments.valueExpr(0));
 
-        T value1 = orderedValues.first();
-        T value2 = orderedValues.last();
+        Object value1 = unwrap(orderedValues.first());
+        Object value2 = unwrap(orderedValues.last());
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
         runSql("INSERT INTO t VALUES(2, ?)", value2);
@@ -329,8 +330,8 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
     public void testFilterWithDynamicParameters(TestTypeArguments<T> arguments) {
         String query = format("SELECT id FROM t WHERE t.test_key > ?");
 
-        T value1 = orderedValues.first();
-        T value2 = orderedValues.last();
+        Object value1 = unwrap(orderedValues.first());
+        Object value2 = unwrap(orderedValues.last());
 
         runSql("INSERT INTO t VALUES(1, ?)", value1);
         runSql("INSERT INTO t VALUES(2, ?)", value2);
@@ -343,5 +344,9 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
 
     private Stream<TestTypeArguments<T>> filter() {
         return TestTypeArguments.unary(testTypeSpec, dataSamples, dataSamples.min());
+    }
+
+    protected Object unwrap(@Nullable T value) {
+        return testTypeSpec.unwrapIfNecessary(value);
     }
 }

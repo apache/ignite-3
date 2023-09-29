@@ -583,7 +583,6 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 logicalTopologyService,
                 distributedTblMgr,
-                indexManager,
                 schemaManager,
                 dataStorageMgr,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),

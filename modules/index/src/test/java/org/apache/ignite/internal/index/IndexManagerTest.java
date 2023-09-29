@@ -20,42 +20,45 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
+import static org.apache.ignite.internal.table.TableTestUtils.createTable;
+import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
-import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.index.event.IndexEvent;
-import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -73,11 +76,13 @@ import org.junit.jupiter.api.Test;
 public class IndexManagerTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "tName";
 
+    private static final String COLUMN_NAME = "c";
+
     private final HybridClock clock = new HybridClockImpl();
 
     private VaultManager vaultManager;
 
-    private MetaStorageManager metaStorageManager;
+    private MetaStorageManagerImpl metaStorageManager;
 
     private ClockWaiter clockWaiter;
 
@@ -114,27 +119,22 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 tableManagerMock,
                 catalogManager,
                 metaStorageManager,
-                mock(Consumer.class)
+                (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply)
         );
 
-        vaultManager.start();
-        metaStorageManager.start();
-        clockWaiter.start();
-        catalogManager.start();
-        indexManager.start();
+        List.of(vaultManager, metaStorageManager, clockWaiter, catalogManager, indexManager).forEach(IgniteComponent::start);
 
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        TableTestUtils.createTable(
+        createTable(
                 catalogManager,
                 DEFAULT_SCHEMA_NAME,
                 DEFAULT_ZONE_NAME,
                 TABLE_NAME,
-                List.of(
-                        ColumnParams.builder().name("c1").length(100).type(STRING).build(),
-                        ColumnParams.builder().name("c2").length(100).type(STRING).build()
-                ),
-                List.of("c1")
+                List.of(ColumnParams.builder().name(COLUMN_NAME).length(100).type(STRING).build()),
+                List.of(COLUMN_NAME)
         );
     }
 
@@ -144,62 +144,90 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @SuppressWarnings("ConstantConditions")
-    public void eventIsFiredWhenIndexCreated() {
-        String indexName = "idx";
-
-        AtomicReference<IndexEventParameters> holder = new AtomicReference<>();
-
-        indexManager.listen(IndexEvent.CREATE, (param, th) -> {
-            holder.set(param);
-
-            return completedFuture(true);
-        });
-
-        indexManager.listen(IndexEvent.DROP, (param, th) -> {
-            holder.set(param);
-
-            return completedFuture(true);
-        });
-
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        assertThat(
-                catalogManager.execute(
-                        CreateSortedIndexCommand.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
-                                .indexName(indexName)
-                                .tableName(TABLE_NAME)
-                                .columns(List.of("c2"))
-                                .collations(List.of(ASC_NULLS_LAST))
-                                .build()
-                ),
-                willBe(nullValue())
-        );
-
-        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalogManager.index(indexName, clock.nowLong());
-        int tableId = index.tableId();
-
-        assertThat(holder.get(), notNullValue());
-        assertThat(holder.get().indexId(), equalTo(index.id()));
-        assertThat(holder.get().tableId(), equalTo(tableId));
-        assertThat(holder.get().catalogVersion(), greaterThan(catalogVersion));
-
-        assertThat(
-                catalogManager.execute(DropIndexCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(holder.get(), notNullValue());
-        assertThat(holder.get().indexId(), equalTo(index.id()));
-        assertThat(holder.get().tableId(), equalTo(tableId));
+    void testGetMvTableStorageForNonExistsTable() {
+        assertThat(getMvTableStorageLatestRevision(Integer.MAX_VALUE), willBe(nullValue()));
     }
 
-    private static TableImpl mockTable(int tableId) {
+    @Test
+    void testGetMvTableStorageForExistsTable() {
+        assertThat(getMvTableStorageLatestRevision(tableId()), willBe(notNullValue()));
+    }
+
+    @Test
+    void testGetMvTableStorageForDroppedTable() {
+        dropTable(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
+        assertThat(getMvTableStorageLatestRevision(Integer.MAX_VALUE), willBe(nullValue()));
+    }
+
+    @Test
+    void testGetMvTableStorageForNewIndexInCatalogListener() {
+        CompletableFuture<MvTableStorage> getMvTableStorageInCatalogListenerFuture = new CompletableFuture<>();
+
+        catalogManager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+            if (exception != null) {
+                getMvTableStorageInCatalogListenerFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    CompletableFuture<MvTableStorage> mvTableStorageFuture = getMvTableStorage(parameters.causalityToken(), tableId());
+
+                    assertFalse(mvTableStorageFuture.isDone());
+
+                    mvTableStorageFuture.whenComplete((mvTableStorage, throwable) -> {
+                        if (throwable != null) {
+                            getMvTableStorageInCatalogListenerFuture.completeExceptionally(throwable);
+                        } else {
+                            getMvTableStorageInCatalogListenerFuture.complete(mvTableStorage);
+                        }
+                    });
+                } catch (Throwable t) {
+                    getMvTableStorageInCatalogListenerFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        createHashIndex(
+                catalogManager,
+                DEFAULT_SCHEMA_NAME,
+                TABLE_NAME,
+                TABLE_NAME + "_test_index",
+                List.of(COLUMN_NAME),
+                false
+        );
+
+        assertThat(getMvTableStorageInCatalogListenerFuture, willBe(notNullValue()));
+    }
+
+    private TableImpl mockTable(int tableId) {
+        CatalogZoneDescriptor zone = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
+
+        assertNotNull(zone);
+
+        StorageTableDescriptor storageTableDescriptor = new StorageTableDescriptor(tableId, zone.partitions(), DEFAULT_DATA_REGION);
+
+        MvTableStorage mvTableStorage = mock(MvTableStorage.class);
+
+        when(mvTableStorage.getTableDescriptor()).thenReturn(storageTableDescriptor);
+
         InternalTable internalTable = mock(InternalTable.class);
 
         when(internalTable.tableId()).thenReturn(tableId);
+        when(internalTable.storage()).thenReturn(mvTableStorage);
 
         return new TableImpl(internalTable, new HeapLockManager());
+    }
+
+    private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {
+        return metaStorageManager.getService().currentRevision().thenCompose(latestRevision -> getMvTableStorage(latestRevision, tableId));
+    }
+
+    private CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
+        return indexManager.getMvTableStorage(causalityToken, tableId);
+    }
+
+    private int tableId() {
+        return getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
     }
 }

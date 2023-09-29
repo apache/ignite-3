@@ -400,7 +400,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc,
                 logicalTopologyService,
                 tableManager,
-                indexManager,
                 schemaManager,
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
