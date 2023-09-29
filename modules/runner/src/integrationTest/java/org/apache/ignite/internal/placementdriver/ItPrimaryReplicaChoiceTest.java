@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -47,6 +48,8 @@ import org.junit.jupiter.api.TestInfo;
  * The test class checks invariant of a primary replica choice.
  */
 public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
+    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+
     /** Table name. */
     private static final String TABLE_NAME = "test_table";
 
@@ -72,7 +75,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
-                node(0).clock().now()
+                node(0).clock().now(),
+                AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                SECONDS
         );
 
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
@@ -102,7 +107,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
-                node(0).clock().now()
+                node(0).clock().now(),
+                AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                SECONDS
         );
 
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
@@ -140,7 +147,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
-                node(0).clock().now()
+                node(0).clock().now(),
+                AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                SECONDS
         );
 
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
@@ -192,7 +201,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
-                node(0).clock().now()
+                node(0).clock().now(),
+                AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                SECONDS
         );
 
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
@@ -249,7 +260,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
             CompletableFuture<ReplicaMeta> newPrimaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
                     tblReplicationGrp,
-                    node(0).clock().now()
+                    node(0).clock().now(),
+                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                    SECONDS
             );
 
             assertThat(newPrimaryReplicaFut, willCompleteSuccessfully());

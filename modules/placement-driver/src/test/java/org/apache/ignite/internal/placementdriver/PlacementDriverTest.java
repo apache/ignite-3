@@ -100,7 +100,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;
 
-    public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
     private VaultManager vault;
 
