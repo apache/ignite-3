@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -249,7 +250,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                     }
 
                     Exception wrapperEx = ExceptionUtils.withCause(
-                            SqlException::new,
+                            IgniteInternalException::new,
                             Common.INTERNAL_ERR,
                             "Unable to send batch: " + ex.getMessage(),
                             ex
@@ -271,7 +272,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                     }
 
                     Exception wrapperEx = ExceptionUtils.withCause(
-                            SqlException::new,
+                            IgniteInternalException::new,
                             Common.INTERNAL_ERR,
                             "Unable to send error: " + ex.getMessage(),
                             ex
