@@ -360,7 +360,8 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
-            StringAssert.Contains("Invalid query, check inner exceptions for details: ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR",
+            StringAssert.Contains(
+                "Invalid query, check inner exceptions for details: ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR",
                 ex!.Message);
 
             var innerEx = ex.InnerException;
