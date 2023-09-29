@@ -1210,11 +1210,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         return txManager.cleanup(primaryConsistentId, partitionId, txId, commit, commitTimestamp)
                 .handle((res, ex) -> {
                     if (ex != null) {
-                        LOG.error("Failed to perform cleanup on Tx {}", txId, ex);
+                        LOG.warn("Failed to perform cleanup on Tx {}." + (attempts > 0 ? " The operation will be retried." : ""), txId, ex);
 
                         if (attempts > 0) {
-                            LOG.debug("Retrying cleanup for Tx {}, attempts left {}", txId, attempts - 1);
-
                             return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
                         }
 
@@ -1231,22 +1229,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS)
                 .handle((primaryReplica, e) -> {
                     if (e != null) {
+                        LOG.error("Failed to retrieve primary replica for partition {}", partitionId, e);
+
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
                                 "Failed to get the primary replica"
                                         + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + now + ']', e);
                     }
 
-                    if (primaryReplica.getLeaseholder() == null) {
-                        throw new TransactionException(REPLICA_UNAVAILABLE_ERR,
-                                "Failed to resolve the primary replica node [consistentId="
-                                        + primaryReplica.getLeaseholder() + ']');
-                    }
-
                     return primaryReplica.getLeaseholder();
-                }).whenComplete((s, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to retrieve primary replica for partition {}", partitionId, e);
-                    }
                 });
     }
 

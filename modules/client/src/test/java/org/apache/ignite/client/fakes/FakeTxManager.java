@@ -181,8 +181,13 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(String primaryConsistentId, TablePartitionId tablePartitionId, UUID txId, boolean commit,
-            @Nullable HybridTimestamp commitTimestamp) {
+    public CompletableFuture<Void> cleanup(
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
         return completedFuture(null);
     }
 

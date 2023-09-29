@@ -61,6 +61,8 @@ public class TxLocalCleanupRecoveryTest extends TxLocalTest {
     @Test
     @Override
     public void testDeleteUpsertCommit() throws TransactionException {
+        // The value of 6 is higher than the default retry count.
+        // So we should give up retrying and crash.
         failureCounter = new AtomicInteger(6);
 
         assertThrows(TransactionException.class, () -> deleteUpsert().commit());
