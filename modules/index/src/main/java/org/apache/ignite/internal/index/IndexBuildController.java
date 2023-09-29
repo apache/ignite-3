@@ -17,24 +17,32 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.index.event.IndexEvent;
-import org.apache.ignite.internal.index.event.IndexEventParameters;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -45,44 +53,61 @@ import org.apache.ignite.network.ClusterService;
 public class IndexBuildController implements ManuallyCloseable {
     private final IndexBuilder indexBuilder;
 
+    private final CatalogService catalogService;
+
     private final ClusterService clusterService;
 
-    private final TableManager tableManager;
+    private final IndexManager indexManager;
+
+    private final PlacementDriver placementDriver;
+
+    private final HybridClock clock;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final Map<TablePartitionId, MvTableStorage> replicaMvTableStorageById = new ConcurrentHashMap<>();
+    private final Set<TablePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
     public IndexBuildController(
             IndexBuilder indexBuilder,
+            CatalogService catalogService,
             ClusterService clusterService,
-            TableManager tableManager,
             IndexManager indexManager,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            HybridClock clock
     ) {
         this.indexBuilder = indexBuilder;
+        this.catalogService = catalogService;
         this.clusterService = clusterService;
-        this.tableManager = tableManager;
+        this.indexManager = indexManager;
+        this.placementDriver = placementDriver;
+        this.clock = clock;
 
-        indexManager.listen(IndexEvent.CREATE, (parameters, exception) -> inBusyLockAsync(busyLock, () -> {
-            onIndexCreateBusy(parameters);
+        catalogService.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
 
-            return completedFuture(false);
-        }));
+            return onIndexCreate(((CreateIndexEventParameters) parameters)).thenApply(unused -> false);
+        });
 
-        indexManager.listen(IndexEvent.DROP, (parameters, exception) -> inBusyLockAsync(busyLock, () -> {
-            onIndexDropBusy(parameters);
+        catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
 
-            return completedFuture(false);
-        }));
+            return onIndexDrop(((DropIndexEventParameters) parameters)).thenApply(unused -> false);
+        });
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (parameters, exception) -> inBusyLockAsync(busyLock, () -> {
-            // TODO: IGNITE-20330 не хватает кода
-            return completedFuture(false);
-        }));
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
+
+            return onPrimaryReplicaElected(parameters).thenApply(unused -> false);
+        });
     }
 
     @Override
@@ -94,39 +119,142 @@ public class IndexBuildController implements ManuallyCloseable {
         busyLock.block();
     }
 
-    private void onIndexCreateBusy(IndexEventParameters parameters) {
-        for (Entry<TablePartitionId, MvTableStorage> entry : replicaMvTableStorageById.entrySet()) {
-            TablePartitionId replicaId = entry.getKey();
+    private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
-            int tableId = replicaId.tableId();
+            for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
+                CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
+                        .thenCompose(mvTableStorage -> awaitPrimaryReplicaFowNow(primaryReplicaId)
+                                .thenAccept(replicaMeta -> tryStartBuildIndex(
+                                        primaryReplicaId,
+                                        parameters.indexDescriptor(),
+                                        mvTableStorage,
+                                        replicaMeta
+                                ))
+                        );
 
-            if (tableId == parameters.tableId()) {
-                MvTableStorage mvTableStorage = entry.getValue();
-
-                int partitionId = replicaId.partitionId();
-                int indexId = parameters.indexId();
-
-                IndexStorage indexStorage = mvTableStorage.getIndex(partitionId, indexId);
-
-                assert indexStorage != null : replicaId;
-
-                MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partitionId);
-
-                assert mvPartition != null : replicaId;
-
-                indexBuilder.startBuildIndex(tableId, partitionId, indexId, indexStorage, mvPartition, localNode());
+                startBuildIndexFutures.add(startBuildIndexFuture);
             }
+
+            return allOf(startBuildIndexFutures.toArray(CompletableFuture[]::new));
+        });
+    }
+
+    private CompletableFuture<?> onIndexDrop(DropIndexEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            indexBuilder.stopBuildingIndexes(parameters.indexId());
+
+            return completedFuture(null);
+        });
+    }
+
+    private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
+
+            if (isLocalNode(parameters.leaseholder())) {
+                boolean add = primaryReplicaIds.add(primaryReplicaId);
+
+                assert add : "Prolongation should not have happened: " + primaryReplicaId;
+
+                // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
+                // metastore thread.
+                int catalogVersion = catalogService.latestCatalogVersion();
+
+                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
+                        .thenCompose(mvTableStorage -> awaitPrimaryReplicaFowNow(primaryReplicaId)
+                                .thenAccept(replicaMeta -> tryStartBuildIndexesForNewPrimaryReplica(
+                                        catalogVersion,
+                                        primaryReplicaId,
+                                        mvTableStorage,
+                                        replicaMeta
+                                ))
+                        );
+            } else {
+                stopBuildingIndexesIfPrimacyLost(primaryReplicaId);
+
+                return completedFuture(null);
+            }
+        });
+    }
+
+    private void tryStartBuildIndexesForNewPrimaryReplica(
+            int catalogVersion,
+            TablePartitionId primaryReplicaId,
+            MvTableStorage mvTableStorage,
+            ReplicaMeta replicaMeta
+    ) {
+        inBusyLock(busyLock, () -> {
+            if (isLeaseExpire(replicaMeta)) {
+                stopBuildingIndexesIfPrimacyLost(primaryReplicaId);
+
+                return;
+            }
+
+            for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
+                startBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
+            }
+        });
+    }
+
+    private void tryStartBuildIndex(
+            TablePartitionId primaryReplicaId,
+            CatalogIndexDescriptor indexDescriptor,
+            MvTableStorage mvTableStorage,
+            ReplicaMeta replicaMeta
+    ) {
+        inBusyLock(busyLock, () -> {
+            if (isLeaseExpire(replicaMeta)) {
+                stopBuildingIndexesIfPrimacyLost(primaryReplicaId);
+
+                return;
+            }
+
+            startBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
+        });
+    }
+
+    private void stopBuildingIndexesIfPrimacyLost(TablePartitionId replicaId) {
+        if (primaryReplicaIds.remove(replicaId)) {
+            // Primary replica is no longer current, we need to stop building indexes for it.
+            indexBuilder.stopBuildingIndexes(replicaId.tableId(), replicaId.partitionId());
         }
     }
 
-    private void onIndexDropBusy(IndexEventParameters parameters) {
-        indexBuilder.stopBuildIndexes(parameters.indexId());
+    private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, TablePartitionId replicaId) {
+        return indexManager.getMvTableStorage(causalityToken, replicaId.tableId());
     }
 
-    private void onPrimaryReplicaElectedBusy(PrimaryReplicaEventParameters parameters) {
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFowNow(TablePartitionId replicaId) {
+        return placementDriver.awaitPrimaryReplica(replicaId, clock.now());
+    }
+
+    private void startBuildIndex(TablePartitionId replicaId, CatalogIndexDescriptor indexDescriptor, MvTableStorage mvTableStorage) {
+        int partitionId = replicaId.partitionId();
+
+        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partitionId);
+
+        assert mvPartition != null : replicaId;
+
+        int indexId = indexDescriptor.id();
+
+        IndexStorage indexStorage = mvTableStorage.getIndex(partitionId, indexId);
+
+        assert indexStorage != null : "replicaId=" + replicaId + ", indexId=" + indexId;
+
+        indexBuilder.startBuildIndex(replicaId.tableId(), partitionId, indexId, indexStorage, mvPartition, localNode());
+    }
+
+    private boolean isLocalNode(String nodeConsistentId) {
+        return nodeConsistentId.equals(localNode().name());
     }
 
     private ClusterNode localNode() {
         return clusterService.topologyService().localMember();
+    }
+
+    private boolean isLeaseExpire(ReplicaMeta replicaMeta) {
+        return !isLocalNode(replicaMeta.getLeaseholder()) || clock.now().after(replicaMeta.getExpirationTime());
     }
 }

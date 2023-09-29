@@ -35,6 +35,11 @@ import org.jetbrains.annotations.Nullable;
  * <p>Catalog service listens distributed schema update event, stores/restores schema evolution history (schema versions) for time-travelled
  * queries purposes and for lazy data evolution purposes.
  *
+ * <p>Notes:</p>
+ * <ul>
+ *     <li>Events are fired in the metastore thread.</li>
+ * </ul>
+ *
  * <p>TBD: events
  */
 public interface CatalogService extends EventProducer<CatalogEvent, CatalogEventParameters> {
