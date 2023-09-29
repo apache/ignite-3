@@ -347,11 +347,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
 
-            StringAssert.Contains("Invalid query, check inner exceptions for details: CREATE TABLE TEST(ID INT PRIMARY KEY)", ex!.Message);
-
-            var innerEx = ex.InnerException;
-            Assert.IsInstanceOf<SqlException>(innerEx);
-            StringAssert.Contains("Table with name 'PUBLIC.TEST' already exists", innerEx!.Message);
+            StringAssert.Contains("Table with name 'PUBLIC.TEST' already exists", ex!.Message);
         }
 
         [Test]
@@ -360,13 +356,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
-            StringAssert.Contains(
-                "Invalid query, check inner exceptions for details: ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR",
-                ex!.Message);
-
-            var innerEx = ex.InnerException;
-            Assert.IsInstanceOf<SqlException>(innerEx);
-            StringAssert.Contains("Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found", innerEx!.Message);
+            StringAssert.Contains("Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found", ex!.Message);
         }
 
         [Test]
