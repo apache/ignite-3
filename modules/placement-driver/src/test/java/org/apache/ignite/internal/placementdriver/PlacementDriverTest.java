@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
@@ -99,6 +100,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;
 
+    public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+
     private VaultManager vault;
 
     private MetaStorageManager metastore;
@@ -158,7 +161,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testAwaitPrimaryReplicaInInterval() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
         // Publish primary replica for an interval [1, 5].
@@ -195,7 +199,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testAwaitPrimaryReplicaBeforeInterval() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
         // Publish primary replica for an interval [1, 5].
@@ -236,7 +241,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES));
 
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         // Assert that primary waiter is completed.
         assertTrue(primaryReplicaFuture.isDone());
@@ -257,8 +263,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testTwoWaitersSameTime() throws Exception {
         // Await primary replica for time 10 twice.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         assertFalse(primaryReplicaFuture1.isDone());
         assertFalse(primaryReplicaFuture2.isDone());
@@ -291,8 +299,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testTwoWaitersSameTimeFirstTimedOutSecondSucceed() throws Exception {
         // Await primary replica for time 10 twice.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         assertFalse(primaryReplicaFuture1.isDone());
         assertFalse(primaryReplicaFuture2.isDone());
@@ -329,7 +339,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testGetPrimaryReplica() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
         // Publish primary replica for an interval [1, 15].

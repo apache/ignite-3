@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -880,7 +881,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now()));
+                placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now(), 30, TimeUnit.SECONDS));
 
         tx.enlist(
                 tblPartId,
