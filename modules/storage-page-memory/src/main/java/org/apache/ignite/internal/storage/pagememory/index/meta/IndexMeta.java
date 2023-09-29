@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.meta;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.HexStringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,6 +63,6 @@ public class IndexMeta extends IndexMetaKey {
 
     @Override
     public String toString() {
-        return S.toString(IndexMeta.class, this, "indexId=", indexId(), "metaPageId", HexStringUtils.hexLong(metaPageId));
+        return S.toString(IndexMeta.class, this, "indexId=", indexId(), "metaPageId", StringUtils.hexLong(metaPageId));
     }
 }

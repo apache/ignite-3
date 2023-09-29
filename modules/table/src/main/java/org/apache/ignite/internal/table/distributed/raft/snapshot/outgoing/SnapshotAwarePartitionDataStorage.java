@@ -62,6 +62,16 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
+    public int tableId() {
+        return partitionKey.tableId();
+    }
+
+    @Override
+    public int partitionId() {
+        return partitionKey.partitionId();
+    }
+
+    @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         return partitionStorage.runConsistently(closure);
     }

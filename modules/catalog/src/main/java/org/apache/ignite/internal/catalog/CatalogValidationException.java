@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.catalog;
 
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * Catalog validation exception.

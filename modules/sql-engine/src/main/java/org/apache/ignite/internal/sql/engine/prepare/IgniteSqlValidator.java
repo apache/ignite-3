@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -65,6 +65,8 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
@@ -151,8 +153,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public void validateInsert(SqlInsert insert) {
+        SqlValidatorTable table = table(validatedNamespace(insert, unknownType));
+        IgniteTable igniteTable = getIgniteTableForModification((SqlIdentifier) insert.getTargetTable(), table);
+
         if (insert.getTargetColumnList() == null) {
-            insert.setOperand(3, inferColumnList(insert));
+            insert.setOperand(3, inferColumnList(igniteTable));
         }
 
         super.validateInsert(insert);
@@ -190,6 +195,27 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
+    private IgniteTable getTableForModification(SqlIdentifier identifier) {
+        SqlValidatorTable table = getCatalogReader().getTable(identifier.names);
+
+        if (table == null) {
+            throw newValidationError(identifier, RESOURCE.objectNotFound(identifier.toString()));
+        }
+
+        return getIgniteTableForModification(identifier, table);
+    }
+
+    private IgniteTable getIgniteTableForModification(SqlIdentifier identifier, SqlValidatorTable table) {
+        IgniteDataSource dataSource = table.unwrap(IgniteDataSource.class);
+        assert dataSource != null;
+
+        if (dataSource instanceof IgniteSystemView) {
+            throw newValidationError(identifier, IgniteResource.INSTANCE.systemViewIsNotModifiable(identifier.toString()));
+        }
+
+        return (IgniteTable) dataSource;
+    }
+
     private static void syncSelectList(SqlSelect select, SqlUpdate update) {
         //
         // If a table has N columns and update::SourceExpressionList has size = M
@@ -221,16 +247,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     protected SqlSelect createSourceSelectForUpdate(SqlUpdate call) {
         final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
         final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
-        final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
 
-        if (table == null) {
-            throw newValidationError(call.getTargetTable(), RESOURCE.objectNotFound(targetTable.toString()));
-        }
+        IgniteTable igniteTable = getTableForModification(targetTable);
+        TableDescriptor descriptor = igniteTable.descriptor();
 
         SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
                 new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
-        table.unwrap(IgniteTable.class).descriptor().selectForUpdateRowType((IgniteTypeFactory) typeFactory)
+        descriptor.selectForUpdateRowType((IgniteTypeFactory) typeFactory)
                 .getFieldNames().stream()
                 .map(name -> alias.plus(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
@@ -267,13 +291,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     protected SqlSelect createSourceSelectForDelete(SqlDelete call) {
         final SqlNodeList selectList = new SqlNodeList(SqlParserPos.ZERO);
         final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
-        final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
 
-        if (table == null) {
-            throw newValidationError(targetTable, RESOURCE.objectNotFound(targetTable.toString()));
-        }
+        IgniteTable igniteTable = getTableForModification(targetTable);
+        TableDescriptor descriptor = igniteTable.descriptor();
 
-        table.unwrap(IgniteTable.class).descriptor().deleteRowType((IgniteTypeFactory) typeFactory)
+        descriptor.deleteRowType((IgniteTypeFactory) typeFactory)
                 .getFieldNames().stream()
                 .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
@@ -551,22 +573,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
-    private SqlNodeList inferColumnList(SqlInsert call) {
-        final SqlValidatorTable table = table(validatedNamespace(call, unknownType));
+    private SqlNodeList inferColumnList(IgniteTable igniteTable) {
+        SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
+        TableDescriptor descriptor = igniteTable.descriptor();
 
-        if (table == null) {
-            return null;
-        }
-
-        final TableDescriptor desc = table.unwrap(TableDescriptor.class);
-
-        if (desc == null) {
-            return null;
-        }
-
-        final SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
-
-        for (RelDataTypeField field : desc.insertRowType(typeFactory()).getFieldList()) {
+        for (RelDataTypeField field : descriptor.insertRowType(typeFactory()).getFieldList()) {
             columnList.add(new SqlIdentifier(field.getName(), SqlParserPos.ZERO));
         }
 
@@ -579,18 +590,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         final SqlValidatorNamespace ns = validatedNamespace(call, unknownType);
-
         final SqlValidatorTable table = table(ns);
-
-        if (table == null) {
-            return;
-        }
-
-        final TableDescriptor desc = table.unwrap(TableDescriptor.class);
-
-        if (desc == null) {
-            return;
-        }
+        IgniteTable igniteTable = getIgniteTableForModification((SqlIdentifier) call.getTargetTable(), table);
+        TableDescriptor descriptor = igniteTable.descriptor();
 
         final RelDataType baseType = table.getRowType();
         final RelOptTable relOptTable = relOptTable(ns);
@@ -606,7 +608,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                         RESOURCE.unknownTargetColumn(id.toString()));
             }
 
-            if (!desc.isUpdateAllowed(relOptTable, target.getIndex())) {
+            if (!descriptor.isUpdateAllowed(relOptTable, target.getIndex())) {
                 throw newValidationError(id,
                         IgniteResource.INSTANCE.cannotUpdateField(id.toString()));
             }

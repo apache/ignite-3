@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
@@ -32,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
-import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.junit.jupiter.api.BeforeAll;
@@ -64,9 +63,6 @@ import org.junit.jupiter.params.provider.Arguments;
  *
  * <p>In order to test non-comparable types (e.g. java arrays) values of those types must be passed as {@link NativeTypeWrapper}.
  * In that case {@code T} must be an implementation of a {@link NativeTypeWrapper} for that type.
- *
- * <p>Helper methods such as {@link #runSql(String, Object...)} and {@link #checkQuery(String)} support those values and unwrap them
- * when it is necessary. See {@link TestQueryProcessor}.
  *
  * @param <T> A storage type of a data type.
  */

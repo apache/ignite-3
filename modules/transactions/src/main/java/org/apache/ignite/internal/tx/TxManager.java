@@ -23,11 +23,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -83,6 +83,14 @@ public interface TxManager extends IgniteComponent {
      */
     @Deprecated
     public LockManager lockManager();
+
+    /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param runnable Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
 
     /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.

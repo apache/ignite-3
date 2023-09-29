@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.calcite.util.Static.RESOURCE;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
@@ -130,21 +130,10 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
-        IgniteException ex = assertThrowsSqlException(
+        assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "Increment can't be 0",
                 () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
-
-        assertTrue(
-                ex.getCause() instanceof IllegalArgumentException,
-                format(
-                        "Expected cause is {}, but was {}",
-                        IllegalArgumentException.class.getSimpleName(),
-                        ex.getCause() == null ? null : ex.getCause().getClass().getSimpleName()
-                )
-        );
-
-        assertEquals("Increment can't be 0", ex.getCause().getMessage());
     }
 
     @Test

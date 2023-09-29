@@ -265,7 +265,7 @@ public class StorageUpdateHandler {
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      */
     public void handleTransactionCleanup(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        handleTransactionCleanup(txId, commit, commitTimestamp, () -> {});
+        handleTransactionCleanup(txId, commit, commitTimestamp, null);
     }
 
     /**
@@ -276,86 +276,115 @@ public class StorageUpdateHandler {
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      * @param onApplication On application callback.
      */
-    public void handleTransactionCleanup(UUID txId, boolean commit,
-            @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
+    public void handleTransactionCleanup(
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            @Nullable Runnable onApplication) {
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
 
-        handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, onApplication);
-    }
+        // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
+        // for example, when primary (PartitionReplicaListener) is collocated with the raft node (PartitionListener)
+        // and one of them has already processed the cleanup request, since they share the instance of this class.
+        // Or the cleanup might have been done asynchronously.
+        // However, we still need to run `onApplication` if it is not null, e.g. called in TxCleanupCommand handler in PartitionListener
+        // to update indexes. In this case it should be executed under `runConsistently`.
+        if (!pendingRowIds.isEmpty() || onApplication != null) {
+            storage.runConsistently(locker -> {
+                pendingRowIds.forEach(locker::lock);
 
-    /**
-     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
-     *
-     * @param pendingRowIds Row ids of write-intents to be finalized, either committed or rolled back.
-     * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
-     * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
-     * @param onApplication On application callback.
-     */
-    private void handleTransactionCleanup(Set<RowId> pendingRowIds, boolean commit,
-            @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
-        if (commit) {
-            handleTransactionCommit(pendingRowIds, commitTimestamp, onApplication);
-        } else {
-            handleTransactionAbortion(pendingRowIds, onApplication);
+                if (commit) {
+                    performCommitWrite(txId, pendingRowIds, commitTimestamp);
+                } else {
+                    performAbortWrite(txId, pendingRowIds);
+                }
+
+                if (onApplication != null) {
+                    onApplication.run();
+                }
+
+                return null;
+            });
         }
     }
 
     /**
-     * Handles the commit of a transaction.
+     * Commit write intents created by the provided transaction.
      *
+     * @param txId Transaction id
      * @param pendingRowIds Row ids of write-intents to be committed.
      * @param commitTimestamp Commit timestamp.
-     * @param onApplication On application callback.
      */
-    private void handleTransactionCommit(Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp, Runnable onApplication) {
-        storage.runConsistently(locker -> {
-            pendingRowIds.forEach(locker::lock);
+    private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
+        assert commitTimestamp != null : "Commit timestamp is null";
 
-            pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
+        // Please note: `pendingRowIds` might not contain the complete set of rows that were changed by this transaction:
+        // Pending rows are stored in memory and will be lost in case a node restarts.
+        // This method might be called by a write intent resolving transaction that will find only those rows that it needs itself.
+        List<RowId> rowIds = new ArrayList<>();
 
-            onApplication.run();
+        for (RowId pendingRowId : pendingRowIds) {
 
-            return null;
-        });
+            // Here we check that the write intent we are going to commit still belongs to the provided transaction.
+            //
+            // This check is required to cover the following case caused by asynchronous cleanup of write intents:
+            // 1. RO Transaction A sees a write intent for a row1, resolves it and schedules a cleanup for it.
+            // 2. RW Transaction B sees the same write intent for a row1, resolves it and schedules a cleanup for it.
+            // This cleanup action finishes first. Then Transaction B adds its own write intent for the row1.
+            // 3. Transaction A starts executing the cleanup action.
+            // Without this check it would commit the write intent from a different transaction.
+            //
+            // This is just a workaround. The proper fix is to check the transaction id for the row in the storage.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
+            ReadResult result = storage.getStorage().read(pendingRowId, HybridTimestamp.MAX_VALUE);
+            if (result.isWriteIntent() && txId.equals(result.transactionId())) {
+                // In case of an asynchronous cleanup of write intents, we might get into a situation when some of the
+                // write intents were already cleaned up. In this case, we just ignore them.
+                rowIds.add(pendingRowId);
+            }
+        }
+
+        rowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
     }
 
     /**
-     * Handles the abortion of a transaction.
+     * Abort write intents created by the provided transaction.
      *
-     * @param pendingRowIds Row ids of write-intents to be rolled back.
-     * @param onApplication On application callback.
+     * @param txId Transaction id
+     * @param pendingRowIds Row ids of write-intents to be aborted.
      */
-    private void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onApplication) {
-        storage.runConsistently(locker -> {
-            for (RowId rowId : pendingRowIds) {
-                locker.lock(rowId);
+    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds) {
+        List<RowId> rowIds = new ArrayList<>();
 
-                try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                    if (!cursor.hasNext()) {
+        for (RowId rowId : pendingRowIds) {
+            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                if (!cursor.hasNext()) {
+                    continue;
+                }
+
+                ReadResult item = cursor.next();
+
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Prevent double storage updates within primary
+                if (item.isWriteIntent()) {
+                    // We are aborting only those write intents that belong to the provided transaction.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
+                    if (!txId.equals(item.transactionId())) {
+                        continue;
+                    }
+                    rowIds.add(rowId);
+
+                    BinaryRow rowToRemove = item.binaryRow();
+
+                    if (rowToRemove == null) {
                         continue;
                     }
 
-                    ReadResult item = cursor.next();
-
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Prevent double storage updates within primary
-                    if (item.isWriteIntent()) {
-                        BinaryRow rowToRemove = item.binaryRow();
-
-                        if (rowToRemove == null) {
-                            continue;
-                        }
-
-                        indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
-                    }
+                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
                 }
             }
+        }
 
-            pendingRowIds.forEach(storage::abortWrite);
-
-            onApplication.run();
-
-            return null;
-        });
+        rowIds.forEach(storage::abortWrite);
     }
 
     /**

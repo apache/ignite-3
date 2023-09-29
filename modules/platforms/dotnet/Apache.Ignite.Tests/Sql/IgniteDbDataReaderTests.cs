@@ -401,7 +401,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(typeof(string), schema[1].DataType);
         Assert.AreEqual("varchar", schema[1].DataTypeName);
         Assert.IsTrue(schema[1].AllowDBNull);
-        Assert.AreEqual(65536, schema[1].NumericPrecision);
+        Assert.AreEqual(1000, schema[1].NumericPrecision);
         Assert.IsNull(schema[1].NumericScale);
         Assert.IsNotNull((schema[1] as IgniteDbColumn)?.ColumnMetadata);
     }

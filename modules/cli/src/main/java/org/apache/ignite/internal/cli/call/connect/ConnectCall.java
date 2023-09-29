@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
-import static org.apache.ignite.lang.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import io.micronaut.http.HttpStatus;
 import jakarta.inject.Singleton;

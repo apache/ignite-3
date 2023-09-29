@@ -24,10 +24,10 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_BLOB_FRAGMENT_IO;
 
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Pages IO for blob fragments. The blob itself is stored as a chain of fragments, one fragment per page.

@@ -18,18 +18,17 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
-import org.apache.ignite.lang.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -188,21 +187,6 @@ public class CatalogParamsValidationUtils {
     private static void validateNameField(String name, int errorCode, String errorMessage) {
         if (StringUtils.nullOrBlank(name)) {
             throw new CatalogValidationException(errorCode, errorMessage);
-        }
-    }
-
-    /**
-     * Validates given column parameters.
-     *
-     * @param params Parameters to validate.
-     * @throws CatalogValidationException If validation has failed.
-     */
-    // TODO: IGNITE-19938 Add validation column length, precision and scale
-    public static void validateColumnParams(ColumnParams params) {
-        validateIdentifier(params.name(), "Name of the column");
-
-        if (params.type() == null) {
-            throw new CatalogValidationException("Missing column type: " + params.name());
         }
     }
 

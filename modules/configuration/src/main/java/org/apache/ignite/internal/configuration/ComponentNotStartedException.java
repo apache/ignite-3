@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.configuration;
 
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Exception thrown when component is not started.

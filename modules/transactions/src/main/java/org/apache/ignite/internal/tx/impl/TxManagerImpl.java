@@ -19,12 +19,14 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -35,6 +37,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -42,8 +48,13 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -54,8 +65,6 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.Lazy;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,6 +74,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager {
+
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -72,6 +84,9 @@ public class TxManagerImpl implements TxManager {
 
     /** Lock manager. */
     private final LockManager lockManager;
+
+    /** Executor that runs async transaction cleanup actions. */
+    private final ExecutorService cleanupExecutor;
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
@@ -118,6 +133,16 @@ public class TxManagerImpl implements TxManager {
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
+
+        int cpus = Runtime.getRuntime().availableProcessors();
+
+        cleanupExecutor = new ThreadPoolExecutor(
+                cpus,
+                cpus,
+                100,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory("tx-async-cleanup", LOG));
     }
 
     @Override
@@ -221,7 +246,7 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public CompletableFuture<Void> finish(
-            HybridTimestampTracker timestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
@@ -256,7 +281,7 @@ public class TxManagerImpl implements TxManager {
             return completedFuture(null);
         }
 
-        timestampTracker.update(commitTimestamp);
+        observableTimestampTracker.update(commitTimestamp);
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
@@ -319,7 +344,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public int finished() {
         return (int) txStateMap.entrySet().stream()
-                .filter(e -> e.getValue().txState() == COMMITED || e.getValue().txState() == ABORTED)
+                .filter(e -> isFinalState(e.getValue().txState()))
                 .count();
     }
 
@@ -337,12 +362,17 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public void stop() {
-        // No-op.
+        shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
 
     @Override
     public LockManager lockManager() {
         return lockManager;
+    }
+
+    @Override
+    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+        return runAsync(runnable, cleanupExecutor);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
