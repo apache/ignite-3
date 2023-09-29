@@ -42,7 +42,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
         nodeNameToId = new Object2LongOpenHashMap<>(nodes.size());
 
         int idx = 0;
-        for (var name : nodes) {
+        for (String name : nodes) {
             nodeNameToId.putIfAbsent(name, 1L << idx++);
         }
     }
@@ -68,7 +68,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
         long[] terms = new long[nodes.size()];
 
         int idx = 0;
-        for (var e : nodes) {
+        for (NodeWithTerm e : nodes) {
             partitionNodes[idx] = nodeNameToId.getOrDefault(e.name(), 0);
             terms[idx++] = e.term();
         }
@@ -97,7 +97,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     private long nodeListToMap(List<String> nodes) {
         long nodesMap = 0;
 
-        for (var name : nodes) {
+        for (String name : nodes) {
             nodesMap |= nodeNameToId.getOrDefault(name, 0);
         }
 

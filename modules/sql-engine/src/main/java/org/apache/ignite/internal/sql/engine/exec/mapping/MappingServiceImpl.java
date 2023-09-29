@@ -90,7 +90,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                 .thenApply(ignored -> {
                     Int2ObjectMap<ExecutionTarget> targetsById = new Int2ObjectOpenHashMap<>();
 
-                    for (var fut : targets) {
+                    for (CompletableFuture<IntObjectPair<ExecutionTarget>> fut : targets) {
                         // this is a safe join, because we have waited for all futures to be complete
                         IntObjectPair<ExecutionTarget> pair = fut.join();
 
@@ -108,7 +108,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     for (int attempt = 0; attempt < MAPPING_ATTEMPTS; attempt++) {
                         Fragment currentFragment = null;
                         try {
-                            for (var fragment : fragmentsToMap) {
+                            for (Fragment fragment : fragmentsToMap) {
                                 currentFragment = fragment;
 
                                 if (mappingByFragmentId.containsKey(fragment.fragmentId())) {
@@ -118,7 +118,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                                 FragmentMapping mapping = mapper.map(fragment);
 
                                 mappingByFragmentId.put(fragment.fragmentId(), mapping);
-                                for (var group : mapping.groups()) {
+                                for (ColocationGroup group : mapping.groups()) {
                                     for (long sourceId : group.sourceIds()) {
                                         groupsBySourceId.put(sourceId, group);
                                     }
@@ -159,7 +159,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     }
 
                     List<MappedFragment> result = new ArrayList<>(fragmentsToMap.size());
-                    for (var fragment : fragmentsToMap) {
+                    for (Fragment fragment : fragmentsToMap) {
                         FragmentMapping mapping =  mappingByFragmentId.get(fragment.fragmentId());
 
                         ColocationGroup targetGroup = null;
@@ -170,7 +170,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                         }
 
                         Long2ObjectMap<List<String>> sourcesByExchangeId = null;
-                        for (var receiver : fragment.remotes()) {
+                        for (IgniteReceiver receiver : fragment.remotes()) {
                             if (sourcesByExchangeId == null) {
                                 sourcesByExchangeId = new Long2ObjectOpenHashMap<>();
                             }

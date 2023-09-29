@@ -52,7 +52,7 @@ public class MappedFragment {
         Set<String> nodes = new HashSet<>();
 
         Long2ObjectMap<ColocationGroup> groupsBySourceId = new Long2ObjectOpenHashMap<>();
-        for (var group : groups) {
+        for (ColocationGroup group : groups) {
             nodes.addAll(group.nodeNames());
 
             for (long sourceId : group.sourceIds()) {

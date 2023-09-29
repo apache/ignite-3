@@ -494,7 +494,7 @@ class FragmentMapper {
         public List<ColocationGroup> createColocationGroups() throws FragmentMappingException {
             List<ColocationGroup> groups = new ArrayList<>();
 
-            for (var mapping : mappings) {
+            for (Mapping mapping : mappings) {
                 groups.addAll(mapping.createColocationGroups());
             }
 
