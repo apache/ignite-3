@@ -102,7 +102,6 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -497,8 +496,8 @@ public class ItTxTestCluster {
                             try {
                                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
 
-                                CatalogTables catalogTables = mock(CatalogTables.class);
-                                lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+                                CatalogService catalogService = mock(CatalogService.class);
+                                lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
 
                                 PartitionReplicaListener listener = newReplicaListener(
                                         mvPartStorage,
@@ -518,8 +517,7 @@ public class ItTxTestCluster {
                                         new DummySchemas(schemaManager),
                                         consistentIdToNode.apply(assignment),
                                         mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                                        mock(CatalogService.class),
-                                        catalogTables,
+                                        catalogService,
                                         placementDriver
                                 );
 
@@ -611,7 +609,6 @@ public class ItTxTestCluster {
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            CatalogTables catalogTables,
             PlacementDriver placementDriver
     ) {
         return new PartitionReplicaListener(
@@ -634,7 +631,6 @@ public class ItTxTestCluster {
                 localNode,
                 schemaSyncService,
                 catalogService,
-                catalogTables,
                 placementDriver
         );
     }

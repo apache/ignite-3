@@ -42,7 +42,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -135,7 +134,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     ClusterNode localNode,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
-                    CatalogTables catalogTables,
                     PlacementDriver placementDriver
             ) {
                 return new PartitionReplicaListener(
@@ -158,7 +156,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         localNode,
                         schemaSyncService,
                         catalogService,
-                        catalogTables,
                         placementDriver
                 ) {
                     @Override

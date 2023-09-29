@@ -272,7 +272,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            CatalogTables catalogTables,
             PlacementDriver placementDriver
     ) {
         this.mvDataStorage = mvDataStorage;
@@ -297,7 +296,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
-        schemaCompatValidator = new SchemaCompatValidator(schemas, catalogTables);
+        schemaCompatValidator = new SchemaCompatValidator(schemas, catalogService);
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
             if (!localNode.name().equals(evt.leaseholder())) {

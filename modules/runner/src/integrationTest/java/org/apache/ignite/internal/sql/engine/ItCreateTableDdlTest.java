@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -91,11 +89,10 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
                 () -> sql("CREATE TABLE T0()")
         );
 
-        // TODO: IGNITE-20388 Fix it
-        assertThrows(
-                CatalogValidationException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)"),
-                "Column with name 'ID0' specified more than once"
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Column with name 'ID0' specified more than once",
+                () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
         );
     }
 

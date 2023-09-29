@@ -80,7 +80,6 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -349,10 +348,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
-        CatalogTables catalogTables = mock(CatalogTables.class);
+        CatalogService catalogService = mock(CatalogService.class);
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
-        lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
         lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
 
         replicaListener = new PartitionReplicaListener(
@@ -374,8 +373,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new DummySchemas(schemaManager),
                 LOCAL_NODE,
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                mock(CatalogService.class),
-                catalogTables,
+                catalogService,
                 new TestPlacementDriver(LOCAL_NODE.name())
         );
 

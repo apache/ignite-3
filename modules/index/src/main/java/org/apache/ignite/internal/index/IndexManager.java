@@ -42,9 +42,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
-import org.apache.ignite.internal.event.AbstractEventProducer;
-import org.apache.ignite.internal.index.event.IndexEvent;
-import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -74,7 +71,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  * as well as managing indexes' lifecycle.
  */
 // TODO: IGNITE-19082 Delete this class
-public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventParameters> implements IgniteComponent {
+public class IndexManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Schema manager. */
@@ -203,39 +200,28 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
-        CatalogIndexDescriptor index = parameters.indexDescriptor();
-
-        int indexId = index.id();
-        int tableId = index.tableId();
-
-        long causalityToken = parameters.causalityToken();
-        int catalogVersion = parameters.catalogVersion();
-
         return inBusyLockAsync(busyLock, () -> {
+            CatalogIndexDescriptor index = parameters.indexDescriptor();
+
+            int indexId = index.id();
+            int tableId = index.tableId();
+
+            long causalityToken = parameters.causalityToken();
+            int catalogVersion = parameters.catalogVersion();
+
             CatalogTableDescriptor table = catalogManager.table(tableId, catalogVersion);
 
             assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
 
-            return createIndexLocallyBusy(causalityToken, table, index).thenApply(unused -> false);
+            if (LOG.isInfoEnabled()) {
+                LOG.info(
+                        "Creating local index: name={}, id={}, tableId={}, token={}",
+                        index.name(), indexId, tableId, causalityToken
+                );
+            }
+
+            return startIndexAsync(table, index, causalityToken).thenApply(unused -> false);
         });
-    }
-
-    private CompletableFuture<?> createIndexLocallyBusy(
-            long causalityToken,
-            CatalogTableDescriptor table,
-            CatalogIndexDescriptor index
-    ) {
-        int tableId = table.id();
-        int indexId = index.id();
-
-        if (LOG.isInfoEnabled()) {
-            LOG.info(
-                    "Creating local index: name={}, id={}, tableId={}, token={}",
-                    index.name(), indexId, tableId, causalityToken
-            );
-        }
-
-        return registerIndexBusyAsync(table, index, causalityToken);
     }
 
     /**
@@ -348,7 +334,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
 
             assert table != null : "tableId=" + tableId + ", indexId=" + index.id();
 
-            startIndexFutures.add(registerIndexBusyAsync(table, index, causalityToken));
+            startIndexFutures.add(startIndexAsync(table, index, causalityToken));
         }
 
         // Forces to wait until recovery is complete before the metastore watches are deployed to avoid races with other components.
@@ -362,7 +348,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
                 });
     }
 
-    private CompletableFuture<?> registerIndexBusyAsync(
+    private CompletableFuture<?> startIndexAsync(
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index,
             long causalityToken
@@ -378,20 +364,20 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
                 causalityToken,
                 updater(mvTableStorageById -> tablePartitionFuture.thenCombine(schemaRegistryFuture,
                         (partitionSet, schemaRegistry) -> inBusyLock(busyLock, () -> {
-                            registerIndexBusy(table, index, partitionSet, schemaRegistry);
+                            registerIndex(table, index, partitionSet, schemaRegistry);
 
-                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableImplStrictBusy(tableId).internalTable().storage());
+                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableImplStrict(tableId).internalTable().storage());
                         })))
         );
     }
 
-    private void registerIndexBusy(
+    private void registerIndex(
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index,
             PartitionSet partitionSet,
             SchemaRegistry schemaRegistry
     ) {
-        TableImpl tableImpl = getTableImplStrictBusy(table.id());
+        TableImpl tableImpl = getTableImplStrict(table.id());
 
         var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
 
@@ -454,7 +440,7 @@ public class IndexManager extends AbstractEventProducer<IndexEvent, IndexEventPa
         return newMap;
     }
 
-    private TableImpl getTableImplStrictBusy(int tableId) {
+    private TableImpl getTableImplStrict(int tableId) {
         TableImpl table = tableManager.getTable(tableId);
 
         assert table != null : tableId;
