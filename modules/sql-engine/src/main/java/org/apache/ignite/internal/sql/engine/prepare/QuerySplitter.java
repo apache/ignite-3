@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import it.unimi.dsi.fastutil.ints.IntArraySet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -30,10 +28,12 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -130,7 +130,7 @@ public class QuerySplitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteIndexScan rel) {
-        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+        curr.tables.add(rel.getTable().unwrap(IgniteTable.class));
 
         return rel.clone(IdGenerator.nextId());
     }
@@ -138,7 +138,7 @@ public class QuerySplitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableScan rel) {
-        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+        curr.tables.add(rel.getTable().unwrap(IgniteTable.class));
 
         return rel.clone(IdGenerator.nextId());
     }
@@ -146,9 +146,17 @@ public class QuerySplitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableModify rel) {
-        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+        curr.tables.add(rel.getTable().unwrap(IgniteTable.class));
 
         return super.visit(rel);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteSystemViewScan rel) {
+        curr.systemViews.add(rel.getTable().unwrap(IgniteSystemView.class));
+
+        return rel.clone(IdGenerator.nextId());
     }
 
     private static class FragmentProto {
@@ -158,7 +166,8 @@ public class QuerySplitter extends IgniteRelShuttle {
         private IgniteRel root;
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
-        private final IntSet tableIds = new IntArraySet();
+        private final List<IgniteTable> tables = new ArrayList<>();
+        private final List<IgniteSystemView> systemViews = new ArrayList<>();
 
         private FragmentProto(long id, boolean correlated, IgniteRel root) {
             this.id = id;
@@ -167,7 +176,7 @@ public class QuerySplitter extends IgniteRelShuttle {
         }
 
         Fragment build() {
-            return new Fragment(id, correlated, root, remotes, tableIds);
+            return new Fragment(id, correlated, root, remotes, tables, systemViews);
         }
     }
 }

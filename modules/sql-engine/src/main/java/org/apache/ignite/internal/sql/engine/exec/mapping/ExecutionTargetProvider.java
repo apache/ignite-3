@@ -18,19 +18,29 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 
 /**
  * An integration point that helps the mapper to acquire an execution target of particular
  * relation from fragment.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface ExecutionTargetProvider {
     /**
-     * Returns an execution target for a table with given id.
+     * Returns an execution target for a given table.
      *
      * @param factory A factory to create target for given table.
-     * @param tableId A table id to create execution target for.
+     * @param table A table to create execution target for.
      * @return A future representing the result.
      */
-    CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, int tableId);
+    CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table);
+
+    /**
+     * Returns an execution target for a given view.
+     *
+     * @param factory A factory to create target for given table.
+     * @param view A view to create execution target for.
+     * @return A future representing the result.
+     */
+    CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view);
 }

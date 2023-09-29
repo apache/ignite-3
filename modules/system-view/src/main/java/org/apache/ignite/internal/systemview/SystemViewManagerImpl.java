@@ -18,34 +18,48 @@
 package org.apache.ignite.internal.systemview;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.systemview.utils.SystemViewUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * SQL system views manager implementation.
  */
-public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesProvider {
+public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesProvider, LogicalTopologyEventListener {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(SystemViewManagerImpl.class);
 
     public static final String NODE_ATTRIBUTES_KEY = "sql-system-views";
 
     public static final String NODE_ATTRIBUTES_LIST_SEPARATOR = ",";
+
+    private final String localNodeName;
 
     private final CatalogManager catalogManager;
 
@@ -66,8 +80,11 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     /** Future which is completed when system views are registered in the catalog. */
     private final CompletableFuture<Void> viewsRegistrationFuture = new CompletableFuture<>();
 
+    private volatile Map<String, List<String>> owningNodesByViewName = Map.of();
+
     /** Creates a system view manager. */
-    public SystemViewManagerImpl(CatalogManager catalogManager) {
+    public SystemViewManagerImpl(String localNodeName, CatalogManager catalogManager) {
+        this.localNodeName = localNodeName;
         this.catalogManager = catalogManager;
     }
 
@@ -113,6 +130,34 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         busyLock.block();
     }
 
+    @Override
+    public List<String> owningNodes(String name) throws IgniteInternalException {
+        return inBusyLock(busyLock, () -> {
+            List<String> owningNodes = owningNodesByViewName.get(name);
+
+            if (nullOrEmpty(owningNodes)) {
+                throw new IgniteInternalException(
+                        Common.INTERNAL_ERR,
+                        format("Unable to find nodes owning the view with name '{}'", name)
+                );
+            }
+
+            return owningNodes;
+        });
+    }
+
+    @Override
+    public Publisher<InternalTuple> scanView(String name) {
+        if (views.get(name) == null) {
+            throw new IgniteInternalException(
+                    Common.INTERNAL_ERR,
+                    format("View with name '{}' not found on node '{}'", name, localNodeName)
+            );
+        }
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20578 implement me
+        return new EmptyPublisher<>();
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -136,10 +181,78 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         return nodeAttributes;
     }
 
+    @Override
+    public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+        processNewTopology(newTopology);
+    }
+
+    @Override
+    public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+        processNewTopology(newTopology);
+    }
+
+    @Override
+    public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
+        processNewTopology(newTopology);
+    }
+
     /**
      * Returns future which is completed when system views are registered in the catalog.
      */
     public CompletableFuture<Void> completeRegistration() {
         return viewsRegistrationFuture;
+    }
+
+    private void processNewTopology(LogicalTopologySnapshot topology) {
+        Map<String, List<String>> owningNodesByViewName = new HashMap<>();
+
+        for (LogicalNode logicalNode : topology.nodes()) {
+            String systemViewsNames = logicalNode.systemAttributes().get(NODE_ATTRIBUTES_KEY);
+
+            if (systemViewsNames == null) {
+                continue;
+            }
+
+            Arrays.stream(systemViewsNames.split(NODE_ATTRIBUTES_LIST_SEPARATOR))
+                    .map(String::trim)
+                    .forEach(viewName ->
+                            owningNodesByViewName.computeIfAbsent(viewName, key -> new ArrayList<>()).add(logicalNode.name())
+                    );
+        }
+
+        for (String viewName : owningNodesByViewName.keySet()) {
+            owningNodesByViewName.compute(viewName, (key, value) -> {
+                assert value != null;
+
+                return List.copyOf(value);
+            });
+        }
+
+        this.owningNodesByViewName = Map.copyOf(owningNodesByViewName);
+    }
+
+    private static class EmptyPublisher<T> implements Publisher<T> {
+        @Override
+        public void subscribe(Subscriber<? super T> subscriber) {
+            Subscription subscription = new Subscription() {
+                @Override
+                public void request(long n) {
+                    if (n <= 0) {
+                        subscriber.onError(new IllegalArgumentException("N should be positive: " + n));
+
+                        return;
+                    }
+
+                    subscriber.onComplete();
+                }
+
+                @Override
+                public void cancel() {
+                    // NO-OP
+                }
+            };
+
+            subscriber.onSubscribe(subscription);
+        }
     }
 }

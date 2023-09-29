@@ -28,10 +28,12 @@ import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
@@ -45,9 +47,14 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 public class ExecutionDependencyResolverImpl implements ExecutionDependencyResolver {
 
     private final ExecutableTableRegistry registry;
+    private final ScannableDataSourceProvider dataSourceProvider;
 
-    public ExecutionDependencyResolverImpl(ExecutableTableRegistry registry) {
+    public ExecutionDependencyResolverImpl(
+            ExecutableTableRegistry registry,
+            ScannableDataSourceProvider dataSourceProvider
+    ) {
         this.registry = registry;
+        this.dataSourceProvider = dataSourceProvider;
     }
 
     /**
@@ -56,6 +63,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
     @Override
     public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, IgniteSchema schema) {
         Map<Integer, CompletableFuture<ExecutableTable>> tableMap = new HashMap<>();
+        Map<Integer, ScannableDataSource> dataSources = new HashMap<>();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {
             @Override
@@ -103,6 +111,17 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 return rel;
             }
 
+            @Override
+            public IgniteRel visit(IgniteSystemViewScan rel) {
+                IgniteSystemView view = rel.getTable().unwrap(IgniteSystemView.class);
+
+                assert view != null;
+
+                dataSources.put(view.id(), dataSourceProvider.forSystemView(view));
+
+                return rel;
+            }
+
             private void resolveDistributionFunction(IgniteDistribution distribution) {
                 DistributionFunction function = distribution.function();
 
@@ -135,7 +154,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                             .map(e -> Map.entry(e.getKey(), e.getValue().join()))
                             .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
-                    return new ResolvedDependencies(map);
+                    return new ResolvedDependencies(map, dataSources);
                 });
     }
 }

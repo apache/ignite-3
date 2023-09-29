@@ -47,7 +47,9 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ClusterServiceFactory;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -77,7 +79,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify Outbox to Inbox interoperation.
  */
-public class ExchangeExecutionTest extends AbstractExecutionTest {
+public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
     private static final String ROOT_NODE_NAME = "N1";
     private static final String ANOTHER_NODE_NAME = "N2";
     private static final List<String> NODE_NAMES = List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME);
@@ -727,5 +729,10 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
                 }
             };
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }
