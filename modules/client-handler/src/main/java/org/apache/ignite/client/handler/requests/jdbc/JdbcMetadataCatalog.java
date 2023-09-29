@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 import java.sql.DatabaseMetaData;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -219,7 +218,7 @@ public class JdbcMetadataCatalog {
     private JdbcPrimaryKeyMeta createPrimaryKeyMeta(CatalogTableDescriptor tbl) {
         String keyName = PK + tbl.name();
 
-        List<String> keyColNames = new ArrayList<>(tbl.primaryKeyColumns());
+        List<String> keyColNames = List.copyOf(tbl.primaryKeyColumns());
 
         return new JdbcPrimaryKeyMeta(DEFAULT_SCHEMA_NAME, tbl.name(), keyName, keyColNames);
     }
