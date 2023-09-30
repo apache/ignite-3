@@ -101,4 +101,11 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
      * @return Actual count of columns.
      */
     int columnsCount();
+
+    /**
+     * Returns version of the table (not to confuse with catalog version). It's incremented each time the table definition is altered.
+     *
+     * @return Table version.
+     */
+    int tableVersion();
 }

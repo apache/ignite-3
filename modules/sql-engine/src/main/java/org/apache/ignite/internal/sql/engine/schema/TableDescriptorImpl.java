@@ -57,14 +57,17 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private final IgniteDistribution distribution;
 
+    private final int tableVersion;
+
     /**
      * Constructor.
      *
      * @param columnDescriptors Column descriptors.
      * @param distribution Distribution specification.
      */
-    public TableDescriptorImpl(List<ColumnDescriptor> columnDescriptors, IgniteDistribution distribution) {
+    public TableDescriptorImpl(List<ColumnDescriptor> columnDescriptors, IgniteDistribution distribution, int tableVersion) {
         this.distribution = distribution;
+        this.tableVersion = tableVersion;
 
         ImmutableBitSet.Builder keyFieldsBuilder = ImmutableBitSet.builder();
 
@@ -223,5 +226,11 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private RelDataType deriveLogicalType(RelDataTypeFactory factory, ColumnDescriptor desc) {
         return native2relationalType(factory, desc.physicalType(), desc.nullable());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int tableVersion() {
+        return tableVersion;
     }
 }

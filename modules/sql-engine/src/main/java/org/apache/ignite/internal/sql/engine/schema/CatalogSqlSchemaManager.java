@@ -196,7 +196,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         int tableId = descriptor.id();
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, tableId, tableId);
 
-        return new TableDescriptorImpl(colDescriptors, distribution);
+        return new TableDescriptorImpl(colDescriptors, distribution, descriptor.tableVersion());
     }
 
     private static TableDescriptor createTableDescriptorForSystemView(CatalogSystemViewDescriptor descriptor) {
@@ -226,7 +226,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         }
 
 
-        return new TableDescriptorImpl(colDescriptors, distribution);
+        return new TableDescriptorImpl(colDescriptors, distribution, CatalogTableDescriptor.INITIAL_TABLE_VERSION);
     }
 
     private static CatalogColumnDescriptor createColumnDescriptor(CatalogTableColumnDescriptor col, boolean key, int i) {

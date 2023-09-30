@@ -73,6 +73,7 @@ import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
@@ -799,6 +800,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public int columnsCount() {
             return rowType.getFieldCount();
+        }
+
+        @Override
+        public int tableVersion() {
+            return CatalogTableDescriptor.INITIAL_TABLE_VERSION;
         }
 
         /** {@inheritDoc} */

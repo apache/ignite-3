@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -141,7 +142,7 @@ public class SystemViewPlannerTest extends AbstractPlannerTest {
         }
 
         int id = SYSTEM_VIEW_ID.incrementAndGet();
-        TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, IgniteDistributions.single());
+        TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, IgniteDistributions.single(), INITIAL_TABLE_VERSION);
 
         return new IgniteSystemViewImpl(name, id, 1, tableDescriptor);
     }

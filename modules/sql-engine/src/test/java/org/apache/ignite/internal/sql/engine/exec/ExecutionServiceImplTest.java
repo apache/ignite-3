@@ -59,6 +59,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.schema.NativeType;
@@ -886,7 +887,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }
 
         return new TestTable(
-                new TableDescriptorImpl(columns, distr),
+                new TableDescriptorImpl(columns, distr, CatalogTableDescriptor.INITIAL_TABLE_VERSION),
                 name,
                 size,
                 List.of()
