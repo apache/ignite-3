@@ -82,7 +82,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -372,7 +372,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
                 LOCAL_NODE,
-                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
+                new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 new TestPlacementDriver(LOCAL_NODE.name())
         );

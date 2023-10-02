@@ -104,6 +104,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -516,7 +517,7 @@ public class ItTxTestCluster {
                                         storageUpdateHandler,
                                         new DummySchemas(schemaManager),
                                         consistentIdToNode.apply(assignment),
-                                        mock(SchemaSyncService.class, invocation -> completedFuture(null)),
+                                        new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         placementDriver
                                 );
