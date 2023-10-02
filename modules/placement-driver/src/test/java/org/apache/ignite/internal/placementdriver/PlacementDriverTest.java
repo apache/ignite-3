@@ -398,27 +398,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testListenReplicaBecomePrimaryEventOnStartPlacementDriver() {
-        long newRecoveryRevision = publishLease(LEASE_FROM_1_TO_5_000);
-
-        placementDriver.stopTrack();
-
-        placementDriver = createPlacementDriver();
-
-        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenAnyReplicaBecomePrimaryEvent();
-
-        placementDriver.startTrackAsync(newRecoveryRevision);
-
-        assertThat(eventParametersFuture, willCompleteSuccessfully());
-
-        PrimaryReplicaEventParameters parameters = eventParametersFuture.join();
-
-        assertThat(parameters.causalityToken(), equalTo(newRecoveryRevision));
-
-        checkReplicaBecomePrimaryEventParameters(LEASE_FROM_1_TO_5_000, parameters);
-    }
-
-    @Test
     void testListenReplicaBecomePrimaryEventCaseOnlyExpirationTimeShifted() {
         publishLease(LEASE_FROM_1_TO_5_000);
 

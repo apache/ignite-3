@@ -2817,11 +2817,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
-    public void onBecomePrimary(ClusterNode clusterNode) {
-        // TODO: IGNITE-20330 думаю что надо будет удалить
-    }
-
-    @Override
     public void onShutdown() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;

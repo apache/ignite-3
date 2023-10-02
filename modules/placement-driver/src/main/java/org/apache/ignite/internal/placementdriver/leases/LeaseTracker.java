@@ -289,10 +289,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
                 if (lease.isAccepted()) {
                     getOrCreatePrimaryReplicaWaiter(grpId).update(lease.getExpirationTime(), lease);
-
-                    // needFireEventReplicaBecomePrimary is not needed because we need to recover the last leases.
-                    // TODO: IGNITE-20330 из-за этого возникает ошибка на рестарте узла
-                    //fireEventFutures.add(fireEventReplicaBecomePrimary(recoveryRevision, lease));
                 }
             });
 
