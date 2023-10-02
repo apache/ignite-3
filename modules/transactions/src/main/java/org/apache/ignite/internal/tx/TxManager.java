@@ -37,7 +37,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a read-write transaction coordinated by a local node.
+     * Starts an explicit read-write transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
@@ -46,7 +46,7 @@ public interface TxManager extends IgniteComponent {
     InternalTransaction begin(HybridTimestampTracker timestampTracker);
 
     /**
-     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     * Starts either explicit read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
@@ -58,6 +58,15 @@ public interface TxManager extends IgniteComponent {
      *         available in the tables.
      */
     InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
+
+    /**
+     * Starts an implicit read-write transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @return The transaction.
+     */
+    InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker);
 
     /**
      * Returns a transaction state meta.
