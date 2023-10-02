@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

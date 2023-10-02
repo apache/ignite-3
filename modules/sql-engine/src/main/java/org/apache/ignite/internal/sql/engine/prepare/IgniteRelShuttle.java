@@ -33,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -171,6 +172,12 @@ public class IgniteRelShuttle implements IgniteRelVisitor<IgniteRel> {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableScan rel) {
+        return processNode(rel);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteSystemViewScan rel) {
         return processNode(rel);
     }
 

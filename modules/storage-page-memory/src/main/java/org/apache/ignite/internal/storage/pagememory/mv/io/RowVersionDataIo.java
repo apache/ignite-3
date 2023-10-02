@@ -25,13 +25,13 @@ import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_ROW
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.pagememory.mv.HybridTimestamps;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -87,6 +87,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
@@ -138,7 +139,6 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
@@ -168,7 +168,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -275,7 +274,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private TransactionStateResolver transactionStateResolver;
 
-    private final PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
+    private final PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, testMvPartitionStorage);
 
     @Mock
     private RaftGroupService mockRaftClient;
@@ -296,9 +295,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Mock
     private CatalogService catalogService;
-
-    @Mock
-    private CatalogTables catalogTables;
 
     @Mock
     private MessagingService messagingService;
@@ -392,7 +388,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
         when(schemas.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
 
-        lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
         int pkIndexId = 1;
         int sortedIndexId = 2;
@@ -442,6 +438,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         doAnswer(invocation -> txStateMeta).when(txManager).stateMeta(any());
 
+        doAnswer(invocation -> completedFuture(null)).when(txManager).executeCleanupAsync(any());
+
         doAnswer(invocation -> {
             var resp = new TxMessagesFactory().txStateResponse().txStateMeta(txStateMeta).build();
             return completedFuture(resp);
@@ -487,7 +485,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 mock(IndexBuilder.class),
                 schemaSyncService,
                 catalogService,
-                catalogTables,
                 new TestPlacementDriver(localNode.name())
         );
 
@@ -1875,8 +1872,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
         when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
 
-        when(catalogTables.table(TABLE_ID, txBeginTs.longValue())).thenReturn(tableVersion1);
-        when(catalogTables.table(eq(TABLE_ID), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
+        when(catalogService.table(TABLE_ID, txBeginTs.longValue())).thenReturn(tableVersion1);
+        when(catalogService.table(eq(TABLE_ID), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, key);
 

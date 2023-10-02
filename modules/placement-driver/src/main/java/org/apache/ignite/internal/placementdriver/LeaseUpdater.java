@@ -37,6 +37,8 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -52,8 +54,6 @@ import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -376,6 +376,8 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Old lease to apply CAS in Meta storage.
          * @param candidate Lease candidate.
+         * @param renewedLeases Leases to renew.
+         * @param toBeNegotiated Leases that are required to be negotiated.
          */
         private void writeNewLease(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
                 Map<ReplicationGroupId, Lease> renewedLeases, Map<ReplicationGroupId, Boolean> toBeNegotiated) {
@@ -387,7 +389,7 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
-            toBeNegotiated.put(grpId, Objects.equals(lease.getLeaseholder(), candidate.name()));
+            toBeNegotiated.put(grpId, !lease.isAccepted() && Objects.equals(lease.getLeaseholder(), candidate.name()));
         }
 
         /**

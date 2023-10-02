@@ -201,6 +201,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             if (!txManagers.containsKey(i)) {
                 TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
                         () -> "local");
+
+                txManager.start();
+
                 txManagers.put(i, txManager);
                 closeables.add(txManager::stop);
             }
@@ -208,6 +211,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1),
                 () -> "local");
+
+        txManager.start();
+
         closeables.add(txManager::stop);
 
         table = new InternalTableImpl(
@@ -410,18 +416,22 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     RocksDbStorageEngine storageEngine = new RocksDbStorageEngine("test", engineConfig, path);
                     storageEngine.start();
 
+                    int tableId = 1;
+
                     MvTableStorage mvTableStorage = storageEngine.createMvTable(
-                            new StorageTableDescriptor(1, 1, DEFAULT_DATA_REGION_NAME),
+                            new StorageTableDescriptor(tableId, 1, DEFAULT_DATA_REGION_NAME),
                             new StorageIndexDescriptorSupplier(mock(CatalogService.class))
                     );
                     mvTableStorage.start();
 
                     mvTableStorages.put(index, mvTableStorage);
 
-                    MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, 0);
+                    int partitionId = 0;
+
+                    MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, partitionId);
                     mvPartitionStorages.put(index, mvPartitionStorage);
 
-                    PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
+                    PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partitionId, mvPartitionStorage);
 
                     PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(
                             new HybridTimestamp(1, 0)
@@ -432,7 +442,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     );
 
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
-                            0,
+                            partitionId,
                             partitionDataStorage,
                             gcConfig,
                             mock(LowWatermark.class),

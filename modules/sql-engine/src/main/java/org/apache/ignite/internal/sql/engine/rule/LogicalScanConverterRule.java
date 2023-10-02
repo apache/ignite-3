@@ -35,22 +35,30 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 
 /**
- * LogicalScanConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Converts a logical scan operator into its implementation.
+ *
+ * <ul>
+ *     <li>{@link IgniteLogicalTableScan Table scan} to {@link IgniteTableScan}.</li>
+ *     <li>{@link IgniteLogicalIndexScan Index scan} to {@link IgniteIndexScan}.</li>
+ *     <li>{@link IgniteLogicalSystemViewScan System view scan} to {@link IgniteSystemViewScan}.</li>
+ * </ul>
  */
 public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTableScan> extends AbstractIgniteConverterRule<T> {
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteLogicalIndexScan> INDEX_SCAN =
-            new LogicalScanConverterRule<IgniteLogicalIndexScan>(IgniteLogicalIndexScan.class, "LogicalIndexScanConverterRule") {
+            new LogicalScanConverterRule<>(IgniteLogicalIndexScan.class, "LogicalIndexScanConverterRule") {
 
                 /** {@inheritDoc} */
                 @Override
@@ -99,7 +107,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteLogicalTableScan> TABLE_SCAN =
-            new LogicalScanConverterRule<IgniteLogicalTableScan>(IgniteLogicalTableScan.class, "LogicalTableScanConverterRule") {
+            new LogicalScanConverterRule<>(IgniteLogicalTableScan.class, "LogicalTableScanConverterRule") {
                 /** {@inheritDoc} */
                 @Override protected PhysicalNode convert(
                         RelOptPlanner planner,
@@ -128,6 +136,36 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                 }
             };
 
+    /** Instance. */
+    public static final LogicalScanConverterRule<IgniteLogicalSystemViewScan> SYSTEM_VIEW_SCAN =
+            new LogicalScanConverterRule<>(IgniteLogicalSystemViewScan.class, "LogicalSystemViewScanConverterRule") {
+                /** {@inheritDoc} */
+                @Override protected PhysicalNode convert(
+                        RelOptPlanner planner,
+                        RelMetadataQuery mq,
+                        IgniteLogicalSystemViewScan rel
+                ) {
+                    RelOptCluster cluster = rel.getCluster();
+                    IgniteSystemView systemView = rel.getTable().unwrap(IgniteSystemView.class);
+
+                    RelDistribution distribution = systemView.distribution();
+                    if (rel.requiredColumns() != null) {
+                        Mappings.TargetMapping mapping = createMapping(
+                                rel.projects(),
+                                rel.requiredColumns(),
+                                systemView.getRowType(cluster.getTypeFactory()).getFieldCount()
+                        );
+
+                        distribution = distribution.apply(mapping);
+                    }
+
+                    RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                            .replace(distribution);
+
+                    return new IgniteSystemViewScan(rel.getCluster(), traits,  rel.getHints(), rel.getTable(),
+                            rel.projects(), rel.condition(), rel.requiredColumns());
+                }
+            };
 
     private LogicalScanConverterRule(Class<T> clazz, String descPrefix) {
         super(clazz, descPrefix);

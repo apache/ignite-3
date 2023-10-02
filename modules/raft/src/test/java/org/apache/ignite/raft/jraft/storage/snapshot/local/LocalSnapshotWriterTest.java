@@ -66,14 +66,14 @@ public class LocalSnapshotWriterTest extends BaseStorageTest {
         LocalFileMetaOutter.LocalFileMeta meta = opts.getRaftMessagesFactory()
             .localFileMeta()
             .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         assertTrue(this.writer.addFile("data1", meta));
         assertTrue(this.writer.addFile("data2"));
 
         assertEquals(meta, this.writer.getFileMeta("data1"));
         assertNull(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).checksum());
-        assertFalse(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).hasUserMeta());
+        assertNull(((LocalFileMetaOutter.LocalFileMeta) this.writer.getFileMeta("data2")).userMeta());
 
         this.writer.sync();
         //create a new writer
@@ -82,7 +82,7 @@ public class LocalSnapshotWriterTest extends BaseStorageTest {
         assertNotSame(writer, newWriter);
         assertEquals(meta, newWriter.getFileMeta("data1"));
         assertNull(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).checksum());
-        assertFalse(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).hasUserMeta());
+        assertNull(((LocalFileMetaOutter.LocalFileMeta) newWriter.getFileMeta("data2")).userMeta());
     }
 
     @Test

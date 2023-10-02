@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.RevisionCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.ValueCondition;
-import org.apache.ignite.lang.ByteArray;
 
 /**
  * This class contains fabric methods which produce conditions needed for a conditional multi update functionality provided by the meta

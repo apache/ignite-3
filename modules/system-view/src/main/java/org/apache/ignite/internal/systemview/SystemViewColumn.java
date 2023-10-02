@@ -19,7 +19,7 @@ package org.apache.ignite.internal.systemview;
 
 import java.util.function.Function;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.util.StringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * System view column.

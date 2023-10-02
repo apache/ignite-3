@@ -36,6 +36,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequest;
@@ -161,8 +162,13 @@ public interface TableMessageGroup {
      */
     short RW_MULTI_ROW_PK_REPLICA_REQUEST = 20;
 
+    /** Message type for {@link BuildIndexReplicaRequest}. */
+    short BUILD_INDEX_REPLICA_REQUEST = 21;
+
     /**
      * Message types for Table module RAFT commands.
+     *
+     * <p>NOTE: Commands must be immutable because they will be stored in the replication log.</p>
      */
     interface Commands {
         /** Message type for {@link FinishTxCommand}. */

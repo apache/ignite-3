@@ -66,7 +66,7 @@ public class MockNode {
 
     private final ClusterManagementConfiguration cmgConfiguration;
 
-    private final NodeAttributesConfiguration nodeAttributes;
+    private final NodeAttributesCollector nodeAttributes;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -89,7 +89,7 @@ public class MockNode {
         this.workDir = workDir;
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
-        this.nodeAttributes = nodeAttributes;
+        this.nodeAttributes = new NodeAttributesCollector(nodeAttributes);
 
         try {
             init(addr.port());

@@ -67,6 +67,8 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -90,8 +92,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.jetbrains.annotations.Nullable;
@@ -508,7 +508,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 DEFAULT_SCHEMA_NAME,
                 zoneName,
                 tableName,
-                List.of(ColumnParams.builder().name("k1").type(STRING).build()),
+                List.of(ColumnParams.builder().name("k1").type(STRING).length(100).build()),
                 List.of("k1")
         );
     }

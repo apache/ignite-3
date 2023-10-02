@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
-import org.apache.ignite.lang.util.StringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Ignite JDBC URL factory. */

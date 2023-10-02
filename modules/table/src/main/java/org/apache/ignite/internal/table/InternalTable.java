@@ -26,6 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -443,7 +444,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partition partition number
      * @return raft group client for corresponding partition
-     * @throws org.apache.ignite.lang.IgniteInternalException if partition can't be found.
+     * @throws IgniteInternalException if partition can't be found.
      */
     RaftGroupService partitionRaftGroupService(int partition);
 

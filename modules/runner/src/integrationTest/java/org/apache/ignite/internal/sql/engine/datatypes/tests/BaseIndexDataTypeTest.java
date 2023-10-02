@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;

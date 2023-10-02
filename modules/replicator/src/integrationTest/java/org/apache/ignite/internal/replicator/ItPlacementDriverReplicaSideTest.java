@@ -47,6 +47,9 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteTriConsumer;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
@@ -65,8 +68,6 @@ import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteTriConsumer;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -155,7 +156,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     clusterService,
                     cmgManager,
                     clock,
-                    Set.of(ReplicaMessageTestGroup.class)
+                    Set.of(ReplicaMessageTestGroup.class),
+                    new TestPlacementDriver(nodeName)
             );
 
             replicaManagers.put(nodeName, replicaManager);

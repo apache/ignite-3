@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -39,7 +40,6 @@ import java.time.LocalTime;
 import java.util.Arrays;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -129,7 +129,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         stmt.addBatch(ins1 + ";" + ins2);
 
-        JdbcTestUtils.assertThrowsSqlException(
+        assertThrowsSqlException(
                 BatchUpdateException.class,
                 "Multiple statements are not allowed.",
                 () -> stmt.executeBatch());
@@ -143,17 +143,17 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         stmt2.close();
         pstmt2.close();
 
-        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", () -> stmt2.addBatch(""));
+        assertThrowsSqlException("Statement is closed.", () -> stmt2.addBatch(""));
 
-        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", stmt2::clearBatch);
+        assertThrowsSqlException("Statement is closed.", stmt2::clearBatch);
 
-        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", stmt2::executeBatch);
+        assertThrowsSqlException("Statement is closed.", stmt2::executeBatch);
 
-        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", pstmt2::addBatch);
+        assertThrowsSqlException("Statement is closed.", pstmt2::addBatch);
 
-        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", pstmt2::clearBatch);
+        assertThrowsSqlException("Statement is closed.", pstmt2::clearBatch);
 
-        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", pstmt2::executeBatch);
+        assertThrowsSqlException("Statement is closed.", pstmt2::executeBatch);
     }
 
     @Test
@@ -217,7 +217,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
                 + generateValues(100, 7));
 
-        BatchUpdateException e = JdbcTestUtils.assertThrowsSqlException(
+        BatchUpdateException e = assertThrowsSqlException(
                 BatchUpdateException.class,
                 "Invalid SQL statement type. Expected [DML, DDL] but got QUERY",
                 stmt::executeBatch);

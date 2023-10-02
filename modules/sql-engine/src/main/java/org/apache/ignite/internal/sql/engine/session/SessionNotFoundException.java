@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.session;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Thrown when session has expired or no longer exists.

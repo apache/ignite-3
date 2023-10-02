@@ -22,7 +22,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 
 /**
  * Class or field annotated with IgniteToStringInclude claims the element <b>should</b> be included in {@code toString()} output. This

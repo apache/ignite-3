@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIMESTAMP_PRECISION;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
 import org.apache.calcite.rel.type.RelDataType;
@@ -44,7 +46,6 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         return CatalogUtils.MAX_DECIMAL_PRECISION;
     }
 
-
     /** {@inheritDoc} */
     @Override
     public int getMaxPrecision(SqlTypeName typeName) {
@@ -65,7 +66,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         switch (typeName) {
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
-                return CatalogUtils.DEFAULT_TIMESTAMP_PRECISION;
+                return DEFAULT_TIMESTAMP_PRECISION;
             case FLOAT:
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-18556
                 // Fixes leastRestrictive(FLOAT, DOUBLE) != leastRestrictive(DOUBLE, FLOAT).
@@ -146,5 +147,4 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
 
         return typeFactory.createTypeWithNullability(sumType, argumentType.isNullable());
     }
-
 }

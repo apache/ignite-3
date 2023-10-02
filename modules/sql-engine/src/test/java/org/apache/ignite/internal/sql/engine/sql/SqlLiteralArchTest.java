@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.junit.AnalyzeClasses;

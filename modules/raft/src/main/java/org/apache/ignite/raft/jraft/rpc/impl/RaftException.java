@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 
 /**

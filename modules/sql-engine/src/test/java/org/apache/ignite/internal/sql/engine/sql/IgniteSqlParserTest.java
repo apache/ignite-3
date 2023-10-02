@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -54,68 +51,73 @@ public class IgniteSqlParserTest {
      */
     @Test
     public void testStatementModeRejectMultipleStatements() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Multiple statements are not allowed",
                 () -> IgniteSqlParser.parse("SELECT 1; SELECT 2", StatementParseResult.MODE));
-        assertThat(t.getMessage(), containsString("Multiple statements are not allowed"));
 
     }
 
     @Test
     public void testGrammarViolation() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"TABEL\" at line 1, column 7",
                 () -> IgniteSqlParser.parse("ALTER TABEL foo ADD COLUMN bar INT", StatementParseResult.MODE));
-        assertThat(t.getMessage(), equalTo("Failed to parse query: Encountered \"TABEL\" at line 1, column 7"));
     }
 
     @Test
     public void testGrammarViolationButExceptionIsReplacedInsideParser() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Incorrect syntax near the keyword 'FROM' at line 1, column 12",
                 () -> IgniteSqlParser.parse("SELECT ALL FROM foo", StatementParseResult.MODE));
-        assertThat(t.getMessage(), equalTo("Failed to parse query: Incorrect syntax near the keyword 'FROM' at line 1, column 12"));
     }
 
     @Test
     public void testEmptyString() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"<EOF>\" at line 0, column 0",
                 () -> IgniteSqlParser.parse("", StatementParseResult.MODE));
-        assertThat(t.getMessage(), equalTo("Failed to parse query: Encountered \"<EOF>\" at line 0, column 0"));
     }
 
     @Test
     public void testCommentedQuery() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"<EOF>\" at line 1, column 11",
                 () -> IgniteSqlParser.parse("-- SELECT 1", StatementParseResult.MODE));
-        assertThat(t.getMessage(), equalTo("Failed to parse query: Encountered \"<EOF>\" at line 1, column 11"));
     }
 
     @Test
     public void testTokenizationError() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Lexical error at line 1, column 11.  Encountered: \"#\" (35), after : \"\"",
                 () -> IgniteSqlParser.parse("SELECT foo#bar", StatementParseResult.MODE));
-        assertThat(t.getMessage(), equalTo("Failed to parse query: Lexical error at line 1, column 11. "
-                + " Encountered: \"#\" (35), after : \"\""));
     }
 
     @Test
     public void testExpressionInsteadOfStatement() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Non-query expression encountered in illegal context. At line 1, column 1",
                 () -> IgniteSqlParser.parse("a = 2", StatementParseResult.MODE));
-        assertThat(t.getMessage(), equalTo("Failed to parse query: Non-query expression encountered "
-                + "in illegal context. At line 1, column 1"));
     }
 
     @Test
     public void testExpressionInsteadOfSubStatement() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Non-query expression encountered in illegal context. At line 1, column 21",
                 () -> IgniteSqlParser.parse("INSERT INTO t (c1) (a = 2)", StatementParseResult.MODE));
-        assertThat(t.getMessage(), equalTo("Failed to parse query: Non-query expression encountered "
-                + "in illegal context. At line 1, column 21"));
     }
 
     @Test
     public void testInvalidDecimalLiteral() {
-        SqlException t = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Invalid decimal literal. At line 1, column 16",
                 () -> IgniteSqlParser.parse("SELECT decimal '2a'", StatementParseResult.MODE));
-        assertThat(t.getMessage(), equalTo("Failed to parse query: Invalid decimal literal. At line 1, column 16"));
     }
 }

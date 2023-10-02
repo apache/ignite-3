@@ -77,6 +77,7 @@ dependencies {
     implementation project(':ignite-code-deployment')
     implementation project(':ignite-security')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-system-view')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -100,6 +101,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-jdbc'))
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.hamcrest.path
@@ -146,6 +148,7 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
@@ -162,6 +165,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-transactions'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-placement-driver-api'))
+    integrationTestImplementation testFixtures(project(':ignite-jdbc'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
