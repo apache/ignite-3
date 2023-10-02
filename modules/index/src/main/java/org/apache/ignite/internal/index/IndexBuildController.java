@@ -85,6 +85,21 @@ public class IndexBuildController implements ManuallyCloseable {
         this.placementDriver = placementDriver;
         this.clock = clock;
 
+        addListeners();
+    }
+
+    @Override
+    public void close() {
+        if (!closeGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        indexBuilder.close();
+    }
+
+    private void addListeners() {
         catalogService.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
@@ -110,33 +125,24 @@ public class IndexBuildController implements ManuallyCloseable {
         });
     }
 
-    @Override
-    public void close() {
-        if (!closeGuard.compareAndSet(false, true)) {
-            return;
-        }
-
-        busyLock.block();
-
-        indexBuilder.close();
-    }
-
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
-                CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplicaFowNow(primaryReplicaId)
-                                .thenAccept(replicaMeta -> tryStartBuildIndex(
-                                        primaryReplicaId,
-                                        parameters.indexDescriptor(),
-                                        mvTableStorage,
-                                        replicaMeta
-                                ))
-                        );
+                if (primaryReplicaId.tableId() == parameters.indexDescriptor().tableId()) {
+                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplicaFowNow(primaryReplicaId)
+                                    .thenAccept(replicaMeta -> tryStartBuildIndex(
+                                            primaryReplicaId,
+                                            parameters.indexDescriptor(),
+                                            mvTableStorage,
+                                            replicaMeta
+                                    ))
+                            );
 
-                startBuildIndexFutures.add(startBuildIndexFuture);
+                    startBuildIndexFutures.add(startBuildIndexFuture);
+                }
             }
 
             return allOf(startBuildIndexFutures.toArray(CompletableFuture[]::new));
@@ -156,9 +162,7 @@ public class IndexBuildController implements ManuallyCloseable {
             TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
 
             if (isLocalNode(parameters.leaseholder())) {
-                boolean add = primaryReplicaIds.add(primaryReplicaId);
-
-                assert add : "Prolongation should not have happened: " + primaryReplicaId;
+                primaryReplicaIds.add(primaryReplicaId);
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
@@ -195,7 +199,9 @@ public class IndexBuildController implements ManuallyCloseable {
             }
 
             for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
-                startBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
+                if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
+                    startBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
+                }
             }
         });
     }
