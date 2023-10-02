@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -27,10 +28,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -44,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -52,6 +55,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -59,6 +63,8 @@ import org.apache.ignite.network.ClusterService;
 /** No doc. */
 // TODO: IGNITE-20330 код, тесты и документация
 public class IndexBuildController implements IgniteComponent {
+    private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+
     private final IndexBuilder indexBuilder;
 
     private final IndexManager indexManager;
@@ -306,7 +312,21 @@ public class IndexBuildController implements IgniteComponent {
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFowNow(TablePartitionId replicaId) {
-        return placementDriver.awaitPrimaryReplica(replicaId, clock.now(), 30, TimeUnit.SECONDS);
+        return placementDriver
+                .awaitPrimaryReplica(replicaId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+                .handle((replicaMeta, throwable) -> {
+                    if (throwable != null) {
+                        Throwable unwrapThrowable = ExceptionUtils.unwrapCause(throwable);
+
+                        if (unwrapThrowable instanceof PrimaryReplicaAwaitTimeoutException) {
+                            return awaitPrimaryReplicaFowNow(replicaId);
+                        } else {
+                            throw new CompletionException(unwrapThrowable);
+                        }
+                    }
+
+                    return completedFuture(replicaMeta);
+                }).thenCompose(Function.identity());
     }
 
     private CompletableFuture<ReplicaMeta> getPrimaryReplicaForNow(TablePartitionId replicaId) {

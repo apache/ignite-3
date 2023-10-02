@@ -19,11 +19,16 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
-/** Replica request to build a table index. */
+/**
+ * Replica request to build a table index.
+ *
+ * <p>It is possible to receive an {@link PrimaryReplicaMissException} in response to message processing if the leaseholder changes.</p>
+ */
 @Transferable(TableMessageGroup.BUILD_INDEX_REPLICA_REQUEST)
 public interface BuildIndexReplicaRequest extends ReplicaRequest {
     /** Returns index ID. */

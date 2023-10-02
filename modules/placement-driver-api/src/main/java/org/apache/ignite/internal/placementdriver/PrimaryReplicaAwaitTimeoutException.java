@@ -17,17 +17,18 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.lang.ErrorGroups;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * The exception is thrown when a primary replica await process has failed. Please pay attention that there is a specific
- * {@link PrimaryReplicaAwaitTimeoutException} for the primary replica await timeout.
+ * The exception is thrown when a primary replica await process has times out.
  */
-public class PrimaryReplicaAwaitException extends IgniteInternalException {
+public class PrimaryReplicaAwaitTimeoutException extends IgniteInternalException {
+    private static final long serialVersionUID = -1450288033816499192L;
 
     /**
      * The constructor.
@@ -36,12 +37,17 @@ public class PrimaryReplicaAwaitException extends IgniteInternalException {
      * @param referenceTimestamp Timestamp reference value.
      * @param cause Cause exception.
      */
-    public PrimaryReplicaAwaitException(ReplicationGroupId replicationGroupId, HybridTimestamp referenceTimestamp, Throwable cause) {
-        super(ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_ERR,
-                IgniteStringFormatter.format(
-                        "The primary replica await exception [replicationGroupId={}, referenceTimestamp={}]",
-                        replicationGroupId, referenceTimestamp
-                ),
-                cause);
+    public PrimaryReplicaAwaitTimeoutException(
+            ReplicationGroupId replicationGroupId,
+            HybridTimestamp referenceTimestamp,
+            @Nullable ReplicaMeta currentLease,
+            Throwable cause
+    ) {
+        super(
+                PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR,
+                "The primary replica await timed out [replicationGroupId={}, referenceTimestamp={}, currentLease={}]",
+                cause,
+                replicationGroupId, referenceTimestamp, currentLease
+        );
     }
 }
