@@ -120,22 +120,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
 
                             if (!enlisted.isEmpty()) {
-                                enlisted.forEach((groupId, groupMeta) -> {
-                                    ClusterNode recipientNode = groupMeta.get1();
+                                enlisted.forEach((groupId, groupMeta) ->
+                                        groups.computeIfAbsent(groupMeta.get1(), clusterNode -> new ArrayList<>())
+                                                .add(new IgniteBiTuple<>(groupId, groupMeta.get2())));
 
-                                    if (groups.containsKey(recipientNode)) {
-                                        groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
-                                    } else {
-                                        List<IgniteBiTuple<TablePartitionId, Long>> items = new ArrayList<>();
+                                IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
 
-                                        items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
-
-                                        groups.put(recipientNode, items);
-                                    }
-                                });
-
-                                ClusterNode recipientNode = enlisted.get(commitPart).get1();
-                                Long term = enlisted.get(commitPart).get2();
+                                ClusterNode recipientNode = nodeAndTerm.get1();
+                                Long term = nodeAndTerm.get2();
 
                                 LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
                                         recipientNode, term, commit, id(), groups);
