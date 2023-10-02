@@ -145,6 +145,7 @@ import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
@@ -193,6 +194,7 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -291,7 +293,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Mock
     private Schemas schemas;
 
-    private final SchemaSyncService schemaSyncService = mock(SchemaSyncService.class, invocation -> completedFuture(null));
+    @Spy
+    private final SchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
     @Mock
     private CatalogService catalogService;

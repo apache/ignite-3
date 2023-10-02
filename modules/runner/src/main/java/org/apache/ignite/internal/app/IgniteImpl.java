@@ -633,8 +633,10 @@ public class IgniteImpl implements Ignite {
                 new ClientHandlerMetricSource(),
                 authenticationManager,
                 authenticationConfiguration,
-                clock
-                );
+                clock,
+                schemaSyncService,
+                catalogManager
+        );
 
         restComponent = createRestComponent(name);
     }
