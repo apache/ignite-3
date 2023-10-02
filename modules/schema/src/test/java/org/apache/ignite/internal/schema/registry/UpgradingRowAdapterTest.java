@@ -148,7 +148,7 @@ public class UpgradingRowAdapterTest {
         BinaryRow row = serializeValuesToRow(schema, values);
 
         var schemaRegistry = new SchemaRegistryImpl(
-                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
+                v -> v == 1 ? schema : schema2,
                 () -> completedFuture(INITIAL_TABLE_VERSION),
                 schema
         );
@@ -160,7 +160,7 @@ public class UpgradingRowAdapterTest {
         values.add(addedColumnIndex, null);
 
         var schema2Registry = new SchemaRegistryImpl(
-                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
+                v -> v == 1 ? schema : schema2,
                 () -> completedFuture(schema2.version()),
                 schema2
         );
