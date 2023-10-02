@@ -10,7 +10,7 @@
 
 The Conan package manager can be obtained from [its website](https://conan.io).
 
-Currently we support Conan versions 1.X. The version 2.0+ is **not** supported yet.
+Currently, we support Conan versions 1.X. The version 2.0+ is **not** supported yet.
 
 One way to install Conan is as follows (need python in your system):
 
@@ -18,7 +18,7 @@ One way to install Conan is as follows (need python in your system):
 pip install conan==1.59.0
 ```
 
-Also before use it might be required to configure the default conan profile:
+Also, before use, it might be required to configure the default conan profile:
 
 ```
 conan profile new --detect default
@@ -44,7 +44,7 @@ cmake .. -DENABLE_CONAN=0 -DCMAKE_BUILD_TYPE=Release
 ...
 ```
 
-However Conan is enabled by default and so all the build examples below use it.
+However, Conan is enabled by default, and so all the build examples below use it.
 
 ### Linux Build
 
@@ -72,7 +72,7 @@ cmake --build . -j8
 
 ### MacOS Build
 
-On macOS it is typically required to use the C++ standard library from the LLVM project:
+On macOS, it is typically required to use the C++ standard library from the LLVM project:
 
 ```
 conan profile update settings.compiler.libcxx=libc++11 default
@@ -144,29 +144,29 @@ cmake --build . --config Release -j8
 
 ### Starting Java Test Node
 
-Tests require a running Java node. You don't need to start it separately, if there is no running test nodes, tests will
-start one internally. So prior to running tests you will obviously need to build a Java part of the product. To do that
-the following command can be used from the root of the repo:
+Tests require a running Java node. You don't need to start it separately, if there are no running test nodes, tests will
+start one internally. So prior to running tests, you will obviously need to build a Java part of the product. To do
+that, the following command can be used from the root of the repo:
 `./gradlew assemble compileIntegrationTestJava`
 
 Or a faster variant:
 `./gradlew assemble compileIntegrationTestJava -x check -x assembleDist -x distTar -x distZip --parallel`
 
 You can start a Test Node separately in the root repo. Tests will detect that there is a running node and will not start
-another one. This can be useful for debugging. To start node from the console you can use the following command prompt:
+another one. This can be useful for debugging. To start node from the console, you can use the following command prompt:
 `./gradlew :ignite-runner:runnerPlatformTest --no-daemon`
 
 You can also run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner` class in IDEA with a debugger or
 profiler, then run Client tests as usual.
 
-### Starting tests in Windows
+### Starting tests on Windows
 In modules/platforms/cpp dir:
 `./cmake-build-debug/bin/ignite-client-test.exe`
 
 To run a specific test:
 `./cmake-build-debug/bin/ignite-client-test.exe --gtest_filter=Test_Cases1*`
 
-### Starting tests in Linux
+### Starting tests on Linux
 In modules/platforms/cpp dir:
 `./cmake-build-debug/bin/ignite-client-test`
 
