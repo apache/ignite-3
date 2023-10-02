@@ -1257,7 +1257,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<String> findPrimaryReplica(TablePartitionId partitionId, HybridTimestamp now) {
-        return placementDriver.awaitPrimaryReplica(partitionId, now)
+        return placementDriver.awaitPrimaryReplica(partitionId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS)
                 .handle((primaryReplica, e) -> {
                     if (e != null) {
