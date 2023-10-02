@@ -67,8 +67,8 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, int catalogVersion, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(cacheKey(tableId, catalogVersion), (k) -> loadTable(tableId, tableDescriptor));
+    public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
+        return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableId, tableVersion, tableDescriptor));
     }
 
     /** {@inheritDoc} */
@@ -77,11 +77,11 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         tableCache.clear();
     }
 
-    private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
+    private CompletableFuture<ExecutableTable> loadTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
         return tableManager.tableAsync(tableId)
                 .thenApply((table) -> {
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
-                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(tableDescriptor.tableVersion());
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(tableVersion);
                     TableRowConverterFactory converterFactory = requiredColumns -> new TableRowConverterImpl(
                             schemaRegistry, schemaDescriptor, tableDescriptor, requiredColumns
                     );

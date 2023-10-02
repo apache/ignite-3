@@ -25,6 +25,7 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.Statistic;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalSystemViewScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -35,8 +36,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public class IgniteSystemViewImpl extends AbstractIgniteDataSource implements IgniteSystemView {
 
     /** Constructor. */
-    public IgniteSystemViewImpl(String name, int id, int version, TableDescriptor desc) {
-        super(name, id, version, desc, new SystemViewStatistic(desc.distribution()));
+    public IgniteSystemViewImpl(String name, int id, TableDescriptor desc) {
+        super(name, id, CatalogTableDescriptor.INITIAL_TABLE_VERSION, desc, new SystemViewStatistic(desc.distribution()));
     }
 
     /** {@inheritDoc} */

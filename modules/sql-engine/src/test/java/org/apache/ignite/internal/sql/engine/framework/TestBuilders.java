@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
@@ -426,7 +425,7 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Table must contain at least one column");
             }
 
-            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution, INITIAL_TABLE_VERSION);
+            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
             List<IgniteIndex> indexes = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))
@@ -481,7 +480,7 @@ public class TestBuilders {
         }
 
         private TestTable build() {
-            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution, INITIAL_TABLE_VERSION);
+            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
             List<IgniteIndex> indexes = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))

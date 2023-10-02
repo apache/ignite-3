@@ -98,7 +98,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         return catalogManager.catalogReadyFuture(version);
     }
 
-    private static SchemaPlus createSqlSchema(int version, CatalogSchemaDescriptor schemaDescriptor) {
+    private static SchemaPlus createSqlSchema(int catalogVersion, CatalogSchemaDescriptor schemaDescriptor) {
         String schemaName = schemaDescriptor.name();
 
         int numTables = schemaDescriptor.tables().length;
@@ -140,7 +140,14 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, descriptor.distribution());
             Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
 
-            IgniteTable schemaTable = new IgniteTableImpl(tableName, tableId, version, descriptor, statistic, tableIndexMap);
+            IgniteTable schemaTable = new IgniteTableImpl(
+                    tableName,
+                    tableId,
+                    tableDescriptor.tableVersion(),
+                    descriptor,
+                    statistic,
+                    tableIndexMap
+            );
 
             schemaDataSources.add(schemaTable);
         }
@@ -150,14 +157,18 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             String viewName = systemViewDescriptor.name();
             TableDescriptor descriptor = createTableDescriptorForSystemView(systemViewDescriptor);
 
-            IgniteSystemView schemaTable = new IgniteSystemViewImpl(viewName, viewId, version, descriptor);
+            IgniteSystemView schemaTable = new IgniteSystemViewImpl(
+                    viewName,
+                    viewId,
+                    descriptor
+            );
 
             schemaDataSources.add(schemaTable);
         }
 
         // create root schema
         SchemaPlus rootSchema = Frameworks.createRootSchema(false);
-        IgniteSchema igniteSchema = new IgniteSchema(schemaName, version, schemaDataSources);
+        IgniteSchema igniteSchema = new IgniteSchema(schemaName, catalogVersion, schemaDataSources);
         return rootSchema.add(schemaName, igniteSchema);
     }
 
@@ -196,7 +207,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         int tableId = descriptor.id();
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, tableId, tableId);
 
-        return new TableDescriptorImpl(colDescriptors, distribution, descriptor.tableVersion());
+        return new TableDescriptorImpl(colDescriptors, distribution);
     }
 
     private static TableDescriptor createTableDescriptorForSystemView(CatalogSystemViewDescriptor descriptor) {
@@ -226,7 +237,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         }
 
 
-        return new TableDescriptorImpl(colDescriptors, distribution, CatalogTableDescriptor.INITIAL_TABLE_VERSION);
+        return new TableDescriptorImpl(colDescriptors, distribution);
     }
 
     private static CatalogColumnDescriptor createColumnDescriptor(CatalogTableColumnDescriptor col, boolean key, int i) {
