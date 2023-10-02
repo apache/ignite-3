@@ -1687,7 +1687,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return validateAtTimestampAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
                             .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
-                            .thenApply(ignored -> new ReplicaResult(result, null));
+                            .thenApply(res -> new ReplicaResult(result, res));
                 });
             }
             case RW_INSERT_ALL: {

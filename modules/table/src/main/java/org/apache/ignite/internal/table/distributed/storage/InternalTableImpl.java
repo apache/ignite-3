@@ -90,12 +90,15 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.MultipleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.MultipleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
+import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -500,7 +503,9 @@ public class InternalTableImpl implements InternalTable {
         ReplicaRequest request = mapFunc.apply(primaryReplicaAndTerm.get2());
 
         boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
-                || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL;
+                || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
+                || request instanceof SingleRowPkReplicaRequest && ((SingleRowPkReplicaRequest) request).requestType() != RW_GET
+                || request instanceof MultipleRowPkReplicaRequest && ((MultipleRowPkReplicaRequest) request).requestType() != RW_GET_ALL;
 
         if (write && !full) {
             // Track only write requests from explicit transactions.
@@ -981,9 +986,9 @@ public class InternalTableImpl implements InternalTable {
                     return result;
                 }),
                 (res, req) -> {
-                    ReadWriteMultiRowReplicaRequest r = (ReadWriteMultiRowReplicaRequest) req;
+                    ReadWriteMultiRowPkReplicaRequest r = (ReadWriteMultiRowPkReplicaRequest) req;
 
-                    return res.size() == r.binaryRowMessages().size();
+                    return res.size() == r.primaryKeys().size();
                 }
         );
     }

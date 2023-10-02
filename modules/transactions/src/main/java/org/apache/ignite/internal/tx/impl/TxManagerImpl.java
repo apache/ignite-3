@@ -506,7 +506,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return tuple;
         });
 
-        //LOGGER.info("DBG: add {} {} {}", txId.toString(), txCtxMap.size(), this.hashCode());
+        LOG.info("DBG: add {} {} {}", txId.toString(), txCtxMap.size(), this.hashCode());
 
         return res[0];
     }
@@ -526,7 +526,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             tuple.waitRepFut.complete(null); // Avoid completion under lock.
         }
 
-        //LOGGER.info("DBG: remove {} {}", txId.toString(), txCtxMap.size());
+        LOG.info("DBG: remove {} {}", txId.toString(), txCtxMap.size());
     }
 
     @Override

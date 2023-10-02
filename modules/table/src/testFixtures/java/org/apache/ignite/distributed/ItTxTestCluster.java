@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -343,7 +344,6 @@ public class ItTxTestCluster {
             replicaServices.put(node.name(), replicaSvc);
 
             TxManagerImpl txMgr = newTxManager(replicaSvc, clock, new TransactionIdGenerator(i), node);
-
             txMgr.start();
 
             txManagers.put(node.name(), txMgr);
@@ -775,10 +775,10 @@ public class ItTxTestCluster {
 
         LOG.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 
-        clientReplicaSvc = new ReplicaService(
+        clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
                 clientClock
-        );
+        ));
 
         LOG.info("The client has been started");
     }
@@ -798,5 +798,6 @@ public class ItTxTestCluster {
                 client.messagingService()
         );
         clientTxStateResolver.start();
+        clientTxManager.start();
     }
 }
