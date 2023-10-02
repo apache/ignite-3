@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -64,7 +65,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -258,47 +258,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         CMDS_MAP.clear();
     }
 
-    private static NativeType nativeType(NativeTypeSpec type) {
-        switch (type) {
-            case BOOLEAN:
-                return NativeTypes.BOOLEAN;
-            case INT8:
-                return NativeTypes.INT8;
-            case INT16:
-                return NativeTypes.INT16;
-            case INT32:
-                return NativeTypes.INT32;
-            case INT64:
-                return NativeTypes.INT64;
-            case FLOAT:
-                return NativeTypes.FLOAT;
-            case DOUBLE:
-                return NativeTypes.DOUBLE;
-            case DECIMAL:
-                return NativeTypes.decimalOf(10, 3);
-            case UUID:
-                return NativeTypes.UUID;
-            case STRING:
-                return NativeTypes.STRING;
-            case BYTES:
-                return NativeTypes.BYTES;
-            case BITMASK:
-                return NativeTypes.bitmaskOf(16);
-            case NUMBER:
-                return NativeTypes.numberOf(10);
-            case DATE:
-                return NativeTypes.DATE;
-            case TIME:
-                return NativeTypes.time();
-            case DATETIME:
-                return NativeTypes.datetime();
-            case TIMESTAMP:
-                return NativeTypes.timestamp();
-            default:
-                throw new IllegalStateException("Unexpected type: " + type);
-        }
-    }
-
     private static Object generateValueByType(int i, NativeTypeSpec type) {
         switch (type) {
             case BOOLEAN:
@@ -424,8 +383,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         schema = new SchemaDescriptor(1,
                 new Column[]{
                         new Column("ID", NativeTypes.INT64, false),
-                        new Column("ID0", nativeType(t0), false),
-                        new Column("ID1", nativeType(t1), false)
+                        new Column("ID0", specToType(t0), false),
+                        new Column("ID1", specToType(t1), false)
                 },
                 new String[]{"ID1", "ID0"},
                 new Column[]{

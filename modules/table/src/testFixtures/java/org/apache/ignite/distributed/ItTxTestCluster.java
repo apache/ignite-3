@@ -103,9 +103,9 @@ import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -325,7 +325,8 @@ public class ItTxTestCluster {
                     cluster.get(i),
                     cmgManager,
                     clock,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    placementDriver
             );
 
             replicaMgr.start();
@@ -497,8 +498,8 @@ public class ItTxTestCluster {
                             try {
                                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
 
-                                CatalogTables catalogTables = mock(CatalogTables.class);
-                                lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+                                CatalogService catalogService = mock(CatalogService.class);
+                                lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
 
                                 PartitionReplicaListener listener = newReplicaListener(
                                         mvPartStorage,
@@ -519,9 +520,8 @@ public class ItTxTestCluster {
                                         consistentIdToNode.apply(assignment),
                                         mvTableStorage,
                                         mock(IndexBuilder.class),
-                                        mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                                        mock(CatalogService.class),
-                                        catalogTables,
+                                        new AlwaysSyncedSchemaSyncService(),
+                                        catalogService,
                                         placementDriver
                                 );
 
@@ -615,7 +615,6 @@ public class ItTxTestCluster {
             IndexBuilder indexBuilder,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            CatalogTables catalogTables,
             PlacementDriver placementDriver) {
         return new PartitionReplicaListener(
                 mvDataStorage,
@@ -639,7 +638,6 @@ public class ItTxTestCluster {
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
-                catalogTables,
                 placementDriver
         );
     }

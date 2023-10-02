@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -141,8 +140,6 @@ public class CreateTableCommand extends AbstractTableCommand {
         Set<String> columnNames = new HashSet<>();
 
         for (ColumnParams column : columns) {
-            validateColumnParams(column);
-
             if (!columnNames.add(column.name())) {
                 throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
             }

@@ -145,5 +145,4 @@ public class NativeType implements Comparable<NativeType> {
                 "sizeInBytes", size,
                 "fixed", typeSpec.fixedLength());
     }
-
 }

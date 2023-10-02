@@ -104,7 +104,7 @@ public class TypeUtils {
         static final Set<Class<?>> supportedParamClasses;
 
         static {
-            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::javaClass).collect(Collectors.toSet());
             supportedParamClasses.add(boolean.class);
             supportedParamClasses.add(byte.class);
             supportedParamClasses.add(short.class);

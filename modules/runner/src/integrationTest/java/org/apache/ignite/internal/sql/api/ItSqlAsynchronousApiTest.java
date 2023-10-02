@@ -346,13 +346,15 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // Outdated tx.
         Transaction outerTx0 = outerTx;
+        //ToDo: IGNITE-20387 , here should be used assertThrowsSqlException method with code and message `"Transaction is already finished"
         IgniteException e = assertThrows(IgniteException.class,
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
         assertEquals(Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, e.code());
 
-        e = assertThrows(SqlException.class,
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
-        assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, e.code());
 
         AsyncResultSet rs = await(ses.executeAsync(null, "SELECT VAL0 FROM TEST ORDER BY VAL0"));
 

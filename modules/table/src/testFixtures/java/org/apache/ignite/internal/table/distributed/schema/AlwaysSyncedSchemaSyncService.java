@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.internal.table.distributed.schema;
 
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.jetbrains.annotations.Nullable;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Does not perform any table ID translation and should be used after we switch to the Catalog completely
- * (when there are only Catalog-defined table IDs, no configuration-defined IDs).
+ * Test implementation of {@link SchemaSyncService} that never waits and always behaves as if the metadata was already in sync for any
+ * passed ts.
  */
-public class DirectCatalogTables implements CatalogTables {
-    private final CatalogService catalogService;
-
-    public DirectCatalogTables(CatalogService catalogService) {
-        this.catalogService = catalogService;
-    }
-
+public class AlwaysSyncedSchemaSyncService implements SchemaSyncService {
     @Override
-    public @Nullable CatalogTableDescriptor table(int tableId, long timestamp) {
-        return catalogService.table(tableId, timestamp);
+    public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
+        return completedFuture(null);
     }
 }

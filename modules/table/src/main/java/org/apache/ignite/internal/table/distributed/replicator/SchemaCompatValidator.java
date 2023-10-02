@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -38,12 +39,12 @@ import org.jetbrains.annotations.Nullable;
  */
 class SchemaCompatValidator {
     private final Schemas schemas;
-    private final CatalogTables catalogTables;
+    private final CatalogService catalogService;
 
     /** Constructor. */
-    SchemaCompatValidator(Schemas schemas, CatalogTables catalogTables) {
+    SchemaCompatValidator(Schemas schemas, CatalogService catalogService) {
         this.schemas = schemas;
-        this.catalogTables = catalogTables;
+        this.catalogService = catalogService;
     }
 
     /**
@@ -173,8 +174,8 @@ class SchemaCompatValidator {
 
     void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
         HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
-        CatalogTableDescriptor tableAtBeginTs = catalogTables.table(tableId, beginTs.longValue());
-        CatalogTableDescriptor tableAtOpTs = catalogTables.table(tableId, operationTimestamp.longValue());
+        CatalogTableDescriptor tableAtBeginTs = catalogService.table(tableId, beginTs.longValue());
+        CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
 
         assert tableAtBeginTs != null;
         assert tableAtOpTs != null;

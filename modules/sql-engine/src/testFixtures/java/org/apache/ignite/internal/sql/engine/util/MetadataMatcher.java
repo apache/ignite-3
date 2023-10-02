@@ -143,7 +143,7 @@ public class MetadataMatcher implements ColumnMatcher {
         if (type != NO_CHECK) {
             ColumnType type0 = (ColumnType) type;
             matchers.add(() -> assertSame(type0, actualMeta.type(), "type"));
-            matchers.add(() -> assertSame(ColumnType.columnTypeToClass(type0), actualMeta.valueClass(), "value class"));
+            matchers.add(() -> assertSame(type0.javaClass(), actualMeta.valueClass(), "value class"));
         }
 
         if (precision != NO_CHECK) {

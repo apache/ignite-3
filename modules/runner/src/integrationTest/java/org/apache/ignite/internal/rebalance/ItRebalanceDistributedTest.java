@@ -91,6 +91,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -805,6 +806,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var placementDriver = new TestPlacementDriver(name);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -813,7 +815,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    nodeAttributes,
+                    new NodeAttributesCollector(nodeAttributes),
                     new TestConfigurationValidator());
 
             replicaManager = spy(new ReplicaManager(
@@ -821,7 +823,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService,
                     cmgManager,
                     hybridClock,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    placementDriver
             ));
 
             ReplicaService replicaSvc = new ReplicaService(
@@ -963,7 +966,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaSyncService,
                     catalogManager,
                     new HybridTimestampTracker(),
-                    new TestPlacementDriver(name)
+                    placementDriver
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

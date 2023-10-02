@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
@@ -100,8 +99,6 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         Set<String> columnNames = new HashSet<>();
 
         for (ColumnParams column : columns) {
-            validateColumnParams(column);
-
             if (!columnNames.add(column.name())) {
                 throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
             }

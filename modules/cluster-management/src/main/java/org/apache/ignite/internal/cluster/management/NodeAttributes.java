@@ -15,34 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.event;
+package org.apache.ignite.internal.cluster.management;
 
-import org.apache.ignite.internal.event.EventParameters;
+import java.util.Map;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 
 /**
- * Table event parameters. There are properties which associate with a concrete table.
+ * Contains local attributes that are collected during node startup and become visible
+ * to all cluster nodes after the local node is added to the logical topology.
+ *
+ * @see LogicalNode#attributes()
+ * @see LogicalNode#systemAttributes()
  */
-public class TableEventParameters extends EventParameters {
-    /** Table identifier. */
-    private final int tableId;
+public interface NodeAttributes {
+    /**
+     * Returns configuration defined attributes.
+     */
+    Map<String, String> configAttributes();
 
     /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param tableId   Table identifier.
+     * Returns internal attributes provided by system components.
      */
-    public TableEventParameters(long causalityToken, int tableId) {
-        super(causalityToken);
-        this.tableId = tableId;
-    }
-
-    /**
-     * Get the table identifier.
-     *
-     * @return Table id.
-     */
-    public int tableId() {
-        return tableId;
-    }
+    Map<String, String> systemAttributes();
 }

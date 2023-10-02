@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index.event;
+package org.apache.ignite.internal.systemview;
 
-import org.apache.ignite.internal.event.Event;
+import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
- * Index management events.
+ * The system view manager is responsible for registering system views in the cluster.
  */
-public enum IndexEvent implements Event {
-    /** This event is fired when an index was created. */
-    CREATE,
-
-    /** This event is fired when an index was dropped. */
-    DROP
+public interface SystemViewManager extends IgniteComponent {
+    /**
+     * Registers a system view.
+     *
+     * <p>Registration of views is completed when the system view manager starts. Therefore,
+     * it is necessary for other components to register the views before the manager is started.
+     *
+     * @param view System view to register.
+     */
+    void register(SystemView<?> view);
 }

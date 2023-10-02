@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.event;
+package org.apache.ignite.internal.cluster.management;
 
-import org.apache.ignite.internal.event.Event;
+import java.util.Map;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 
 /**
- * Table management events.
+ * Local node attributes provider.
  */
-public enum SchemaEvent implements Event {
-    /** This event is fired when a schema was created. */
-    CREATE
+public interface NodeAttributesProvider {
+    /**
+     * Returns a collection of internal local node attributes, that should be visible to other
+     * cluster nodes in logical topology using {@link LogicalNode#systemAttributes()} method.
+     *
+     * <p>Attributes must be prepared when the component is initialized and/or started. That is, before the
+     * local node finishes joining the cluster. Otherwise they will not be visible in the logical topology.
+     *
+     * @return Collection of attributes.
+     */
+    Map<String, String> nodeAttributes();
 }
