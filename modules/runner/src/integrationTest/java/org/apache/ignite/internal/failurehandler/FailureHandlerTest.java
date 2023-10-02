@@ -36,9 +36,9 @@ import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.failure.handlers.StopNodeOrHaltFailureHandler;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
