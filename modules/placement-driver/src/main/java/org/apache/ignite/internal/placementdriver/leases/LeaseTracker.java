@@ -105,11 +105,11 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      *
      * @param recoveryRevision Revision from {@link MetaStorageManager#recoveryFinishedFuture()}.
      */
-    public CompletableFuture<Void> startTrackAsync(long recoveryRevision) {
-        return inBusyLock(busyLock, () -> {
+    public void startTrackAsync(long recoveryRevision) {
+        inBusyLock(busyLock, () -> {
             msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
-            return loadLeasesBusyAsync(recoveryRevision);
+            loadLeasesBusyAsync(recoveryRevision);
         });
     }
 
@@ -264,23 +264,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         return primaryReplicaWaiters.computeIfAbsent(groupId, key -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE));
     }
 
-    private CompletableFuture<Void> loadLeasesBusyAsync(long recoveryRevision) {
+    private void loadLeasesBusyAsync(long recoveryRevision) {
         Entry entry = msManager.getLocally(PLACEMENTDRIVER_LEASES_KEY, recoveryRevision);
-
-        CompletableFuture<Void> loadLeasesFuture;
 
         if (entry.empty() || entry.tombstone()) {
             leases = new Leases(Map.of(), BYTE_EMPTY_ARRAY);
-
-            loadLeasesFuture = completedFuture(null);
         } else {
             byte[] leasesBytes = entry.value();
 
             LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
 
             Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
-
-            List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
 
             leaseBatch.leases().forEach(lease -> {
                 ReplicationGroupId grpId = lease.replicationGroupId();
@@ -293,13 +287,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             });
 
             leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
-
-            loadLeasesFuture = allOf(fireEventFutures.toArray(CompletableFuture[]::new));
         }
 
         LOG.info("Leases cache recovered [leases={}]", leases);
-
-        return loadLeasesFuture;
     }
 
     /**

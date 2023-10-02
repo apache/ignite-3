@@ -25,9 +25,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -87,9 +85,6 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Lease updater. */
     private final LeaseUpdater leaseUpdater;
 
-    /** Versioned value used only at manager startup for correct asynchronous start of internal components. */
-    private final IncrementalVersionedValue<Void> startVv;
-
     /** Meta Storage manager. */
     private final MetaStorageManager metastore;
 
@@ -97,7 +92,6 @@ public class PlacementDriverManager implements IgniteComponent {
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param registry Registry for versioned values.
      * @param metastore Meta Storage manager.
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
@@ -109,7 +103,6 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     public PlacementDriverManager(
             String nodeName,
-            Consumer<LongFunction<CompletableFuture<?>>> registry,
             MetaStorageManager metastore,
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
@@ -138,8 +131,6 @@ public class PlacementDriverManager implements IgniteComponent {
                 leaseTracker,
                 clock
         );
-
-        this.startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
@@ -242,11 +233,7 @@ public class PlacementDriverManager implements IgniteComponent {
         return leaseUpdater.active();
     }
 
-    /**
-     * Returns placement driver service.
-     *
-     * @return Placement driver service.
-     */
+    /** Returns placement driver service. */
     public PlacementDriver placementDriver() {
         return leaseTracker;
     }
@@ -258,16 +245,6 @@ public class PlacementDriverManager implements IgniteComponent {
 
         long recoveryRevision = recoveryFinishedFuture.join();
 
-        CompletableFuture<Void> startLeaserTrackerFuture = leaseTracker.startTrackAsync(recoveryRevision);
-
-        // Forces to wait until recovery is complete before the metastore watches is deployed to avoid races with other components.
-        startVv.update(recoveryRevision, (unused, throwable) -> startLeaserTrackerFuture)
-                .whenComplete((unused, throwable) -> {
-                    if (throwable != null) {
-                        LOG.error("Error starting the PlacementDriverManager internal components", throwable);
-                    } else {
-                        LOG.debug("Internal components of the PlacementDriverManager started successfully");
-                    }
-                });
+        leaseTracker.startTrackAsync(recoveryRevision);
     }
 }
