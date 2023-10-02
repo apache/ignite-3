@@ -1271,7 +1271,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .txId(txId)
                         .commit(true)
                         .commitTimestampLong(now.longValue())
-                        .term(1L)
                         .build(),
                     localNode.id()
             );
@@ -2020,7 +2019,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     .txId(txId)
                     .commit(true)
                     .commitTimestampLong(commitTs.longValue())
-                    .term(1L)
                     .build(),
                 localNode.id()
         ).join();

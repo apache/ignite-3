@@ -128,16 +128,16 @@ public interface TxManager extends IgniteComponent {
     /**
      * Sends cleanup request to the specified primary replica.
      *
-     * @param recipientNode Primary replica to process given cleanup request.
-     * @param tablePartitionIds Table partition ids with raft terms.
+     * @param primaryConsistentId  A consistent id of the primary replica node.
+     * @param tablePartitionId Table partition id.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ClusterNode recipientNode,
-            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp

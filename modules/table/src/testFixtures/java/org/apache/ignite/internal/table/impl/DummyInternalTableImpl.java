@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -256,6 +257,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         return replicaListener.invoke(invocationOnMock.getArgument(1), node.id());
                     })
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
+
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        String nodeId = invocationOnMock.getArgument(0);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId);
+                    })
+                    .when(replicaSvc).invoke(anyString(), any());
         }
 
         AtomicLong raftIndex = new AtomicLong();

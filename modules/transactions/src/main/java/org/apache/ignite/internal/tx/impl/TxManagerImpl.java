@@ -294,51 +294,43 @@ public class TxManagerImpl implements TxManager {
                 .build();
 
         return replicaService.invoke(recipientNode, req)
-                .thenRun(() -> {
-                    updateTxMeta(txId, old -> {
-                        if (isFinalState(old.txState())) {
-                            finishingStateMeta.txFinishFuture().complete(old);
+                .thenRun(() ->
+                        updateTxMeta(txId, old -> {
+                            if (isFinalState(old.txState())) {
+                                finishingStateMeta.txFinishFuture().complete(old);
 
-                            return old;
-                        }
+                                return old;
+                            }
 
-                        assert old instanceof TxStateMetaFinishing;
+                            assert old instanceof TxStateMetaFinishing;
 
-                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+                            TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
 
-                        finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+                            finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
 
-                        return finalTxStateMeta;
-                    });
-                });
+                            return finalTxStateMeta;
+                        })
+                );
     }
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ClusterNode recipientNode,
-            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        var cleanupFutures = new CompletableFuture[tablePartitionIds.size()];
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17582 Grouping replica requests.
-        for (int i = 0; i < tablePartitionIds.size(); i++) {
-            cleanupFutures[i] = replicaService.invoke(
-                    recipientNode,
-                    FACTORY.txCleanupReplicaRequest()
-                            .groupId(tablePartitionIds.get(i).get1())
-                            .timestampLong(clock.nowLong())
-                            .txId(txId)
-                            .commit(commit)
-                            .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                            .term(tablePartitionIds.get(i).get2())
-                            .build()
-            );
-        }
-
-        return allOf(cleanupFutures);
+        return replicaService.invoke(
+                primaryConsistentId,
+                FACTORY.txCleanupReplicaRequest()
+                        .groupId(tablePartitionId)
+                        .timestampLong(clock.nowLong())
+                        .txId(txId)
+                        .commit(commit)
+                        .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                        .build()
+        );
     }
 
     @Override
