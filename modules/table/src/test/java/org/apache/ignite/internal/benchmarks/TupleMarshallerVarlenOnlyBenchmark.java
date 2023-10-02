@@ -122,7 +122,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        SchemaRegistry reg = new SchemaRegistryImpl(v -> completedFuture(null), () -> completedFuture(INITIAL_TABLE_VERSION), schema) {
+        SchemaRegistry reg = new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_TABLE_VERSION), schema) {
             @Override
             public SchemaDescriptor schema() {
                 return schema;

@@ -50,6 +50,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
@@ -192,30 +193,31 @@ public class CatalogSchemaManager implements IgniteComponent {
         SchemaDescriptor prevSchema = searchSchemaByVersion(tableId, prevVersion);
 
         if (prevSchema == null) {
-            // This is intentionally a blocking call, because this method is used in a synchronous part of the configuration listener.
-            // See the call site for more details.
-            prevSchema = loadSchemaDescriptor(tableId, prevVersion).get();
+            prevSchema = loadSchemaDescriptor(tableId, prevVersion);
         }
 
         schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
     }
 
     /**
-     * Loads the table schema descriptor by version from Metastore.
+     * Loads the table schema descriptor by version from local Metastore storage.
+     * If called with a schema version for which the schema is not yet saved to the Metastore, an exception
+     * will be thrown.
      *
      * @param tblId Table id.
-     * @param ver Schema version.
-     * @return Schema representation if schema found, {@code null} otherwise.
+     * @param ver Schema version (must not be higher than the latest version saved to the  Metastore).
+     * @return Schema representation.
      */
-    private CompletableFuture<SchemaDescriptor> loadSchemaDescriptor(int tblId, int ver) {
-        return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))
-                .thenApply(entry -> {
-                    byte[] value = entry.value();
+    private SchemaDescriptor loadSchemaDescriptor(int tblId, int ver) {
+        Entry entry = metastorageMgr.getLocally(schemaWithVerHistKey(tblId, ver), Long.MAX_VALUE);
 
-                    assert value != null;
+        assert entry != null : "Table " + tblId + ", version " + ver;
 
-                    return SchemaSerializerImpl.INSTANCE.deserialize(value);
-                });
+        byte[] value = entry.value();
+
+        assert value != null;
+
+        return SchemaSerializerImpl.INSTANCE.deserialize(value);
     }
 
     /**
