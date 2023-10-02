@@ -95,6 +95,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -1867,7 +1868,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return allOf(rowIdLockFuts).thenCompose(ignore -> {
                     Map<UUID, BinaryRowMessage> rowIdsToDelete = new HashMap<>();
-                    Collection<Boolean> result = new ArrayList<>();
+                    Collection<BinaryRow> result = new ArrayList<>();
 
                     for (CompletableFuture<RowId> lockFut : rowIdLockFuts) {
                         RowId lockedRowId = lockFut.join();
@@ -1875,9 +1876,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (lockedRowId != null) {
                             rowIdsToDelete.put(lockedRowId.uuid(), null);
 
-                            result.add(true);
+                            result.add(new NullBinaryRow());
                         } else {
-                            result.add(false);
+                            result.add(null);
                         }
                     }
 

@@ -972,12 +972,12 @@ public class InternalTableImpl implements InternalTable {
 
                     for (RowBatch batch : rowBatches) {
                         List<BinaryRow> requestedRows = batch.requestedRows;
-                        List<Boolean> response = (List<Boolean>) batch.resultFuture.join();
+                        List<BinaryRow> response = (List<BinaryRow>) batch.resultFuture.join();
 
                         assert requestedRows.size() == response.size();
 
                         for (int i = 0; i < requestedRows.size(); i++) {
-                            if (!response.get(i)) {
+                            if (response.get(i) == null) {
                                 result.add(requestedRows.get(i));
                             }
                         }
@@ -986,9 +986,14 @@ public class InternalTableImpl implements InternalTable {
                     return result;
                 }),
                 (res, req) -> {
-                    ReadWriteMultiRowPkReplicaRequest r = (ReadWriteMultiRowPkReplicaRequest) req;
+                    for (BinaryRow row : res) {
+                        if (row != null) {
+                            return false;
+                        }
+                    }
 
-                    return res.size() == r.primaryKeys().size();
+                    // All values are null, this means nothing was deleted.
+                    return true;
                 }
         );
     }
