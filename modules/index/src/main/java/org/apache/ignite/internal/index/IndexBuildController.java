@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -305,7 +306,7 @@ public class IndexBuildController implements IgniteComponent {
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFowNow(TablePartitionId replicaId) {
-        return placementDriver.awaitPrimaryReplica(replicaId, clock.now());
+        return placementDriver.awaitPrimaryReplica(replicaId, clock.now(), 30, TimeUnit.SECONDS);
     }
 
     private CompletableFuture<ReplicaMeta> getPrimaryReplicaForNow(TablePartitionId replicaId) {
