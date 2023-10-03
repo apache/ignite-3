@@ -15,12 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
-
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+package org.apache.ignite.internal.replicator.message;
 
 /**
- * Read only direct replica request.
+ * Read-only request that sand to a specific node directly. This request has no read timestamp as other read-only requests because the
+ * timestamp is calculated on the replica side. The linearization is guaranteed by sending the request directly to the primary node.
+ * <p>
+ * The requests are used to implement an implicit read-only transaction for a single partition.
  */
 public interface ReadOnlyDirectReplicaRequest extends ReplicaRequest {
+    /**
+     * Gets an enlistment consistency token.
+     * The token is used to check that the lease is still actual while the message goes to the replica.
+     *
+     * @return Enlistment consistency token.
+     */
+    Long enlistmentConsistencyToken();
 }

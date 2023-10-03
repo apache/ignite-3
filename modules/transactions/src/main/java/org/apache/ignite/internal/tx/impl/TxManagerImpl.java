@@ -175,8 +175,6 @@ public class TxManagerImpl implements TxManager {
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
                 : currentReadTimestamp();
 
-        timestampTracker.update(readTimestamp);
-
         lowWatermarkReadWriteLock.readLock().lock();
 
         try {
@@ -196,7 +194,7 @@ public class TxManagerImpl implements TxManager {
                 return new CompletableFuture<>();
             });
 
-            return new ReadOnlyTransactionImpl(this, txId, readTimestamp);
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
         } finally {
             lowWatermarkReadWriteLock.readLock().unlock();
         }

@@ -561,7 +561,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
             BinaryRowEx row,
-            Function<ReplicationGroupId, ReplicaRequest> op
+            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
@@ -581,7 +581,7 @@ public class InternalTableImpl implements InternalTable {
                             + primaryReplica.getLeaseholder() + ']');
                 }
 
-                return replicaSvc.invoke(node, op.apply(tablePartitionId));
+                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
@@ -608,7 +608,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
             Collection<BinaryRowEx> rows,
-            Function<ReplicationGroupId, ReplicaRequest> op
+            BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
@@ -628,7 +628,7 @@ public class InternalTableImpl implements InternalTable {
                             + primaryReplica.getLeaseholder() + ']');
                 }
 
-                return replicaSvc.invoke(node, op.apply(tablePartitionId));
+                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
@@ -658,16 +658,17 @@ public class InternalTableImpl implements InternalTable {
             if (e != null) {
                 RuntimeException e0 = wrapReplicationException(e);
 
-                return tx.rollbackAsync().handle((ignored, err) -> {
+                return tx.finish(false, clock.now())
+                        .handle((ignored, err) -> {
 
-                    if (err != null) {
-                        e0.addSuppressed(err);
-                    }
-                    throw e0;
-                }); // Preserve failed state.
+                            if (err != null) {
+                                e0.addSuppressed(err);
+                            }
+                            throw e0;
+                        }); // Preserve failed state.
             }
 
-            return tx.commitAsync()
+            return tx.finish(true, clock.now())
                     .exceptionally(ex -> {
                         throw wrapReplicationException(ex);
                     })
@@ -681,8 +682,9 @@ public class InternalTableImpl implements InternalTable {
         if (tx == null) {
             return evaluateReadOnlyPrimaryNode(
                     keyRow,
-                    groupId -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
+                    (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
                             .groupId(groupId)
+                            .enlistmentConsistencyToken(consistencyToken)
                             .primaryKey(keyRow.tupleSlice())
                             .requestType(RequestType.RO_GET)
                             .build()
@@ -760,8 +762,9 @@ public class InternalTableImpl implements InternalTable {
         if (tx == null && isSinglePartitionBatch(keyRows)) {
             return evaluateReadOnlyPrimaryNode(
                     keyRows,
-                    groupId -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
+                    (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
                             .groupId(groupId)
+                            .enlistmentConsistencyToken(consistencyToken)
                             .primaryKeys(serializePrimaryKeys(keyRows))
                             .requestType(RequestType.RO_GET_ALL)
                             .build()
