@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.lang;
+package org.apache.ignite.lang;
 
 /**
  * An interface describing a factory to create a logger instance.
