@@ -190,7 +190,7 @@ start one implicitly. Prior to running tests, you will need to build a Java part
 
 `./gradlew assemble compileIntegrationTestJava`
 
-Alternatively, run a faster variant:
+Alternatively, run a faster variantwww:
 
 `./gradlew assemble compileIntegrationTestJava -x check -x assembleDist -x distTar -x distZip --parallel`
 
