@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -111,7 +113,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public CompletableFuture<Void> commitAsync() {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             @Override
@@ -121,7 +123,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public CompletableFuture<Void> rollbackAsync() {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             @Override
@@ -138,7 +140,17 @@ public class FakeTxManager implements TxManager {
             public HybridTimestamp startTimestamp() {
                 return timestamp;
             }
+
+            @Override
+            public boolean implicit() {
+                return false;
+            }
         };
+    }
+
+    @Override
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker) {
+        throw new UnsupportedOperationException("Not expected to be called here");
     }
 
     @Override
@@ -179,9 +191,14 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ClusterNode recipientNode, List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
-            UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        return null;
+    public CompletableFuture<Void> cleanup(
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return completedFuture(null);
     }
 
     @Override

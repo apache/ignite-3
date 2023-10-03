@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -25,19 +27,25 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
+import org.apache.ignite.internal.sql.engine.prepare.IdGenerator;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * FragmentSplitter.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Splits the fragment onto two by given cut point.
  */
-public class FragmentSplitter extends IgniteRelShuttle {
+class FragmentSplitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
     private RelNode cutPoint;
@@ -46,14 +54,11 @@ public class FragmentSplitter extends IgniteRelShuttle {
 
     private boolean correlated = false;
 
-    public FragmentSplitter(RelNode cutPoint) {
+    FragmentSplitter(RelNode cutPoint) {
         this.cutPoint = cutPoint;
     }
 
-    /**
-     * Go.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+    /** Returns list of fragments, which were calculated by splitting original fragment by given cut point. */
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
 
@@ -70,6 +75,27 @@ public class FragmentSplitter extends IgniteRelShuttle {
         }
 
         return res;
+    }
+
+    @Override
+    public IgniteRel visit(IgniteTableScan rel) {
+        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+
+        return super.visit(rel);
+    }
+
+    @Override
+    public IgniteRel visit(IgniteIndexScan rel) {
+        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+
+        return super.visit(rel);
+    }
+
+    @Override
+    public IgniteRel visit(IgniteTableModify rel) {
+        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+
+        return super.visit(rel);
     }
 
     /** {@inheritDoc} */
@@ -157,6 +183,7 @@ public class FragmentSplitter extends IgniteRelShuttle {
         private IgniteRel root;
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
+        private final IntSet tableIds = new IntArraySet();
 
         private FragmentProto(long id, boolean correlated, IgniteRel root) {
             this.id = id;
@@ -165,7 +192,7 @@ public class FragmentSplitter extends IgniteRelShuttle {
         }
 
         Fragment build() {
-            return new Fragment(id, correlated, root, List.copyOf(remotes));
+            return new Fragment(id, correlated, root, remotes, tableIds);
         }
     }
 }

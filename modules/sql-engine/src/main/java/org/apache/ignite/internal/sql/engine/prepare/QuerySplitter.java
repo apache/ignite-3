@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -28,19 +30,20 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Splits a query into a list of query fragments.
  */
-public class Splitter extends IgniteRelShuttle {
+public class QuerySplitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
-    private @Nullable FragmentProto curr;
+    private FragmentProto curr;
 
     private boolean correlated = false;
 
@@ -70,8 +73,6 @@ public class Splitter extends IgniteRelShuttle {
             curr.root = visit(curr.root);
 
             res.add(curr.build());
-
-            curr = null;
         }
 
         return res;
@@ -129,13 +130,25 @@ public class Splitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteIndexScan rel) {
+        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+
         return rel.clone(IdGenerator.nextId());
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableScan rel) {
+        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+
         return rel.clone(IdGenerator.nextId());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteTableModify rel) {
+        curr.tableIds.add(rel.getTable().unwrap(IgniteTable.class).id());
+
+        return super.visit(rel);
     }
 
     private static class FragmentProto {
@@ -145,6 +158,7 @@ public class Splitter extends IgniteRelShuttle {
         private IgniteRel root;
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
+        private final IntSet tableIds = new IntArraySet();
 
         private FragmentProto(long id, boolean correlated, IgniteRel root) {
             this.id = id;
@@ -153,7 +167,7 @@ public class Splitter extends IgniteRelShuttle {
         }
 
         Fragment build() {
-            return new Fragment(id, correlated, root, List.copyOf(remotes));
+            return new Fragment(id, correlated, root, remotes, tableIds);
         }
     }
 }

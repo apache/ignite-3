@@ -237,12 +237,17 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
 
         @Override
         public InternalTransaction begin(HybridTimestampTracker timestampTracker) {
-            return null;
+            throw new UnsupportedOperationException("Not implemented");
         }
 
         @Override
         public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
             return null;
+        }
+
+        @Override
+        public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker) {
+            throw new UnsupportedOperationException("Not implemented");
         }
 
         @Override
@@ -292,13 +297,13 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
 
         @Override
         public CompletableFuture<Void> cleanup(
-                ClusterNode recipientNode,
-                List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+                String primaryConsistentId,
+                TablePartitionId tablePartitionId,
                 UUID txId,
                 boolean commit,
                 @Nullable HybridTimestamp commitTimestamp
         ) {
-            return null;
+            return completedFuture(null);
         }
 
         @Override

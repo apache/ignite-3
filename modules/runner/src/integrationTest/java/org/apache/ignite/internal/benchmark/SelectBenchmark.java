@@ -33,6 +33,8 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
@@ -40,6 +42,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -50,6 +53,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for reading operation, comparing KV, JDBC and SQL APIs.
  */
 @State(Scope.Benchmark)
+@Fork(1)
+@Threads(1)
+@BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class SelectBenchmark extends AbstractOneNodeBenchmark {
@@ -142,9 +148,6 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + SelectBenchmark.class.getSimpleName() + ".*")
-                .forks(1)
-                .threads(1)
-                .mode(Mode.AverageTime)
                 .build();
 
         new Runner(opt).run();
