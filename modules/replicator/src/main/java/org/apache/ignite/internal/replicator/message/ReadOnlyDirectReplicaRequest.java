@@ -20,8 +20,8 @@ package org.apache.ignite.internal.replicator.message;
 /**
  * Read-only request that sand to a specific node directly. This request has no read timestamp as other read-only requests because the
  * timestamp is calculated on the replica side. The linearization is guaranteed by sending the request directly to the primary node.
- * <p>
- * The requests are used to implement an implicit read-only transaction for a single partition.
+ *
+ * <p>The requests are used to implement an implicit read-only transaction for a single partition.
  */
 public interface ReadOnlyDirectReplicaRequest extends ReplicaRequest {
     /**
