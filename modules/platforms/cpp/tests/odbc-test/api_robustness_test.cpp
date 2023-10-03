@@ -245,9 +245,7 @@ TEST_F(api_robustness_test, sql_columns) {
     SQLRETURN ret = SQLColumns(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
         sizeof(tableName), columnName, sizeof(columnName));
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-20346: Uncomment once column metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
     SQLColumns(m_conn, catalogName, 0, schemaName, 0, tableName, 0, columnName, 0);
@@ -397,17 +395,11 @@ TEST_F(api_robustness_test, sql_col_attribute) {
 
     // Everything is ok. Character attribute.
     ret = SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, &numericAttr);
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-20346: Uncomment once column metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Everything is ok. Numeric attribute.
     ret = SQLColAttribute(m_statement, 1, SQL_DESC_COUNT, buffer, sizeof(buffer), &resLen, &numericAttr);
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-20346: Uncomment once column metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, 0);
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), 0, &numericAttr);
@@ -444,9 +436,7 @@ TEST_F(api_robustness_test, sql_describe_col) {
     ret = SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, &columnSize,
         &decimalDigits, &nullable);
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-20346: Uncomment once column metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLDescribeCol(
         m_statement, 1, 0, sizeof(columnName), &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
