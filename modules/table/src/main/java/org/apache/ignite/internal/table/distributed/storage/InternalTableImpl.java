@@ -729,12 +729,12 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Checks that the batch of rows belongs to one partition.
+     * Checks that the batch of rows belongs to a single partition.
      *
      * @param rows Batch of rows.
      * @return If all rows belong to one partition, the method returns true; otherwise, it returns false.
      */
-    private boolean isOnePartitionBatch(Collection<BinaryRowEx> rows) {
+    private boolean isSinglePartitionBatch(Collection<BinaryRowEx> rows) {
         Iterator<BinaryRowEx> rowIterator = rows.iterator();
 
         int partId = partitionId(rowIterator.next());
@@ -757,7 +757,7 @@ public class InternalTableImpl implements InternalTable {
             return completedFuture(Collections.emptyList());
         }
 
-        if (tx == null && isOnePartitionBatch(keyRows)) {
+        if (tx == null && isSinglePartitionBatch(keyRows)) {
             return evaluateReadOnlyPrimaryNode(
                     keyRows,
                     groupId -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
