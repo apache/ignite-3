@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,30 +36,41 @@ import org.junit.jupiter.api.Test;
 public class ClientApiArchTest {
     @Test
     public void testClientApiImportsArePublic() throws IOException {
-        var code = Files.readAllLines(getSourceFilePath("IgniteClient.java"));
+        // Get all files in current directory
+        Path clientApiDir = getClientPublicApiDir();
+        var fileCount = new AtomicInteger();
 
-        assertPublicImports(
-                code,
-                "internal.client.IgniteClientConfigurationImpl;",
-                "internal.client.TcpIgniteClient;",
-                "internal.client.ClientUtils.sync");
+        try (Stream<Path> walk = Files.walk(clientApiDir)) {
+            walk.forEach(f -> {
+                if (Files.isDirectory(f)) {
+                    return;
+                }
+
+                fileCount.incrementAndGet();
+                assertPublicImports(
+                        f,
+                        "internal.client.IgniteClientConfigurationImpl;",
+                        "internal.client.TcpIgniteClient;",
+                        "internal.client.ClientUtils.sync;",
+                        "internal.client.SslConfigurationBuilder;");
+            });
+        }
+
+        assertThat("No files found in " + clientApiDir, fileCount.get(), greaterThan(0));
     }
 
-    @Test
-    public void testClientConfigurationImportsArePublic() throws IOException {
-        var code = Files.readAllLines(getSourceFilePath("IgniteClientConfiguration.java"));
+    private static void assertPublicImports(Path path, String... excludes) {
+        List<String> code;
+        try {
+            code = Files.readAllLines(path);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
-        assertPublicImports(code);
-    }
-
-    private static void assertPublicImports(List<String> code, String... excludes) {
-        assertThat("Code is too short", code.size(), greaterThan(50));
-
-        int importCount = 0;
+        assertThat("Code is too short in " + path, code.size(), greaterThan(30));
 
         for (var line : code) {
             if (line.startsWith("import ")) {
-                importCount++;
                 boolean excluded = false;
 
                 for (var exclude : excludes) {
@@ -80,12 +93,10 @@ public class ClientApiArchTest {
                 }
             }
         }
-
-        assertThat("Imports not found", importCount, greaterThan(0));
     }
 
     @NotNull
-    private static Path getSourceFilePath(String file) {
+    private static Path getClientPublicApiDir() {
         return Path.of(
                 getRepoRoot(),
                 "modules",
@@ -96,8 +107,7 @@ public class ClientApiArchTest {
                 "org",
                 "apache",
                 "ignite",
-                "client",
-                file);
+                "client");
     }
 
     private static String getRepoRoot() {
