@@ -311,6 +311,9 @@ public class IgniteImpl implements Ignite {
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
 
+    /** Index builder. */
+    private final IndexBuilder indexBuilder;
+
     /** Index build controller. */
     private final IndexBuildController indexBuildController;
 
@@ -583,7 +586,7 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
 
-        IndexBuilder indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors(), replicaSvc);
+        indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors(), replicaSvc);
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,
@@ -880,7 +883,12 @@ public class IgniteImpl implements Ignite {
 
     /** Stops ignite node. */
     public void stop() throws Exception {
-        IgniteUtils.closeAll(lifecycleManager::stopNode, restAddressReporter::removeReport, indexBuildController::close);
+        IgniteUtils.closeAll(
+                lifecycleManager::stopNode,
+                restAddressReporter::removeReport,
+                indexBuilder::close,
+                indexBuildController::close
+        );
     }
 
     /** {@inheritDoc} */

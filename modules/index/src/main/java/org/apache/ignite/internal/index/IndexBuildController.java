@@ -53,8 +53,19 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
-/** No doc. */
-// TODO: IGNITE-20330 код, тесты и документация
+/**
+ * Сomponent is responsible for starting and stopping the building of indexes on primary replicas.
+ *
+ * <p>Component handles the following events (indexes are started and stopped by {@link CatalogIndexDescriptor#tableId()} ==
+ * {@link TablePartitionId#tableId()}): </p>
+ * <ul>
+ *     <li>{@link CatalogEvent#INDEX_CREATE} - starts building indexes for the corresponding local primary replicas.</li>
+ *     <li>{@link CatalogEvent#INDEX_DROP} - stops building indexes for the corresponding local primary replicas.</li>
+ *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - for a new local primary replica, starts the building of all corresponding
+ *     indexes, for an expired primary replica, stops the building of all corresponding indexes.</li>
+ * </ul>
+ */
+// TODO: IGNITE-20544 Start building indexes on node recovery
 public class IndexBuildController implements ManuallyCloseable {
     private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
@@ -102,8 +113,6 @@ public class IndexBuildController implements ManuallyCloseable {
         }
 
         busyLock.block();
-
-        indexBuilder.close();
     }
 
     private void addListeners() {
@@ -258,10 +267,6 @@ public class IndexBuildController implements ManuallyCloseable {
 
                     return completedFuture(replicaMeta);
                 }).thenCompose(Function.identity());
-    }
-
-    private CompletableFuture<ReplicaMeta> getPrimaryReplicaForNow(TablePartitionId replicaId) {
-        return placementDriver.getPrimaryReplica(replicaId, clock.now());
     }
 
     private void startBuildIndex(TablePartitionId replicaId, CatalogIndexDescriptor indexDescriptor, MvTableStorage mvTableStorage) {
