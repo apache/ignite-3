@@ -83,6 +83,9 @@ enum class client_operation {
     /** Get table metadata. */
     JDBC_TABLE_META = 38,
 
+    /** Get column metadata. */
+    JDBC_COLUMN_META = 39,
+
     /** Begin transaction. */
     TX_BEGIN = 43,
 

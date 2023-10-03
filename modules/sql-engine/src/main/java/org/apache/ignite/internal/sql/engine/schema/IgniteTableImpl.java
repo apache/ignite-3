@@ -35,7 +35,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     private final Map<String, IgniteIndex> indexMap;
 
     /** Constructor. */
-    public IgniteTableImpl(String name, int id,  int version, TableDescriptor desc,
+    public IgniteTableImpl(String name, int id, int version, TableDescriptor desc,
             Statistic statistic, Map<String, IgniteIndex> indexMap) {
 
         super(name, id, version, desc, statistic);

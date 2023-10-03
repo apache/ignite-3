@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.UUID;
 import org.apache.ignite.internal.lang.RemoteException;

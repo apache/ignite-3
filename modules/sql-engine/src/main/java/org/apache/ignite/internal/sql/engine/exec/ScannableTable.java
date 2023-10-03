@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.jetbrains.annotations.Nullable;
 
 /**

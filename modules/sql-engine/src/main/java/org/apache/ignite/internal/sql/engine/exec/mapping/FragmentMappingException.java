@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import org.apache.calcite.rel.RelNode;
-import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 
 /**
- * FragmentMappingException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Thrown if mapper was unable to map a fragment.
+ *
+ * <p>This exception contains reference to a problematic node, so the one of the strategy of
+ * handling this exception is to split fragment onto two and then map each piece independently.
+ *
+ * @see FragmentSplitter
  */
-public class FragmentMappingException extends RuntimeException {
-    private final Fragment fragment;
-
+class FragmentMappingException extends Exception {
     private final RelNode node;
 
     /**
@@ -36,17 +37,10 @@ public class FragmentMappingException extends RuntimeException {
      * @param node    Node of a query plan, where the exception was thrown.
      * @param cause   Cause.
      */
-    public FragmentMappingException(String message, Fragment fragment, RelNode node, Throwable cause) {
-        super(message, cause);
-        this.fragment = fragment;
-        this.node = node;
-    }
+    FragmentMappingException(String message, RelNode node, Throwable cause) {
+        super(message, cause, true, false);
 
-    /**
-     * Get fragment of a query plan, where the exception was thrown.
-     */
-    public Fragment fragment() {
-        return fragment;
+        this.node = node;
     }
 
     /**

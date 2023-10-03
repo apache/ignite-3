@@ -107,10 +107,17 @@ public class TxManagerTest extends IgniteAbstractTest {
         InternalTransaction tx0 = txManager.begin(hybridTimestampTracker);
         InternalTransaction tx1 = txManager.begin(hybridTimestampTracker);
         InternalTransaction tx2 = txManager.begin(hybridTimestampTracker, true);
+        InternalTransaction tx3 = txManager.beginImplicit(hybridTimestampTracker);
 
         assertNotNull(tx0.id());
         assertNotNull(tx1.id());
         assertNotNull(tx2.id());
+        assertNotNull(tx3.id());
+
+        assertFalse(tx0.implicit());
+        assertFalse(tx1.implicit());
+        assertFalse(tx2.implicit());
+        assertTrue(tx3.implicit());
     }
 
     @Test

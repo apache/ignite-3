@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /**
@@ -34,11 +32,6 @@ public interface ExecutableTable {
      * Returns table modification API.
      */
     UpdatableTable updatableTable();
-
-    /**
-     * Requests a current colocation group for this table.
-     */
-    CompletableFuture<ColocationGroup> fetchColocationGroup();
 
     /**
      * Returns a descriptor for the table.
