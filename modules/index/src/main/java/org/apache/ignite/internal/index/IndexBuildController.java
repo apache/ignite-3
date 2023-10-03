@@ -25,26 +25,19 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
-import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -62,14 +55,12 @@ import org.apache.ignite.network.ClusterService;
 
 /** No doc. */
 // TODO: IGNITE-20330 код, тесты и документация
-public class IndexBuildController implements IgniteComponent {
+public class IndexBuildController implements ManuallyCloseable {
     private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
     private final IndexBuilder indexBuilder;
 
     private final IndexManager indexManager;
-
-    private final MetaStorageManager metaStorageManager;
 
     private final CatalogService catalogService;
 
@@ -78,9 +69,6 @@ public class IndexBuildController implements IgniteComponent {
     private final PlacementDriver placementDriver;
 
     private final HybridClock clock;
-
-    /** Versioned value used only at the start of the component. */
-    private final IncrementalVersionedValue<Void> startVv;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -92,51 +80,23 @@ public class IndexBuildController implements IgniteComponent {
     public IndexBuildController(
             IndexBuilder indexBuilder,
             IndexManager indexManager,
-            MetaStorageManager metaStorageManager,
             CatalogService catalogService,
             ClusterService clusterService,
             PlacementDriver placementDriver,
-            HybridClock clock,
-            Consumer<LongFunction<CompletableFuture<?>>> registry
+            HybridClock clock
     ) {
         this.indexBuilder = indexBuilder;
         this.indexManager = indexManager;
-        this.metaStorageManager = metaStorageManager;
         this.catalogService = catalogService;
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.clock = clock;
 
-        startVv = new IncrementalVersionedValue<>(registry);
+        addListeners();
     }
 
     @Override
-    public void start() {
-        inBusyLock(busyLock, () -> {
-            CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
-
-            assert recoveryFinishedFuture.isDone();
-
-            int catalogVersion = catalogService.latestCatalogVersion();
-            long causalityToken = recoveryFinishedFuture.join();
-
-            CompletableFuture<Void> startBuildIndexesFuture = startBuildIndexesBusyAsync(causalityToken, catalogVersion);
-
-            // Forces to wait until recovery is complete before the metastore watches are deployed to avoid races with other components.
-            startVv.update(causalityToken, (unused, throwable) -> {
-                if (throwable != null) {
-                    return failedFuture(throwable);
-                }
-
-                return startBuildIndexesFuture;
-            });
-
-            addListeners();
-        });
-    }
-
-    @Override
-    public void stop() {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
@@ -144,35 +104,6 @@ public class IndexBuildController implements IgniteComponent {
         busyLock.block();
 
         indexBuilder.close();
-    }
-
-    private CompletableFuture<Void> startBuildIndexesBusyAsync(long causalityToken, int catalogVersion) {
-        List<CompletableFuture<?>> startBuildIndexFutures = new ArrayList<>();
-
-        // TODO: IGNITE-20530 We only need to get write-only indexes
-        for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
-            int partitions = partitions(indexDescriptor.tableId(), catalogVersion);
-
-            for (int partitionId = 0; partitionId < partitions; partitionId++) {
-                TablePartitionId replicaId = new TablePartitionId(indexDescriptor.tableId(), partitionId);
-
-                CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(causalityToken, replicaId)
-                        .thenCompose(mvTableStorage -> getPrimaryReplicaForNow(replicaId)
-                                .thenAccept(replicaMeta -> inBusyLock(busyLock, () -> {
-                                    if (replicaMeta == null || isLeaseExpire(replicaMeta)) {
-                                        return;
-                                    }
-
-                                    primaryReplicaIds.add(replicaId);
-
-                                    startBuildIndex(replicaId, indexDescriptor, mvTableStorage);
-                                })));
-
-                startBuildIndexFutures.add(startBuildIndexFuture);
-            }
-        }
-
-        return allOf(startBuildIndexFutures.toArray(CompletableFuture[]::new));
     }
 
     private void addListeners() {
@@ -359,17 +290,5 @@ public class IndexBuildController implements IgniteComponent {
 
     private boolean isLeaseExpire(ReplicaMeta replicaMeta) {
         return !isLocalNode(replicaMeta.getLeaseholder()) || clock.now().after(replicaMeta.getExpirationTime());
-    }
-
-    private int partitions(int tableId, int catalogVersion) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
-
-        assert tableDescriptor != null : tableId;
-
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
-
-        assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", tableId=" + tableId;
-
-        return zoneDescriptor.partitions();
     }
 }

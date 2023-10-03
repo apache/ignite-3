@@ -588,12 +588,10 @@ public class IgniteImpl implements Ignite {
         indexBuildController = new IndexBuildController(
                 indexBuilder,
                 indexManager,
-                metaStorageMgr,
                 catalogManager,
                 clusterSvc,
                 placementDriverMgr.placementDriver(),
-                clock,
-                registry
+                clock
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -806,7 +804,6 @@ public class IgniteImpl implements Ignite {
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
                                     indexManager,
-                                    indexBuildController,
                                     qryEngine,
                                     clientHandlerModule,
                                     deploymentManager
@@ -882,7 +879,7 @@ public class IgniteImpl implements Ignite {
 
     /** Stops ignite node. */
     public void stop() throws Exception {
-        IgniteUtils.closeAll(lifecycleManager::stopNode, restAddressReporter::removeReport);
+        IgniteUtils.closeAll(lifecycleManager::stopNode, restAddressReporter::removeReport, indexBuildController::close);
     }
 
     /** {@inheritDoc} */
