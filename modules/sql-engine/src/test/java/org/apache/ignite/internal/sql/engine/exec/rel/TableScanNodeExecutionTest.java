@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -109,7 +110,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
-            ReplicaService replicaSvc = mock(ReplicaService.class);
+            ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
             TxManagerImpl txManager = new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef), () -> "local");

@@ -172,7 +172,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Registers the infligh update for a transaction.
      *
-     * @param tx The transaction id.
+     * @param txId The transaction id.
      * @return {@code True} if the inflight was registered. The update must be failed on false.
      */
     boolean addInflight(UUID txId);
@@ -180,7 +180,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Unregisters the inflight for a transaction.
      *
-     * @param tx The transction id
+     * @param txId The transction id
      */
     void removeInflight(UUID txId);
 }
