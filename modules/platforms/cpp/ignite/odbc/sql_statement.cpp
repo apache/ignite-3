@@ -20,6 +20,7 @@
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/query/data_query.h"
+#include "ignite/odbc/query/column_metadata_query.h"
 #include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"
@@ -554,16 +555,12 @@ void sql_statement::execute_get_columns_meta_query(
 
 sql_result sql_statement::internal_execute_get_columns_meta_query(
     const std::string &schema, const std::string &table, const std::string &column) {
-    UNUSED_VALUE schema;
-    UNUSED_VALUE table;
-    UNUSED_VALUE column;
 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-20346 Implement table column metadata fetching
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Column metadata is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<column_metadata_query>(*this, m_connection, schema, table, column);
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_get_tables_meta_query(
