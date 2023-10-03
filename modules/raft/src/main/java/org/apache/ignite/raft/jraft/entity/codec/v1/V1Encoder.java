@@ -19,6 +19,8 @@ package org.apache.ignite.raft.jraft.entity.codec.v1;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -74,6 +76,12 @@ public final class V1Encoder implements LogEntryEncoder {
             totalLen += nodesListSizeInBytes(oldLearners, oldLearnerStrs);
         }
 
+        var traceHeaders = log.getTraceHeaders();
+
+        totalLen += sizeInBytes(traceHeaders.size());
+        for (Entry<String, String> entry : traceHeaders.entrySet())
+            totalLen += 4 + entry.getKey().length() + entry.getValue().length();
+
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION) {
             int bodyLen = data != null ? data.remaining() : 0;
             totalLen += bodyLen;
@@ -100,6 +108,8 @@ public final class V1Encoder implements LogEntryEncoder {
             pos = writeNodesList(pos, content, oldLearnerStrs);
         }
 
+        pos = writeMap(pos, content, log.getTraceHeaders());
+
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION && data != null) {
             System.arraycopy(data.array(), data.position(), content, pos, data.remaining());
         }
@@ -122,17 +132,34 @@ public final class V1Encoder implements LogEntryEncoder {
         return size + sizeInBytes(nodeStrs.size());
     }
 
+    private static int writeString(String val, int pos, byte[] content) {
+        int length = val.length();
+
+        Bits.putShort(content, pos, (short) length);
+        pos += 2;
+
+        AsciiStringUtil.unsafeEncode(val, content, pos);
+        pos += length;
+
+        return pos;
+    }
+
     private static int writeNodesList(int pos, byte[] content, List<String> nodeStrs) {
         pos = writeLong(nodeStrs.size(), content, pos);
 
         for (String nodeStr : nodeStrs) {
-            int length = nodeStr.length();
+            pos = writeString(nodeStr, pos, content);
+        }
 
-            Bits.putShort(content, pos, (short) length);
-            pos += 2;
+        return pos;
+    }
 
-            AsciiStringUtil.unsafeEncode(nodeStr, content, pos);
-            pos += length;
+    private static int writeMap(int pos, byte[] content, Map<String, String> map) {
+        pos = writeLong(map.size(), content, pos);
+
+        for (Entry<String, String> entry : map.entrySet()) {
+            pos = writeString(entry.getKey(), pos, content);
+            pos = writeString(entry.getValue(), pos, content);
         }
 
         return pos;

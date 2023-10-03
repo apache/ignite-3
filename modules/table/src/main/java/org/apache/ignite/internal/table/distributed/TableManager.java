@@ -587,7 +587,6 @@ public class TableManager extends AbstractEventProducer<TableEvent, TableEventPa
      *
      * @param messagingService Messaging service.
      */
-    @WithSpan
     private void addMessageHandler(MessagingService messagingService) {
         messagingService.addMessageHandler(TableMessageGroup.class, (message, sender, correlationId) -> {
             if (message instanceof HasDataRequest) {

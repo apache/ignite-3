@@ -36,6 +36,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1128,7 +1130,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return future result of the operation.
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
-    private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request, String txCoordinatorId) {
+    @WithSpan
+    private CompletableFuture<Void> processTxFinishAction(@SpanAttribute("req") TxFinishReplicaRequest request, String txCoordinatorId) {
         List<TablePartitionId> aggregatedGroupIds = request.groups().values().stream()
                 .flatMap(List::stream)
                 .map(IgniteBiTuple::get1)
@@ -1156,6 +1159,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
+    @WithSpan
     private CompletableFuture<Void> finishAndCleanup(
             TxFinishReplicaRequest request,
             boolean commit,
@@ -1196,6 +1200,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future to wait of the finish.
      */
+    @WithSpan
     private CompletableFuture<Object> finishTransaction(
             List<TablePartitionId> aggregatedGroupIds,
             UUID txId,

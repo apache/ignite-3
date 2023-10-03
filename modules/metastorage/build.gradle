@@ -35,6 +35,7 @@ dependencies {
     implementation project(':ignite-rocksdb-common')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.opentelemetry.instrumentation.annotations
 
     annotationProcessor project(":ignite-network-annotation-processor")
 

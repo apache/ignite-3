@@ -58,9 +58,11 @@ public class PipelineUtils {
     public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
             HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) {
         pipeline.addLast(InboundDecoder.NAME, new InboundDecoder(serializationService));
+        pipeline.addLast(InboundTraceHandler.NAME, new InboundTraceHandler());
         pipeline.addLast(HandshakeHandler.NAME, new HandshakeHandler(handshakeManager, messageListener, serializationService));
         pipeline.addLast(CHUNKED_WRITE_HANDLER_NAME, new ChunkedWriteHandler());
         pipeline.addLast(OutboundEncoder.NAME, new OutboundEncoder(serializationService));
+        pipeline.addLast(OutboundTraceHandler.NAME, new OutboundTraceHandler());
         pipeline.addLast(IoExceptionSuppressingHandler.NAME, new IoExceptionSuppressingHandler());
     }
 

@@ -21,8 +21,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.network.NettyBootstrapFactory.isInNetworkThread;
 
-import io.opentelemetry.instrumentation.annotations.AddingSpanAttributes;
-import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.net.InetAddress;
@@ -279,12 +277,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
      *
      * @return Future of the send operation.
      */
-    @AddingSpanAttributes
     private CompletableFuture<Void> sendMessage0(
             @Nullable String consistentId,
             ChannelType type,
-            @SpanAttribute("addr") InetSocketAddress addr,
-            @SpanAttribute("msg") NetworkMessage message
+            InetSocketAddress addr,
+            NetworkMessage message
     ) {
         if (isInNetworkThread()) {
             return CompletableFuture.supplyAsync(() -> sendMessage0(consistentId, type, addr, message), outboundExecutor)

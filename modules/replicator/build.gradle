@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.opentelemetry.instrumentation.annotations
 
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')

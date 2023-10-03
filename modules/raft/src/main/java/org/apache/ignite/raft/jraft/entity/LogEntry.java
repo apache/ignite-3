@@ -16,8 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.entity;
 
+import static java.util.Collections.emptyMap;
+
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.raft.jraft.util.CrcUtil;
 
 /**
@@ -44,6 +47,8 @@ public class LogEntry implements Checksum {
     private long checksum;
     /** true when the log has checksum **/
     private boolean hasChecksum;
+    /** true when the log has checksum **/
+    private Map<String, String> traceHeaders = emptyMap();
 
     public List<PeerId> getLearners() {
         return this.learners;
@@ -185,11 +190,19 @@ public class LogEntry implements Checksum {
         this.data = data;
     }
 
+    public Map<String, String> getTraceHeaders() {
+        return traceHeaders;
+    }
+    
+    public void setTraceHeaders(Map<String, String> traceHeaders) {
+        this.traceHeaders = traceHeaders;
+    }
+
     @Override
     public String toString() {
         return "LogEntry [type=" + this.type + ", id=" + this.id + ", peers=" + this.peers + ", oldPeers="
             + this.oldPeers + ", learners=" + this.learners + ", oldLearners=" + this.oldLearners + ", data="
-            + (this.data != null ? this.data.remaining() : 0) + "]";
+            + (this.data != null ? this.data.remaining() : 0) + ", traceHeaders=" + traceHeaders + "]";
     }
 
     @Override

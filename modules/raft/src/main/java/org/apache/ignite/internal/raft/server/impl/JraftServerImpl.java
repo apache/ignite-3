@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
+import io.opentelemetry.context.Context;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -38,6 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -686,7 +688,16 @@ public class JraftServerImpl implements RaftServer {
 
                                 iter.next();
                             }
+
+                            @Override public Context context() {
+                                return iter.context();
+                            }
                         };
+                    }
+
+                    @Override
+                    public void forEachRemaining(Consumer<? super CommandClosure<WriteCommand>> action) {
+                        java.util.Iterator.super.forEachRemaining(clo -> iter.context().wrapConsumer(action).accept(clo));
                     }
                 });
             } catch (Exception err) {

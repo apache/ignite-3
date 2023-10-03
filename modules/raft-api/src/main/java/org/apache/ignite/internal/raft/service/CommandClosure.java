@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.service;
 
+import io.opentelemetry.context.Context;
 import java.io.Serializable;
 import org.apache.ignite.internal.raft.Command;
 import org.jetbrains.annotations.Nullable;
@@ -55,4 +56,6 @@ public interface CommandClosure<R extends Command> {
      * @param res Execution result.
      */
     void result(@Nullable Serializable res);
+
+    Context context();
 }

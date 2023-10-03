@@ -267,6 +267,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();

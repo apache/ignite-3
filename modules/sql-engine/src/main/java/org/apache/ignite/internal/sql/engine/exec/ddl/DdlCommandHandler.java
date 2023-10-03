@@ -59,7 +59,6 @@ public class DdlCommandHandler {
     }
 
     /** Handles ddl commands. */
-    @WithSpan
     public CompletableFuture<Boolean> handle(DdlCommand cmd) {
         if (cmd instanceof CreateTableCommand) {
             return handleCreateTable((CreateTableCommand) cmd);

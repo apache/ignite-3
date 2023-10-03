@@ -24,6 +24,8 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -333,6 +335,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return new AsyncWrapper<>(res.iterator());
     }
 
+    @WithSpan
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
@@ -341,14 +344,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         if (fut.isDone()) {
             submitFragment(nodeName, msg);
         } else {
-            fut.whenComplete((mgr, ex) -> {
+            fut.whenComplete(Context.current().wrapConsumer((mgr, ex) -> {
+
                 if (ex != null) {
                     handleError(ex, nodeName, msg);
                     return;
                 }
 
                 taskExecutor.execute(msg.queryId(), msg.fragmentId(), () -> submitFragment(nodeName, msg));
-            });
+            }));
         }
     }
 
@@ -607,7 +611,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         @WithSpan
         private void submitFragment(
                 String initiatorNode,
-                String fragmentString,
+                @SpanAttribute("fragmentString") String fragmentString,
                 FragmentDescription desc,
                 TxAttributes txAttributes
         ) {

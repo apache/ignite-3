@@ -841,6 +841,8 @@ public class Replicator implements ThreadId.OnError {
             // should slice entry data
             dateBuffer.add(entry.getData().slice());
         }
+        if (!entry.getTraceHeaders().isEmpty())
+            emb.traceHeaders(entry.getTraceHeaders());
         return true;
     }
 

@@ -120,6 +120,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<JdbcConnectResult> connect() {
         try {
@@ -459,6 +460,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
          * @param commit {@code True} to commit, {@code false} to rollback.
          * @return Future that represents the pending completion of the operation.
          */
+        @WithSpan
         CompletableFuture<Void> finishTransactionAsync(boolean commit) {
             Transaction tx0 = tx;
 
@@ -471,6 +473,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return commit ? tx0.commitAsync() : tx0.rollbackAsync();
         }
 
+        @WithSpan
         void close() {
             synchronized (mux) {
                 closed = true;

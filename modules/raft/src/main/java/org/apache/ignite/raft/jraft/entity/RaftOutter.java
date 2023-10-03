@@ -20,6 +20,7 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.util.Collection;
+import java.util.Map;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
@@ -49,6 +50,9 @@ public final class RaftOutter {
 
         @Nullable
         Collection<String> oldLearnersList();
+
+        @Nullable
+        Map<String, String> traceHeaders();
 
         /**
          * @return True when the entry has a checksum, false otherwise.

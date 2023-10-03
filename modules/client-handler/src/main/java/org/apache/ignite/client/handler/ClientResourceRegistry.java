@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -115,6 +116,7 @@ public class ClientResourceRegistry {
     /**
      * Closes the registry and releases all resources.
      */
+    @WithSpan
     public void close() {
         rwLock.writeLock().lock();
 

@@ -17,9 +17,11 @@
 
 package org.apache.ignite.example;
 
+import static java.util.stream.Collectors.toList;
+
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -54,11 +56,12 @@ public class StartNodeExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) {
+        if (args.length != 2) {
             throw new IllegalArgumentException("Invalid argument count");
         }
 
         int nodeIndex = Integer.parseInt(args[0]);
+        boolean activate = Boolean.parseBoolean(args[1]);
 
         var workDir = Path.of("work");
 
@@ -75,10 +78,10 @@ public class StartNodeExample {
 
         var igniteFuture = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
-        if (nodeIndex == 1) {
+        if (activate) {
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName("ignite-node-1")
-                    .metaStorageNodeNames(List.of("ignite-node-0", "ignite-node-1"))
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(IntStream.range(0, nodeIndex + 1).mapToObj(i -> "ignite-node-" + i).collect(toList()))
                     .clusterName("cluster")
                     .build();
 

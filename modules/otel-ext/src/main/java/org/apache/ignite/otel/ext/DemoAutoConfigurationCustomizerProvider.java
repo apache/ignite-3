@@ -53,8 +53,14 @@ public class DemoAutoConfigurationCustomizerProvider implements AutoConfiguratio
 
     private static Map<String, String> customizeIgniteExecutors(ConfigProperties configProperties) {
         return Map.of("otel.instrumentation.executors.include",
-                "org.apache.ignite.internal.thread.StripedThreadPoolExecutor, "
-                + "org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor");
+                "org.apache.ignite.internal.thread.StripedThreadPoolExecutor,"
+                + "org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor,"
+                + "org.apache.ignite.raft.jraft.util.MetricThreadPoolExecutor,"
+                + "org.apache.ignite.raft.jraft.util.MetricScheduledThreadPoolExecutor,"
+                + "org.apache.ignite.raft.jraft.util.LogThreadPoolExecutor,"
+                + "org.apache.ignite.raft.jraft.util.LogScheduledThreadPoolExecutor,"
+                + "org.apache.ignite.raft.jraft.util.concurrent.MpscSingleThreadExecutor"
+        );
 
     }
 

@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -510,6 +511,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             this.commands = producers;
         }
 
+        @WithSpan
         @Override
         public List<UpdateEntry> get(Catalog catalog) {
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();

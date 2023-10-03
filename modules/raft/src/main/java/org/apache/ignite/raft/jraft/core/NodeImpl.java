@@ -16,16 +16,21 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
+import io.opentelemetry.context.Context;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -1855,8 +1860,14 @@ public class NodeImpl implements Node, RaftServerService {
         }
         Requires.requireNonNull(task, "Null task");
 
+        var propagator = getPropagators().getTextMapPropagator();
+        Map<String, String> headers = new HashMap<>(capacity(propagator.fields().size()));
+
+        propagator.inject(Context.current(), headers, (carrier, key, val) -> carrier.put(key, val));
+
         final LogEntry entry = new LogEntry();
         entry.setData(task.getData());
+        entry.setTraceHeaders(headers);
 
         final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
             event.reset();
@@ -2279,6 +2290,10 @@ public class NodeImpl implements Node, RaftServerService {
             for (RaftOutter.EntryMeta entry : entriesList) {
                 index++;
 
+                if (request.entriesList() != null && request.entriesList().stream().filter(entryMeta -> entryMeta.dataLen() == 2593).count() > 0) {
+                    System.out.println(">>>handleAppendEntriesRequest");
+                }
+
                 final LogEntry logEntry = logEntryFromMeta(index, allData, entry);
 
                 if (logEntry != null) {
@@ -2359,6 +2374,10 @@ public class NodeImpl implements Node, RaftServerService {
                 throw new IllegalStateException(
                     "Invalid log entry that contains zero peers but is ENTRY_TYPE_CONFIGURATION type");
             }
+
+            if (entry.traceHeaders() != null)
+                logEntry.setTraceHeaders(entry.traceHeaders());
+            
             return logEntry;
         }
         return null;
@@ -2404,6 +2423,10 @@ public class NodeImpl implements Node, RaftServerService {
                 peers.add(peer);
             }
             logEntry.setOldLearners(peers);
+        }
+
+        if (entry.traceHeaders() != null) {
+            logEntry.setTraceHeaders(entry.traceHeaders());
         }
     }
 

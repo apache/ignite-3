@@ -70,19 +70,25 @@ public class TransactionsExample {
         ) {
             stmt.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS accounts ("
-                        + "accountNumber INT PRIMARY KEY,"
-                        + "firstName     VARCHAR,"
-                        + "lastName      VARCHAR,"
-                        + "balance       DOUBLE)"
-            );
-            stmt.executeUpdate(
-                    "DELETE FROM accounts"
+                            + "accountNumber INT PRIMARY KEY,"
+                            + "firstName     VARCHAR,"
+                            + "lastName      VARCHAR,"
+                            + "balance       DOUBLE)"
             );
 
             stmt.executeUpdate(
                     "INSERT INTO accounts(accountNumber, firstName, lastName, balance) values (1, '1', '1', 1.0),\n"
                         + " (1026, '1', '1', 1.0)"
             );
+        } finally {
+            System.out.println("\nDropping the table...");
+
+            try (
+                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                    Statement stmt = conn.createStatement()
+            ) {
+                stmt.executeUpdate("DROP TABLE accounts");
+            }
         }
 
         System.exit(0);
@@ -96,7 +102,7 @@ public class TransactionsExample {
         System.out.println("\nConnecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:10800")
+                .addresses("127.0.0.1:10801")
                 .build()
         ) {
             //--------------------------------------------------------------------------------------

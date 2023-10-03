@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.concurrent.CompletionException;
@@ -119,7 +120,7 @@ public class MetaStorageWriteHandler {
      * @param clo Command closure.
      * @param command Command.
      */
-    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command) {
+    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, @SpanAttribute("cmd") MetaStorageWriteCommand command) {
         HybridTimestamp opTime = command.safeTime();
 
         if (command instanceof PutCommand) {

@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import io.opentelemetry.context.Context;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -147,6 +148,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param rpcCtx  The context.
      */
     private void applyRead(Node node, ActionRequest request, RpcContext rpcCtx) {
+        var ctx = Context.current();
+
         if (request.readOnlySafe()) {
             node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
                 @Override public void run(Status status, long index, byte[] reqCtx) {
@@ -168,6 +171,10 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                                     }
 
                                     rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                                }
+
+                                @Override public Context context() {
+                                    return ctx;
                                 }
                             }).iterator());
                         }
@@ -197,6 +204,10 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                             return;
                         }
                         rpcCtx.sendResponse(factory.actionResponse().result(res).build());
+                    }
+
+                    @Override public Context context() {
+                        return ctx;
                     }
                 }).iterator());
             }
@@ -273,17 +284,22 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /** The implementation. */
     private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
         private final T command;
+        private final Context ctx;
 
         /**
          * @param command The command.
          */
         public CommandClosureImpl(T command) {
             this.command = command;
+            this.ctx = Context.current();
         }
 
         /** {@inheritDoc} */
         @Override public T command() {
             return command;
         }
-    }
+
+        @Override public Context context() {
+            return ctx;
+        }}
 }

@@ -28,4 +28,6 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(NetworkMessageTypes.TRACEABLE_MESSAGE)
 public interface TraceableMessage extends NetworkMessage {
     Map<String, String> headers();
+
+    NetworkMessage message();
 }

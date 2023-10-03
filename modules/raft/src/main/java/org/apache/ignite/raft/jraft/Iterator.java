@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import io.opentelemetry.context.Context;
 import java.nio.ByteBuffer;
 
 /**
@@ -63,4 +64,6 @@ public interface Iterator extends java.util.Iterator<ByteBuffer> {
      * @param st Status to describe the detail of the error.
      */
     void setErrorAndRollback(final long ntail, final Status st);
+
+    Context context();
 }
