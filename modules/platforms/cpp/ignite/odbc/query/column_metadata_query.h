@@ -27,6 +27,44 @@ namespace ignite
 class sql_connection;
 
 /**
+ * Column metadata.
+ */
+struct odbc_column_meta {
+    /**
+     * Default constructor.
+     */
+    odbc_column_meta() = default;
+
+    /** Label. */
+    std::string label;
+
+    /** Schema name. */
+    std::optional<std::string> schema;
+
+    /** Table name. */
+    std::optional<std::string> table;
+
+    /** Column name. */
+    std::optional<std::string> column;
+
+    /** Data type. */
+    ignite_type data_type{ignite_type::BOOLEAN};
+
+    /** Data type name. */
+    std::string data_type_name;
+
+    /** Nullability. */
+    bool nullable{false};
+
+    /** Precision. */
+    std::int32_t precision{0};
+
+    /** Scale. */
+    std::int32_t scale{0};
+};
+
+
+/**
  * Query.
  */
 class column_metadata_query : public query
@@ -134,11 +172,14 @@ private:
     /** Fetched flag. */
     bool m_fetched{false};
 
+    /** Result set flag. */
+    bool m_has_result_set{false};
+
     /** Fetched metadata. */
-    column_meta_vector m_meta;
+    std::vector<odbc_column_meta> m_meta;
 
     /** Metadata cursor. */
-    column_meta_vector::iterator m_cursor;
+    std::vector<odbc_column_meta>::iterator m_cursor;
 
     /** Columns metadata. */
     column_meta_vector m_columns_meta;

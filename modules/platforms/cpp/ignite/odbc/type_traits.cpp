@@ -596,8 +596,36 @@ std::int32_t ignite_type_num_precision_radix(ignite_type typ) {
     return sql_type_num_precision_radix(sql_type);
 }
 
-std::int32_t sql_type_decimal_digits(std::int16_t) {
-    // TODO: IGNITE-19854 Remove once parameters meta fetching is implemented
+std::int32_t sql_type_decimal_digits(std::int16_t type) {
+    switch (type) {
+        case SQL_BIT:
+        case SQL_TINYINT:
+        case SQL_SMALLINT:
+        case SQL_INTEGER:
+        case SQL_BIGINT:
+        case SQL_REAL:
+        case SQL_FLOAT:
+        case SQL_DOUBLE:
+            return sql_type_column_size(type);
+
+        case SQL_TYPE_TIME:
+        case SQL_TYPE_TIMESTAMP:
+            return 9;
+
+        case SQL_GUID:
+        case SQL_TYPE_DATE:
+        case SQL_VARCHAR:
+        case SQL_CHAR:
+        case SQL_WCHAR:
+        case SQL_LONGVARBINARY:
+        case SQL_BINARY:
+        case SQL_VARBINARY:
+        case SQL_LONGVARCHAR:
+        case SQL_DECIMAL:
+        case SQL_NUMERIC:
+        default:
+            break;
+    }
     return -1;
 }
 

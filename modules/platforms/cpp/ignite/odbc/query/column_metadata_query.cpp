@@ -65,6 +65,50 @@ enum class result_column
     REMARKS
 };
 
+using namespace ignite;
+
+
+/**
+ * Reads result set metadata.
+ *
+ * @param reader Reader.
+ * @return Result set meta columns.
+ */
+std::vector<odbc_column_meta> read_meta(protocol::reader &reader) {
+    auto size = reader.read_int32();
+
+    std::vector<odbc_column_meta> columns;
+    columns.reserve(size);
+
+    for (std::int32_t column_idx = 0; column_idx < size; ++column_idx) {
+        auto has_data = reader.read_bool();
+        assert(has_data);
+
+        auto status = reader.read_int32();
+        assert(status == 0);
+
+        auto err_msg = reader.read_string_nullable();
+        assert(!err_msg);
+
+        odbc_column_meta column{};
+        column.label = reader.read_string();
+        column.schema = reader.read_string_nullable();
+        column.table = reader.read_string_nullable();
+        column.column = reader.read_string_nullable();
+
+        column.data_type = ignite_type(reader.read_int32());
+        column.data_type_name = reader.read_string();
+        reader.skip(); // data_type_class
+        column.nullable = reader.read_bool();
+        column.precision = reader.read_int32();
+        column.scale = reader.read_int32();
+
+        columns.emplace_back(std::move(column));
+    }
+
+    return columns;
+}
+
 } // anonymous namespace
 
 
@@ -158,9 +202,7 @@ sql_result column_metadata_query::get_column(std::uint16_t column_idx, applicati
         return sql_result::AI_ERROR;
     }
 
-    const column_meta& current_column = *m_cursor;
-    auto column_type = current_column.get_data_type();
-
+    const auto& current_column = *m_cursor;
     switch (result_column(column_idx))
     {
         case result_column::TABLE_CAT:
@@ -171,71 +213,88 @@ sql_result column_metadata_query::get_column(std::uint16_t column_idx, applicati
 
         case result_column::TABLE_SCHEM:
         {
-            buffer.put_string(current_column.get_schema_name());
+            buffer.put_string(current_column.schema);
             break;
         }
 
         case result_column::TABLE_NAME:
         {
-            buffer.put_string(current_column.get_table_name());
+            buffer.put_string(current_column.table);
             break;
         }
 
         case result_column::COLUMN_NAME:
         {
-            buffer.put_string(current_column.get_column_name());
+            buffer.put_string(current_column.column);
             break;
         }
 
         case result_column::DATA_TYPE:
         {
-            buffer.put_int16(ignite_type_to_sql_type(column_type));
+            buffer.put_int16(ignite_type_to_sql_type(current_column.data_type));
             break;
         }
 
         case result_column::TYPE_NAME:
         {
-            buffer.put_string(ignite_type_to_sql_type_name(current_column.get_data_type()));
+            buffer.put_string(current_column.data_type_name);
             break;
         }
 
         case result_column::COLUMN_SIZE:
         {
-            buffer.put_int16(std::int16_t(ignite_type_max_column_size(column_type)));
+            if (current_column.data_type == ignite_type::DECIMAL || current_column.data_type == ignite_type::NUMBER) {
+                buffer.put_int16(std::int16_t(current_column.precision));
+                break;
+            }
+
+            std::int32_t column_size = ignite_type_max_column_size(current_column.data_type);
+            if (column_size < 0)
+                buffer.put_null();
+            else
+                buffer.put_int32(column_size);
             break;
         }
 
         case result_column::BUFFER_LENGTH:
         {
-            buffer.put_int16(std::int16_t(ignite_type_transfer_length(column_type)));
+            buffer.put_null();
             break;
         }
 
-        case result_column::DECIMAL_DIGITS:
-        {
-            std::int32_t dec_digits = ignite_type_decimal_digits(column_type);
+        case result_column::DECIMAL_DIGITS: {
+            if (current_column.data_type == ignite_type::DECIMAL || current_column.data_type == ignite_type::NUMBER) {
+                buffer.put_int16(std::int16_t(current_column.scale));
+                break;
+            }
+
+            std::int32_t dec_digits = ignite_type_decimal_digits(current_column.data_type);
             if (dec_digits < 0)
                 buffer.put_null();
             else
-                buffer.put_int16(static_cast<std::int16_t>(dec_digits));
+                buffer.put_int16(std::int16_t(dec_digits));
             break;
         }
 
         case result_column::NUM_PREC_RADIX:
         {
-            buffer.put_int16(std::int16_t(ignite_type_num_precision_radix(column_type)));
+            auto radix = std::int16_t(ignite_type_num_precision_radix(current_column.data_type));
+            if (radix)
+                buffer.put_int16(radix);
+            else
+                buffer.put_null();
             break;
         }
 
         case result_column::NULLABLE:
         {
-            buffer.put_int16(ignite_type_nullability(column_type));
+            buffer.put_int16(std::int16_t(current_column.nullable ? SQL_NULLABLE : SQL_NO_NULLS));
             break;
         }
 
         case result_column::REMARKS:
         {
-            buffer.put_null();
+            buffer.put_string(current_column.label);
             break;
         }
 
@@ -257,12 +316,40 @@ sql_result column_metadata_query::close()
 
 sql_result column_metadata_query::make_request_get_columns_meta()
 {
-    for (size_t i = 0; i < m_meta.size(); ++i)
+    auto success = m_diag.catch_errors([&] {
+        auto response =
+            m_connection.sync_request(protocol::client_operation::JDBC_COLUMN_META, [&](protocol::writer &writer) {
+                writer.write(m_schema);
+                writer.write(m_table);
+                writer.write(m_column);
+            });
+
+        protocol::reader reader{response.get_bytes_view()};
+        m_has_result_set = reader.read_bool();
+
+        auto status = reader.read_int32();
+        auto err_msg = reader.read_string_nullable();
+        if (err_msg)
+            throw odbc_error(response_status_to_sql_state(status), *err_msg);
+
+        if (m_has_result_set) {
+            m_meta = read_meta(reader);
+        }
+
+        m_executed = true;
+    });
+
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    size_t i = 0;
+    for (const auto& meta : m_meta)
     {
-        LOG_MSG("\n[" << i << "] SchemaName:     " << m_meta[i].get_schema_name()
-             << "\n[" << i << "] TableName:      " << m_meta[i].get_table_name()
-             << "\n[" << i << "] ColumnName:     " << m_meta[i].get_column_name()
-             << "\n[" << i << "] ColumnType:     " << static_cast<std::int32_t>(m_meta[i].get_data_type()));
+        LOG_MSG("\n[" << i << "] SchemaName:     " << (meta.schema ? *meta.schema : "NULL")
+             << "\n[" << i << "] TableName:      " << (meta.table ? *meta.table : "NULL")
+             << "\n[" << i << "] ColumnName:     " << (meta.column ? *meta.column : "NULL")
+             << "\n[" << i << "] ColumnType:     " << static_cast<std::int32_t>(meta.data_type));
+        ++i;
     }
 
     return sql_result::AI_SUCCESS;
