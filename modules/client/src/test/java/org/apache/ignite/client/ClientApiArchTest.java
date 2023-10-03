@@ -17,6 +17,14 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,7 +37,47 @@ public class ClientApiArchTest {
     }
 
     @Test
-    public void testClientConfigurationImportsArePublic() {
-        assert false : "TODO";
+    public void testClientConfigurationImportsArePublic() throws IOException {
+        // Read IgniteClientConfiguration.java and check that all imports are public.
+        // Get repo root directory
+        var rootDir = getRepoRoot();
+        var clientConfigPath = Path.of(
+                rootDir,
+                "modules",
+                "client",
+                "src",
+                "main",
+                "java",
+                "org",
+                "apache",
+                "ignite",
+                "client",
+                "IgniteClientConfiguration.java");
+
+        var code = Files.readAllLines(clientConfigPath);
+        assertThat(code.size(), greaterThan(50));
+
+        for (var line : code) {
+            if (line.startsWith("import ")) {
+                if (line.contains(".internal.") || line.contains(".impl.")) {
+                    Assertions.fail("Import is not public: " + line);
+                }
+            }
+        }
+    }
+
+    private static String getRepoRoot() {
+        var currentDir = System.getProperty("user.dir");
+        var path = Path.of(currentDir);
+
+        while (path != null) {
+            if (Files.exists(path.resolve(".git"))) {
+                return path.toString();
+            }
+
+            path = path.getParent();
+        }
+
+        throw new IllegalStateException("Can't find parent .git directory from " + currentDir);
     }
 }
