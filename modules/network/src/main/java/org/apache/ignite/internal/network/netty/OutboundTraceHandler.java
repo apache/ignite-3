@@ -39,7 +39,7 @@ public class OutboundTraceHandler extends ChannelOutboundHandlerAdapter {
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (Span.current().getSpanContext().isValid()) {
-            OutNetworkObject outNetworkObject = (OutNetworkObject) msg;
+            var outNetObj = (OutNetworkObject) msg;
 
             var propagator = getPropagators().getTextMapPropagator();
             Map<String, String> headers = new HashMap<>(capacity(propagator.fields().size()));
@@ -47,9 +47,9 @@ public class OutboundTraceHandler extends ChannelOutboundHandlerAdapter {
             propagator.inject(Context.current(), headers, (carrier, key, val) -> carrier.put(key, val));
 
             msg = new OutNetworkObject(
-                    TraceableMessageImpl.builder().headers(headers).message(outNetworkObject.networkMessage()).build(),
-                    outNetworkObject.descriptors(),
-                    outNetworkObject.shouldBeSavedForRecovery()
+                    TraceableMessageImpl.builder().headers(headers).message(outNetObj.networkMessage()).build(),
+                    outNetObj.descriptors(),
+                    outNetObj.shouldBeSavedForRecovery()
             );
         }
 
