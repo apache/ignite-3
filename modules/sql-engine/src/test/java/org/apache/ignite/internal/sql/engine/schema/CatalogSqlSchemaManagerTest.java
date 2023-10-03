@@ -141,7 +141,6 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         IgniteTable table = getTable(schema, testTable);
 
         assertEquals(testTable.id, table.id());
-        assertEquals(schema.version(), table.version());
 
         TableDescriptor descriptor = table.descriptor();
         assertEquals(testTable.columns.size(), descriptor.columnsCount(), "column count");
@@ -222,7 +221,6 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         IgniteTable table = getTable(schema, testTable);
 
         assertEquals(testTable.id, table.id());
-        assertEquals(schema.version(), table.version());
 
         ColumnDescriptor c1 = table.descriptor().columnDescriptor("c1");
         assertNull(c1.defaultValue());

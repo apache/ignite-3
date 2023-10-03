@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
@@ -64,7 +63,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableId, tableDescriptor));
+        return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableId, tableVersion, tableDescriptor));
     }
 
     /** {@inheritDoc} */
@@ -73,28 +72,23 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         tableCache.clear();
     }
 
-    private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
-        CompletableFuture<Map.Entry<InternalTable, SchemaRegistry>> f = tableManager.tableAsync(tableId)
-                .thenApply(table -> {
-                    InternalTable internalTable = table.internalTable();
+    private CompletableFuture<ExecutableTable> loadTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
+        return tableManager.tableAsync(tableId)
+                .thenApply((table) -> {
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
-                    return Map.entry(internalTable, schemaRegistry);
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(tableVersion);
+                    TableRowConverterFactory converterFactory = requiredColumns -> new TableRowConverterImpl(
+                            schemaRegistry, schemaDescriptor, tableDescriptor, requiredColumns
+                    );
+
+                    InternalTable internalTable = table.internalTable();
+                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory, tableDescriptor);
+
+                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
+                            replicaService, clock, converterFactory.create(null), schemaDescriptor);
+
+                    return new ExecutableTableImpl(scannableTable, updatableTable);
                 });
-
-        return f.thenApply((table) -> {
-            SchemaRegistry schemaRegistry = table.getValue();
-            SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
-            TableRowConverterFactory converterFactory = requiredColumns -> new TableRowConverterImpl(
-                    schemaRegistry, schemaDescriptor, tableDescriptor, requiredColumns
-            );
-            InternalTable internalTable = table.getKey();
-            ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory, tableDescriptor);
-
-            UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
-                    replicaService, clock, converterFactory.create(null), schemaDescriptor);
-
-            return new ExecutableTableImpl(scannableTable, updatableTable);
-        });
     }
 
     private static final class ExecutableTableImpl implements ExecutableTable {
