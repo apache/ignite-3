@@ -111,20 +111,6 @@ public class ClientApiArchTest {
         }
     }
 
-    private static Path getClientPublicApiDir() {
-        return Path.of(
-                getRepoRoot(),
-                "modules",
-                "client",
-                "src",
-                "main",
-                "java",
-                "org",
-                "apache",
-                "ignite",
-                "client");
-    }
-
     private static String getRepoRoot() {
         var currentDir = System.getProperty("user.dir");
         var path = Path.of(currentDir);
