@@ -19,7 +19,13 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
+import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.DECIMAL;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
@@ -162,5 +168,22 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .columns(columns)
                 .primaryKeyColumns(primaryKeys)
                 .colocationColumns(colocationColumns);
+    }
+
+    protected CatalogCommand simpleTable(String name) {
+        List<ColumnParams> cols = List.of(
+                columnParams("ID", INT32),
+                columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
+                columnParamsBuilder("VAL_NOT_NULL", INT32).defaultValue(constant(1)).build(),
+                columnParams("DEC", DECIMAL, true, 11, 2),
+                columnParams("STR", STRING, 101, true),
+                columnParamsBuilder("DEC_SCALE", DECIMAL).precision(12).scale(3).build()
+        );
+
+        return simpleTable(name, cols);
+    }
+
+    protected CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
+        return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
     }
 }

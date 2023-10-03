@@ -56,8 +56,9 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     public CatalogSchemaDescriptor(int id, String name,
             CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
-            CatalogSystemViewDescriptor[] systemViews) {
-        super(id, Type.SCHEMA, name);
+            CatalogSystemViewDescriptor[] systemViews,
+            long causalityToken) {
+        super(id, Type.SCHEMA, name, causalityToken);
         this.tables = Objects.requireNonNull(tables, "tables");
         this.indexes = Objects.requireNonNull(indexes, "indexes");
         this.systemViews = Objects.requireNonNull(systemViews, "systemViews");

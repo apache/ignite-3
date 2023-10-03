@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+
 import java.io.Serializable;
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -30,11 +33,20 @@ public abstract class CatalogObjectDescriptor implements Serializable {
     private final int id;
     private final String name;
     private final Type type;
+    private long lastUpdateToken;
 
     CatalogObjectDescriptor(int id, Type type, String name) {
         this.id = id;
         this.type = Objects.requireNonNull(type, "type");
         this.name = Objects.requireNonNull(name, "name");
+        this.lastUpdateToken = INITIAL_CAUSALITY_TOKEN;
+    }
+
+    CatalogObjectDescriptor(int id, Type type, String name, long causalityToken) {
+        this.id = id;
+        this.type = Objects.requireNonNull(type, "type");
+        this.name = Objects.requireNonNull(name, "name");
+        this.lastUpdateToken = causalityToken;
     }
 
     /** Returns id of the described object. */
@@ -50,6 +62,27 @@ public abstract class CatalogObjectDescriptor implements Serializable {
     /** Return schema-object type. */
     public Type type() {
         return type;
+    }
+
+
+    /**
+     * Token of the last update of the descriptor.
+     * Updated every time when {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)} is called for the
+     * corresponding catalog descriptor.
+     *
+     * @return Token of the last update of the descriptor
+     */
+    public long lastUpdateToken() {
+        return lastUpdateToken;
+    }
+
+    /**
+     * Set token of the last update of the descriptor.
+     *
+     * @param lastUpdateToken Last update token of the descriptor.
+     */
+    public void lastUpdateToken(long lastUpdateToken) {
+        this.lastUpdateToken = lastUpdateToken;
     }
 
     /** {@inheritDoc} */
