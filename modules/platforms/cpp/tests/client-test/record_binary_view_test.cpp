@@ -126,6 +126,21 @@ TEST_F(record_binary_view_test, upsert_empty_tuple_throws) {
         ignite_error);
 }
 
+TEST_F(record_binary_view_test, upsert_tuple_with_extra_columns_throws) {
+    auto val_tuple = get_tuple(1, "foo");
+    val_tuple.set("extra", std::string("some value"));
+    EXPECT_THROW(
+        {
+            try {
+                tuple_view.upsert(nullptr, val_tuple);
+            } catch (const ignite_error &e) {
+                EXPECT_STREQ("Tuple contains columns that are not present in the table: extra", e.what());
+                throw;
+            }
+        },
+        ignite_error);
+}
+
 TEST_F(record_binary_view_test, get_empty_tuple_throws) {
     EXPECT_THROW(
         {

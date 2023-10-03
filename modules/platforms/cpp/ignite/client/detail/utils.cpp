@@ -237,7 +237,7 @@ std::vector<std::byte> pack_tuple(
         unmapped_columns_str.pop_back();
 
         assert(!unmapped_columns_str.empty());
-        throw ignite_error("Tuple contains columns that are not present in a table: " + unmapped_columns_str);
+        throw ignite_error("Tuple contains columns that are not present in the table: " + unmapped_columns_str);
     }
 
     return builder.build();
