@@ -546,23 +546,20 @@ TEST_F(meta_queries_test, get_data_with_tables) {
     check_single_row_result_set_with_get_data(m_statement);
 }
 
-// TODO: IGNITE-20346 Implement column metadata fetching
-#ifdef MUTED
 TEST_F(meta_queries_test, get_data_with_columns) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR empty[] = "";
-    SQLCHAR table[] = "TestType";
-    SQLCHAR column[] = "str";
+    SQLCHAR any[] = "%";
+    SQLCHAR table[] = "META_QUERIES_TEST";
+    SQLCHAR column[] = "STR";
 
-    SQLRETURN ret = SQLColumns(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, column, SQL_NTS);
+    SQLRETURN ret = SQLColumns(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, column, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     check_single_row_result_set_with_get_data(m_statement);
 }
-#endif // MUTED
 
 TEST_F(meta_queries_test, get_data_with_select_query) {
     odbc_connect(get_basic_connection_string());
