@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.meta;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -27,7 +28,6 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaInne
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaTreeMetaIo;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**

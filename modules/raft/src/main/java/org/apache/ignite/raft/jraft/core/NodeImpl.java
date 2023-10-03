@@ -1597,14 +1597,9 @@ public class NodeImpl implements Node, RaftServerService {
         this.writeLock.lock();
         try {
             final int size = tasks.size();
-            if (this.state != State.STATE_LEADER) {
-                final Status st = new Status();
-                if (this.state != State.STATE_TRANSFERRING) {
-                    st.setError(RaftError.EPERM, "Is not leader.");
-                }
-                else {
-                    st.setError(RaftError.EBUSY, "Is transferring leadership.");
-                }
+            State nodeState = this.state;
+            if (nodeState != State.STATE_LEADER) {
+                final Status st = cannotApplyBecauseNotLeaderStatus(nodeState);
                 LOG.debug("Node {} can't apply, status={}.", getNodeId(), st);
                 final List<Closure> dones = tasks.stream().map(ele -> ele.done)
                         .filter(Objects::nonNull).collect(Collectors.toList());
@@ -1648,6 +1643,23 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.writeLock.unlock();
         }
+    }
+
+    /**
+     * Builds a status for 'Cannot apply because this node is not a leader' situation.
+     *
+     * @param nodeState Node state.
+     */
+    public static Status cannotApplyBecauseNotLeaderStatus(State nodeState) {
+        final Status st = new Status();
+
+        if (nodeState != State.STATE_TRANSFERRING) {
+            st.setError(RaftError.EPERM, "Is not leader.");
+        } else {
+            st.setError(RaftError.EBUSY, "Is transferring leadership.");
+        }
+
+        return st;
     }
 
     /**

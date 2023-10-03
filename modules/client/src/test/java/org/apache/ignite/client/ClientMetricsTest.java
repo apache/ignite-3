@@ -18,10 +18,12 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Constructor;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.SubmissionPublisher;
@@ -34,10 +36,12 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSession;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -181,7 +185,10 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(1, metrics().requestsSent());
         assertEquals(0, metrics().requestsRetried());
 
-        assertThrows(SqlException.class, () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Query failed",
+                () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(1, metrics().requestsFailed());
@@ -252,6 +259,31 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(1, metrics().streamerBatchesSent());
         assertEquals(0, metrics().streamerBatchesActive());
         assertEquals(0, metrics().streamerItemsQueued());
+    }
+
+    @SuppressWarnings("ConfusingArgumentToVarargsMethod")
+    @Test
+    public void testAllMetricsAreRegistered() throws Exception {
+        Constructor<ClientMetricSource> ctor = ClientMetricSource.class.getDeclaredConstructor(null);
+        ctor.setAccessible(true);
+
+        ClientMetricSource source = ctor.newInstance();
+        MetricSet metricSet = source.enable();
+        assertNotNull(metricSet);
+
+        var holder = IgniteTestUtils.getFieldValue(source, AbstractMetricSource.class, "holder");
+
+        // Check that all fields from holder are registered in MetricSet.
+        for (var field : holder.getClass().getDeclaredFields()) {
+            if ("metrics".equals(field.getName())) {
+                continue;
+            }
+
+            var metricName = field.getName().substring(0, 1).toUpperCase() + field.getName().substring(1);
+            var metric = metricSet.get(metricName);
+
+            assertNotNull(metric, "Metric is not registered: " + metricName);
+        }
     }
 
     private Table oneColumnTable() {

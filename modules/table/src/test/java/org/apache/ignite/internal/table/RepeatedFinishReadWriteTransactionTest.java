@@ -37,6 +37,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
@@ -261,6 +261,11 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
         }
 
         @Override
+        public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+            return CompletableFuture.runAsync(runnable);
+        }
+
+        @Override
         public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
         }
 
@@ -287,13 +292,13 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
 
         @Override
         public CompletableFuture<Void> cleanup(
-                ClusterNode recipientNode,
-                List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+                String primaryConsistentId,
+                TablePartitionId tablePartitionId,
                 UUID txId,
                 boolean commit,
                 @Nullable HybridTimestamp commitTimestamp
         ) {
-            return null;
+            return completedFuture(null);
         }
 
         @Override

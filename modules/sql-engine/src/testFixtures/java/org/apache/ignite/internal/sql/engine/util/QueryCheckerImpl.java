@@ -46,7 +46,6 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -205,7 +204,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         metadataMatchers = Arrays.stream(columns)
                 .map(t -> (ColumnMatcher) columnMetadata -> {
-                    Class<?> type = ColumnType.columnTypeToClass(columnMetadata.type());
+                    Class<?> type = columnMetadata.type().javaClass();
 
                     assertThat("Column type don't match", type, equalTo(t));
                 })

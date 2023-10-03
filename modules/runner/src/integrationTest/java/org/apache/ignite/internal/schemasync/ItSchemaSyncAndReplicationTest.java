@@ -42,7 +42,6 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -72,7 +71,6 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
      * cannot execute without waiting for schemas). This method tests this scenario.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20410")
     void laggingSchemasPreventPartitionDataReplication() throws Exception {
         createTestTableWith3Replicas();
 
@@ -141,7 +139,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         CompletableFuture<?> rejectionTriggered = new CompletableFuture<>();
 
         appendEntriesInterceptorInspector.addHandler(
-                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available"),
+                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available, rejecting AppendEntriesRequest"),
                 () -> rejectionTriggered.complete(null)
         );
 

@@ -28,7 +28,7 @@ public static class IgniteClientExtensions
     /// <param name="client">Client.</param>
     /// <param name="count">Connection count.</param>
     /// <param name="timeoutMs">Timeout.</param>
-    public static void WaitForConnections(this IIgniteClient client, int count, int timeoutMs = 5000) =>
+    public static void WaitForConnections(this IIgniteClient client, int count, int timeoutMs = 15_000) =>
         TestUtils.WaitForCondition(
             condition: () => client.GetConnections().Count == count,
             timeoutMs: timeoutMs,

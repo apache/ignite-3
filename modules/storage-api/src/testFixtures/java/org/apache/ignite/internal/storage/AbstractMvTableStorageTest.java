@@ -65,6 +65,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -81,7 +82,6 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteTuple3;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -775,9 +775,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 1,
                 List.of(
                         CatalogUtils.fromParams(ColumnParams.builder().name("INTKEY").type(INT32).build()),
-                        CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").type(STRING).build()),
+                        CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").length(100).type(STRING).build()),
                         CatalogUtils.fromParams(ColumnParams.builder().name("INTVAL").type(INT32).build()),
-                        CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").type(STRING).build())
+                        CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").length(100).type(STRING).build())
                 ),
                 List.of("INTKEY"),
                 null

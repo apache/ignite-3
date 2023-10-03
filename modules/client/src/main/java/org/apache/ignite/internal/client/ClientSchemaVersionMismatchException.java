@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**

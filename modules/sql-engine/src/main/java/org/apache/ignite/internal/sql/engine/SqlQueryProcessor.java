@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -32,22 +32,18 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.event.Event;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.index.event.IndexEvent;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -87,13 +83,10 @@ import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
@@ -147,8 +140,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
-    private final IndexManager indexManager;
-
     private final CatalogSchemaManager schemaManager;
 
     private final DataStorageManager dataStorageManager;
@@ -157,9 +148,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Event listeners to close. */
-    private final List<Pair<Event, EventListener>> evtLsnrs = new ArrayList<>();
 
     private final ReplicaService replicaService;
 
@@ -190,7 +178,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
             TableManager tableManager,
-            IndexManager indexManager,
             CatalogSchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
@@ -201,7 +188,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
-        this.indexManager = indexManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
@@ -321,18 +307,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         Collections.reverse(services);
 
-        Stream<AutoCloseable> closableComponents = services.stream().map(s -> s::stop);
-
-        Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
-                .map((p) -> () -> {
-                    if (p.left instanceof TableEvent) {
-                        tableManager.removeListener((TableEvent) p.left, p.right);
-                    } else {
-                        indexManager.removeListener((IndexEvent) p.left, p.right);
-                    }
-                });
-
-        IgniteUtils.closeAll(Stream.concat(closableComponents, closableListeners).collect(Collectors.toList()));
+        IgniteUtils.closeAll(services.stream().map(s -> s::stop));
     }
 
     /** {@inheritDoc} */
@@ -465,6 +440,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 plan.metadata(),
                 txWrapper,
                 new AsyncCursor<>() {
+                    private AtomicBoolean finished = new AtomicBoolean(false);
+
                     @WithSpan
                     @Override
                     public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
@@ -477,9 +454,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                     @Override
                     public CompletableFuture<Void> closeAsync() {
                         session.touch();
-                        numberOfOpenCursors.decrementAndGet();
 
-                        return dataCursor.closeAsync();
+                        if (finished.compareAndSet(false, true)) {
+                            numberOfOpenCursors.decrementAndGet();
+
+                            return dataCursor.closeAsync();
+                        } else {
+                            return CompletableFuture.completedFuture(null);
+                        }
                     }
                 }
         );

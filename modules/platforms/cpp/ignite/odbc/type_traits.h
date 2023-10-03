@@ -20,6 +20,7 @@
 #include <ignite/common/ignite_type.h>
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace ignite {
@@ -189,7 +190,7 @@ int32_t sql_type_column_size(int16_t type);
  * @param typ Ignite type.
  * @return Column size.
  */
-int32_t ignite_type_column_size(ignite_type typ);
+int32_t ignite_type_max_column_size(ignite_type typ);
 
 /**
  * Get SQL type transfer octet length.
@@ -254,5 +255,21 @@ bool is_sql_type_unsigned(int16_t type);
  * @return True if unsigned or non-numeric.
  */
 bool is_ignite_type_unsigned(ignite_type typ);
+
+/**
+ * Get literal prefix for an ignite type.
+ *
+ * @param typ Type.
+ * @return Prefix.
+ */
+std::optional<std::string> ignite_type_literal_prefix(ignite_type typ);
+
+/**
+ * Get literal suffix for an ignite type.
+ *
+ * @param typ Type.
+ * @return Suffix.
+ */
+std::optional<std::string> ignite_type_literal_suffix(ignite_type typ);
 
 } // namespace ignite

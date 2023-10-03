@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
@@ -32,12 +32,12 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -345,12 +345,12 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      */
     @WithSpan
     private BinaryRowEx marshal(R rec) {
-        RecordMarshaller<R> marsh = marshaller();
-
         try {
+            RecordMarshaller<R> marsh = marshaller();
+
             return marsh.marshal(rec);
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+        } catch (Exception e) {
+            throw new MarshallerException(e);
         }
     }
 
@@ -362,11 +362,11 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      */
     @WithSpan
     private Collection<BinaryRowEx> marshal(Collection<R> recs) {
-        RecordMarshaller<R> marsh = marshaller();
-
-        List<BinaryRowEx> rows = new ArrayList<>(recs.size());
-
         try {
+            RecordMarshaller<R> marsh = marshaller();
+
+            List<BinaryRowEx> rows = new ArrayList<>(recs.size());
+
             for (R rec : recs) {
                 Row row = marsh.marshal(Objects.requireNonNull(rec));
 
@@ -374,8 +374,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             }
 
             return rows;
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+        } catch (Exception e) {
+            throw new MarshallerException(e);
         }
     }
 
@@ -387,12 +387,12 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      */
     @WithSpan
     private BinaryRowEx marshalKey(R rec) {
-        RecordMarshaller<R> marsh = marshaller();
-
         try {
+            RecordMarshaller<R> marsh = marshaller();
+
             return marsh.marshalKey(rec);
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+        } catch (Exception e) {
+            throw new MarshallerException(e);
         }
     }
 
@@ -404,11 +404,11 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      */
     @WithSpan
     private Collection<BinaryRowEx> marshalKeys(Collection<R> recs) {
-        RecordMarshaller<R> marsh = marshaller();
-
-        List<BinaryRowEx> rows = new ArrayList<>(recs.size());
-
         try {
+            RecordMarshaller<R> marsh = marshaller();
+
+            List<BinaryRowEx> rows = new ArrayList<>(recs.size());
+
             for (R rec : recs) {
                 Row row = marsh.marshalKey(Objects.requireNonNull(rec));
 
@@ -416,8 +416,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             }
 
             return rows;
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+        } catch (Exception e) {
+            throw new MarshallerException(e);
         }
     }
 
@@ -435,12 +435,12 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         Row row = rowConverter.resolveRow(binaryRow);
 
-        RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
-
         try {
+            RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
+
             return marshaller.unmarshal(row);
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+        } catch (Exception e) {
+            throw new MarshallerException(e);
         }
     }
 
@@ -457,11 +457,11 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             return Collections.emptyList();
         }
 
-        RecordMarshaller<R> marsh = marshaller();
-
-        var recs = new ArrayList<R>(rows.size());
-
         try {
+            RecordMarshaller<R> marsh = marshaller();
+
+            var recs = new ArrayList<R>(rows.size());
+
             for (Row row : rowConverter.resolveRows(rows)) {
                 if (row != null) {
                     recs.add(marsh.unmarshal(row));
@@ -471,8 +471,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             }
 
             return recs;
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+        } catch (Exception e) {
+            throw new MarshallerException(e);
         }
     }
 

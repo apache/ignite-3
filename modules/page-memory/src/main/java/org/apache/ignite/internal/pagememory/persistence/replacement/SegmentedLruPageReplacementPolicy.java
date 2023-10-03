@@ -22,10 +22,10 @@ import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMe
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.OUTDATED_REL_PTR;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Segmented-LRU page replacement policy implementation.

@@ -66,7 +66,7 @@ namespace Apache.Ignite.Table
         /// <returns>A hash code for the specified tuple.</returns>
         public static int GetHashCode(IIgniteTuple tuple)
         {
-            IgniteArgumentCheck.NotNull(tuple, nameof(tuple));
+            ArgumentNullException.ThrowIfNull(tuple);
 
             var hash = default(HashCode);
 
@@ -136,7 +136,7 @@ namespace Apache.Ignite.Table
         /// <returns>String representation.</returns>
         public static string ToString(IIgniteTuple tuple)
         {
-            IgniteArgumentCheck.NotNull(tuple, nameof(tuple));
+            ArgumentNullException.ThrowIfNull(tuple);
             var builder = new IgniteToStringBuilder(tuple.GetType());
 
             for (var i = 0; i < tuple.FieldCount; i++)

@@ -522,6 +522,6 @@ private:
 };
 
 /** Column binging map type alias. */
-typedef std::map<uint16_t, application_data_buffer> column_binding_map;
+typedef std::map<std::uint16_t, application_data_buffer> column_binding_map;
 
 } // namespace ignite

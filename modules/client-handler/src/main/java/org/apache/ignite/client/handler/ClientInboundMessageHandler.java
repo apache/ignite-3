@@ -85,6 +85,7 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackReq
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -99,6 +100,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
@@ -109,10 +111,10 @@ import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -206,7 +208,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             CompletableFuture<UUID> clusterId,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
-            HybridClock clock
+            HybridClock clock,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService
     ) {
         assert igniteTables != null;
         assert igniteTransactions != null;
@@ -219,6 +223,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert metrics != null;
         assert authenticationManager != null;
         assert clock != null;
+        assert schemaSyncService != null;
+        assert catalogService != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -232,8 +238,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.clock = clock;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
-        jdbcQueryEventHandler = 
-                new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources, igniteTransactions);
+        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
+                processor,
+                new JdbcMetadataCatalog(clock, schemaSyncService, catalogService),
+                resources,
+                igniteTransactions
+        );
 
         this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);

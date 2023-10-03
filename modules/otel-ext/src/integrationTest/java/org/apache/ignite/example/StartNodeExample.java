@@ -25,7 +25,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 
 /**
  * Tests for transactional examples.

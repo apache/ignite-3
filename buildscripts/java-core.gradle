@@ -105,6 +105,7 @@ javadoc {
 
     exclude 'org/apache/ignite/internal/**'
     exclude 'org/apache/ignite/raft/jraft/**'
+    exclude 'org/apache/calcite/plan/volcano/**'
     exclude 'com/facebook/presto/**'
 
     enabled = true

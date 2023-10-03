@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.metadata;
 
 import java.util.UUID;
-import org.apache.ignite.lang.RemoteException;
+import org.apache.ignite.internal.lang.RemoteException;
 import org.jetbrains.annotations.Nullable;
 
 /**

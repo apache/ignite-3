@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -35,15 +36,15 @@ import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.Test;
 
 /**
- * HashIndexSpoolExecutionTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Hash index based spool implementation test.
  */
 public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
     @Test
     public void testIndexSpool() {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
@@ -132,7 +133,9 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
     @Test
     public void testNullsInSearchRow() {
         ExecutionContext<Object[]> ctx = executionContext(true);
-        RelDataType rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, int.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.INT32));
 
         ScanNode<Object[]> scan = new ScanNode<>(ctx, new TestTable(
                 4,

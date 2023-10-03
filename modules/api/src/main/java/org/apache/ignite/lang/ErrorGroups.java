@@ -499,4 +499,16 @@ public class ErrorGroups {
         /** Command to the catalog has not passed the validation. See exception message for details. */
         public static final int VALIDATION_ERR = CATALOG_ERR_GROUP.registerErrorCode((short) 1);
     }
+
+    /** Placement driver error group. */
+    public static class PlacementDriver {
+        /** Placement driver error group. */
+        public static final ErrorGroup PLACEMENT_DRIVER_ERR_GROUP = registerGroup("PLACEMENTDRIVER", (short) 18);
+
+        /** Primary replica await timeout error. */
+        public static final int PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Primary replica await error. */
+        public static final int PRIMARY_REPLICA_AWAIT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 2);
+    }
 }

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;

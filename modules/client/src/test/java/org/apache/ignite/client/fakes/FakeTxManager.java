@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -31,7 +34,6 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -111,7 +113,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public CompletableFuture<Void> commitAsync() {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             @Override
@@ -121,7 +123,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public CompletableFuture<Void> rollbackAsync() {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             @Override
@@ -157,6 +159,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+        return CompletableFuture.runAsync(runnable);
+    }
+
+    @Override
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
     }
 
@@ -174,9 +181,14 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ClusterNode recipientNode, List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
-            UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        return null;
+    public CompletableFuture<Void> cleanup(
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return completedFuture(null);
     }
 
     @Override
