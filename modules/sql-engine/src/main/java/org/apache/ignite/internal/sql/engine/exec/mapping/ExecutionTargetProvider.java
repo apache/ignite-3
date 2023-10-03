@@ -15,19 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
- * ColocationMappingException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * An integration point that helps the mapper to acquire an execution target of particular
+ * relation from fragment.
  */
-public class ColocationMappingException extends Exception {
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ExecutionTargetProvider {
     /**
-     * Constructor.
+     * Returns an execution target for a table with given id.
      *
-     * @param message Message.
+     * @param factory A factory to create target for given table.
+     * @param tableId A table id to create execution target for.
+     * @return A future representing the result.
      */
-    public ColocationMappingException(String message) {
-        super(message);
-    }
+    CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, int tableId);
 }

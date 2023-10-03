@@ -24,8 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.trait.Partitioned;
 import org.apache.ignite.internal.sql.engine.trait.RandomNode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Factory that resolves {@link IgniteDistribution} trait, which represents logical {@link DistributionFunction} function, into its
@@ -95,13 +93,7 @@ class DestinationFactory<RowT> {
 
                 assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
 
-                List<List<String>> assignments = Commons.transform(group.assignments(), v -> Commons.transform(v, NodeWithTerm::name));
-
-                if (IgniteUtils.assertionsEnabled()) {
-                    for (List<String> assignment : assignments) {
-                        assert nullOrEmpty(assignment) || assignment.size() == 1;
-                    }
-                }
+                List<String> assignments = Commons.transform(group.assignments(), NodeWithTerm::name);
 
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();

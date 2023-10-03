@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
-
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 /**
- * Execution related APIs of a table.
+ * Thrown when targets are not colocated.
+ *
+ * <p>That is, the set of nodes, partitions, or execution strategies of one target does not
+ * satisfy the other target.
  */
-public interface ExecutableTable {
-    /**
-     * Returns read API.
-     */
-    ScannableTable scannableTable();
-
-    /**
-     * Returns table modification API.
-     */
-    UpdatableTable updatableTable();
-
-    /**
-     * Returns a descriptor for the table.
-     */
-    TableDescriptor tableDescriptor();
+public class ColocationMappingException extends Exception {
+    /** Constructor. */
+    public ColocationMappingException(String message) {
+        super(message, null, true, false);
+    }
 }

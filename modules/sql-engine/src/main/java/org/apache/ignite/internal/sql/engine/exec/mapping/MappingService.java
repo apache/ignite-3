@@ -15,44 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 
 /**
- * Tuple representing the number of the partition with its current primary replica term.
+ * A service to map multi step plan to an actual topology.
  */
-public class PartitionWithTerm {
-    /** Partition number. */
-    private final int partId;
-
-    /** Primary replica term. */
-    private final long term;
-
+@FunctionalInterface
+public interface MappingService {
     /**
-     * Constructor.
+     * Maps given plan to a cluster topology.
      *
-     * @param partId partition number
-     * @param term Primary replica term.
+     * @param multiStepPlan A plan to map.
+     * @return A list of fragments with metadata related to a fragment topology.
      */
-    public PartitionWithTerm(int partId, Long term) {
-        this.partId = partId;
-        this.term = term;
-    }
-
-    /**
-     * Gets partition number.
-     *
-     * @return Partition number.
-     */
-    public int partId() {
-        return partId;
-    }
-
-    /**
-     * Gets primary replica term.
-     *
-     * @return Primary replica term.
-     */
-    public long term() {
-        return term;
-    }
+    CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan);
 }

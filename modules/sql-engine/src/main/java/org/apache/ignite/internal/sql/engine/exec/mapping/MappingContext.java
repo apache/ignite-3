@@ -15,39 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * Query mapping context.
+ * A context that encloses information necessary during mapping.
  */
-public class MappingQueryContext {
-    private final String locNodeName;
-    private final MappingService mappingService;
+class MappingContext {
+    private final String localNode;
+    private final List<String> nodes;
+
+    private final ExecutionTargetFactory targetFactory;
 
     private RelOptCluster cluster;
 
-    /**
-     * Constructor.
-     *
-     * @param locNodeName Local node consistent ID.
-     * @param mappingService Nodes mapping service.
-     */
-    public MappingQueryContext(
-            String locNodeName,
-            MappingService mappingService
-    ) {
-        this.locNodeName = locNodeName;
-        this.mappingService = mappingService;
+    MappingContext(String localNode, List<String> nodes) {
+        this.localNode = localNode;
+        this.nodes = nodes;
+
+        if (nodes.size() > 64) {
+            throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-20503");
+        }
+
+        this.targetFactory = new SmallClusterFactory(nodes);
     }
 
-    /** Creates a cluster. */
     public RelOptCluster cluster() {
         if (cluster == null) {
             cluster = RelOptCluster.create(Commons.cluster().getPlanner(), Commons.cluster().getRexBuilder());
@@ -59,11 +58,15 @@ public class MappingQueryContext {
         return cluster;
     }
 
-    public String locNodeName() {
-        return locNodeName;
+    public String localNode() {
+        return localNode;
     }
 
-    public MappingService mappingService() {
-        return mappingService;
+    public List<String> nodes() {
+        return nodes;
+    }
+
+    public ExecutionTargetFactory targetFactory() {
+        return targetFactory;
     }
 }

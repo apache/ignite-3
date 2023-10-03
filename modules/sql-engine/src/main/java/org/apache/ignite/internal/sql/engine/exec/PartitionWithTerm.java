@@ -15,33 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
-
-import org.apache.calcite.rel.RelNode;
+package org.apache.ignite.internal.sql.engine.exec;
 
 /**
- * NodeMappingException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Tuple representing the number of the partition with its current primary replica term.
  */
-public class NodeMappingException extends RuntimeException {
-    private final RelNode node;
+public class PartitionWithTerm {
+    /** Partition number. */
+    private final int partId;
+
+    /** Primary replica term. */
+    private final long term;
 
     /**
      * Constructor.
      *
-     * @param message Message.
-     * @param node    Node of a query plan, where the exception was thrown.
-     * @param cause   Cause.
+     * @param partId partition number
+     * @param term Primary replica term.
      */
-    public NodeMappingException(String message, RelNode node, Throwable cause) {
-        super(message, cause);
-        this.node = node;
+    public PartitionWithTerm(int partId, Long term) {
+        this.partId = partId;
+        this.term = term;
     }
 
     /**
-     * Get node of a query plan, where the exception was thrown.
+     * Gets partition number.
+     *
+     * @return Partition number.
      */
-    public RelNode node() {
-        return node;
+    public int partId() {
+        return partId;
+    }
+
+    /**
+     * Gets primary replica term.
+     *
+     * @return Primary replica term.
+     */
+    public long term() {
+        return term;
     }
 }
