@@ -781,7 +781,7 @@ TEST_F(record_binary_view_test, remove_exact_empty_throws) {
 }
 
 TEST_F(record_binary_view_test, get_and_remove_nonexisting) {
-    auto res = tuple_view.get_and_remove(nullptr, get_tuple(42, "foo"));
+    auto res = tuple_view.get_and_remove(nullptr, get_tuple(42));
     ASSERT_FALSE(res.has_value());
 
     auto res_tuple = tuple_view.get(nullptr, get_tuple(42));
