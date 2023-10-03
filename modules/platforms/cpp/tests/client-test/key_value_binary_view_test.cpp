@@ -139,6 +139,22 @@ TEST_F(key_value_binary_view_test, put_empty_value_throws) {
         ignite_error);
 }
 
+TEST_F(key_value_binary_view_test, put_extra_collumn_value_throws) {
+    auto key_tuple = get_tuple(1);
+    auto val_tuple = get_tuple("foo");
+    val_tuple.set("extra", std::string("extra"));
+    EXPECT_THROW(
+        {
+            try {
+                kv_view.put(nullptr, key_tuple, val_tuple);
+            } catch (const ignite_error &e) {
+                EXPECT_STREQ("Tuple contains columns that are not present in the table: extra", e.what());
+                throw;
+            }
+        },
+        ignite_error);
+}
+
 TEST_F(key_value_binary_view_test, get_empty_tuple_throws) {
     EXPECT_THROW(
         {
