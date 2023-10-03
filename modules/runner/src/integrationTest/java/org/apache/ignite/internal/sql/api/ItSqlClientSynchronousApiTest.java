@@ -21,11 +21,10 @@ import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientT
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Tests for synchronous client SQL API.
@@ -56,19 +55,8 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     }
 
     @Override
-    @Test
-    public void dml() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        IgniteSql sql = igniteSql();
-        Session ses = sql.createSession();
-
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
-
-        checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
-
-        checkDml(ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
+    @Disabled("IGNITE-17134")
+    public void closeSession() {
+        super.closeSession();
     }
 }

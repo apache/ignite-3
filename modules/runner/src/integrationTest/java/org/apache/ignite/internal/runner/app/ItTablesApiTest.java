@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Catalog;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -141,7 +143,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         Table tbl = createTable(ignite0, TABLE_NAME);
 
         // TODO: IGNITE-20388 Fix it
-        assertThrowsWithCause(() -> createTable(ignite0, TABLE_NAME), TableExistsValidationException.class);
+        assertThrowsSqlException(Catalog.VALIDATION_ERR, "--", () -> createTable(ignite0, TABLE_NAME));
 
         assertEquals(tbl, createTableIfNotExists(ignite0, TABLE_NAME));
     }
@@ -170,8 +172,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
-                // TODO: IGNITE-20388 Fix it
-                assertThrowsWithCause(() -> createTable(ignite, TABLE_NAME), TableExistsValidationException.class);
+                assertThrowsSqlException(Catalog.VALIDATION_ERR, "-- ", () -> createTable(ignite, TABLE_NAME));
 
                 assertNotNull(createTableIfNotExists(ignite, TABLE_NAME));
             }
