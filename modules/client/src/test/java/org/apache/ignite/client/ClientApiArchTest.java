@@ -26,7 +26,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -36,8 +35,18 @@ import org.junit.jupiter.api.Test;
 public class ClientApiArchTest {
     @Test
     public void testClientApiImportsArePublic() throws IOException {
-        // Get all files in current directory
-        Path clientApiDir = getClientPublicApiDir();
+        Path clientApiDir = Path.of(
+                getRepoRoot(),
+                "modules",
+                "client",
+                "src",
+                "main",
+                "java",
+                "org",
+                "apache",
+                "ignite",
+                "client");
+
         var fileCount = new AtomicInteger();
 
         try (Stream<Path> walk = Files.walk(clientApiDir)) {
@@ -102,7 +111,6 @@ public class ClientApiArchTest {
         }
     }
 
-    @NotNull
     private static Path getClientPublicApiDir() {
         return Path.of(
                 getRepoRoot(),
