@@ -19,8 +19,8 @@
 
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
-#include "ignite/odbc/query/data_query.h"
 #include "ignite/odbc/query/column_metadata_query.h"
+#include "ignite/odbc/query/data_query.h"
 #include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"

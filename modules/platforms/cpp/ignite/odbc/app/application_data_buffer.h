@@ -166,9 +166,7 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
-    conversion_result put_string(const char *value) {
-        return put_string(std::string(value));
-    }
+    conversion_result put_string(const char *value) { return put_string(std::string(value)); }
 
     /**
      * Put in buffer value of type string.
