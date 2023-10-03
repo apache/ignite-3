@@ -161,8 +161,6 @@ public class TxManagerImpl implements TxManager {
     }
 
     private InternalTransaction beginTx(HybridTimestampTracker timestampTracker, boolean readOnly, boolean implicit) {
-        assert !(readOnly && implicit) : "Only read-write transactions can be implicit";
-
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
