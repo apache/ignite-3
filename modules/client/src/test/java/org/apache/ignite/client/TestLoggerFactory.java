@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.LoggerFactory;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 /**
