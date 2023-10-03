@@ -91,7 +91,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        txManager = new TxManagerImpl(replicaService, new HeapLockManager(), clock, new TransactionIdGenerator(0xdeadbeef), () -> "local");
+        txManager = new TxManagerImpl(
+                replicaService,
+                new HeapLockManager(),
+                clock,
+                new TransactionIdGenerator(0xdeadbeef),
+                () -> "local",
+                null);
 
         txManager.start();
     }

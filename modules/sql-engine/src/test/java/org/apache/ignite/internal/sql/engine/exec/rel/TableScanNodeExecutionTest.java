@@ -38,6 +38,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -111,8 +112,14 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             ReplicaService replicaSvc = mock(ReplicaService.class);
 
-            TxManagerImpl txManager = new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(),
-                    new TransactionIdGenerator(0xdeadbeef), () -> "local");
+            TxManagerImpl txManager = new TxManagerImpl(
+                    replicaSvc,
+                    new HeapLockManager(),
+                    new HybridClockImpl(),
+                    new TransactionIdGenerator(0xdeadbeef),
+                    () -> "local",
+                    new TestPlacementDriver("local")
+            );
 
             txManager.start();
 

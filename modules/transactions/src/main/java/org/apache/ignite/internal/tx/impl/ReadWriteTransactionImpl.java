@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -117,12 +119,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
                 .thenCompose(
                         ignored -> {
-                            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
+                            Map<TablePartitionId, Long> enlistedGroups = new LinkedHashMap<>();
 
                             if (!enlisted.isEmpty()) {
-                                enlisted.forEach((groupId, groupMeta) ->
-                                        groups.computeIfAbsent(groupMeta.get1(), clusterNode -> new ArrayList<>())
-                                                .add(new IgniteBiTuple<>(groupId, groupMeta.get2())));
+                                enlisted.entrySet().stream()
+                                        .collect(Collectors.toMap(
+                                                Entry::getKey,
+                                                entry -> entry.getValue().get2()
+                                        ));
 
                                 IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
 
@@ -130,7 +134,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                 Long term = nodeAndTerm.get2();
 
                                 LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
-                                        recipientNode, term, commit, id(), groups);
+                                        recipientNode, term, commit, id(), enlistedGroups);
 
                                 assert recipientNode != null;
                                 assert term != null;
@@ -141,7 +145,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         recipientNode,
                                         term,
                                         commit,
-                                        groups,
+                                        enlistedGroups,
                                         id()
                                 );
                             } else {
@@ -151,7 +155,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         null,
                                         null,
                                         commit,
-                                        groups,
+                                        enlistedGroups,
                                         id()
                                 );
                             }

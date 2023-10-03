@@ -342,7 +342,13 @@ public class ItTxTestCluster {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            TxManagerImpl txMgr = newTxManager(replicaSvc, clock, new TransactionIdGenerator(i), node);
+            TxManagerImpl txMgr = newTxManager(
+                    replicaSvc,
+                    clock,
+                    new TransactionIdGenerator(i),
+                    node,
+                    placementDriver
+            );
 
             txMgr.start();
 
@@ -369,8 +375,21 @@ public class ItTxTestCluster {
         assertNotNull(clientTxManager);
     }
 
-    protected TxManagerImpl newTxManager(ReplicaService replicaSvc, HybridClock clock, TransactionIdGenerator generator, ClusterNode node) {
-        return new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, generator, node::id);
+    protected TxManagerImpl newTxManager(
+            ReplicaService replicaSvc,
+            HybridClock clock,
+            TransactionIdGenerator generator,
+            ClusterNode node,
+            PlacementDriver placementDriver
+    ) {
+        return new TxManagerImpl(
+                replicaSvc,
+                new HeapLockManager(),
+                clock,
+                generator,
+                node::id,
+                placementDriver
+        );
     }
 
     public IgniteTransactions igniteTransactions() {
@@ -777,8 +796,14 @@ public class ItTxTestCluster {
     private void initializeClientTxComponents() {
         Supplier<String> localNodeIdSupplier = () -> client.topologyService().localMember().id();
 
-        clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1),
-                localNodeIdSupplier);
+        clientTxManager = new TxManagerImpl(
+                clientReplicaSvc,
+                new HeapLockManager(),
+                clientClock,
+                new TransactionIdGenerator(-1),
+                localNodeIdSupplier,
+                placementDriver
+        );
 
         clientTxStateResolver = new TransactionStateResolver(
                 clientReplicaSvc,
@@ -788,6 +813,7 @@ public class ItTxTestCluster {
                 idToNode,
                 client.messagingService()
         );
+
         clientTxStateResolver.start();
     }
 }

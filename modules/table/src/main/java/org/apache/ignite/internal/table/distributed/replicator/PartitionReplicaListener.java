@@ -85,6 +85,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -1172,23 +1173,21 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request, String txCoordinatorId) {
-        List<TablePartitionId> aggregatedGroupIds = request.groups().values().stream()
-                .flatMap(List::stream)
-                .map(IgniteBiTuple::get1)
-                .collect(toList());
+        // TODO: sanpwc Rempve tmp cas.
+        Collection<TablePartitionId> enlistedGroups = (List<TablePartitionId>)(List<?>) request.groups();
 
         UUID txId = request.txId();
 
         if (request.commit()) {
             HybridTimestamp commitTimestamp = request.commitTimestamp();
 
-            return schemaCompatValidator.validateForward(txId, aggregatedGroupIds, commitTimestamp)
+            return schemaCompatValidator.validateForward(txId, enlistedGroups, commitTimestamp)
                     .thenCompose(validationResult ->
-                            finishAndCleanup(aggregatedGroupIds, validationResult.isSuccessful(), commitTimestamp, txId, txCoordinatorId)
+                            finishAndCleanup(enlistedGroups, validationResult.isSuccessful(), commitTimestamp, txId, txCoordinatorId)
                                     .thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult)));
         } else {
             // Aborting.
-            return finishAndCleanup(aggregatedGroupIds, false, null, txId, txCoordinatorId);
+            return finishAndCleanup(enlistedGroups, false, null, txId, txCoordinatorId);
         }
     }
 

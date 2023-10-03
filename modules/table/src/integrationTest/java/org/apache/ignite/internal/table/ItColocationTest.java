@@ -41,6 +41,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -55,7 +56,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -93,6 +93,7 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -145,7 +146,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HeapLockManager(),
                 new HybridClockImpl(),
                 new TransactionIdGenerator(0xdeadbeef),
-                clusterNode::id
+                clusterNode::id,
+                new TestPlacementDriver(clusterNode.name())
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -154,8 +156,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     ClusterNode recipientNode,
                     Long term,
                     boolean commit,
-                    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
-                    UUID txId) {
+                    Map<TablePartitionId, Long> enlistedGroups,
+                    UUID txId
+            ) {
                 return completedFuture(null);
             }
         };

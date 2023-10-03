@@ -394,7 +394,8 @@ public class IgniteImpl implements Ignite {
                 lockMgr,
                 clock,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
-                () -> clusterSvc.topologyService().localMember().id()
+                () -> clusterSvc.topologyService().localMember().id(),
+                placementDriver()
         );
 
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.

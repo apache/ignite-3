@@ -29,7 +29,6 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -276,7 +275,7 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
                 ClusterNode recipientNode,
                 Long term,
                 boolean commit,
-                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+                Map<TablePartitionId, Long> enlistedGroups,
                 UUID txId
         ) {
             txFinishStartedLatch.countDown();

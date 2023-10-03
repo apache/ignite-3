@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -126,8 +127,14 @@ public class TxLocalTest extends TxAbstractTest {
             return completedFuture(txManager.stateMeta(txId));
         }).when(transactionStateResolver).resolveTxState(any(), any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, DummyInternalTableImpl.CLOCK, new TransactionIdGenerator(0xdeadbeef),
-                () -> localNodeName);
+        txManager = new TxManagerImpl(
+                replicaSvc,
+                lockManager,
+                DummyInternalTableImpl.CLOCK,
+                new TransactionIdGenerator(0xdeadbeef),
+                () -> localNodeName,
+                new TestPlacementDriver(localNodeName)
+        );
 
         txManager.start();
 

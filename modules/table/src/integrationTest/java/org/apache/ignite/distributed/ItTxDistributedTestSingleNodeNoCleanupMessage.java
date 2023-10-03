@@ -99,9 +99,21 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                 timestampTracker
         ) {
             @Override
-            protected TxManagerImpl newTxManager(ReplicaService replicaSvc, HybridClock clock, TransactionIdGenerator generator,
-                    ClusterNode node) {
-                return new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, generator, node::id) {
+            protected TxManagerImpl newTxManager(
+                    ReplicaService replicaSvc,
+                    HybridClock clock,
+                    TransactionIdGenerator generator,
+                    ClusterNode node,
+                    PlacementDriver placementDriver
+            ) {
+                return new TxManagerImpl(
+                        replicaSvc,
+                        new HeapLockManager(),
+                        clock,
+                        generator,
+                        node::id,
+                        placementDriver
+                ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
                         if (ignoreAsyncCleanup) {
