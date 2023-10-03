@@ -15,46 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.io.Serializable;
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * FragmentDescription.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Descriptions of the query fragment.
+ *
+ * <p>Mostly describes topology of the fragment, but may contain other attributes required for execution.
  */
 public class FragmentDescription implements Serializable {
     private static final long serialVersionUID = 0L;
 
     private final long fragmentId;
     private final boolean prefetch;
-    private final FragmentMapping mapping;
-    private final ColocationGroup target;
-    private final Long2ObjectMap<List<String>> remoteSources;
+    private final Long2ObjectMap<ColocationGroup> groupsBySourceId;
+    private final @Nullable ColocationGroup target;
+    private final @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId;
 
     /**
      * Constructor.
      *
      * @param fragmentId An identifier of the fragment.
      * @param prefetch A flag denoting whether this fragment may be executed in advance.
-     * @param mapping A mapping of the described fragment.
+     * @param groupsBySourceId A mapping of colocation groups by source id.
      * @param target A target group this fragment should stream data to.
-     * @param remoteSources A mapping of sources this fragment should receive data from.
+     * @param sourcesByExchangeId A mapping of sources this fragment should receive data from.
      */
     public FragmentDescription(
             long fragmentId,
             boolean prefetch,
-            FragmentMapping mapping,
-            ColocationGroup target,
-            Long2ObjectMap<List<String>> remoteSources
+            Long2ObjectMap<ColocationGroup> groupsBySourceId,
+            @Nullable ColocationGroup target,
+            @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId
     ) {
         this.fragmentId = fragmentId;
         this.prefetch = prefetch;
-        this.mapping = mapping;
+        this.groupsBySourceId = groupsBySourceId;
         this.target = target;
-        this.remoteSources = remoteSources;
+        this.sourcesByExchangeId = sourcesByExchangeId;
     }
 
     /** Returns {@code true} if it's safe to execute this fragment in advance. */
@@ -70,30 +72,27 @@ public class FragmentDescription implements Serializable {
     }
 
     /**
-     * Get node ids.
-     */
-    public List<String> nodeNames() {
-        return mapping.nodeNames();
-    }
-
-    /**
      * Get target.
      */
-    public ColocationGroup target() {
+    public @Nullable ColocationGroup target() {
         return target;
     }
 
     /**
      * Get remotes.
      */
-    public Long2ObjectMap<List<String>> remotes() {
-        return remoteSources;
+    public @Nullable List<String> remotes(long exchangeId) {
+        if (sourcesByExchangeId == null) {
+            return null;
+        }
+
+        return sourcesByExchangeId.get(exchangeId);
     }
 
     /**
      * Get mapping.
      */
-    public FragmentMapping mapping() {
-        return mapping;
+    public @Nullable ColocationGroup group(long sourceId) {
+        return groupsBySourceId.get(sourceId);
     }
 }

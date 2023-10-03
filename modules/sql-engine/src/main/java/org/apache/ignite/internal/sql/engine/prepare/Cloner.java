@@ -50,7 +50,7 @@ public class Cloner {
             IgniteRel newRoot = visit(src.root());
 
             return new Fragment(src.fragmentId(), newRoot, src.correlated(),
-                    List.copyOf(remotes), src.serialized(), src.mapping());
+                    remotes, src.serialized(), src.tableIds());
         } finally {
             remotes = null;
         }

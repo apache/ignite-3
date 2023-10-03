@@ -88,7 +88,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.BinaryRo
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummySchemas;
@@ -241,7 +241,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 localNode,
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
-                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
+                new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 new TestPlacementDriver(localNode.name())
         );

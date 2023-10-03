@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -83,7 +84,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -257,6 +258,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         return replicaListener.invoke(invocationOnMock.getArgument(1), node.id());
                     })
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
+
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        String nodeId = invocationOnMock.getArgument(0);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId);
+                    })
+                    .when(replicaSvc).invoke(anyString(), any());
         }
 
         AtomicLong raftIndex = new AtomicLong();
@@ -375,7 +384,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
-                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
+                new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 new TestPlacementDriver(LOCAL_NODE.name())
         );

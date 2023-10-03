@@ -85,7 +85,7 @@ import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.prepare.QuerySplitter;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -646,7 +646,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         rel = Cloner.clone(rel);
 
-        List<Fragment> fragments = new Splitter().go(rel);
+        List<Fragment> fragments = new QuerySplitter().go(rel);
         List<String> serialized = new ArrayList<>(fragments.size());
 
         for (Fragment fragment : fragments) {

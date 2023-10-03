@@ -15,24 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
-import java.util.function.Predicate;
-import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Service is responsible for nodes mapping calculation.
+ * Intermediate result returned by {@link FragmentMapper}.
+ *
+ * <p>In general, fragments have exactly one colocation group. But in case of MAP phase of 2-phase
+ * SET operator fragment may be mapped to an arbitrary number of colocation groups. MAP phase does
+ * pre-aggregation, thus we don't care about colocation of its inputs. Final result calculation will
+ * be made on a reducer, which must be colocated.
+ *
+ * <p>That's why we need additional container here.
  */
-public interface MappingService {
-    /**
-     * Returns Nodes responsible for executing intermediate fragments (fragments without Scan leafs). Such fragments may be executed on any
-     * cluster node, actual list of nodes is chosen on the basis of adopted selection strategy (using node filter).
-     *
-     * @param single     Flag, indicating that a fragment should execute on a single node.
-     * @param nodeFilter Node filter.
-     * @return Nodes mapping for intermediate fragments.
-     */
-    List<String> executionNodes(boolean single, @Nullable Predicate<ClusterNode> nodeFilter);
+class FragmentMapping {
+    private final List<ColocationGroup> groups;
+
+    FragmentMapping(List<ColocationGroup> groups) {
+        this.groups = groups;
+    }
+
+    public List<ColocationGroup> groups() {
+        return groups;
+    }
 }

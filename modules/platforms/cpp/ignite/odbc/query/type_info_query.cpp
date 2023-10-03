@@ -293,7 +293,7 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
 
         case result_column::MINIMUM_SCALE:
         case result_column::MAXIMUM_SCALE: {
-            buffer.put_int16(std::int16_t(ignite_type_decimal_digits(current_type)));
+            buffer.put_int16(std::int16_t(ignite_type_decimal_digits(current_type, -1)));
 
             break;
         }
