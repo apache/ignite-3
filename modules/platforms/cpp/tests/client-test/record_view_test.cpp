@@ -84,6 +84,24 @@ struct missing_mapping_value {
     std::string val;
 };
 
+struct extra_mapping_value {
+    extra_mapping_value() = default;
+
+    explicit extra_mapping_value(std::int64_t key)
+        : key(key) {}
+
+    explicit extra_mapping_value(std::string val)
+        : val(std::move(val)) {}
+
+    explicit extra_mapping_value(std::int64_t key, std::string val)
+        : key(key)
+        , val(std::move(val)) {}
+
+    std::int64_t key{0};
+    std::string val;
+};
+
+
 namespace ignite {
 
 template<>
@@ -140,6 +158,31 @@ missing_mapping_value convert_from_tuple(ignite_tuple &&value) {
     missing_mapping_value res;
 
     res.key = value.get<std::int64_t>("key");
+
+    return res;
+}
+
+template<>
+ignite_tuple convert_to_tuple(extra_mapping_value &&value) {
+    ignite_tuple tuple;
+
+    tuple.set("key", value.key);
+    tuple.set("val", value.val);
+    tuple.set("extra", std::string("extra"));
+
+    return tuple;
+}
+
+template<>
+extra_mapping_value convert_from_tuple(ignite_tuple &&value) {
+    extra_mapping_value res;
+
+    res.key = value.get<std::int64_t>("key");
+
+    if (value.column_count() > 1) {
+        res.val = value.get<std::string>("val");
+        (void) value.get<std::string>("extra");
+    }
 
     return res;
 }
@@ -206,6 +249,26 @@ TEST_F(record_view_test, missing_mapping_key_throws) {
                 (void) wrong_view.get(nullptr, key);
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Missed key column: KEY"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(record_view_test, extra_mapping_value_throws) {
+    auto table = m_client.get_tables().get_table(TABLE_1);
+    auto wrong_view = table->get_record_view<extra_mapping_value>();
+
+    extra_mapping_value key{1};
+    extra_mapping_value val{1, "foo"};
+
+    EXPECT_THROW(
+        {
+            try {
+                wrong_view.upsert(nullptr, val);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr(
+                      "Tuple contains columns that are not present in the table: extra"));
                 throw;
             }
         },
