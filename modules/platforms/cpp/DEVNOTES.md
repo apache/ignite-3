@@ -49,7 +49,7 @@ Conan is enabled by default. All the build examples below use Conan.
 ### CMake Options and Typical Build Configurations
 
 The CMake project supports multiple configuration options that can be used to define exactly what and how should be built. You can check the list of available CMake options with the `cmake -LAH` command. 
-Following ate the project-specific options:
+Following are the project-specific options:
 
 * ENABLE_CONAN={ON|OFF} - ON by default. The effect of this option is described in the section above.
 * ENABLE_CLIENT={ON|OFF} - ON by default. Indicates whether the C++ client should be built.
