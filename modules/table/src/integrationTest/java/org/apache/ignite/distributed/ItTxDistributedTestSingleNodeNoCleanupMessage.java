@@ -178,7 +178,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                                     txManager.lockManager()
                             );
 
-                            return completedFuture(null);
+                            return completedFuture(new ReplicaResult(null, null));
                         }
                         return super.invoke(request, senderId);
                     }

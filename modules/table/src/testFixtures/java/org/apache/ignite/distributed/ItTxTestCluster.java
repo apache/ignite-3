@@ -336,10 +336,10 @@ public class ItTxTestCluster {
 
             LOG.info("Replica manager has been started, node=[" + node + ']');
 
-            ReplicaService replicaSvc = new ReplicaService(
+            ReplicaService replicaSvc = spy(new ReplicaService(
                     cluster.get(i).messagingService(),
                     clock
-            );
+            ));
 
             replicaServices.put(node.name(), replicaSvc);
 

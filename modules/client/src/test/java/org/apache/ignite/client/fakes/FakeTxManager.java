@@ -195,10 +195,6 @@ public class FakeTxManager implements TxManager {
         return null;
     }
 
-    public @Nullable HybridTimestamp lastObservableTimestamp() {
-        return lastObservableTimestamp;
-    }
-
     @Override
     public boolean addInflight(UUID txId) {
         return false;

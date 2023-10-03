@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -157,7 +158,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** Map of node indexes to transaction managers. */
     private final Map<Integer, TxManager> txManagers = new ConcurrentHashMap<>();
 
-    private final ReplicaService replicaService = mock(ReplicaService.class);
+    private final ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
             -> new ClusterNodeImpl(NODE_NAME, NODE_NAME, new NetworkAddress(addr, 3333));
