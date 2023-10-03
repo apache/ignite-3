@@ -139,13 +139,13 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
@@ -194,6 +194,7 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -292,13 +293,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Mock
     private Schemas schemas;
 
-    private final SchemaSyncService schemaSyncService = mock(SchemaSyncService.class, invocation -> completedFuture(null));
+    @Spy
+    private final SchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
     @Mock
     private CatalogService catalogService;
-
-    @Mock
-    private CatalogTables catalogTables;
 
     @Mock
     private MessagingService messagingService;
@@ -392,7 +391,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
         when(schemas.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
 
-        lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
         int pkIndexId = 1;
         int sortedIndexId = 2;
@@ -489,7 +488,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 mock(IndexBuilder.class),
                 schemaSyncService,
                 catalogService,
-                catalogTables,
                 new TestPlacementDriver(localNode.name())
         );
 
@@ -1278,7 +1276,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .txId(txId)
                         .commit(true)
                         .commitTimestampLong(now.longValue())
-                        .term(1L)
                         .build(),
                     localNode.id()
             );
@@ -1877,8 +1874,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
         when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
 
-        when(catalogTables.table(TABLE_ID, txBeginTs.longValue())).thenReturn(tableVersion1);
-        when(catalogTables.table(eq(TABLE_ID), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
+        when(catalogService.table(TABLE_ID, txBeginTs.longValue())).thenReturn(tableVersion1);
+        when(catalogService.table(eq(TABLE_ID), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, key);
 
@@ -2027,7 +2024,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     .txId(txId)
                     .commit(true)
                     .commitTimestampLong(commitTs.longValue())
-                    .term(1L)
                     .build(),
                 localNode.id()
         ).join();

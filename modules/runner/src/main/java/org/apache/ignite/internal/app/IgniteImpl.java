@@ -582,7 +582,6 @@ public class IgniteImpl implements Ignite {
                 registry,
                 clusterSvc,
                 distributedTblMgr,
-                indexManager,
                 schemaManager,
                 dataStorageMgr,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
@@ -634,8 +633,10 @@ public class IgniteImpl implements Ignite {
                 new ClientHandlerMetricSource(),
                 authenticationManager,
                 authenticationConfiguration,
-                clock
-                );
+                clock,
+                schemaSyncService,
+                catalogManager
+        );
 
         restComponent = createRestComponent(name);
     }

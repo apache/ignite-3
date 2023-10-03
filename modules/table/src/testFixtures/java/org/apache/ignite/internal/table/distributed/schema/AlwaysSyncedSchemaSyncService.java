@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index.event;
+package org.apache.ignite.internal.table.distributed.schema;
 
-import org.apache.ignite.internal.event.Event;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Index management events.
+ * Test implementation of {@link SchemaSyncService} that never waits and always behaves as if the metadata was already in sync for any
+ * passed ts.
  */
-public enum IndexEvent implements Event {
-    /** This event is fired when an index was created. */
-    CREATE,
-
-    /** This event is fired when an index was dropped. */
-    DROP
+public class AlwaysSyncedSchemaSyncService implements SchemaSyncService {
+    @Override
+    public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
+        return completedFuture(null);
+    }
 }
