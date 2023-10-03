@@ -122,13 +122,13 @@ public class ClientApiArchTest {
         var path = Path.of(currentDir);
 
         while (path != null) {
-            if (Files.exists(path.resolve(".git"))) {
+            if (Files.exists(path.resolve("gradlew.bat"))) {
                 return path.toString();
             }
 
             path = path.getParent();
         }
 
-        throw new IllegalStateException("Can't find parent .git directory from " + currentDir);
+        throw new IllegalStateException("Can't find parent project directory from " + currentDir);
     }
 }
