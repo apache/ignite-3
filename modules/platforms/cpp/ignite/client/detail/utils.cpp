@@ -227,7 +227,7 @@ std::vector<std::byte> pack_tuple(
         }
 
         std::stringstream unmapped_columns;
-        for (std::uint32_t i = 0; i < tuple.column_count(); ++i) {
+        for (std::int32_t i = 0; i < tuple.column_count(); ++i) {
             if (written_ind[i])
                 continue;
             auto &name = tuple.column_name(i);
