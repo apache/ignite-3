@@ -149,7 +149,7 @@ public class CatalogSchemaManager implements IgniteComponent {
             int newSchemaVersion = tableDescriptor.tableVersion();
 
             if (searchSchemaByVersion(tableId, newSchemaVersion) != null) {
-                return completedFuture(null);
+                return completedFuture(false);
             }
 
             SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(tableDescriptor);

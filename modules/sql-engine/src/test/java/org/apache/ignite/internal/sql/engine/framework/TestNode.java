@@ -41,17 +41,16 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.LogicalRelImplementor;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.NoOpExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.TestExecutableTableRegistry;
-import org.apache.ignite.internal.sql.engine.exec.TestExecutableTableRegistry.ColocationGroupProvider;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
-import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -97,7 +96,7 @@ public class TestNode implements LifecycleAware {
             String nodeName,
             ClusterService clusterService,
             SqlSchemaManager schemaManager,
-            ColocationGroupProvider colocationGroupProvider
+            MappingService mappingService
     ) {
         this.nodeName = nodeName;
         var ps = new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT, mock(MetricManager.class));
@@ -112,19 +111,18 @@ public class TestNode implements LifecycleAware {
         QueryTaskExecutor taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
 
         MessageService messageService = registerService(new MessageServiceImpl(
-                topologyService, messagingService, taskExecutor, new IgniteSpinBusyLock()
+                topologyService.localMember().name(), messagingService, taskExecutor, new IgniteSpinBusyLock()
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry, messageService
         ));
-        TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
-        executableTableRegistry.setColocatioGroupProvider(colocationGroupProvider);
+        NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
         executionService = registerService(new ExecutionServiceImpl<>(
                 messageService,
                 topologyService,
-                new MappingServiceImpl(topologyService),
+                mappingService,
                 schemaManager,
                 mock(DdlCommandHandler.class),
                 taskExecutor,
