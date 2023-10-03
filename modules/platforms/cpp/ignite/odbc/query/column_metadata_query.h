@@ -47,7 +47,7 @@ struct odbc_column_meta {
     std::optional<std::string> column;
 
     /** Data type. */
-    ignite_type data_type{ignite_type::BOOLEAN};
+    ignite_type data_type{ignite_type::UNDEFINED};
 
     /** Data type name. */
     std::string data_type_name;

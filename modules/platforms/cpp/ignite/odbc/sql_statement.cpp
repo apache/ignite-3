@@ -1010,7 +1010,7 @@ sql_result sql_statement::internal_describe_param(
 
     // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (decimal_digits)
-        *decimal_digits = int16_t(ignite_type_decimal_digits(type));
+        *decimal_digits = int16_t(ignite_type_decimal_digits(type, -1));
 
     // TODO: IGNITE-19854 Implement meta fetching for a parameter
     if (nullable)

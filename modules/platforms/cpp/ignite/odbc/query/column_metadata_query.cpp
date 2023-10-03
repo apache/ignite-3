@@ -240,12 +240,7 @@ sql_result column_metadata_query::get_column(std::uint16_t column_idx, applicati
         }
 
         case result_column::DECIMAL_DIGITS: {
-            if (current_column.data_type == ignite_type::DECIMAL || current_column.data_type == ignite_type::NUMBER) {
-                buffer.put_int16(std::int16_t(current_column.scale));
-                break;
-            }
-
-            std::int32_t dec_digits = ignite_type_decimal_digits(current_column.data_type);
+            std::int32_t dec_digits = ignite_type_decimal_digits(current_column.data_type, current_column.scale);
             if (dec_digits < 0)
                 buffer.put_null();
             else
