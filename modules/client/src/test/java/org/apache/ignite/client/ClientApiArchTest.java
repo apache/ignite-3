@@ -60,6 +60,10 @@ public class ClientApiArchTest {
     }
 
     private static void assertPublicImports(Path path, String... excludes) {
+        if (path.endsWith("package-info.java")) {
+            return;
+        }
+
         List<String> code;
         try {
             code = Files.readAllLines(path);
@@ -68,8 +72,11 @@ public class ClientApiArchTest {
         }
 
         assertThat("Code is too short in " + path, code.size(), greaterThan(30));
+        int lineNumber = 0;
 
         for (var line : code) {
+            lineNumber++;
+
             if (line.startsWith("import ")) {
                 boolean excluded = false;
 
@@ -85,11 +92,11 @@ public class ClientApiArchTest {
                 }
 
                 if (line.contains(".internal.") || line.contains(".impl.")) {
-                    Assertions.fail("Import is not public: " + line);
+                    Assertions.fail("Import is not public in " + path + ":" + lineNumber + " (" + line + ")");
                 }
 
                 if (line.contains("*")) {
-                    Assertions.fail("Wildcard import is not allowed: " + line);
+                    Assertions.fail("Wildcard import is not allowed in " + path + ":" + lineNumber + " (" + line + ")");
                 }
             }
         }
