@@ -123,11 +123,13 @@ public class WatchProcessor implements ManuallyCloseable {
 
     /**
      * Notifies registered watches about an update event.
+     *
+     * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.
      */
-    public void notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
+    public CompletableFuture<Void> notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
-        notificationFuture = notificationFuture
+        CompletableFuture<Void> newFuture = notificationFuture
                 .thenComposeAsync(v -> {
                     // Revision must be the same for all entries.
                     long newRevision = updatedEntries.get(0).revision();
@@ -142,12 +144,14 @@ public class WatchProcessor implements ManuallyCloseable {
                                 // Revision update is triggered strictly after all watch listeners have been notified.
                                 CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
-                                return allOf(notifyWatchesFuture, notifyUpdateRevisionFuture);
-                            }, watchExecutor)
-                            .thenComposeAsync(ignored ->
-                                    invokeOnRevisionCallback(watchesAndEventsFuture, newRevision, time), watchExecutor
-                            );
+                                return allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
+                                        .thenComposeAsync(v2 -> invokeOnRevisionCallback(watchAndEvents, newRevision, time), watchExecutor);
+                            }, watchExecutor);
                 }, watchExecutor);
+
+        notificationFuture = newFuture;
+
+        return newFuture;
     }
 
 
@@ -158,16 +162,15 @@ public class WatchProcessor implements ManuallyCloseable {
 
         CompletableFuture<?>[] notifyWatchFutures = new CompletableFuture[watchAndEventsList.size()];
 
-        int i = 0;
+        for (int i = 0; i < watchAndEventsList.size(); i++) {
+            WatchAndEvents watchAndEvents = watchAndEventsList.get(i);
 
-        for (WatchAndEvents watchAndEvents : watchAndEventsList) {
             CompletableFuture<Void> notifyWatchFuture;
 
             try {
-                if (watchAndEvents.events.isEmpty()) {
-                    notifyWatchFuture = completedFuture(null);
-                } else {
-                    notifyWatchFuture = watchAndEvents.watch.onUpdate(new WatchEvent(watchAndEvents.events, revision, time))
+                var event = new WatchEvent(watchAndEvents.events, revision, time);
+
+                notifyWatchFuture = watchAndEvents.watch.onUpdate(event)
                             .whenComplete((v, e) -> {
                                 if (e != null) {
                                     if (e instanceof CompletionException) {
@@ -180,22 +183,25 @@ public class WatchProcessor implements ManuallyCloseable {
                                     watchAndEvents.watch.onError(e);
                                 }
                             });
-                }
             } catch (Throwable throwable) {
                 watchAndEvents.watch.onError(throwable);
 
                 notifyWatchFuture = failedFuture(throwable);
             }
 
-            notifyWatchFutures[i++] = notifyWatchFuture;
+            notifyWatchFutures[i] = notifyWatchFuture;
         }
 
         return allOf(notifyWatchFutures);
     }
 
     private CompletableFuture<List<WatchAndEvents>> collectWatchesAndEvents(List<Entry> updatedEntries, long revision) {
+        if (watches.isEmpty()) {
+            return completedFuture(List.of());
+        }
+
         return supplyAsync(() -> {
-            List<WatchAndEvents> watchAndEvents = List.of();
+            var watchAndEvents = new ArrayList<WatchAndEvents>();
 
             for (Watch watch : watches) {
                 List<EntryEvent> events = List.of();
@@ -216,8 +222,8 @@ public class WatchProcessor implements ManuallyCloseable {
                     }
                 }
 
-                if (watchAndEvents.isEmpty()) {
-                    watchAndEvents = new ArrayList<>();
+                if (events.isEmpty()) {
+                    continue;
                 }
 
                 watchAndEvents.add(new WatchAndEvents(watch, events));
@@ -227,18 +233,12 @@ public class WatchProcessor implements ManuallyCloseable {
         }, watchExecutor);
     }
 
-    private CompletableFuture<Void> invokeOnRevisionCallback(
-            CompletableFuture<List<WatchAndEvents>> watchAndEventsFuture,
-            long revision,
-            HybridTimestamp time
-    ) {
+    private CompletableFuture<Void> invokeOnRevisionCallback(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
         try {
             // Only notify about entries that have been accepted by at least one Watch.
             var acceptedEntries = new HashSet<EntryEvent>();
 
-            assert watchAndEventsFuture.isDone();
-
-            for (WatchAndEvents watchAndEvents : watchAndEventsFuture.join()) {
+            for (WatchAndEvents watchAndEvents : watchAndEventsList) {
                 acceptedEntries.addAll(watchAndEvents.events);
             }
 
@@ -261,6 +261,8 @@ public class WatchProcessor implements ManuallyCloseable {
 
     /**
      * Advances safe time without notifying watches (as there is no new revision).
+     *
+     * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.
      */
     public void advanceSafeTime(HybridTimestamp time) {
         assert time != null;
