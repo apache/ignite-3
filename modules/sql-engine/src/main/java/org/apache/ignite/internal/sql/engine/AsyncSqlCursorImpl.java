@@ -72,7 +72,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
             if (t != null) {
                 // Always rollback a transaction in case of an error.
-                txWrapper.unwrap().rollback();
+                txWrapper.rollback();
 
                 throw new CompletionException(wrapIfNecessary(t));
             }
