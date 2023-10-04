@@ -334,36 +334,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     );
         };
 
-        if (!commit) {
-            AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
-            TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
-                if (tuple0 == null) {
-                    tuple0 = new TxContext(); // No writes enlisted.
-                }
-
-                if (tuple0.finishFut == null) {
-                    tuple0.finishFut = new CompletableFuture<>();
-                    ref.set(tuple0.finishFut);
-                }
-
-                return tuple0;
-            });
-
-            if (ref.get() != null) { // This is aborting thread.
-                clo.apply(null).handle((ignored, err) -> {
-                    if (err == null) {
-                        tuple.finishFut.complete(null);
-                    } else {
-                        tuple.finishFut.completeExceptionally(err);
-                    }
-                    return null;
-                });
-            }
-
-            return tuple.finishFut;
-        }
-
-        // Wait for commit acks first, then proceed with the finish request.
         AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
@@ -378,20 +348,33 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return tuple0;
         });
 
-        if (ref.get() != null) { // This is committing thread.
-            // All inflights have been completed before the finish.
-            if (tuple.inflights == 0) {
-                tuple.waitRepFut.complete(null);
-            }
+        if (ref.get() != null) { // This is a finishing thread.
+            if (!commit) {
+                clo.apply(null).handle((ignored, err) -> {
+                    if (err == null) {
+                        tuple.finishFut.complete(null);
+                    } else {
+                        tuple.finishFut.completeExceptionally(err);
+                    }
+                    return null;
+                });
+            } else {
 
-            return tuple.waitRepFut.thenCompose(clo).handle((ignored, err) -> {
-                if (err == null) {
-                    tuple.finishFut.complete(null);
-                } else {
-                    tuple.finishFut.completeExceptionally(err);
+                // All inflights have been completed before the finish.
+                if (tuple.inflights == 0) {
+                    tuple.waitRepFut.complete(null);
                 }
-                return null;
-            });
+
+                // Wait for commit acks first, then proceed with the finish request.
+                tuple.waitRepFut.thenCompose(clo).handle((ignored, err) -> {
+                    if (err == null) {
+                        tuple.finishFut.complete(null);
+                    } else {
+                        tuple.finishFut.completeExceptionally(err);
+                    }
+                    return null;
+                });
+            }
         }
 
         return tuple.finishFut;
@@ -507,15 +490,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return tuple;
         });
 
-        // LOG.info("DBG: add {} {} {}", txId.toString(), txCtxMap.size(), this.hashCode());
-
         return res[0];
     }
 
     @Override
     public void removeInflight(UUID txId) {
         TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-            assert ctx != null;
+            assert ctx != null && ctx.inflights > 0;
 
             //noinspection NonAtomicOperationOnVolatileField
             ctx.inflights--;
@@ -526,8 +507,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (tuple.inflights == 0 && tuple.finishFut != null) {
             tuple.waitRepFut.complete(null); // Avoid completion under lock.
         }
-
-        // LOG.info("DBG: remove {} {}", txId.toString(), txCtxMap.size());
     }
 
     @Override

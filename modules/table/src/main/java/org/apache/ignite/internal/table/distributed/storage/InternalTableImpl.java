@@ -557,10 +557,7 @@ public class InternalTableImpl implements InternalTable {
             if (e != null) {
                 RuntimeException e0 = wrapReplicationException(e);
 
-                //LOGGER.info("DBG: before auto rollback {}", tx0.id());
                 return tx0.rollbackAsync().handle((ignored, err) -> {
-                    //LOGGER.info("DBG: auto rollback {}", tx0.id());
-
                     if (err != null) {
                         e0.addSuppressed(err);
                     }
