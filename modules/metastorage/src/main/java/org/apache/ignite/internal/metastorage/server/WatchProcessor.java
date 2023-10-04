@@ -305,16 +305,17 @@ public class WatchProcessor implements ManuallyCloseable {
 
     /** Explicitly notifies revision update listeners. */
     public CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
-        if (revisionUpdateListeners.isEmpty()) {
-            return completedFuture(null);
-        }
-
-        var futures = new ArrayList<CompletableFuture<?>>();
+        // Lazy set.
+        List<CompletableFuture<?>> futures = List.of();
 
         for (RevisionUpdateListener listener : revisionUpdateListeners) {
+            if (futures.isEmpty()) {
+                futures = new ArrayList<>();
+            }
+
             futures.add(listener.onUpdated(newRevision));
         }
 
-        return allOf(futures.toArray(CompletableFuture[]::new));
+        return futures.isEmpty() ? completedFuture(null) : allOf(futures.toArray(CompletableFuture[]::new));
     }
 }
