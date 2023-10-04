@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-integration-test.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+package org.apache.ignite.internal.failure.handlers;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-api')
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-
-    testImplementation(testFixtures(project(':ignite-core')))
+/**
+ * Provides facility to handle failures.
+ */
+public interface FailureHandler {
+    /**
+     * Handles failure occurred on {@code ignite} instance.
+     * Failure details is contained in {@code failureCtx}.
+     * Returns {@code true} if Ignite node must be invalidated by {@link FailureProcessor} after calling this method.
+     *
+     * @param nodeName Node name.
+     * @param failureCtx Failure context.
+     * @return Whether Ignite node must be invalidated or not.
+     */
+    boolean onFailure(String nodeName, FailureContext failureCtx);
 }
-
-description = 'ignite-failure-handler'
