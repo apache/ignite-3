@@ -122,10 +122,18 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     /**
-     * Notifies registered watches about an update event.
+     * Queues the following set of actions that will be executed after the previous invocation of this method completes:
+     *
+     * <ol>
+     *     <li>Notifies all registered watches about the changed entries;</li>
+     *     <li>Notifies all registered revision listeners about the new revision;</li>
+     *     <li>After all above notifications are processed, notifies about the Safe Time update.</li>
+     * </ol>
      *
      * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.
      *
+     * @param updatedEntries Entries that were changed during a Meta Storage update.
+     * @param time Timestamp of the Meta Storage update.
      * @return Future that gets completed when all registered watches have been notified of the given event.
      */
     public CompletableFuture<Void> notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
@@ -297,17 +305,16 @@ public class WatchProcessor implements ManuallyCloseable {
 
     /** Explicitly notifies revision update listeners. */
     public CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
-        // Lazy set.
-        List<CompletableFuture<?>> futures = List.of();
+        if (revisionUpdateListeners.isEmpty()) {
+            return completedFuture(null);
+        }
+
+        var futures = new ArrayList<CompletableFuture<?>>();
 
         for (RevisionUpdateListener listener : revisionUpdateListeners) {
-            if (futures.isEmpty()) {
-                futures = new ArrayList<>();
-            }
-
             futures.add(listener.onUpdated(newRevision));
         }
 
-        return futures.isEmpty() ? completedFuture(null) : allOf(futures.toArray(CompletableFuture[]::new));
+        return allOf(futures.toArray(CompletableFuture[]::new));
     }
 }
