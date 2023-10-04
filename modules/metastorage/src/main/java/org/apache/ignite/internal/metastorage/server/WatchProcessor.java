@@ -48,8 +48,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Class for storing and notifying Meta Storage Watches.
  *
  * <p>Every Meta Storage update is processed by each registered Watch in parallel, however notifications for a single Watch are
- * linearised (Watches are always notified of one event at a time and in increasing order of revisions). It is also guaranteed that
- * Watches will not get notified of a new revision until all Watches have finished processing a previous revision.
+ * linearised (Watches are always notified of one event at a time and in increasing order of revisions). It is also guaranteed that Watches
+ * will not get notified of a new revision until all Watches have finished processing a previous revision.
  */
 public class WatchProcessor implements ManuallyCloseable {
     /** Reads an entry from the storage using a given key and revision. */
@@ -125,6 +125,8 @@ public class WatchProcessor implements ManuallyCloseable {
      * Notifies registered watches about an update event.
      *
      * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.
+     *
+     * @return Future that gets completed when all registered watches have been notified of the given event.
      */
     public CompletableFuture<Void> notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
@@ -145,7 +147,10 @@ public class WatchProcessor implements ManuallyCloseable {
                                 CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
                                 return allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
-                                        .thenComposeAsync(v2 -> invokeOnRevisionCallback(watchAndEvents, newRevision, time), watchExecutor);
+                                        .thenComposeAsync(
+                                                unused -> invokeOnRevisionCallback(watchAndEvents, newRevision, time),
+                                                watchExecutor
+                                        );
                             }, watchExecutor);
                 }, watchExecutor);
 
@@ -153,7 +158,6 @@ public class WatchProcessor implements ManuallyCloseable {
 
         return newFuture;
     }
-
 
     private static CompletableFuture<Void> notifyWatches(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
         if (watchAndEventsList.isEmpty()) {
@@ -171,18 +175,18 @@ public class WatchProcessor implements ManuallyCloseable {
                 var event = new WatchEvent(watchAndEvents.events, revision, time);
 
                 notifyWatchFuture = watchAndEvents.watch.onUpdate(event)
-                            .whenComplete((v, e) -> {
-                                if (e != null) {
-                                    if (e instanceof CompletionException) {
-                                        e = e.getCause();
-                                    }
-
-                                    // TODO: IGNITE-14693 Implement Meta storage exception handling
-                                    LOG.error("Error occurred when processing a watch event", e);
-
-                                    watchAndEvents.watch.onError(e);
+                        .whenComplete((v, e) -> {
+                            if (e != null) {
+                                if (e instanceof CompletionException) {
+                                    e = e.getCause();
                                 }
-                            });
+
+                                // TODO: IGNITE-14693 Implement Meta storage exception handling
+                                LOG.error("Error occurred when processing a watch event", e);
+
+                                watchAndEvents.watch.onError(e);
+                            }
+                        });
             } catch (Throwable throwable) {
                 watchAndEvents.watch.onError(throwable);
 
@@ -222,11 +226,9 @@ public class WatchProcessor implements ManuallyCloseable {
                     }
                 }
 
-                if (events.isEmpty()) {
-                    continue;
+                if (!events.isEmpty()) {
+                    watchAndEvents.add(new WatchAndEvents(watch, events));
                 }
-
-                watchAndEvents.add(new WatchAndEvents(watch, events));
             }
 
             return watchAndEvents;
@@ -255,7 +257,7 @@ public class WatchProcessor implements ManuallyCloseable {
         } catch (Throwable e) {
             LOG.error("Error occurred when notifying watches", e);
 
-            throw e;
+            return failedFuture(e);
         }
     }
 
