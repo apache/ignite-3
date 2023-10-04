@@ -147,12 +147,9 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -779,12 +776,21 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             vaultManager = createVault(name, dir);
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
-                    NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY
+                    List.of(
+                            NetworkConfiguration.KEY,
+                            RestConfiguration.KEY,
+                            ClientConnectorConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY),
+                    List.of(),
+                    List.of(UnsafeMemoryAllocatorConfigurationSchema.class)
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator),
@@ -864,24 +870,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
 
-            clusterCfgGenerator = new ConfigurationTreeGenerator(
-                    List.of(
-                            PersistentPageMemoryStorageEngineConfiguration.KEY,
-                            VolatilePageMemoryStorageEngineConfiguration.KEY,
-                            GcConfiguration.KEY
-                    ),
-                    List.of(),
-                    List.of(
-                            VolatilePageMemoryDataStorageConfigurationSchema.class,
-                            UnsafeMemoryAllocatorConfigurationSchema.class,
-                            PersistentPageMemoryDataStorageConfigurationSchema.class,
-                            TestDataStorageConfigurationSchema.class
-                    )
-            );
+            clusterCfgGenerator = new ConfigurationTreeGenerator(GcConfiguration.KEY);
+
             clusterCfgMgr = new ConfigurationManager(
                     List.of(
-                            PersistentPageMemoryStorageEngineConfiguration.KEY,
-                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     cfgStorage,
@@ -907,7 +899,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
-                            clusterConfigRegistry,
+                            nodeCfgMgr.configurationRegistry(),
                             dir.resolve("storage"),
                             null
                     )

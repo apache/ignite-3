@@ -507,7 +507,7 @@ public class IgniteImpl implements Ignite {
         dataStorageMgr = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterConfigRegistry,
+                        nodeConfigRegistry,
                         storagePath,
                         longJvmPauseDetector
                 )
@@ -585,7 +585,7 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 schemaManager,
                 dataStorageMgr,
-                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
                 catalogManager,

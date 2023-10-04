@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine.ENGINE_NAME;
 
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -31,7 +31,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEn
 /**
  * Root configuration for {@link VolatilePageMemoryStorageEngine}.
  */
-@ConfigurationRoot(rootName = ENGINE_NAME, type = DISTRIBUTED)
+@ConfigurationRoot(rootName = ENGINE_NAME, type = LOCAL)
 public class VolatilePageMemoryStorageEngineConfigurationSchema extends BasePageMemoryStorageEngineConfigurationSchema {
     /** Default data region. */
     @Name(DEFAULT_DATA_REGION_NAME)

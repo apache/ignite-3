@@ -15,29 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.impl;
+package org.apache.ignite.internal.storage.rocksdb.configuration;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 
 /**
- * Implementation for {@link TestStorageEngine}.
+ * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-rocksdb.
  */
 @AutoService(ConfigurationModule.class)
-public class TestStorageEngineDistributedConfigurationModule implements ConfigurationModule {
+public class RocksDbStorageEngineLocalConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
+        return ConfigurationType.LOCAL;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return List.of(RocksDbStorageEngineConfiguration.KEY);
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(TestDataStorageConfigurationSchema.class);
+        return List.of(RocksDbDataStorageConfigurationSchema.class);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(RocksDbDataRegionValidatorImpl.INSTANCE);
     }
 }

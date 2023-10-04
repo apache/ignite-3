@@ -28,11 +28,11 @@ import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAl
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-page-memory.
  */
 @AutoService(ConfigurationModule.class)
-public class PageMemoryDistributedConfigurationModule implements ConfigurationModule {
+public class PageMemoryLocalConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
+        return ConfigurationType.LOCAL;
     }
 
     /** {@inheritDoc} */
