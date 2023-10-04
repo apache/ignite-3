@@ -269,7 +269,7 @@ public class TxManagerImpl implements TxManager {
 
         // If there are no enlisted groups, just return - we already marked the tx as finished.
         boolean finishRequestNeeded = !enlistedGroups.isEmpty();
-        System.out.println(">>> finishRequestNeeded = " + finishRequestNeeded);
+
         if (!finishRequestNeeded) {
             updateTxMeta(txId, old -> {
                 TxStateMeta finalStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
@@ -288,10 +288,8 @@ public class TxManagerImpl implements TxManager {
         CompletableFuture<Void> verificationFuture =
                 commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : completedFuture(null);
 
-        // TODO: sanpwc do it in a proper place.
-        observableTimestampTracker.update(commitTimestamp);
-
-        return verificationFuture.handle((unused, throwable) -> {
+        return verificationFuture.handle(
+                (unused, throwable) -> {
                     // TODO: sanpwc tmp
                     Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>();
                     // TODO: sanpwc tmp cast
@@ -302,25 +300,32 @@ public class TxManagerImpl implements TxManager {
                             // In case of verification future failure transaction will be rolled back.
                             .commit(throwable == null && commit).commitTimestampLong(hybridTimestampToLong(commitTimestamp)).term(term).build();
 
-                    return replicaService.invoke(recipientNode, req).thenRun(() -> updateTxMeta(txId, old -> {
-                        if (isFinalState(old.txState())) {
-                            finishingStateMeta.txFinishFuture().complete(old);
+                    return replicaService.invoke(recipientNode, req).thenRun(
+                            () -> {
+                                updateTxMeta(txId, old -> {
+                                    if (isFinalState(old.txState())) {
+                                        finishingStateMeta.txFinishFuture().complete(old);
 
-                            return old;
-                        }
+                                        return old;
+                                    }
 
-                        assert old instanceof TxStateMetaFinishing;
+                                    assert old instanceof TxStateMetaFinishing;
 
-                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+                                    TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
 
-                        finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+                                    finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
 
-                        return finalTxStateMeta;
-                    }));
-                }).thenCompose(Function.identity())
+                                    return finalTxStateMeta;
+                                });
+
+                                if (commit) {
+                                    observableTimestampTracker.update(commitTimestamp);
+                                }
+                            });
+                })
+                .thenCompose(Function.identity())
                 // verification future is added in order to share proper exception with the client
                 .thenCompose(ignored -> verificationFuture);
-
     }
 
     @Override
