@@ -82,8 +82,11 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 IgniteTestUtils.waitForCondition(() -> metrics.connectionsActive() == 0, 1000),
                 () -> "connectionsActive: " + metrics.connectionsActive());
 
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == (gracefulDisconnect ? 0 : 1), 1000),
+                () -> "connectionsLost: " + metrics.connectionsLost());
+
         assertEquals(1, metrics.connectionsEstablished());
-        assertEquals(gracefulDisconnect ? 0 : 1, metrics.connectionsLost());
     }
 
     @Test

@@ -30,7 +30,7 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.lang.IgniteExceptionMapper;
 import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
-import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
+import org.apache.ignite.internal.sql.engine.exec.RemoteFragmentExecutionException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 

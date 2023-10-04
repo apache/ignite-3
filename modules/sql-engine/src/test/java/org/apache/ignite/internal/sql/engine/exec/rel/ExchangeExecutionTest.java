@@ -47,12 +47,12 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.ClusterServiceFactory;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -483,7 +483,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> targetCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
                 .localNode(localNode)
                 .build();
 
@@ -527,7 +527,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
                 .localNode(localNode)
                 .build();
 
@@ -559,7 +559,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
                 .localNode(localNode)
                 .build();
 
@@ -601,7 +601,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             MailboxRegistry mailboxRegistry
     ) {
         MessageService messageService = new MessageServiceImpl(
-                clusterService.topologyService(),
+                clusterService.topologyService().localMember().name(),
                 clusterService.messagingService(),
                 taskExecutor,
                 new IgniteSpinBusyLock()

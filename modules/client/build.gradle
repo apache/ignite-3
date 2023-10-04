@@ -21,7 +21,7 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 dependencies {
     api project(':ignite-api')
-    api project(':ignite-core')
+    implementation project(':ignite-core')
     implementation project(':ignite-binary-tuple')
     implementation project(':ignite-client-common')
     implementation project(':ignite-marshaller-common')
@@ -51,9 +51,11 @@ dependencies {
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-security')
     testImplementation project(':ignite-metrics')
+    testImplementation project(':ignite-catalog')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-sql-engine')))
+    testImplementation(testFixtures(project(':ignite-table')))
     testImplementation libs.hamcrest.core
     testImplementation libs.junit5.params
     testImplementation libs.mockito.junit

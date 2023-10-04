@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -48,7 +49,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -256,22 +256,20 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        boolean implicit = tx == null;
-
-        InternalTransaction tx0 = implicit ? txManager.begin(observableTimestampTracker) : tx;
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
 
         int partId = partitionId(row);
 
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
+        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = actualTx.enlistedNodeAndTerm(partGroupId);
 
         CompletableFuture<R> fut;
 
         if (primaryReplicaAndTerm != null) {
-            assert !implicit;
+            assert !actualTx.implicit();
 
-            ReplicaRequest request = fac.apply(tx, partGroupId, primaryReplicaAndTerm.get2());
+            ReplicaRequest request = fac.apply(actualTx, partGroupId, primaryReplicaAndTerm.get2());
 
             try {
                 fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
@@ -281,10 +279,10 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx0, partId, term -> fac.apply(tx0, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
-        return postEnlist(fut, false, tx0, implicit);
+        return postEnlist(fut, false, actualTx, actualTx.implicit());
     }
 
     /**
@@ -314,19 +312,19 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        boolean implicit = tx == null;
-
         // It's possible to have null txState if transaction isn't started yet.
-        if (!implicit && !(tx.state() == TxState.PENDING || tx.state() == null)) {
+        if (tx != null && !(tx.state() == TxState.PENDING || tx.state() == null)) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
 
-        InternalTransaction tx0 = implicit ? txManager.begin(observableTimestampTracker) : tx;
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         boolean singlePart = rowBatchByPartitionId.size() == 1;
+
+        boolean implicit = actualTx.implicit();
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
             int partitionId = partitionRowBatch.getIntKey();
@@ -334,13 +332,13 @@ public class InternalTableImpl implements InternalTable {
 
             TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
 
-            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
+            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = actualTx.enlistedNodeAndTerm(partGroupId);
 
             CompletableFuture<Object> fut;
 
             if (primaryReplicaAndTerm != null) {
                 assert !implicit;
-                ReplicaRequest request = fac.apply(rowBatch.requestedRows, tx0, partGroupId, primaryReplicaAndTerm.get2(), false);
+                ReplicaRequest request = fac.apply(rowBatch.requestedRows, actualTx, partGroupId, primaryReplicaAndTerm.get2(), false);
 
                 try {
                     fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
@@ -351,9 +349,9 @@ public class InternalTableImpl implements InternalTable {
                 }
             } else {
                 fut = enlistWithRetry(
-                        tx0,
+                        actualTx,
                         partitionId,
-                        term -> fac.apply(rowBatch.requestedRows, tx0, partGroupId, term, implicit && singlePart),
+                        term -> fac.apply(rowBatch.requestedRows, actualTx, partGroupId, term, implicit && singlePart),
                         ATTEMPTS_TO_ENLIST_PARTITION
                 );
             }
@@ -363,7 +361,11 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
-        return postEnlist(fut, implicit && !singlePart, tx0, implicit && singlePart);
+        return postEnlist(fut, implicit && !singlePart, actualTx, implicit && singlePart);
+    }
+
+    private InternalTransaction startImplicitTxIfNeeded(@Nullable InternalTransaction tx) {
+        return tx == null ? txManager.beginImplicit(observableTimestampTracker) : tx;
     }
 
     /**
@@ -711,7 +713,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker);
+        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         CompletableFuture<Void> fut = enlistWithRetry(
@@ -1070,13 +1072,13 @@ public class InternalTableImpl implements InternalTable {
 
         validatePartitionIndex(partId);
 
-        boolean implicit = tx == null;
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
 
-        InternalTransaction tx0 = implicit ? txManager.begin(observableTimestampTracker) : tx;
+        boolean implicit = actualTx.implicit();
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> enlistCursorInTx(
-                        tx0,
+                        actualTx,
                         partId,
                         scanId,
                         batchSize,
@@ -1088,7 +1090,7 @@ public class InternalTableImpl implements InternalTable {
                         columnsToInclude,
                         implicit
                 ),
-                (commit, fut) -> postEnlist(fut, commit, tx0, implicit && !commit)
+                (commit, fut) -> postEnlist(fut, commit, actualTx, implicit && !commit)
         );
     }
 
@@ -1203,8 +1205,12 @@ public class InternalTableImpl implements InternalTable {
         entries.sort(Comparator.comparingInt(Entry::getIntKey));
 
         for (Entry<RaftGroupService> e : entries) {
-            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(e.getValue().groupId(), clock.now())
-                    .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS);
+            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
+                    e.getValue().groupId(),
+                    clock.now(),
+                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                    SECONDS
+            );
 
             result.add(f.thenApply(primaryReplica -> {
                 ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
@@ -1390,8 +1396,12 @@ public class InternalTableImpl implements InternalTable {
 
         HybridTimestamp now = clock.now();
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(tablePartitionId, now)
-                .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
+                tablePartitionId,
+                now,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                SECONDS
+        );
 
         return primaryReplicaFuture.handle((primaryReplica, e) -> {
             if (e != null) {
@@ -1597,8 +1607,8 @@ public class InternalTableImpl implements InternalTable {
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now())
-                .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS).handle((res, e) -> {
+        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+                .handle((res, e) -> {
                     if (e != null) {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                     } else {
