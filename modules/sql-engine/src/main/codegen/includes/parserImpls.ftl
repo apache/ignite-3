@@ -650,3 +650,32 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
     }
 }
+
+SqlNode SqlStartTransaction() :
+{
+    final Span s;
+}
+{
+    <START> { s = span(); }
+    <TRANSACTION>
+    <READ>
+    (
+      <ONLY> {
+        return new IgniteSqlStartTransaction(s.end(this), true);
+      }
+      |
+      <WRITE> {
+        return new IgniteSqlStartTransaction(s.end(this), false);
+      }
+    )
+}
+
+SqlNode SqlCommitTransaction() :
+{
+    final Span s;
+}
+{
+    <COMMIT> { s = span(); } {
+       return new IgniteSqlCommitTransaction(s.end(this));
+    }
+}
