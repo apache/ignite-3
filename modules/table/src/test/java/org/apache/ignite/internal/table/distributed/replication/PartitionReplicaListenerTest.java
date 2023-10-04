@@ -1414,7 +1414,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                 .groupId(grpId)
                 .txId(txId)
-                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .groups(Set.of(grpId))
                 .commit(false)
                 .term(1L)
                 .build();
@@ -1478,7 +1478,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                 .groupId(grpId)
                 .txId(txId)
-                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .groups(Set.of(grpId))
                 .commit(true)
                 .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                 .term(1L)
