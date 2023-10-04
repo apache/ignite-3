@@ -73,11 +73,11 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests for the read-only API.
+ * Tests for the internal table API.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItRoReadsTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItRoReadsTest.class);
+public class ItInternalTableTest extends BaseIgniteAbstractTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ItInternalTableTest.class);
 
     private static final String TABLE_NAME = "SOME_TABLE";
 
