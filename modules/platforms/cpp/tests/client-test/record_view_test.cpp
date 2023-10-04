@@ -267,8 +267,8 @@ TEST_F(record_view_test, extra_mapping_value_throws) {
             try {
                 wrong_view.upsert(nullptr, val);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr(
-                      "Tuple contains columns that are not present in the table: extra"));
+                EXPECT_THAT(e.what_str(), testing::MatchesRegex(
+                    "Key tuple doesn't match schema: schemaVersion=\\d+, extraColumns=extra"));
                 throw;
             }
         },
