@@ -31,6 +31,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_O
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -275,7 +276,7 @@ public class TxManagerImpl implements TxManager {
 
         // If there are no enlisted groups, just return - we already marked the tx as finished.
         boolean finishRequestNeeded = !enlistedGroups.isEmpty();
-
+        System.out.println(">>> finishRequestNeeded = " + finishRequestNeeded);
         if (!finishRequestNeeded) {
             updateTxMeta(txId, old -> {
                 TxStateMeta finalStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
@@ -294,14 +295,21 @@ public class TxManagerImpl implements TxManager {
         CompletableFuture<Void> verificationFuture =
                 commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : completedFuture(null);
 
+        // TODO: sanpwc do it in a proper place.
+        observableTimestampTracker.update(commitTimestamp);
+
         return verificationFuture
                 .handle((unused, throwable) -> {
+                            // TODO: sanpwc tmp
+                            Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>();
+                            // TODO: sanpwc tmp cast
+                            replicationGroupIds.addAll((Collection<ReplicationGroupId>) (Collection<?>) enlistedGroups.keySet());
+
                             TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                                     .txId(txId)
                                     .timestampLong(clock.nowLong())
                                     .groupId(commitPartition)
-                                    // TODO: sanpwc tmp cast
-                                    .groups((Collection<ReplicationGroupId>) (Collection<?>) enlistedGroups.keySet())
+                                    .groups(replicationGroupIds)
                                     // In case of verification future failure transaction will be rolled back.
                                     .commit(throwable == null && commit)
                                     .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
@@ -327,8 +335,10 @@ public class TxManagerImpl implements TxManager {
                                             })
                                     );
                         }
-                        // verification future is added in order to share proper exception with the client
-                ).thenCompose(ignored -> verificationFuture);
+                ).thenCompose(Function.identity())
+                // verification future is added in order to share proper exception with the client
+                .thenCompose(ignored -> verificationFuture);
+
     }
 
     @Override
