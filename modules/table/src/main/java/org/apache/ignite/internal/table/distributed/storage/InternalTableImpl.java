@@ -484,13 +484,24 @@ public class InternalTableImpl implements InternalTable {
         return result;
     }
 
+    /**
+     * Invoke replica with additional tracking for writes.
+     *
+     * @param tx The transaction.
+     * @param partId Partition id.
+     * @param mapFunc Request factory.
+     * @param full {@code True} for a full transaction.
+     * @param primaryReplicaAndTerm Replica and term.
+     * @param noWriteChecker Used to handle operations producing no updates.
+     * @return The future.
+     */
     private <R> CompletableFuture<R> trackingInvoke(
             InternalTransaction tx,
             int partId,
             Function<Long, ReplicaRequest> mapFunc,
             boolean full,
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm,
-            @Nullable BiPredicate<R, ReplicaRequest> noOpChecker
+            @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
         ReplicaRequest request = mapFunc.apply(primaryReplicaAndTerm.get2());
 
@@ -513,10 +524,10 @@ public class InternalTableImpl implements InternalTable {
             }
 
             return replicaSvc.<R>invoke(primaryReplicaAndTerm.get1(), request).thenApply(res -> {
-                assert noOpChecker != null;
+                assert noWriteChecker != null;
 
                 // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                if (noOpChecker.test(res, request)) {
+                if (noWriteChecker.test(res, request)) {
                     txManager.removeInflight(tx.id());
                 }
 

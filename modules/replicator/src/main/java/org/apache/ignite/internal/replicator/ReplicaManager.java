@@ -64,6 +64,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -285,14 +286,8 @@ public class ReplicaManager implements IgniteComponent {
                             msg0 = prepareReplicaErrorResponse(finalSendTimestamp, ex);
                         }
 
-                        ClusterNode sender = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId);
-
-                        if (sender != null) {
-                            // Using strong send here is important to avoid a reordering with a normal response.
-                            clusterNetSvc.messagingService().send(sender, msg0);
-                        } else {
-                            LOG.warn("Failed to send delayed response, recipient is off the cluster topology [msg={}]", msg0);
-                        }
+                        // Using strong send here is important to avoid a reordering with a normal response.
+                        clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
 
                         return null;
                     });
