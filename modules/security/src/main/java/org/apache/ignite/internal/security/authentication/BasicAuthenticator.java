@@ -19,7 +19,6 @@ package org.apache.ignite.internal.security.authentication;
 
 /** Implementation of basic authenticator. */
 class BasicAuthenticator implements Authenticator {
-
     private final String username;
 
     private final String password;

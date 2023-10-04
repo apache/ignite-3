@@ -22,34 +22,30 @@ import io.micronaut.security.authentication.AuthenticationProvider;
 import io.micronaut.security.authentication.AuthenticationRequest;
 import io.micronaut.security.authentication.AuthenticationResponse;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
-import org.apache.ignite.internal.security.authentication.Authenticator;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
-import org.apache.ignite.security.AuthenticationException;
+import org.apache.ignite.security.authentication.AuthenticationException;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
 /**
- * Implementation of {@link AuthenticationProvider}. Creates a list of {@link Authenticator} according to provided
- * {@link AuthenticationConfiguration} and updates them on configuration changes. Delegates {@link AuthenticationRequest} to the list of
- * {@link Authenticator}.
+ * Implementation of {@link AuthenticationProvider}. Delegates authentication to {@link AuthenticationManager}.
  */
 public class DelegatingAuthenticationProvider implements AuthenticationProvider {
 
-    private final AuthenticationManager authenticator;
+    private final AuthenticationManager authenticationManager;
 
-    public DelegatingAuthenticationProvider(AuthenticationManager authenticator) {
-        this.authenticator = authenticator;
+    public DelegatingAuthenticationProvider(AuthenticationManager authenticationManager) {
+        this.authenticationManager = authenticationManager;
     }
 
     @Override
     public Publisher<AuthenticationResponse> authenticate(HttpRequest<?> httpRequest, AuthenticationRequest<?, ?> authenticationRequest) {
         return Flux.create(emitter -> {
             try {
-                UserDetails userDetails = authenticator.authenticate(toIgniteAuthenticationRequest(authenticationRequest));
+                UserDetails userDetails = authenticationManager.authenticate(toIgniteAuthenticationRequest(authenticationRequest));
                 emitter.next(AuthenticationResponse.success(userDetails.username()));
                 emitter.complete();
             } catch (AuthenticationException ex) {

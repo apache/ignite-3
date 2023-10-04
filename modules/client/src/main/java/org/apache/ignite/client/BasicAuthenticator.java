@@ -17,7 +17,8 @@
 
 package org.apache.ignite.client;
 
-import org.apache.ignite.security.AuthenticationType;
+
+import org.apache.ignite.security.authentication.AuthenticationType;
 
 /**
  * Basic authenticator with username and password.

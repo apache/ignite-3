@@ -26,28 +26,27 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.configuration.AuthenticationProviderView;
-import org.apache.ignite.internal.configuration.AuthenticationView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.security.AuthenticationException;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.security.authentication.AuthenticationException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link AuthenticationManager}.
  */
 public class AuthenticationManagerImpl implements AuthenticationManager {
-
     private static final IgniteLogger LOG = Loggers.forClass(AuthenticationManagerImpl.class);
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    private final List<Authenticator> authenticators = new ArrayList<>();
+    private List<Authenticator> authenticators = new ArrayList<>();
 
     private boolean authEnabled = false;
 
     @Override
-    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
+    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws AuthenticationException {
         rwLock.readLock().lock();
         try {
             if (authEnabled) {
@@ -65,7 +64,8 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
     }
 
     @Override
-    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationView> ctx) {
+    public CompletableFuture<?> onUpdate(
+            ConfigurationNotificationEvent<AuthenticationView> ctx) {
         return CompletableFuture.runAsync(() -> refreshProviders(ctx.newValue()));
     }
 
@@ -74,10 +74,9 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
         try {
             if (view == null || !view.enabled()) {
                 authEnabled = false;
-                authenticators.clear();
+                authenticators = List.of();
             } else if (view.enabled() && view.providers().size() != 0) {
-                authenticators.clear();
-                authenticators.addAll(providersFromAuthView(view));
+                authenticators = providersFromAuthView(view);
                 authEnabled = true;
             } else {
                 LOG.error("Invalid configuration: authentication is enabled, but no providers. Leaving the old settings");

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.assignableTo;
+import static com.tngtech.archunit.lang.conditions.ArchPredicates.are;
+
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaConstructor;
@@ -40,8 +43,7 @@ import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
 import org.apache.ignite.network.UnresolvableConsistentIdException;
-import org.apache.ignite.security.AuthenticationException;
-import org.apache.ignite.security.UnknownAuthenticationTypeException;
+import org.apache.ignite.security.authentication.AuthenticationException;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 
@@ -56,9 +58,7 @@ public class IgniteExceptionArchTest {
     @ArchTest
     public static final ArchRule IGNITE_EXCEPTIONS_HAVE_REQUIRED_CONSTRUCTORS = ArchRuleDefinition.classes()
             .that(new ExclusionPredicate())
-            .and()
-            .areAssignableTo(IgniteException.class)
-            .or().areAssignableTo(IgniteCheckedException.class)
+            .and(are(assignableTo(IgniteException.class)).or(assignableTo(IgniteCheckedException.class)))
             .should(new ArchCondition<>("have standard IgniteException constructor") {
                 @Override
                 public void check(JavaClass javaClass, ConditionEvents conditionEvents) {
@@ -87,7 +87,6 @@ public class IgniteExceptionArchTest {
         exclusions.add(IgniteClientFeatureNotSupportedByServerException.class.getCanonicalName());
         exclusions.add(UnresolvableConsistentIdException.class.getCanonicalName());
         exclusions.add(AuthenticationException.class.getCanonicalName());
-        exclusions.add(UnknownAuthenticationTypeException.class.getCanonicalName());
         exclusions.add(CursorClosedException.class.getCanonicalName());
         exclusions.add(NoRowSetExpectedException.class.getCanonicalName());
     }

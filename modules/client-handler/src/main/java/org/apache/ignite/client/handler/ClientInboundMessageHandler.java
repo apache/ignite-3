@@ -92,7 +92,6 @@ import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
-import org.apache.ignite.internal.configuration.AuthenticationView;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
@@ -106,6 +105,7 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -115,8 +115,8 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.security.AuthenticationException;
-import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.authentication.AuthenticationException;
+import org.apache.ignite.security.authentication.AuthenticationType;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
@@ -350,13 +350,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
+    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) throws AuthenticationException {
         AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
 
         return authenticationManager.authenticate(authenticationRequest);
     }
 
-    private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
+    private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions)
+            throws AuthenticationException {
         Object authnType = extensions.get(HandshakeExtension.AUTHENTICATION_TYPE);
 
         if (authnType == null) {

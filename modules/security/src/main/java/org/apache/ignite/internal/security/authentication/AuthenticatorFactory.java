@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.internal.configuration.AuthenticationProviderView;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderView;
-import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderView;
+import org.apache.ignite.security.authentication.AuthenticationType;
 
 /** Factory for {@link Authenticator}. */
 class AuthenticatorFactory {
-
     static Authenticator create(AuthenticationProviderView view) {
         AuthenticationType type = AuthenticationType.parse(view.type());
         if (type == AuthenticationType.BASIC) {

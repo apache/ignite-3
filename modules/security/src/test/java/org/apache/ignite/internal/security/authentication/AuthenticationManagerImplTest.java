@@ -24,28 +24,27 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.configuration.AuthenticationChange;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.AuthenticationView;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationChange;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.security.AuthenticationException;
+import org.apache.ignite.security.authentication.AuthenticationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 
 @ExtendWith(ConfigurationExtension.class)
 class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
-
     private final AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
 
     @InjectConfiguration
     private AuthenticationConfiguration authenticationConfiguration;
 
     @Test
-    public void enableAuth() {
+    public void enableAuth() throws AuthenticationException {
         // when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -68,7 +67,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void leaveOldSettingWhenInvalidConfiguration() {
+    public void leaveOldSettingWhenInvalidConfiguration() throws AuthenticationException {
         // when
         AuthenticationView invalidAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -79,13 +78,13 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // authentication is still disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest();
+        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
 
         assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
     }
 
     @Test
-    public void disableAuthEmptyProviders() {
+    public void disableAuthEmptyProviders() throws AuthenticationException {
         //when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -120,13 +119,13 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // authentication is disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest();
+        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
 
         assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
     }
 
     @Test
-    public void disableAuthNotEmptyProviders() {
+    public void disableAuthNotEmptyProviders() throws AuthenticationException {
         //when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -158,13 +157,13 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // authentication is disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest();
+        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
 
         assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
     }
 
     @Test
-    public void changedCredentials() {
+    public void changedCredentials() throws AuthenticationException {
         // when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {

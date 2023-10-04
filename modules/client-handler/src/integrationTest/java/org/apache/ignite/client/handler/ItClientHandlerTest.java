@@ -32,10 +32,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -261,7 +261,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals(COMMON_AUTHENTICATION_ERR, code);
 
             assertThat(errMsg, containsString("Authentication failed"));
-            assertEquals("org.apache.ignite.security.AuthenticationException", errClassName);
+            assertEquals("org.apache.ignite.security.authentication.AuthenticationException", errClassName);
             assertNull(errStackTrace);
         }
     }
