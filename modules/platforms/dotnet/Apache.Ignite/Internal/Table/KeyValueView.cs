@@ -172,8 +172,8 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
-        ArgumentNullException.ThrowIfNull(x);
-        ArgumentNullException.ThrowIfNull(x);
+        ArgumentNullException.ThrowIfNull(x.Key);
+        ArgumentNullException.ThrowIfNull(x.Value);
 
         return new(x.Key, x.Value);
     }
