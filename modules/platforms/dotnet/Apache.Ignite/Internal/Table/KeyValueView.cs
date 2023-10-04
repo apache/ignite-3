@@ -103,7 +103,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
     {
-        ArgumentNullException.ThrowIfNull(keys);
+        IgniteArgumentCheck.NotNull(keys);
 
         return await _recordView.DeleteAllAsync(
             transaction,
@@ -118,7 +118,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
     {
-        ArgumentNullException.ThrowIfNull(pairs);
+        IgniteArgumentCheck.NotNull(pairs);
 
         return await _recordView.DeleteAllAsync(
             transaction,
@@ -180,15 +180,15 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     private static KvPair<TK, TV> ToKv(TK key)
     {
-        ArgumentNullException.ThrowIfNull(key);
+        IgniteArgumentCheck.NotNull(key);
 
         return new(key);
     }
 
     private static KvPair<TK, TV> ToKv(TK key, TV val)
     {
-        ArgumentNullException.ThrowIfNull(key);
-        ArgumentNullException.ThrowIfNull(val);
+        IgniteArgumentCheck.NotNull(key);
+        IgniteArgumentCheck.NotNull(val);
 
         return new(key, val);
     }

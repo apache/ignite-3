@@ -36,7 +36,9 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <typeparam name="T">Arg type.</typeparam>
-        public static void NotNull<T>([NoEnumeration] T arg, [CallerArgumentExpression("arg")] string? argName = null)
+        public static void NotNull<T>(
+            [NoEnumeration, System.Diagnostics.CodeAnalysis.NotNull] T arg,
+            [CallerArgumentExpression("arg")] string? argName = null)
         {
             if (arg == null)
             {

@@ -21,6 +21,7 @@ namespace Apache.Ignite
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Linq;
+    using Internal.Common;
     using Log;
 
     /// <summary>
@@ -63,7 +64,7 @@ namespace Apache.Ignite
         public IgniteClientConfiguration(params string[] endpoints)
             : this()
         {
-            ArgumentNullException.ThrowIfNull(endpoints);
+            IgniteArgumentCheck.NotNull(endpoints);
 
             foreach (var endpoint in endpoints)
             {
@@ -77,7 +78,7 @@ namespace Apache.Ignite
         /// <param name="other">Other configuration.</param>
         public IgniteClientConfiguration(IgniteClientConfiguration other)
         {
-            ArgumentNullException.ThrowIfNull(other);
+            IgniteArgumentCheck.NotNull(other);
 
             Logger = other.Logger;
             SocketTimeout = other.SocketTimeout;
