@@ -221,6 +221,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
         @Override public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
             EventHandler<T> handler = subscribers.get(event.nodeId());
 
+            // TODO: IGNITE-20536 Need to add assert that handler is not null and to implement a no-op handler.
             if (handler != null) {
                 handler.onEvent(event, sequence, endOfBatch || subscribers.size() > 1 && !supportsBatches);
             } else {
