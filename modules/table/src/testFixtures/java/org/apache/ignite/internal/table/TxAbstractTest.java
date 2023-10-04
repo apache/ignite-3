@@ -1373,7 +1373,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param view Record view.
      * @param tx Transaction or {@code null} for implicit one.
      */
-    private void doTestComplex(RecordView<Tuple> view, Transaction tx) {
+    private void doTestComplex(RecordView<Tuple> view, @Nullable Transaction tx) {
         final int keysCnt = 10;
 
         long start = System.nanoTime();
@@ -1447,6 +1447,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             assertNull(entry);
         }
+
+        if (tx != null) {
+            tx.commit();
+        }
     }
 
     /**
@@ -1455,7 +1459,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param view Table view.
      * @param tx Transaction or {@code null} for implicit one.
      */
-    public void doTestComplexKeyValue(KeyValueView<Tuple, Tuple> view, Transaction tx) {
+    public void doTestComplexKeyValue(KeyValueView<Tuple, Tuple> view, @Nullable Transaction tx) {
         final int keysCnt = 10;
 
         for (long i = 0; i < keysCnt; i++) {
@@ -1524,7 +1528,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             assertNull(entry);
         }
 
-        tx.commit();
+        if (tx != null) {
+            tx.commit();
+        }
     }
 
     /**
