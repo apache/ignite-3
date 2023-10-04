@@ -91,4 +91,10 @@ public interface InternalTransaction extends Transaction {
      * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
      */
     HybridTimestamp startTimestamp();
+
+    /**
+     * Returns whether this transaction is implicit (i.e. started by the system automatically when the user
+     * provided no transaction for an operation) or not.
+     */
+    boolean implicit();
 }

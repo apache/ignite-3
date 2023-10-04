@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -152,7 +153,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
-            when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
+            when(schemaRegistry.schema(anyInt())).thenReturn(schemaDescriptor);
             when(descriptor.iterator()).thenReturn(List.<ColumnDescriptor>of().iterator());
 
             return registry.getTable(tableId, tableVersion, descriptor);

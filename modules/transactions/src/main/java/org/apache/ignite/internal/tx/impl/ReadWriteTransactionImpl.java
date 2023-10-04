@@ -53,8 +53,24 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The tracker is used to track an observable timestamp. */
     private final HybridTimestampTracker observableTsTracker;
 
+    private final boolean implicit;
+
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
+
+    /** The future used on repeated commit/rollback. */
+    private volatile CompletableFuture<Void> finishFut;
+
+    /**
+     * Constructs an explicit read-write transaction.
+     *
+     * @param txManager The tx manager.
+     * @param observableTsTracker Observable timestamp tracker.
+     * @param id The id.
+     */
+    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
+        this(txManager, observableTsTracker, id, false);
+    }
 
     /**
      * The constructor.
@@ -62,11 +78,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
+     * @param implicit Whether the transaction will be implicit or not.
      */
-    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
+    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id, boolean implicit) {
         super(txManager, id);
 
         this.observableTsTracker = observableTsTracker;
+        this.implicit = implicit;
     }
 
     /** {@inheritDoc} */
@@ -99,22 +117,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
 
         if (!enlisted.isEmpty()) {
-            enlisted.forEach((groupId, groupMeta) -> {
-                ClusterNode recipientNode = groupMeta.get1();
+            enlisted.forEach((groupId, groupMeta) ->
+                    groups.computeIfAbsent(groupMeta.get1(), clusterNode -> new ArrayList<>())
+                            .add(new IgniteBiTuple<>(groupId, groupMeta.get2())));
 
-                if (groups.containsKey(recipientNode)) {
-                    groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
-                } else {
-                    List<IgniteBiTuple<TablePartitionId, Long>> items = new ArrayList<>();
+            IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
 
-                    items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
-
-                    groups.put(recipientNode, items);
-                }
-            });
-
-            ClusterNode recipientNode = enlisted.get(commitPart).get1();
-            Long term = enlisted.get(commitPart).get2();
+            ClusterNode recipientNode = nodeAndTerm.get1();
+            Long term = nodeAndTerm.get2();
 
             LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
                     recipientNode, term, commit, id(), groups);
@@ -161,4 +171,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         return TransactionIds.beginTimestamp(id());
     }
 
+    @Override
+    public boolean implicit() {
+        return implicit;
+    }
 }

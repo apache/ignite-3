@@ -22,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
@@ -33,10 +34,12 @@ import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
 import java.nio.ByteBuffer;
@@ -58,9 +61,9 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -169,6 +172,10 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionReplicaListener implements ReplicaListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
+
+    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+
+    private static final int ATTEMPTS_TO_CLEANUP_REPLICA = 5;
 
     /** Factory to create RAFT command messages. */
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
@@ -303,7 +310,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             IndexBuilder indexBuilder,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            CatalogTables catalogTables,
             PlacementDriver placementDriver
     ) {
         this.mvDataStorage = mvDataStorage;
@@ -330,7 +336,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
-        schemaCompatValidator = new SchemaCompatValidator(schemas, catalogTables);
+        schemaCompatValidator = new SchemaCompatValidator(schemas, catalogService);
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
             if (!localNode.name().equals(evt.leaseholder())) {
@@ -1183,14 +1189,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         UUID txId = request.txId();
 
         if (request.commit()) {
-            return schemaCompatValidator.validateForward(txId, aggregatedGroupIds, request.commitTimestamp())
-                    .thenCompose(validationResult -> {
-                        return finishAndCleanup(request, validationResult.isSuccessful(), aggregatedGroupIds, txId, txCoordinatorId)
-                                .thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult));
-                    });
+            HybridTimestamp commitTimestamp = request.commitTimestamp();
+
+            return schemaCompatValidator.validateForward(txId, aggregatedGroupIds, commitTimestamp)
+                    .thenCompose(validationResult ->
+                            finishAndCleanup(aggregatedGroupIds, validationResult.isSuccessful(), commitTimestamp, txId, txCoordinatorId)
+                                    .thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult)));
         } else {
             // Aborting.
-            return finishAndCleanup(request, false, aggregatedGroupIds, txId, txCoordinatorId);
+            return finishAndCleanup(aggregatedGroupIds, false, null, txId, txCoordinatorId);
         }
     }
 
@@ -1203,33 +1210,73 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Void> finishAndCleanup(
-            TxFinishReplicaRequest request,
+            Collection<TablePartitionId> enlistedPartitions,
             boolean commit,
-            List<TablePartitionId> aggregatedGroupIds,
+            @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             String txCoordinatorId
     ) {
-        HybridTimestamp commitTimestamp = request.commitTimestamp();
+        CompletableFuture<?> changeStateFuture = finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId);
 
-        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit, commitTimestamp, txCoordinatorId);
+        CompletableFuture<?>[] futures = enlistedPartitions.stream()
+                .map(partitionId -> changeStateFuture.thenCompose(ignored ->
+                        cleanupWithRetry(commit, commitTimestamp, txId, partitionId, ATTEMPTS_TO_CLEANUP_REPLICA)))
+                .toArray(size -> new CompletableFuture<?>[size]);
 
-        CompletableFuture<?>[] cleanupFutures = new CompletableFuture[request.groups().size()];
-        AtomicInteger cleanupFuturesCnt = new AtomicInteger(0);
+        return allOf(futures);
+    }
 
-        request.groups().forEach(
-                (recipientNode, tablePartitionIds) ->
-                        cleanupFutures[cleanupFuturesCnt.getAndIncrement()] = changeStateFuture.thenCompose(ignored ->
-                                txManager.cleanup(
-                                        recipientNode,
-                                        tablePartitionIds,
-                                        txId,
-                                        commit,
-                                        request.commitTimestamp()
-                                )
-                        )
-        );
+    private CompletableFuture<Void> cleanupWithRetry(
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId,
+            TablePartitionId partitionId,
+            int attempts) {
+        HybridTimestamp now = hybridClock.now();
 
-        return allOf(cleanupFutures);
+        return findPrimaryReplica(partitionId, now)
+                .thenCompose(leaseHolder ->
+                        cleanupWithRetryOnReplica(commit, commitTimestamp, txId, partitionId, leaseHolder, attempts));
+    }
+
+
+    private CompletableFuture<Void> cleanupWithRetryOnReplica(
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId,
+            TablePartitionId partitionId,
+            String primaryConsistentId,
+            int attempts) {
+        return txManager.cleanup(primaryConsistentId, partitionId, txId, commit, commitTimestamp)
+                .handle((res, ex) -> {
+                    if (ex != null) {
+                        LOG.warn("Failed to perform cleanup on Tx {}." + (attempts > 0 ? " The operation will be retried." : ""), txId, ex);
+
+                        if (attempts > 0) {
+                            return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
+                        }
+
+                        return CompletableFuture.<Void>failedFuture(ex);
+                    }
+
+                    return CompletableFuture.<Void>completedFuture(null);
+                })
+                .thenCompose(Function.identity());
+    }
+
+    private CompletableFuture<String> findPrimaryReplica(TablePartitionId partitionId, HybridTimestamp now) {
+        return placementDriver.awaitPrimaryReplica(partitionId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+                .handle((primaryReplica, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to retrieve primary replica for partition {}", partitionId, e);
+
+                        throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
+                                "Failed to get the primary replica"
+                                        + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + now + ']', e);
+                    }
+
+                    return primaryReplica.getLeaseholder();
+                });
     }
 
     /**
@@ -1243,7 +1290,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future to wait of the finish.
      */
     private CompletableFuture<Object> finishTransaction(
-            List<TablePartitionId> aggregatedGroupIds,
+            Collection<TablePartitionId> aggregatedGroupIds,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -2497,10 +2544,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             expectedTerm = ((TxFinishReplicaRequest) request).term();
 
             assert expectedTerm != null;
-        } else if (request instanceof TxCleanupReplicaRequest) {
-            expectedTerm = ((TxCleanupReplicaRequest) request).term();
-
-            assert expectedTerm != null;
         } else {
             expectedTerm = null;
         }
@@ -2531,7 +2574,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof BuildIndexReplicaRequest) {
             // TODO: IGNITE-20330 Possibly replaced by placementDriver#getPrimaryReplica and should also be added to the documentation
             //  about PrimaryReplicaMissException
-            return placementDriver.awaitPrimaryReplica(replicationGroupId, now)
+            return placementDriver.awaitPrimaryReplica(replicationGroupId, now, 30, SECONDS)
                     .thenCompose(replicaMeta -> {
                         if (isLocalPeer(replicaMeta.getLeaseholder())) {
                             return completedFuture(null);

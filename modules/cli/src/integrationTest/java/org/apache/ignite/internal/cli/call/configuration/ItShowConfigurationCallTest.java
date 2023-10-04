@@ -59,7 +59,7 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
         // Given
         var input = ClusterConfigShowCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .selector("rocksDb.defaultRegion.cache")
+                .selector("gc.onUpdateBatchSize")
                 .build();
 
         // When
@@ -68,7 +68,7 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body().getValue()).isEqualTo("lru");
+        assertThat(output.body().getValue()).isEqualTo("5");
     }
 
     @Test
