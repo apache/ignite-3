@@ -899,12 +899,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             );
         }
 
-        return new TestTable(
-                new TableDescriptorImpl(columns, distr),
-                name,
-                size,
-                List.of()
-        );
+        return new TestTable(new TableDescriptorImpl(columns, distr), name, size, List.of());
     }
 
     private static class CapturingMailboxRegistry implements MailboxRegistry {
