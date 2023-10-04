@@ -69,7 +69,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
-        descriptor.lastUpdateToken(causalityToken);
+        descriptor.updateToken(causalityToken);
 
         List<CatalogSchemaDescriptor> schemas = CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
                 schema.id(),

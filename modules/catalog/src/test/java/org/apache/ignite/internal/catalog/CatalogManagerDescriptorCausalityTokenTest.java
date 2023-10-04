@@ -77,14 +77,14 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
 
         // Validate default schema.
-        assertEquals(INITIAL_CAUSALITY_TOKEN, defaultSchema.lastUpdateToken());
+        assertEquals(INITIAL_CAUSALITY_TOKEN, defaultSchema.updateToken());
 
         // Default distribution zone must exists.
         CatalogZoneDescriptor zone = manager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 
         assertNotNull(zone);
 
-        assertEquals(INITIAL_CAUSALITY_TOKEN, zone.lastUpdateToken());
+        assertEquals(INITIAL_CAUSALITY_TOKEN, zone.updateToken());
     }
 
     @Test
@@ -105,7 +105,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
         assertSame(schema, manager.activeSchema(123L));
-        assertEquals(INITIAL_CAUSALITY_TOKEN, schema.lastUpdateToken());
+        assertEquals(INITIAL_CAUSALITY_TOKEN, schema.updateToken());
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(manager.table(TABLE_NAME, 123L));
@@ -123,8 +123,8 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         // Validate newly created table
         assertEquals(TABLE_NAME, table.name());
-        assertTrue(table.lastUpdateToken() > INITIAL_CAUSALITY_TOKEN);
-        assertEquals(table.lastUpdateToken(), schema.lastUpdateToken());
+        assertTrue(table.updateToken() > INITIAL_CAUSALITY_TOKEN);
+        assertEquals(table.updateToken(), schema.updateToken());
 
         // Validate another table creation.
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
@@ -147,9 +147,9 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNotSame(table, table2);
 
         // Assert that causality token of the last update of table2 is greater than for earlier created table.
-        assertTrue(table2.lastUpdateToken() > table.lastUpdateToken());
+        assertTrue(table2.updateToken() > table.updateToken());
 
-        assertEquals(table2.lastUpdateToken(), schema.lastUpdateToken());
+        assertEquals(table2.updateToken(), schema.updateToken());
     }
 
     @Test
@@ -172,7 +172,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(SCHEMA_NAME, schema.name());
         assertSame(schema, manager.activeSchema(beforeDropTimestamp));
 
-        long causalityToken = schema.lastUpdateToken();
+        long causalityToken = schema.updateToken();
         assertTrue(causalityToken > INITIAL_CAUSALITY_TOKEN);
 
         assertSame(table1, manager.table(TABLE_NAME, beforeDropTimestamp));
@@ -193,7 +193,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNull(manager.table(table1.id(), clock.nowLong()));
 
         // Assert that drop table changes schema's last update token
-        assertTrue(schema.lastUpdateToken() > causalityToken);
+        assertTrue(schema.updateToken() > causalityToken);
     }
 
     @Test
@@ -215,9 +215,9 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
         assertNotNull(table);
 
-        long schemaCausalityToken = schema.lastUpdateToken();
+        long schemaCausalityToken = schema.updateToken();
         assertTrue(schemaCausalityToken > INITIAL_CAUSALITY_TOKEN);
-        assertEquals(schemaCausalityToken, table.lastUpdateToken());
+        assertEquals(schemaCausalityToken, table.updateToken());
 
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
 
@@ -233,8 +233,8 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(NEW_COLUMN_NAME, column.name());
 
         // Assert that schema's and table's update token was updated after adding a column
-        assertTrue(schema.lastUpdateToken() > schemaCausalityToken);
-        assertEquals(schema.lastUpdateToken(), table.lastUpdateToken());
+        assertTrue(schema.updateToken() > schemaCausalityToken);
+        assertEquals(schema.updateToken(), table.updateToken());
     }
 
     @Test
@@ -251,9 +251,9 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
         assertNotNull(table);
 
-        long schemaCausalityToken = schema.lastUpdateToken();
+        long schemaCausalityToken = schema.updateToken();
         assertTrue(schemaCausalityToken > INITIAL_CAUSALITY_TOKEN);
-        assertEquals(schemaCausalityToken, table.lastUpdateToken());
+        assertEquals(schemaCausalityToken, table.updateToken());
 
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
 
@@ -266,8 +266,8 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNull(schema.table(TABLE_NAME).column("VAL"));
 
         // Assert that schema's and table's update token was updated after dropping a column
-        assertTrue(schema.lastUpdateToken() > schemaCausalityToken);
-        assertEquals(schema.lastUpdateToken(), table.lastUpdateToken());
+        assertTrue(schema.updateToken() > schemaCausalityToken);
+        assertEquals(schema.updateToken(), table.updateToken());
     }
 
     @Test
@@ -283,7 +283,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNull(schema.index(INDEX_NAME));
         assertNull(manager.index(INDEX_NAME, 123L));
 
-        long schemaCausalityToken = schema.lastUpdateToken();
+        long schemaCausalityToken = schema.updateToken();
 
         assertTrue(schemaCausalityToken > INITIAL_CAUSALITY_TOKEN);
 
@@ -295,12 +295,12 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNotNull(schema);
         assertSame(index, manager.index(INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
-        assertTrue(schema.lastUpdateToken() > schemaCausalityToken);
+        assertTrue(schema.updateToken() > schemaCausalityToken);
 
         // Validate newly created hash index
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
-        assertEquals(schema.lastUpdateToken(), index.lastUpdateToken());
+        assertEquals(schema.updateToken(), index.updateToken());
     }
 
     @Test
@@ -323,7 +323,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNull(schema.index(INDEX_NAME));
         assertNull(manager.index(INDEX_NAME, 123L));
 
-        long schemaCausalityToken = schema.lastUpdateToken();
+        long schemaCausalityToken = schema.updateToken();
         assertTrue(schemaCausalityToken > INITIAL_CAUSALITY_TOKEN);
 
         // Validate actual catalog
@@ -334,12 +334,12 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNotNull(schema);
         assertSame(index, manager.index(INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
-        assertTrue(schema.lastUpdateToken() > schemaCausalityToken);
+        assertTrue(schema.updateToken() > schemaCausalityToken);
 
         // Validate newly created sorted index
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
-        assertEquals(schema.lastUpdateToken(), index.lastUpdateToken());
+        assertEquals(schema.updateToken(), index.updateToken());
     }
 
     @Test
@@ -362,7 +362,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         // Validate newly created zone
         assertEquals(zoneName, zone.name());
-        assertTrue(zone.lastUpdateToken() > INITIAL_CAUSALITY_TOKEN);
+        assertTrue(zone.updateToken() > INITIAL_CAUSALITY_TOKEN);
     }
 
     @Test
@@ -393,7 +393,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(zoneName, zone.name());
 
         assertSame(zone, manager.zone(zone.id(), beforeDropTimestamp));
-        long causalityToken = zone.lastUpdateToken();
+        long causalityToken = zone.updateToken();
         assertTrue(causalityToken > INITIAL_CAUSALITY_TOKEN);
 
         // Validate actual catalog
@@ -405,7 +405,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
         // Assert that renaming of a zone updates token
-        assertTrue(zone.lastUpdateToken() > causalityToken);
+        assertTrue(zone.updateToken() > causalityToken);
     }
 
     @Test
@@ -427,7 +427,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertThat(manager.createZone(createParams), willCompleteSuccessfully());
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
         assertNotNull(zone);
-        long causalityToken = zone.lastUpdateToken();
+        long causalityToken = zone.updateToken();
         assertTrue(causalityToken > INITIAL_CAUSALITY_TOKEN);
 
         assertThat(manager.alterZone(alterZoneParams), willCompleteSuccessfully());
@@ -442,6 +442,6 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(4, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("newExpression", zone.filter());
         // Assert that altering of a zone updates token
-        assertTrue(zone.lastUpdateToken() > causalityToken);
+        assertTrue(zone.updateToken() > causalityToken);
     }
 }

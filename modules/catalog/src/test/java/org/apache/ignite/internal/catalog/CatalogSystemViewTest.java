@@ -132,7 +132,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         CatalogSchemaDescriptor schema = manager.activeSchema(clock.nowLong());
         assertNotNull(schema);
-        assertEquals(INITIAL_CAUSALITY_TOKEN, schema.lastUpdateToken());
+        assertEquals(INITIAL_CAUSALITY_TOKEN, schema.updateToken());
 
         assertThat(manager.execute(command), willCompleteSuccessfully());
 
@@ -143,11 +143,11 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         schema = manager.activeSchema(clock.nowLong());
         assertNotNull(schema);
-        long schemaCausalityToken = schema.lastUpdateToken();
+        long schemaCausalityToken = schema.updateToken();
         assertEquals(INITIAL_CAUSALITY_TOKEN, schemaCausalityToken);
 
         // Assert that creation of the system view updates token for the descriptor.
-        assertTrue(systemSchema.lastUpdateToken() > schemaCausalityToken);
+        assertTrue(systemSchema.updateToken() > schemaCausalityToken);
     }
 
     @ParameterizedTest

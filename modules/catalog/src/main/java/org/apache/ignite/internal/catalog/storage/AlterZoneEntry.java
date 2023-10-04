@@ -60,7 +60,7 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        descriptor.lastUpdateToken(causalityToken);
+        descriptor.updateToken(causalityToken);
 
         return new Catalog(
                 catalog.version(),

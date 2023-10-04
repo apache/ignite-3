@@ -69,7 +69,7 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor systemSchema = catalog.schema(schemaName);
 
-        descriptor.lastUpdateToken(causalityToken);
+        descriptor.updateToken(causalityToken);
 
         Map<String, CatalogSystemViewDescriptor> systemViews = Arrays.stream(systemSchema.systemViews())
                 .collect(Collectors.toMap(CatalogSystemViewDescriptor::name, Function.identity()));

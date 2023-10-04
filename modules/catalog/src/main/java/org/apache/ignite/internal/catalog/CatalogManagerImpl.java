@@ -82,7 +82,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     /** Initial update token for a catalog descriptor, this token is valid only before the first call of
      * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)}.
-     * After that {@link CatalogObjectDescriptor#lastUpdateToken()} will be initialised with a causality token from
+     * After that {@link CatalogObjectDescriptor#updateToken()} will be initialised with a causality token from
      * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)}
      */
     public static final long INITIAL_CAUSALITY_TOKEN = 0L;
