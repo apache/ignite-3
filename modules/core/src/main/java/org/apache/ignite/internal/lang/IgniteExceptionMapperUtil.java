@@ -26,9 +26,12 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * This utility class provides an ability to map Ignite internal exceptions to Ignite public ones.
@@ -52,8 +55,8 @@ public class IgniteExceptionMapperUtil {
      *
      * @param mapper Exception mapper from internal exception to a public one.
      * @param registeredMappings Already registered mappings.
-     * @throws IgniteException If a mapper for the given {@code clazz} already registered,
-     *      or {@code clazz} represents Java standard exception like {@link NullPointerException}, {@link IllegalArgumentException}.
+     * @throws IgniteException If a mapper for the given {@code clazz} already registered, or {@code clazz} represents Java standard
+     *         exception like {@link NullPointerException}, {@link IllegalArgumentException}.
      */
     static void registerMapping(
             IgniteExceptionMapper<?, ?> mapper,
@@ -83,37 +86,59 @@ public class IgniteExceptionMapperUtil {
      * @return Public exception.
      */
     public static Throwable mapToPublicException(Throwable origin) {
-        if (origin instanceof Error) {
-            if (origin instanceof AssertionError) {
-                return new IgniteException(INTERNAL_ERR, origin);
+        return mapToPublicExceptionInternal(origin, (e) -> {
+            if (e instanceof Error) {
+                return e;
             }
 
-            return origin;
-        }
+            if (e instanceof IgniteException || e instanceof IgniteCheckedException) {
+                return e;
+            }
 
-        IgniteExceptionMapper<? extends Exception, ? extends Exception> m = EXCEPTION_CONVERTERS.get(origin.getClass());
-        if (m != null) {
-            Exception mapped = map(m, origin);
-
-            assert mapped instanceof IgniteException || mapped instanceof IgniteCheckedException :
-                    "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + mapped + ']';
-            assert assertInternal(origin);
-
-            return mapped;
-        }
-
-        if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
-
-            return origin;
-        }
-
-        // There are no exception mappings for the given exception. This case should be considered as internal error.
-        return new IgniteException(INTERNAL_ERR, origin);
+            // There are no exception mappings for the given exception. This case should be considered as internal error.
+            return new IgniteException(INTERNAL_ERR, origin);
+        });
     }
 
     /**
-     * Returns a new CompletableFuture that, when the given {@code origin} future completes exceptionally,
-     * maps the origin's exception to a public Ignite exception if it is needed.
+     * This method provides a mapping from internal exception to SQL public ones.
+     *
+     * <p>The rules of mapping are the following:</p>
+     * <ul>
+     *     <li>any instance of {@link Error} is returned as is, except {@link AssertionError}
+     *     that will always be mapped to {@link IgniteException} with the {@link Common#INTERNAL_ERR} error code.</li>
+     *     <li>any instance of {@link IgniteException} or {@link IgniteCheckedException} is returned as is.</li>
+     *     <li>any other instance of {@link TraceableException} is wrapped into {@link SqlException}
+     *         with the original {@link TraceableException#traceId() traceUd} and {@link TraceableException#code() code}.</li>
+     *     <li>if there are no any mappers that can do a mapping from the given error to a public exception,
+     *     then {@link SqlException} with the {@link Common#INTERNAL_ERR} error code is returned.</li>
+     * </ul>
+     *
+     * @param origin Exception to be mapped.
+     * @return Public exception.
+     */
+    public static Throwable mapToPublicSqlException(Throwable origin) {
+        return mapToPublicExceptionInternal(origin, (e) -> {
+            if (e instanceof Error) {
+                return e;
+            }
+
+            if (e instanceof SqlException) {
+                return e;
+            }
+
+            if (e instanceof TraceableException) {
+                TraceableException traceable = (TraceableException) e;
+                return new SqlException(traceable.traceId(), traceable.code(), e.getMessage(), e);
+            }
+
+            return new SqlException(INTERNAL_ERR, e);
+        });
+    }
+
+    /**
+     * Returns a new CompletableFuture that, when the given {@code origin} future completes exceptionally, maps the origin's exception to a
+     * public Ignite exception if it is needed.
      *
      * @param origin The future to use to create a new stage.
      * @param <T> Type os result.
@@ -156,5 +181,25 @@ public class IgniteExceptionMapperUtil {
         assert isPublic : "public Exception can't be in internal package " + ex.getClass().getCanonicalName();
 
         return isPublic;
+    }
+
+    private static Throwable mapToPublicExceptionInternal(Throwable origin, Function<Throwable, Throwable> extHandler) {
+        if (origin instanceof AssertionError) {
+            return new IgniteException(INTERNAL_ERR, origin);
+        }
+
+        Throwable res;
+        IgniteExceptionMapper<? extends Exception, ? extends Exception> m = EXCEPTION_CONVERTERS.get(origin.getClass());
+        if (m != null) {
+            res = map(m, origin);
+
+            assert res instanceof IgniteException || res instanceof IgniteCheckedException :
+                    "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + res + ']';
+
+        } else {
+            res = origin;
+        }
+
+        return extHandler.apply(res);
     }
 }

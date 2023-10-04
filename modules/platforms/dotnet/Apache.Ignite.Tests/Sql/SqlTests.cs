@@ -344,8 +344,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestCreateTableExistsThrowsException()
         {
-            // TODO: IGNITE-20388 Fix it
-            var ex = Assert.ThrowsAsync<IgniteException>(
+            var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
 
             StringAssert.Contains("Table with name 'PUBLIC.TEST' already exists", ex!.Message);
@@ -354,8 +353,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestAlterTableNotFoundThrowsException()
         {
-            // TODO: IGNITE-20388 Fix it
-            var ex = Assert.ThrowsAsync<IgniteException>(
+            var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
             StringAssert.Contains("Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found", ex!.Message);
@@ -364,7 +362,6 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestAlterTableColumnExistsThrowsException()
         {
-            // TODO: IGNITE-20388 Fix it
             var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
 

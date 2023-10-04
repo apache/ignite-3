@@ -20,13 +20,17 @@ package org.apache.ignite.internal.lang;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapper.checked;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapper.unchecked;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.registerMapping;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.HashMap;
@@ -35,6 +39,8 @@ import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.NoRowSetExpectedException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -115,6 +121,35 @@ public class IgniteExceptionMapperUtilTest {
         IgniteException mappedPublicErr = (IgniteException) mappedErr;
 
         assertThat("Mapped exception should have the same trace identifier.", mappedPublicErr.traceId(), is(internalErr.traceId()));
+    }
+
+    /**
+     * Tests a default mapping of internal exceptions passed from the sql engine.
+     */
+    @Test
+    public void testSqlInternalExceptionDefaultMapping() {
+        CustomInternalNotMappedException internalSqlErr = new CustomInternalNotMappedException(EXECUTION_CANCELLED_ERR);
+
+        Throwable mappedErr = mapToPublicSqlException(internalSqlErr);
+
+        assertThat(mappedErr, instanceOf(SqlException.class));
+
+        SqlException mappedSqlErr = (SqlException) mappedErr;
+
+        assertThat("Mapped exception should have the same trace identifier.", mappedSqlErr.traceId(), is(internalSqlErr.traceId()));
+        assertThat("Mapped exception should have the same error code.", mappedSqlErr.code(), is(internalSqlErr.code()));
+    }
+
+    /**
+     * Tests a default mapping of internal exceptions passed from the sql engine.
+     */
+    @Test
+    public void testSqlInternalExceptionDefaultMappingForSqlException() {
+        NoRowSetExpectedException sqlErr = new NoRowSetExpectedException();
+
+        Throwable mappedErr = mapToPublicSqlException(sqlErr);
+
+        assertSame(sqlErr, mappedErr);
     }
 
     /**
@@ -202,6 +237,21 @@ public class IgniteExceptionMapperUtilTest {
          */
         public CustomNoMappingException() {
             super(INTERNAL_ERR, "Test internal exception [err=no mapping]");
+        }
+    }
+
+    /**
+     * Test runtime exception which does not have a mapper.
+     */
+    public static class CustomInternalNotMappedException extends IgniteInternalException {
+        /** Serial version UID. */
+        private static final long serialVersionUID = 0L;
+
+        /**
+         * Creates a new instance of CustomInternalException.
+         */
+        public CustomInternalNotMappedException(int code) {
+            super(code, "Test internal exception.");
         }
     }
 }

@@ -43,7 +43,6 @@ import java.util.stream.StreamSupport;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;

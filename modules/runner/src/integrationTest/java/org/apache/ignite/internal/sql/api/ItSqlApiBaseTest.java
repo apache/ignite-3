@@ -45,6 +45,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Catalog;
 import org.apache.ignite.lang.ErrorGroups.Index;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -243,10 +244,10 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         TxManager txManager = txManager();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            assertThrowsWithCause(
-                    () -> execute(ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"),
-                    IgniteException.class,
-                    "Table with name 'PUBLIC.TEST' already exists"
+            assertThrowsSqlException(
+                    Catalog.VALIDATION_ERR,
+                    "Table with name 'PUBLIC.TEST' already exists",
+                    () -> execute(ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)")
             );
         }
 
