@@ -1523,6 +1523,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             assertNull(entry);
         }
+
+        tx.commit();
     }
 
     /**

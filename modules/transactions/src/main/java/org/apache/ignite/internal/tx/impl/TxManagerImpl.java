@@ -496,7 +496,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public void removeInflight(UUID txId) {
         TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-            assert ctx != null && ctx.inflights > 0;
+            assert ctx != null && ctx.inflights > 0 : ctx;
 
             //noinspection NonAtomicOperationOnVolatileField
             ctx.inflights--;
@@ -544,6 +544,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private static class TxContext {
         volatile long inflights = 0; // Updated under lock.
         final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
-        volatile CompletableFuture<Void> finishFut = null; // TODO don't need volatile
+        volatile CompletableFuture<Void> finishFut = null;
+
+        @Override
+        public String toString() {
+            return "TxContext{" +
+                    "inflights=" + inflights +
+                    ", waitRepFut=" + waitRepFut +
+                    ", finishFut=" + finishFut +
+                    '}';
+        }
     }
 }
