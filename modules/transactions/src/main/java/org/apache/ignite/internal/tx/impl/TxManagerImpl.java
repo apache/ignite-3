@@ -548,11 +548,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         @Override
         public String toString() {
-            return "TxContext{" +
-                    "inflights=" + inflights +
-                    ", waitRepFut=" + waitRepFut +
-                    ", finishFut=" + finishFut +
-                    '}';
+            return "TxContext [inflights=" + inflights + ", waitRepFut=" + waitRepFut + ", finishFut=" + finishFut + ']';
         }
     }
 }

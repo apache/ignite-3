@@ -58,9 +58,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
 
-    /** The future used on repeated commit/rollback. */
-    private volatile CompletableFuture<Void> finishFut;
-
     /**
      * Constructs an explicit read-write transaction.
      *
