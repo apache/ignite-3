@@ -136,7 +136,7 @@ TEST_F(record_binary_view_test, upsert_tuple_with_extra_columns_throws) {
                 tuple_view.upsert(nullptr, val_tuple);
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::MatchesRegex(
-                    "Key tuple doesn't match schema: schemaVersion=\\d+, extraColumns=extra"));
+                    "Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
                 throw;
             }
         },

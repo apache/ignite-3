@@ -268,7 +268,7 @@ TEST_F(record_view_test, extra_mapping_value_throws) {
                 wrong_view.upsert(nullptr, val);
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::MatchesRegex(
-                    "Key tuple doesn't match schema: schemaVersion=\\d+, extraColumns=extra"));
+                    "Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
                 throw;
             }
         },

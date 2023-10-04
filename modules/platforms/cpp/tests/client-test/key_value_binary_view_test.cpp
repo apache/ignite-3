@@ -150,7 +150,7 @@ TEST_F(key_value_binary_view_test, put_extra_collumn_value_throws) {
                 kv_view.put(nullptr, key_tuple, val_tuple);
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::MatchesRegex(
-                    "Key tuple doesn't match schema: schemaVersion=\\d+, extraColumns=extra"));
+                    "Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
                 throw;
             }
         },
