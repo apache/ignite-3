@@ -264,7 +264,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     .doAnswer(invocationOnMock -> {
                         String nodeId = invocationOnMock.getArgument(0);
 
-                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId);
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId).thenApply(ReplicaResult::result);
                     })
                     .when(replicaSvc).invoke(anyString(), any());
         }
