@@ -46,6 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.NativeType;
@@ -56,7 +57,6 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaSerializer;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.DecimalColumnType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -314,7 +314,7 @@ public class AbstractSerializerTest {
     @SuppressWarnings("unchecked")
     protected static <T> T adjust(T val) {
         if (val instanceof BigDecimal) {
-            return (T) ((BigDecimal) val).setScale(DecimalColumnType.DEFAULT_SCALE, HALF_UP);
+            return (T) ((BigDecimal) val).setScale(CatalogUtils.DEFAULT_SCALE, HALF_UP);
         }
 
         return val;

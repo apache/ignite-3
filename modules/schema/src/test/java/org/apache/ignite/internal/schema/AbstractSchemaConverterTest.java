@@ -35,7 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.DecimalColumnType;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -111,7 +111,7 @@ public class AbstractSchemaConverterTest extends BaseIgniteAbstractTest {
     @SuppressWarnings("unchecked")
     protected static <T> T adjust(T val) {
         if (val instanceof BigDecimal) {
-            return (T) ((BigDecimal) val).setScale(DecimalColumnType.DEFAULT_SCALE, HALF_UP);
+            return (T) ((BigDecimal) val).setScale(CatalogUtils.DEFAULT_SCALE, HALF_UP);
         }
 
         return val;
