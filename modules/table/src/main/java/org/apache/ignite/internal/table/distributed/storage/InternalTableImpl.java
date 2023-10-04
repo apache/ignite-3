@@ -94,7 +94,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.Multiple
 import org.apache.ignite.internal.table.distributed.replication.request.MultipleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
@@ -475,7 +474,7 @@ public class InternalTableImpl implements InternalTable {
                                 if (e2 != null) {
                                     return result.completeExceptionally(e2);
                                 } else {
-                                    return result.complete((R) r2);
+                                    return result.complete(r2);
                                 }
                             });
                         }
@@ -992,7 +991,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
                 rows,
                 tx,
@@ -1006,11 +1005,16 @@ public class InternalTableImpl implements InternalTable {
                         .timestampLong(clock.nowLong())
                         .full(full)
                         .build(),
-                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
-                    ReadWriteMultiRowReplicaRequest r = (ReadWriteMultiRowReplicaRequest) req;
+                    for (BinaryRow row : res) {
+                        if (row != null) {
+                            return false;
+                        }
+                    }
 
-                    return res.size() == r.binaryRowMessages().size();
+                    // All values are null, this means nothing was deleted.
+                    return true;
                 }
         );
     }
@@ -1138,7 +1142,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
                 rows,
                 tx,
@@ -1152,24 +1156,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestampLong(clock.nowLong())
                         .full(full)
                         .build(),
-                rowBatches -> allResultFutures(rowBatches).thenApply(v -> {
-                    List<BinaryRow> result = new ArrayList<>();
-
-                    for (RowBatch batch : rowBatches) {
-                        List<BinaryRow> requestedRows = batch.requestedRows;
-                        List<BinaryRow> response = (List<BinaryRow>) batch.resultFuture.join();
-
-                        assert requestedRows.size() == response.size();
-
-                        for (int i = 0; i < requestedRows.size(); i++) {
-                            if (response.get(i) == null) {
-                                result.add(requestedRows.get(i));
-                            }
-                        }
-                    }
-
-                    return result;
-                }),
+                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
                     for (BinaryRow row : res) {
                         if (row != null) {
@@ -1185,7 +1172,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
+    public CompletableFuture<List<BinaryRow>> deleteAllExact(
             Collection<BinaryRowEx> rows,
             InternalTransaction tx
     ) {
@@ -1202,11 +1189,16 @@ public class InternalTableImpl implements InternalTable {
                         .timestampLong(clock.nowLong())
                         .full(full)
                         .build(),
-                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
-                    ReadWriteMultiRowReplicaRequest r = (ReadWriteMultiRowReplicaRequest) req;
+                    for (BinaryRow row : res) {
+                        if (row != null) {
+                            return false;
+                        }
+                    }
 
-                    return res.size() == r.binaryRowMessages().size();
+                    // All values are null, this means nothing was deleted.
+                    return true;
                 }
         );
     }
@@ -1554,44 +1546,64 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Gathers the result of batch processing into a single resulting collection of rows.
+     * Gets a batch result.
      *
      * @param rowBatches Row batches.
      * @return Future of collecting results.
      */
-    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithoutRestoreOrder(Collection<RowBatch> rowBatches) {
-        return allResultFutures(rowBatches)
-                .thenApply(response -> {
-                    var result = new ArrayList<BinaryRow>(rowBatches.size());
+    static CompletableFuture<List<BinaryRow>> collectRejectedRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+        return collectMultiRowsResponsesWithRestoreOrder(
+                rowBatches,
+                batch -> {
+                    List<BinaryRow> result = new ArrayList<>();
+                    List<Boolean> response = (List<Boolean>) batch.getCompletedResult();
 
-                    for (RowBatch rowBatch : rowBatches) {
-                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
+                    assert batch.requestedRows.size() == response.size();
 
-                        if (batchResult == null) {
-                            continue;
-                        }
-
-                        result.addAll(batchResult);
+                    for (int i = 0; i < response.size(); i++) {
+                        result.add(response.get(i) ? null : batch.requestedRows.get(i));
                     }
 
                     return result;
-                });
+                },
+                true
+        );
+    }
+
+    /**
+     * Gets a batch result.
+     *
+     * @param rowBatches Row batches.
+     * @return Future of collecting results.
+     */
+    static CompletableFuture<List<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+        return collectMultiRowsResponsesWithRestoreOrder(
+                rowBatches,
+                batch -> (Collection<BinaryRow>) batch.getCompletedResult(),
+                false
+        );
     }
 
     /**
      * Gathers the result of batch processing into a single resulting collection of rows, restoring order as in the requested collection of
      * rows.
      *
-     * @param rowBatches Row batches by partition ID.
+     * @param rowBatches Row batches.
+     * @param bathResultMapper Map a batch to the result collection of binary rows.
+     * @param skipNull True to skip the null in result collection, false otherwise.
      * @return Future of collecting results.
      */
-    static CompletableFuture<List<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+    private static CompletableFuture<List<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(
+            Collection<RowBatch> rowBatches,
+            Function<RowBatch, Collection<BinaryRow>> bathResultMapper,
+            boolean skipNull
+    ) {
         return allResultFutures(rowBatches)
                 .thenApply(response -> {
                     var result = new BinaryRow[RowBatch.getTotalRequestedRowSize(rowBatches)];
 
                     for (RowBatch rowBatch : rowBatches) {
-                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
+                        Collection<BinaryRow> batchResult = bathResultMapper.apply(rowBatch);
 
                         assert batchResult != null;
 
@@ -1606,7 +1618,7 @@ public class InternalTableImpl implements InternalTable {
                     }
 
                     // Use Arrays#asList to avoid copying the array.
-                    return Arrays.asList(result);
+                    return skipNull ? Arrays.stream(result).filter(r -> r != null).collect(Collectors.toList()) : Arrays.asList(result);
                 });
     }
 

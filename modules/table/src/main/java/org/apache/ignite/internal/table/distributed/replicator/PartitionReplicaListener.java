@@ -1740,8 +1740,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         if (lockedRowId != null) {
                             rowIdsToDelete.put(lockedRowId.uuid(), null);
+
+                            result.add(new NullBinaryRow());
                         } else {
-                            result.add(searchRows.get(i));
+                            result.add(null);
                         }
                     }
 
@@ -1778,8 +1780,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         if (lockedRow == null && uniqueKeys.add(pks.get(i).byteBuffer())) {
                             rowsToInsert.put(new RowId(partId(), UUID.randomUUID()), row);
+
+                            result.add(new NullBinaryRow());
                         } else {
-                            result.add(row);
+                            result.add(null);
                         }
                     }
 

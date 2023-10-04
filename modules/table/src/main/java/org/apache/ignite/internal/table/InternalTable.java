@@ -181,7 +181,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
+    CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously replaces an existed row associated with the same key columns values as the given one has.
@@ -246,7 +246,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
+    CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously remove given rows from the table.
@@ -255,7 +255,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param tx   The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
+    CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
      * Returns a partition for a key.

@@ -19,12 +19,11 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithoutRestoreOrder;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -151,9 +150,22 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 willBe(equalTo(originalRows))
         );
 
+        rowBatchByPartitionId.get(0).resultFuture = completedFuture(List.of(false, true));
+        rowBatchByPartitionId.get(1).resultFuture = completedFuture(List.of(false));
+        rowBatchByPartitionId.get(2).resultFuture = completedFuture(List.of(true, false, true));
+
+        List<BinaryRowEx> rejectedRows = List.of(
+                // Rows for 0 partition.
+                originalRows.get(0),
+                // Rows for 1 partition.
+                originalRows.get(2),
+                // Rows for 2 partition.
+                originalRows.get(4)
+        );
+
         assertThat(
-                collectMultiRowsResponsesWithoutRestoreOrder(rowBatchByPartitionId.values()),
-                willBe(hasItems(originalRows.toArray(BinaryRowEx[]::new)))
+                collectRejectedRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values()),
+                willBe(equalTo(rejectedRows))
         );
     }
 

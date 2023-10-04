@@ -216,6 +216,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *         ReplicaService by itself.
      * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
+     * @param tracker Observable timestamp tracker.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -240,7 +241,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tracker,
                 new TestPlacementDriver(LOCAL_NODE.name())
         );
-        RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
+        RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
