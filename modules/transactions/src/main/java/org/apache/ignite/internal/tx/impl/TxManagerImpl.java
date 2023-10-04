@@ -434,10 +434,10 @@ public class TxManagerImpl implements TxManager {
 
     private CompletableFuture<Void> verifyCommitTimestamp(Map<TablePartitionId, Long> enlistedGroups, HybridTimestamp commitTimestamp) {
         var verificationFutures = new CompletableFuture[enlistedGroups.size()];
-
         int cnt = -1;
-        enlistedGroups.entrySet().forEach(enlistedGroup -> {
-            verificationFutures[0] = placementDriver.getPrimaryReplica(enlistedGroup.getKey(), commitTimestamp)
+
+        for (Map.Entry<TablePartitionId, Long> enlistedGroup : enlistedGroups.entrySet()) {
+            verificationFutures[++cnt] = placementDriver.getPrimaryReplica(enlistedGroup.getKey(), commitTimestamp)
                     .thenAccept(currentPrimaryReplica -> {
                         if (currentPrimaryReplica == null ||
                                 !enlistedGroup.getValue().equals(currentPrimaryReplica.getStartTime().longValue()) ||
@@ -446,7 +446,7 @@ public class TxManagerImpl implements TxManager {
                             throw new TransactionException(1, "Aaaa");
                         }
                     });
-        });
+        }
 
         return allOf(verificationFutures);
     }

@@ -122,7 +122,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             Map<TablePartitionId, Long> enlistedGroups = new LinkedHashMap<>();
 
                             if (!enlisted.isEmpty()) {
-                                enlisted.entrySet().stream()
+                                enlistedGroups = enlisted.entrySet().stream()
                                         .collect(Collectors.toMap(
                                                 Entry::getKey,
                                                 entry -> entry.getValue().get2()
