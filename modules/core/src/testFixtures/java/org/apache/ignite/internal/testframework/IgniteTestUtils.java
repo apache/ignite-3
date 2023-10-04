@@ -50,7 +50,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -310,8 +309,6 @@ public final class IgniteTestUtils {
             if (!hasCause(e, cls, msg)) {
                 fail("Exception is neither of a specified class, nor has a cause of the specified class: " + cls, e);
             }
-
-            IgniteExceptionMapperUtil.assertInternal(e);
 
             return e;
         }

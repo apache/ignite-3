@@ -168,21 +168,6 @@ public class IgniteExceptionMapperUtil {
         return mapper.map(mapper.mappingFrom().cast(t));
     }
 
-    /**
-     * Assert that passed exception is not related to internal exceptions.
-     *
-     * @param ex Exception to be checked.
-     * @return {@code true} if canonical name of passed Exception doesn't contains word 'internal'.
-     * @throws AssertionError in case assertions is enabled and passed exception is fail check.
-     */
-    public static boolean assertInternal(Throwable ex) {
-        boolean isPublic = !ex.getClass().getCanonicalName().toLowerCase().contains("internal");
-
-        assert isPublic : "public Exception can't be in internal package " + ex.getClass().getCanonicalName();
-
-        return isPublic;
-    }
-
     private static Throwable mapToPublicExceptionInternal(Throwable origin, Function<Throwable, Throwable> extHandler) {
         if (origin instanceof AssertionError) {
             return new IgniteException(INTERNAL_ERR, origin);
