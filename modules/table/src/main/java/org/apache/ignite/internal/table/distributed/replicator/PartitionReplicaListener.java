@@ -1554,8 +1554,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 if (v instanceof ReplicaResult) {
                     ReplicaResult res = (ReplicaResult) v;
 
-                    if (res.repFuture() != null) {
-                        res.repFuture().whenComplete((v0, th0) -> {
+                    if (res.replicationFuture() != null) {
+                        res.replicationFuture().whenComplete((v0, th0) -> {
                             if (th0 != null) {
                                 cleanupReadyFut.completeExceptionally(th0);
                             } else {
@@ -1995,7 +1995,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return cmd.txId();
             });
 
-            // TODO error handling similar to replication group.
             storageUpdateHandler.handleUpdate(
                     cmd.txId(),
                     cmd.rowUuid(),

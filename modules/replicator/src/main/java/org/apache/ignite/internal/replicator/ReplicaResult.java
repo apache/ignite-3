@@ -55,7 +55,7 @@ public class ReplicaResult {
      *
      * @return The replication future.
      */
-    public @Nullable CompletableFuture<?> repFuture() {
+    public @Nullable CompletableFuture<?> replicationFuture() {
         return repFut;
     }
 }

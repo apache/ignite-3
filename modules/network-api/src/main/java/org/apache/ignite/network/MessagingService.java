@@ -42,7 +42,7 @@ public interface MessagingService {
      *     <li>Messages send to same receiver will be delivered in the same order as they were sent;</li>
      *     <li>If a message N has been successfully delivered to a member implies that all messages to same receiver
      *     preceding N have also been successfully delivered.</li>
-     *     <li>A message is delivered only once</li>
+     *     <li>A message is delivered only once.</li>
      * </ul>
      *
      * <p>Please note that the guarantees only work for same (sender, receiver) pairs. That is, if A sends m1 and m2

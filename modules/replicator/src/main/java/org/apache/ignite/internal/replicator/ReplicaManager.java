@@ -269,10 +269,10 @@ public class ReplicaManager implements IgniteComponent {
                     }
                 }
 
-                if (res.repFuture() != null) {
+                if (res.replicationFuture() != null) {
                     assert request instanceof PrimaryReplicaRequest;
 
-                    res.repFuture().handle((res0, ex0) -> {
+                    res.replicationFuture().handle((res0, ex0) -> {
                         NetworkMessage msg0;
 
                         LOG.debug("Sending delayed response for replica request [request={}]", request);

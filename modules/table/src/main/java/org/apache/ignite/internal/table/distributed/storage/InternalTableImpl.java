@@ -68,8 +68,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
@@ -119,8 +117,6 @@ import org.jetbrains.annotations.TestOnly;
  * Storage of table rows.
  */
 public class InternalTableImpl implements InternalTable {
-    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
-
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
@@ -250,15 +246,14 @@ public class InternalTableImpl implements InternalTable {
      * @param row The row.
      * @param tx The transaction, not null if explicit.
      * @param fac Replica requests factory.
-     * @param noOpChecker Used to handle no-op operations (producing no updates).
+     * @param noWriteChecker Used to handle operations producing no updates.
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
             IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
-            BiPredicate<R, ReplicaRequest> noOpChecker
-
+            BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -286,10 +281,10 @@ public class InternalTableImpl implements InternalTable {
             assert !actualTx.implicit();
 
             fut = trackingInvoke(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), false, primaryReplicaAndTerm,
-                    noOpChecker);
+                    noWriteChecker);
         } else {
             fut = enlistWithRetry(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION,
-                    actualTx.implicit(), noOpChecker);
+                    actualTx.implicit(), noWriteChecker);
         }
 
         return postEnlist(fut, false, actualTx, actualTx.implicit());
@@ -453,7 +448,7 @@ public class InternalTableImpl implements InternalTable {
      * @param mapFunc Function to create replica request with new raft term.
      * @param attempts Number of attempts.
      * @param full {@code True} if is a full transaction.
-     * @param noOpChecker Used to handle no-op operations (producing no updates).
+     * @param noWriteChecker Used to handle operations producing no updates.
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistWithRetry(
@@ -462,18 +457,16 @@ public class InternalTableImpl implements InternalTable {
             Function<Long, ReplicaRequest> mapFunc,
             int attempts,
             boolean full,
-            @Nullable BiPredicate<R, ReplicaRequest> noOpChecker
+            @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        // LOGGER.info("enlistWithRetry {} {}", partId, tx.id().toString());
-
         CompletableFuture<R> result = new CompletableFuture<>();
 
         enlist(partId, tx).thenCompose(
-                        primaryReplicaAndTerm -> trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndTerm, noOpChecker))
+                        primaryReplicaAndTerm -> trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndTerm, noWriteChecker))
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
-                            return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noOpChecker).handle((r2, e2) -> {
+                            return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noWriteChecker).handle((r2, e2) -> {
                                 if (e2 != null) {
                                     return result.completeExceptionally(e2);
                                 } else {
