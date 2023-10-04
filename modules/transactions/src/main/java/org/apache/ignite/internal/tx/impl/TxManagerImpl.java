@@ -253,15 +253,8 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> finish(
-            HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
-            ClusterNode recipientNode,
-            Long term,
-            boolean commit,
-            Map<TablePartitionId, Long> enlistedGroups,
-            UUID txId
-    ) {
+    public CompletableFuture<Void> finish(HybridTimestampTracker observableTimestampTracker, TablePartitionId commitPartition,
+            ClusterNode recipientNode, Long term, boolean commit, Map<TablePartitionId, Long> enlistedGroups, UUID txId) {
         assert enlistedGroups != null;
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
@@ -298,44 +291,33 @@ public class TxManagerImpl implements TxManager {
         // TODO: sanpwc do it in a proper place.
         observableTimestampTracker.update(commitTimestamp);
 
-        return verificationFuture
-                .handle((unused, throwable) -> {
-                            // TODO: sanpwc tmp
-                            Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>();
-                            // TODO: sanpwc tmp cast
-                            replicationGroupIds.addAll((Collection<ReplicationGroupId>) (Collection<?>) enlistedGroups.keySet());
+        return verificationFuture.handle((unused, throwable) -> {
+                    // TODO: sanpwc tmp
+                    Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>();
+                    // TODO: sanpwc tmp cast
+                    replicationGroupIds.addAll((Collection<ReplicationGroupId>) (Collection<?>) enlistedGroups.keySet());
 
-                            TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                                    .txId(txId)
-                                    .timestampLong(clock.nowLong())
-                                    .groupId(commitPartition)
-                                    .groups(replicationGroupIds)
-                                    // In case of verification future failure transaction will be rolled back.
-                                    .commit(throwable == null && commit)
-                                    .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                                    .term(term)
-                                    .build();
+                    TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest().txId(txId).timestampLong(clock.nowLong()).groupId(commitPartition)
+                            .groups(replicationGroupIds)
+                            // In case of verification future failure transaction will be rolled back.
+                            .commit(throwable == null && commit).commitTimestampLong(hybridTimestampToLong(commitTimestamp)).term(term).build();
 
-                            return replicaService.invoke(recipientNode, req)
-                                    .thenRun(() ->
-                                            updateTxMeta(txId, old -> {
-                                                if (isFinalState(old.txState())) {
-                                                    finishingStateMeta.txFinishFuture().complete(old);
+                    return replicaService.invoke(recipientNode, req).thenRun(() -> updateTxMeta(txId, old -> {
+                        if (isFinalState(old.txState())) {
+                            finishingStateMeta.txFinishFuture().complete(old);
 
-                                                    return old;
-                                                }
-
-                                                assert old instanceof TxStateMetaFinishing;
-
-                                                TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
-
-                                                finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
-
-                                                return finalTxStateMeta;
-                                            })
-                                    );
+                            return old;
                         }
-                ).thenCompose(Function.identity())
+
+                        assert old instanceof TxStateMetaFinishing;
+
+                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+
+                        finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+
+                        return finalTxStateMeta;
+                    }));
+                }).thenCompose(Function.identity())
                 // verification future is added in order to share proper exception with the client
                 .thenCompose(ignored -> verificationFuture);
 
@@ -449,9 +431,9 @@ public class TxManagerImpl implements TxManager {
         for (Map.Entry<TablePartitionId, Long> enlistedGroup : enlistedGroups.entrySet()) {
             verificationFutures[++cnt] = placementDriver.getPrimaryReplica(enlistedGroup.getKey(), commitTimestamp)
                     .thenAccept(currentPrimaryReplica -> {
-                        if (currentPrimaryReplica == null ||
-                                !enlistedGroup.getValue().equals(currentPrimaryReplica.getStartTime().longValue()) ||
-                                commitTimestamp.after(currentPrimaryReplica.getExpirationTime())) {
+                        if (currentPrimaryReplica == null
+                                || !enlistedGroup.getValue().equals(currentPrimaryReplica.getStartTime().longValue())
+                                || commitTimestamp.after(currentPrimaryReplica.getExpirationTime())) {
                             // TODO: sanpwc throw proper exception.
                             throw new TransactionException(1, "Aaaa");
                         }
