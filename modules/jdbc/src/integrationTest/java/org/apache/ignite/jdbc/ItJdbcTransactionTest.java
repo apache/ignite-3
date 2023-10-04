@@ -258,9 +258,9 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
             conn.setAutoCommit(false);
 
             try (Statement stmt = conn.createStatement()) {
-                assertThrowsSqlException(SQLException.class, () -> stmt.executeQuery("SELECT 1/0").next());
+                assertThrowsSqlException("/ by zero", () -> stmt.executeQuery("SELECT 1/0").next());
 
-                assertThrowsSqlException(SQLException.class, "Transaction is already finished",
+                assertThrowsSqlException("Transaction is already finished",
                         () -> {
                             if (dml) {
                                 stmt.executeUpdate(sqlStmt);
