@@ -50,9 +50,16 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      * @param readTimestamp The read timestamp.
+     * @param implicit Whether the transaction will be implicit or not.
      */
-    ReadOnlyTransactionImpl(TxManagerImpl txManager, HybridTimestampTracker observableTsTracker, UUID id, HybridTimestamp readTimestamp) {
-        super(txManager, id);
+    ReadOnlyTransactionImpl(
+            TxManagerImpl txManager,
+            HybridTimestampTracker observableTsTracker,
+            UUID id,
+            HybridTimestamp readTimestamp,
+            boolean implicit
+    ) {
+        super(txManager, id, implicit);
 
         this.readTimestamp = readTimestamp;
         this.observableTsTracker = observableTsTracker;
@@ -71,11 +78,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public HybridTimestamp startTimestamp() {
         return readTimestamp;
-    }
-
-    @Override
-    public boolean implicit() {
-        return false;
     }
 
     @Override

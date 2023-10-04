@@ -156,8 +156,8 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker) {
-        return beginTx(timestampTracker, false, true);
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+        return beginTx(timestampTracker, readOnly, true);
     }
 
     private InternalTransaction beginTx(HybridTimestampTracker timestampTracker, boolean readOnly, boolean implicit) {
@@ -194,7 +194,7 @@ public class TxManagerImpl implements TxManager {
                 return new CompletableFuture<>();
             });
 
-            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp, implicit);
         } finally {
             lowWatermarkReadWriteLock.readLock().unlock();
         }

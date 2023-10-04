@@ -368,7 +368,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private InternalTransaction startImplicitTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.beginImplicit(observableTimestampTracker) : tx;
+        return tx == null ? txManager.beginImplicit(observableTimestampTracker, false) : tx;
     }
 
     /**
@@ -564,7 +564,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryRowEx row,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, true);
 
         int partId = partitionId(row);
 
@@ -615,7 +615,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> rows,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, true);
 
         int partId = partitionId(rows.iterator().next());
 
@@ -895,7 +895,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker);
+        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, false);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         CompletableFuture<Void> fut = enlistWithRetry(
