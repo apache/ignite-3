@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.lang;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 /**
- * An interface describing a factory to create a logger instance.
+ * Thrown when targets are not colocated.
+ *
+ * <p>That is, the set of nodes, partitions, or execution strategies of one target does not
+ * satisfy the other target.
  */
-@FunctionalInterface
-public interface LoggerFactory {
-    /**
-     * Creates a logger instance with a given name.
-     *
-     * @param name Name to create logger with.
-     * @return Logger instance.
-     */
-    System.Logger forName(String name);
+public class ColocationMappingException extends Exception {
+    /** Constructor. */
+    public ColocationMappingException(String message) {
+        super(message, null, true, false);
+    }
 }

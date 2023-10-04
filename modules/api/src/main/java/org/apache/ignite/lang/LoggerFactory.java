@@ -15,44 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.lang;
 
 /**
- * Tuple representing the number of the partition with its current primary replica term.
+ * An interface describing a factory to create a logger instance.
  */
-public class PartitionWithTerm {
-    /** Partition number. */
-    private final int partId;
-
-    /** Primary replica term. */
-    private final long term;
-
+@FunctionalInterface
+public interface LoggerFactory {
     /**
-     * Constructor.
+     * Creates a logger instance with a given name.
      *
-     * @param partId partition number
-     * @param term Primary replica term.
+     * @param name Name to create logger with.
+     * @return Logger instance.
      */
-    public PartitionWithTerm(int partId, Long term) {
-        this.partId = partId;
-        this.term = term;
-    }
-
-    /**
-     * Gets partition number.
-     *
-     * @return Partition number.
-     */
-    public int partId() {
-        return partId;
-    }
-
-    /**
-     * Gets primary replica term.
-     *
-     * @return Primary replica term.
-     */
-    public long term() {
-        return term;
-    }
+    System.Logger forName(String name);
 }

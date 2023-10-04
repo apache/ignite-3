@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.exec;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -40,7 +40,7 @@ public class NodeWithTerm implements Serializable {
      * @param name Primary replica node name.
      * @param term Primary replica term.
      */
-    public NodeWithTerm(String name, Long term) {
+    public NodeWithTerm(String name, long term) {
         this.name = name;
         this.term = term;
     }

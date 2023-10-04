@@ -546,23 +546,20 @@ TEST_F(meta_queries_test, get_data_with_tables) {
     check_single_row_result_set_with_get_data(m_statement);
 }
 
-// TODO: IGNITE-20346 Implement column metadata fetching
-#ifdef MUTED
 TEST_F(meta_queries_test, get_data_with_columns) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR empty[] = "";
-    SQLCHAR table[] = "TestType";
-    SQLCHAR column[] = "str";
+    SQLCHAR any[] = "%";
+    SQLCHAR table[] = "META_QUERIES_TEST";
+    SQLCHAR column[] = "STR";
 
-    SQLRETURN ret = SQLColumns(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, column, SQL_NTS);
+    SQLRETURN ret = SQLColumns(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, column, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     check_single_row_result_set_with_get_data(m_statement);
 }
-#endif // MUTED
 
 TEST_F(meta_queries_test, get_data_with_select_query) {
     odbc_connect(get_basic_connection_string());
@@ -723,19 +720,17 @@ TEST_F(meta_queries_test, tables_meta) {
     EXPECT_TRUE(ret == SQL_NO_DATA);
 }
 
-// TODO: IGNITE-20346 Implement table column metadata fetching
-#ifdef MUTED
 TEST_F(meta_queries_test, ddl_columns_meta) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR create_table[] = "create table TestTable(id int primary key, testColumn varchar)";
+    SQLCHAR create_table[] = "create table if not exists DDL_COLUMNS_META(ID int primary key, TEST_COLUMN varchar)";
     SQLRETURN ret = SQLExecDirect(m_statement, create_table, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     SQLCHAR any[] = "%";
-    SQLCHAR table[] = "TestTable";
+    SQLCHAR table[] = "DDL_COLUMNS_META";
 
     ret = SQLColumns(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, any, SQL_NTS);
 
@@ -748,8 +743,8 @@ TEST_F(meta_queries_test, ddl_columns_meta) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     check_string_column(m_statement, 1, "");
-    check_string_column(m_statement, 2, "\"PUBLIC\"");
-    check_string_column(m_statement, 3, "TESTTABLE");
+    check_string_column(m_statement, 2, "PUBLIC");
+    check_string_column(m_statement, 3, "DDL_COLUMNS_META");
     check_string_column(m_statement, 4, "ID");
 
     ret = SQLFetch(m_statement);
@@ -758,9 +753,9 @@ TEST_F(meta_queries_test, ddl_columns_meta) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     check_string_column(m_statement, 1, "");
-    check_string_column(m_statement, 2, "\"PUBLIC\"");
-    check_string_column(m_statement, 3, "TESTTABLE");
-    check_string_column(m_statement, 4, "TESTCOLUMN");
+    check_string_column(m_statement, 2, "PUBLIC");
+    check_string_column(m_statement, 3, "DDL_COLUMNS_META");
+    check_string_column(m_statement, 4, "TEST_COLUMN");
 
     ret = SQLFetch(m_statement);
 
@@ -770,7 +765,7 @@ TEST_F(meta_queries_test, ddl_columns_meta) {
 TEST_F(meta_queries_test, ddl_columns_meta_escaped) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR create_table[] = "create table ESG_FOCUS(id int primary key, TEST_COLUMN varchar)";
+    SQLCHAR create_table[] = "create table if not exists ESG_FOCUS(id int primary key, TEST_COLUMN varchar)";
     SQLRETURN ret = SQLExecDirect(m_statement, create_table, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
@@ -790,7 +785,7 @@ TEST_F(meta_queries_test, ddl_columns_meta_escaped) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     check_string_column(m_statement, 1, "");
-    check_string_column(m_statement, 2, "\"PUBLIC\"");
+    check_string_column(m_statement, 2, "PUBLIC");
     check_string_column(m_statement, 3, "ESG_FOCUS");
     check_string_column(m_statement, 4, "ID");
 
@@ -800,7 +795,7 @@ TEST_F(meta_queries_test, ddl_columns_meta_escaped) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     check_string_column(m_statement, 1, "");
-    check_string_column(m_statement, 2, "\"PUBLIC\"");
+    check_string_column(m_statement, 2, "PUBLIC");
     check_string_column(m_statement, 3, "ESG_FOCUS");
     check_string_column(m_statement, 4, "TEST_COLUMN");
 
@@ -808,7 +803,6 @@ TEST_F(meta_queries_test, ddl_columns_meta_escaped) {
 
     ASSERT_EQ(ret, SQL_NO_DATA);
 }
-#endif // MUTED
 
 // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
 #ifdef MUTED

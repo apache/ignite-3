@@ -15,24 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
-
-import java.util.List;
-import java.util.function.Predicate;
-import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.sql.engine.exec;
 
 /**
- * Service is responsible for nodes mapping calculation.
+ * Tuple representing the number of the partition with its current primary replica term.
  */
-public interface MappingService {
+public class PartitionWithTerm {
+    /** Partition number. */
+    private final int partId;
+
+    /** Primary replica term. */
+    private final long term;
+
     /**
-     * Returns Nodes responsible for executing intermediate fragments (fragments without Scan leafs). Such fragments may be executed on any
-     * cluster node, actual list of nodes is chosen on the basis of adopted selection strategy (using node filter).
+     * Constructor.
      *
-     * @param single     Flag, indicating that a fragment should execute on a single node.
-     * @param nodeFilter Node filter.
-     * @return Nodes mapping for intermediate fragments.
+     * @param partId partition number
+     * @param term Primary replica term.
      */
-    List<String> executionNodes(boolean single, @Nullable Predicate<ClusterNode> nodeFilter);
+    public PartitionWithTerm(int partId, Long term) {
+        this.partId = partId;
+        this.term = term;
+    }
+
+    /**
+     * Gets partition number.
+     *
+     * @return Partition number.
+     */
+    public int partId() {
+        return partId;
+    }
+
+    /**
+     * Gets primary replica term.
+     *
+     * @return Primary replica term.
+     */
+    public long term() {
+        return term;
+    }
 }

@@ -15,19 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 
 /**
- * ColocationMappingException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A service to map multi step plan to an actual topology.
  */
-public class ColocationMappingException extends Exception {
+@FunctionalInterface
+public interface MappingService {
     /**
-     * Constructor.
+     * Maps given plan to a cluster topology.
      *
-     * @param message Message.
+     * @param multiStepPlan A plan to map.
+     * @return A list of fragments with metadata related to a fragment topology.
      */
-    public ColocationMappingException(String message) {
-        super(message);
-    }
+    CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan);
 }

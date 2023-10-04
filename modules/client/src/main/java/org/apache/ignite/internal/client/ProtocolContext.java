@@ -83,7 +83,7 @@ public class ProtocolContext {
      */
     public void checkFeatureSupported(ProtocolBitmaskFeature feature) throws IgniteClientFeatureNotSupportedByServerException {
         if (!isFeatureSupported(feature)) {
-            throw new IgniteClientFeatureNotSupportedByServerException(feature);
+            throw new IgniteClientFeatureNotSupportedByServerException(feature.name());
         }
     }
 
