@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -70,7 +72,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             String filter,
             CatalogDataStorageDescriptor dataStorage
     ) {
-        super(id, Type.ZONE, name);
+        super(id, Type.ZONE, name, INITIAL_CAUSALITY_TOKEN);
 
         this.partitions = partitions;
         this.replicas = replicas;

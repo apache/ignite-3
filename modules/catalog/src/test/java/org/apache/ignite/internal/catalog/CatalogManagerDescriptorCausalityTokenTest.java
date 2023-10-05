@@ -110,7 +110,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNull(schema.table(TABLE_NAME));
         assertNull(manager.table(TABLE_NAME, 123L));
 
-        // Validate actual catalog
+        // Validate actual catalog.
         schema = manager.schema(SCHEMA_NAME, 1);
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
 
@@ -121,7 +121,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertSame(table, manager.table(TABLE_NAME, clock.nowLong()));
         assertSame(table, manager.table(table.id(), clock.nowLong()));
 
-        // Validate newly created table
+        // Validate newly created table.
         assertEquals(TABLE_NAME, table.name());
         assertTrue(table.updateToken() > INITIAL_CAUSALITY_TOKEN);
         assertEquals(table.updateToken(), schema.updateToken());
@@ -129,7 +129,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         // Validate another table creation.
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
 
-        // Validate actual catalog has both tables.
+        // Validate actual catalog. has both tables.
         schema = manager.schema(2);
         table = schema.table(TABLE_NAME);
         CatalogTableDescriptor table2 = schema.table(TABLE_NAME_2);
@@ -181,7 +181,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertSame(table2, manager.table(TABLE_NAME_2, beforeDropTimestamp));
         assertSame(table2, manager.table(table2.id(), beforeDropTimestamp));
 
-        // Validate actual catalog
+        // Validate actual catalog.
         schema = manager.schema(3);
 
         assertNotNull(schema);
@@ -192,7 +192,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNull(manager.table(TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table1.id(), clock.nowLong()));
 
-        // Assert that drop table changes schema's last update token
+        // Assert that drop table changes schema's last update token.
         assertTrue(schema.updateToken() > causalityToken);
     }
 
@@ -221,18 +221,17 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
 
-        // Validate actual catalog
+        // Validate actual catalog.
         schema = manager.activeSchema(clock.nowLong());
         assertNotNull(schema);
         table = schema.table(TABLE_NAME);
         assertNotNull(table);
 
-
         // Validate column descriptor.
         CatalogTableColumnDescriptor column = schema.table(TABLE_NAME).column(NEW_COLUMN_NAME);
         assertEquals(NEW_COLUMN_NAME, column.name());
 
-        // Assert that schema's and table's update token was updated after adding a column
+        // Assert that schema's and table's update token was updated after adding a column.
         assertTrue(schema.updateToken() > schemaCausalityToken);
         assertEquals(schema.updateToken(), table.updateToken());
     }
@@ -257,7 +256,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertNotNull(schema.table(TABLE_NAME).column("VAL"));
 
-        // Validate actual catalog
+        // Validate actual catalog.
         schema = manager.activeSchema(clock.nowLong());
         assertNotNull(schema);
         table = schema.table(TABLE_NAME);
@@ -265,7 +264,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertNull(schema.table(TABLE_NAME).column("VAL"));
 
-        // Assert that schema's and table's update token was updated after dropping a column
+        // Assert that schema's and table's update token was updated after dropping a column.
         assertTrue(schema.updateToken() > schemaCausalityToken);
         assertEquals(schema.updateToken(), table.updateToken());
     }
@@ -287,7 +286,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertTrue(schemaCausalityToken > INITIAL_CAUSALITY_TOKEN);
 
-        // Validate actual catalog
+        // Validate actual catalog.
         schema = manager.schema(2);
 
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.index(INDEX_NAME);
@@ -297,7 +296,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertSame(index, manager.index(index.id(), clock.nowLong()));
         assertTrue(schema.updateToken() > schemaCausalityToken);
 
-        // Validate newly created hash index
+        // Validate newly created hash index.
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(schema.updateToken(), index.updateToken());
@@ -326,7 +325,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         long schemaCausalityToken = schema.updateToken();
         assertTrue(schemaCausalityToken > INITIAL_CAUSALITY_TOKEN);
 
-        // Validate actual catalog
+        // Validate actual catalog.
         schema = manager.schema(2);
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.index(INDEX_NAME);
@@ -336,7 +335,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertSame(index, manager.index(index.id(), clock.nowLong()));
         assertTrue(schema.updateToken() > schemaCausalityToken);
 
-        // Validate newly created sorted index
+        // Validate newly created sorted index.
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(schema.updateToken(), index.updateToken());
@@ -354,19 +353,19 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertNull(manager.zone(zoneName, 0));
         assertNull(manager.zone(zoneName, 123L));
 
-        // Validate actual catalog
+        // Validate actual catalog.
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
 
         assertNotNull(zone);
         assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
 
-        // Validate newly created zone
+        // Validate newly created zone.
         assertEquals(zoneName, zone.name());
         assertTrue(zone.updateToken() > INITIAL_CAUSALITY_TOKEN);
     }
 
     @Test
-    public void testRenameZone() throws InterruptedException {
+    public void testRenameZone() {
         String zoneName = ZONE_NAME + 1;
 
         CreateZoneParams createParams = CreateZoneParams.builder().zoneName(zoneName).build();
@@ -374,8 +373,6 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertThat(manager.createZone(createParams), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
-
-        Thread.sleep(5);
 
         String newZoneName = "RenamedZone";
 
@@ -396,7 +393,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         long causalityToken = zone.updateToken();
         assertTrue(causalityToken > INITIAL_CAUSALITY_TOKEN);
 
-        // Validate actual catalog
+        // Validate actual catalog.
         zone = manager.zone(newZoneName, clock.nowLong());
 
         assertNotNull(zone);
@@ -404,7 +401,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(newZoneName, zone.name());
 
         assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
-        // Assert that renaming of a zone updates token
+        // Assert that renaming of a zone updates token.
         assertTrue(zone.updateToken() > causalityToken);
     }
 
@@ -432,7 +429,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertThat(manager.alterZone(alterZoneParams), willCompleteSuccessfully());
 
-        // Validate actual catalog
+        // Validate actual catalog.
         zone = manager.zone(zoneName, clock.nowLong());
         assertNotNull(zone);
         assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
@@ -441,7 +438,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(3, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(4, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("newExpression", zone.filter());
-        // Assert that altering of a zone updates token
+        // Assert that altering of a zone updates token.
         assertTrue(zone.updateToken() > causalityToken);
     }
 }
