@@ -18,20 +18,19 @@
 package org.apache.ignite.internal.configuration.sample;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
- * Test auto adjust configuration schema.
+ * Test configuration schema.
  */
 @Config
-public class AutoAdjustConfigurationSchema {
-    /** Timeout. */
-    @Value(hasDefault = true)
-    @Range(min = 0)
-    public long timeout = 0L;
+public class TestConfigurationSchema {
+    /** Test configuration value schema. */
+    @ConfigValue
+    public TestConfigValueConfigurationSchema testConfigValue;
 
-    /** Enabled. */
-    @Value(hasDefault = true)
-    public boolean enabled = true;
+    /** Test configuration values schema. */
+    @NamedConfigValue
+    public TestConfigValueConfigurationSchema testConfigValues;
 }

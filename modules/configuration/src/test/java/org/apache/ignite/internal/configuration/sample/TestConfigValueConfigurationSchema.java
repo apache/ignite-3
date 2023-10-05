@@ -20,22 +20,24 @@ package org.apache.ignite.internal.configuration.sample;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Test node configuration schema.
+ * Test configuration value schema.
  */
 @Config
-public class NodeConfigurationSchema {
-    /** Consistent id. */
+public class TestConfigValueConfigurationSchema {
+    /** String value. */
     @Value
     @Immutable
-    public String consistentId;
+    public String stringValue;
 
-    /** Port. */
-    @Value
-    public int port;
-
-    /** Auto adjust enabled. */
+    /** Long value. */
     @Value(hasDefault = true)
-    public boolean autoAdjustEnabled = true;
+    @Range(min = 0)
+    public long longValue = 0L;
+
+    /** Boolean value. */
+    @Value(hasDefault = true)
+    public boolean booleanValue = true;
 }
