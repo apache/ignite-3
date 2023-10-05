@@ -25,7 +25,7 @@ import org.apache.ignite.internal.security.authentication.configuration.Authenti
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 
 /**
- * Authentication schema configuration validator implementation.
+ * Implementation of {@link AuthenticationProvidersValidator}.
  */
 public class AuthenticationProvidersValidatorImpl implements
         Validator<AuthenticationProvidersValidator, NamedListView<? extends AuthenticationProviderView>> {

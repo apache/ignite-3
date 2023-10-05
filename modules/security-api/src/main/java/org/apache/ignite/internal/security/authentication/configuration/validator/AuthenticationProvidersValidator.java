@@ -24,7 +24,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to validate whole authentication configuration.
+ * Annotation to validate authentication providers.
  */
 @Target(FIELD)
 @Retention(RUNTIME)
