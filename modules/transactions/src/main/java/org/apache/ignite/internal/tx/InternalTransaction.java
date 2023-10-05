@@ -105,4 +105,15 @@ public interface InternalTransaction extends Transaction {
      * provided no transaction for an operation) or not.
      */
     boolean implicit();
+
+    /**
+     * Finishes a read-only transaction with a specific execution timestamp.
+     *
+     * @param commit Commit flag. The flag is ignored for read-only transactions.
+     * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node.
+     * @return The future.
+     */
+    default CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
+        return commit ? commitAsync() : rollbackAsync();
+    }
 }

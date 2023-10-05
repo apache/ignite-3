@@ -54,6 +54,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableExcepti
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -231,11 +232,11 @@ public class ReplicaManager implements IgniteComponent {
                 return;
             }
 
-            HybridTimestamp sendTimestamp = null;
-
             if (requestTimestamp != null) {
-                sendTimestamp = clock.update(requestTimestamp);
+                clock.update(requestTimestamp);
             }
+
+            boolean sendTimestamp = request instanceof TimestampAware || request instanceof ReadOnlyDirectReplicaRequest;
 
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
@@ -245,16 +246,15 @@ public class ReplicaManager implements IgniteComponent {
 
             CompletableFuture<?> result = replica.processRequest(request, senderId);
 
-            HybridTimestamp finalSendTimestamp = sendTimestamp;
             result.handle((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
-                    msg = prepareReplicaResponse(finalSendTimestamp, res);
+                    msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     LOG.warn("Failed to process replica request [request={}]", ex, request);
 
-                    msg = prepareReplicaErrorResponse(finalSendTimestamp, ex);
+                    msg = prepareReplicaErrorResponse(sendTimestamp, ex);
                 }
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
@@ -584,12 +584,12 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Prepares replica response.
      */
-    private NetworkMessage prepareReplicaResponse(@Nullable HybridTimestamp sendTimestamp, Object result) {
-        if (sendTimestamp != null) {
+    private NetworkMessage prepareReplicaResponse(boolean sendTimestamp, Object result) {
+        if (sendTimestamp) {
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(sendTimestamp.longValue())
+                    .timestampLong(clock.nowLong())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -602,12 +602,12 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Prepares replica error response.
      */
-    private NetworkMessage prepareReplicaErrorResponse(@Nullable HybridTimestamp sendTimestamp, Throwable ex) {
-        if (sendTimestamp != null) {
+    private NetworkMessage prepareReplicaErrorResponse(boolean sendTimestamp, Throwable ex) {
+        if (sendTimestamp) {
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(sendTimestamp.longValue())
+                    .timestampLong(clock.nowLong())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
