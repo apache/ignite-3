@@ -152,9 +152,10 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param rows Rows to insert into the table.
      * @param partition Partition that the rows belong to.
+     * @param tx Transaction (must be implicit).
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition);
+    CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition, InternalTransaction tx);
 
     /**
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.

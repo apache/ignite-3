@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -48,7 +49,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private static final Object POISON_OBJECT = new Object();
 
     /** Schema manager. */
-    private final SchemaRegistry schemaReg;
+    private final Supplier<SchemaDescriptor> schemaSupplier;
+
+    private final int schemaVersion;
 
     /**
      * Creates tuple marshaller.
@@ -56,16 +59,30 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param schemaReg Schema manager.
      */
     public TupleMarshallerImpl(SchemaRegistry schemaReg) {
-        this.schemaReg = schemaReg;
+        this(schemaReg::schema, -1);
 
         schemaReg.waitLatestSchema(); //TODO: Fix schema synchronization.
+    }
+
+    public TupleMarshallerImpl(SchemaDescriptor schema) {
+        this(() -> schema, schema.version());
+    }
+
+    private TupleMarshallerImpl(Supplier<SchemaDescriptor> schemaSupplier, int schemaVersion) {
+        this.schemaSupplier = schemaSupplier;
+        this.schemaVersion = schemaVersion;
+    }
+
+    @Override
+    public int schemaVersion() {
+        return schemaVersion;
     }
 
     /** {@inheritDoc} */
     @Override
     public Row marshal(Tuple tuple) throws TupleMarshallerException {
         try {
-            SchemaDescriptor schema = schemaReg.schema();
+            SchemaDescriptor schema = schemaSupplier.get();
 
             if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
                 SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
@@ -105,7 +122,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
         try {
-            SchemaDescriptor schema = schemaReg.schema();
+            SchemaDescriptor schema = schemaSupplier.get();
 
             InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
             InternalTuple valTuple0 = toInternalTuple(schema, valTuple, false);
@@ -167,7 +184,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshalKey(Tuple keyTuple) throws TupleMarshallerException {
         try {
-            final SchemaDescriptor schema = schemaReg.schema();
+            final SchemaDescriptor schema = schemaSupplier.get();
 
             InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
 

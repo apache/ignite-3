@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,11 +27,14 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
-import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -46,19 +47,29 @@ import org.jetbrains.annotations.Nullable;
  * Table view implementation for binary objects.
  */
 public class RecordBinaryViewImpl extends AbstractTableView implements RecordView<Tuple> {
-    /** Marshaller. */
-    private final TupleMarshallerImpl marsh;
+    private final SchemaRegistry schemaRegistry;
+
+    private volatile TupleMarshaller cachedMarshaller;
 
     /**
      * Constructor.
      *
-     * @param tbl       The table.
-     * @param schemaReg Table schema registry.
+     * @param tbl The table.
+     * @param txManager Transaction manager.
+     * @param observableTimestampTracker Timestamp tracker to use when creating implicit transactions.
+     * @param schemaVersions Schema versions access.
+     * @param schemaRegistry Table schema registry.
      */
-    public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg) {
-        super(tbl, schemaReg);
+    public RecordBinaryViewImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaRegistry,
+            TxManager txManager,
+            HybridTimestampTracker observableTimestampTracker,
+            SchemaVersions schemaVersions
+    ) {
+        super(tbl, txManager, observableTimestampTracker, schemaVersions, schemaRegistry);
 
-        marsh = new TupleMarshallerImpl(schemaReg);
+        this.schemaRegistry = schemaRegistry;
     }
 
     /** {@inheritDoc} */
@@ -72,9 +83,25 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        final Row keyRow = marshal(keyRec, true); // Convert to portable format to pass TX/storage layer.
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row keyRow = marshal(keyRec, schemaVersion, true); // Convert to portable format to pass TX/storage layer.
 
-        return convertToPublicFuture(tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::wrap));
+            return tbl.get(keyRow, actualTx).thenApply(row -> wrap(row, schemaVersion));
+        });
+    }
+
+    private TupleMarshaller marshaller(int schemaVersion) {
+        TupleMarshaller marshaller = cachedMarshaller;
+
+        if (marshaller != null && marshaller.schemaVersion() == schemaVersion) {
+            return marshaller;
+        }
+
+        marshaller = new TupleMarshallerImpl(schemaRegistry.schema(schemaVersion));
+
+        cachedMarshaller = marshaller;
+
+        return marshaller;
     }
 
     @Override
@@ -86,8 +113,10 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return convertToPublicFuture(tbl.getAll(mapToBinary(keyRecs, true), (InternalTransaction) tx)
-                .thenApply(binaryRows -> wrap(binaryRows, true)));
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            return tbl.getAll(mapToBinary(keyRecs, schemaVersion, true), actualTx)
+                    .thenApply(binaryRows -> wrap(binaryRows, schemaVersion, true));
+        });
     }
 
     /** {@inheritDoc} */
@@ -101,9 +130,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshal(rec, false);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row row = marshal(rec, schemaVersion, false);
 
-        return convertToPublicFuture(tbl.upsert(row, (InternalTransaction) tx));
+            return tbl.upsert(row, actualTx);
+        });
     }
 
     /** {@inheritDoc} */
@@ -117,7 +148,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return convertToPublicFuture(tbl.upsertAll(mapToBinary(recs, false), (InternalTransaction) tx));
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            return tbl.upsertAll(mapToBinary(recs, schemaVersion, false), actualTx);
+        });
     }
 
     /** {@inheritDoc} */
@@ -131,9 +164,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Tuple> getAndUpsertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshal(rec, false);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row row = marshal(rec, schemaVersion, false);
 
-        return convertToPublicFuture(tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::wrap));
+            return tbl.getAndUpsert(row, actualTx).thenApply(resultRow -> wrap(resultRow, schemaVersion));
+        });
     }
 
     /** {@inheritDoc} */
@@ -147,9 +182,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshal(rec, false);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row row = marshal(rec, schemaVersion, false);
 
-        return convertToPublicFuture(tbl.insert(row, (InternalTransaction) tx));
+            return tbl.insert(row, actualTx);
+        });
     }
 
     /** {@inheritDoc} */
@@ -163,8 +200,10 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return convertToPublicFuture(tbl.insertAll(mapToBinary(recs, false), (InternalTransaction) tx)
-                .thenApply(rows -> wrap(rows, false)));
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            return tbl.insertAll(mapToBinary(recs, schemaVersion, false), actualTx)
+                    .thenApply(rows -> wrap(rows, schemaVersion, false));
+        });
     }
 
     /** {@inheritDoc} */
@@ -184,9 +223,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshal(rec, false);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row row = marshal(rec, schemaVersion, false);
 
-        return convertToPublicFuture(tbl.replace(row, (InternalTransaction) tx));
+            return tbl.replace(row, actualTx);
+        });
     }
 
     /** {@inheritDoc} */
@@ -195,10 +236,12 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
-        final Row oldRow = marshal(oldRec, false);
-        final Row newRow = marshal(newRec, false);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row oldRow = marshal(oldRec, schemaVersion, false);
+            Row newRow = marshal(newRec, schemaVersion, false);
 
-        return convertToPublicFuture(tbl.replace(oldRow, newRow, (InternalTransaction) tx));
+            return tbl.replace(oldRow, newRow, actualTx);
+        });
     }
 
     /** {@inheritDoc} */
@@ -212,9 +255,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshal(rec, false);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row row = marshal(rec, schemaVersion, false);
 
-        return convertToPublicFuture(tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(this::wrap));
+            return tbl.getAndReplace(row, actualTx).thenApply(resultRow -> wrap(resultRow, schemaVersion));
+        });
     }
 
     /** {@inheritDoc} */
@@ -228,9 +273,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        final Row keyRow = marshal(keyRec, true);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row keyRow = marshal(keyRec, schemaVersion, true);
 
-        return convertToPublicFuture(tbl.delete(keyRow, (InternalTransaction) tx));
+            return tbl.delete(keyRow, actualTx);
+        });
     }
 
     /** {@inheritDoc} */
@@ -244,9 +291,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
-        final Row row = marshal(rec, false);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row row = marshal(rec, schemaVersion, false);
 
-        return convertToPublicFuture(tbl.deleteExact(row, (InternalTransaction) tx));
+            return tbl.deleteExact(row, actualTx);
+        });
     }
 
     /** {@inheritDoc} */
@@ -260,9 +309,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Tuple> getAndDeleteAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        final Row keyRow = marshal(keyRec, true);
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            Row keyRow = marshal(keyRec, schemaVersion, true);
 
-        return convertToPublicFuture(tbl.getAndDelete(keyRow, (InternalTransaction) tx).thenApply(this::wrap));
+            return tbl.getAndDelete(keyRow, actualTx).thenApply(row -> wrap(row, schemaVersion));
+        });
     }
 
     /** {@inheritDoc} */
@@ -276,7 +327,10 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return convertToPublicFuture(tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrapKeys));
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            return tbl.deleteAll(mapToBinary(keyRecs, schemaVersion, true), actualTx)
+                    .thenApply(rows -> wrapKeys(rows, schemaVersion));
+        });
     }
 
     /** {@inheritDoc} */
@@ -290,24 +344,29 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return convertToPublicFuture(tbl.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx)
-                .thenApply(rows -> wrap(rows, false)));
+        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+            return tbl.deleteAllExact(mapToBinary(recs, schemaVersion, false), actualTx)
+                    .thenApply(rows -> wrap(rows, schemaVersion, false));
+        });
     }
 
     /**
      * Marshal a tuple to a row.
      *
-     * @param tuple   The tuple.
+     * @param tuple The tuple.
+     * @param schemaVersion Schema version in which to marshal.
      * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
      * @return Row.
      * @throws IgniteException If failed to marshal tuple.
      */
-    private Row marshal(Tuple tuple, boolean keyOnly) throws IgniteException {
+    private Row marshal(Tuple tuple, int schemaVersion, boolean keyOnly) throws IgniteException {
+        TupleMarshaller marshaller = marshaller(schemaVersion);
+
         try {
             if (keyOnly) {
-                return marsh.marshalKey(tuple);
+                return marshaller.marshalKey(tuple);
             } else {
-                return marsh.marshal(tuple);
+                return marshaller.marshal(tuple);
             }
         } catch (TupleMarshallerException ex) {
             throw new MarshallerException(ex);
@@ -319,8 +378,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      *
      * @param row Binary row.
      */
-    private @Nullable Tuple wrap(@Nullable BinaryRow row) {
-        return row == null ? null : TableRow.tuple(rowConverter.resolveRow(row));
+    private @Nullable Tuple wrap(@Nullable BinaryRow row, int targetSchemaVersion) {
+        return row == null ? null : TableRow.tuple(rowConverter.resolveRow(row, targetSchemaVersion));
     }
 
     /**
@@ -329,14 +388,14 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * @param rows Binary rows.
      * @param addNull {@code true} if {@code null} is added for missing rows.
      */
-    private List<Tuple> wrap(Collection<BinaryRow> rows, boolean addNull) {
+    private List<Tuple> wrap(Collection<BinaryRow> rows, int targetSchemaVersion, boolean addNull) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
 
         var wrapped = new ArrayList<Tuple>(rows.size());
 
-        for (Row row : rowConverter.resolveRows(rows)) {
+        for (Row row : rowConverter.resolveRows(rows, targetSchemaVersion)) {
             if (row != null) {
                 wrapped.add(TableRow.tuple(row));
             } else if (addNull) {
@@ -347,14 +406,14 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         return wrapped;
     }
 
-    private List<Tuple> wrapKeys(Collection<BinaryRow> rows) {
+    private List<Tuple> wrapKeys(Collection<BinaryRow> rows, int targetSchemaVersion) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
 
         var wrapped = new ArrayList<Tuple>(rows.size());
 
-        for (Row row : rowConverter.resolveKeys(rows)) {
+        for (Row row : rowConverter.resolveKeys(rows, targetSchemaVersion)) {
             if (row != null) {
                 wrapped.add(TableRow.tuple(row));
             }
@@ -367,14 +426,15 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * Maps a collection of tuples to binary rows.
      *
      * @param rows Tuples.
+     * @param schemaVersion Schema version in which to marshal.
      * @param key  {@code true} to marshal only a key.
      * @return List of binary rows.
      */
-    private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, boolean key) {
+    private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, int schemaVersion, boolean key) {
         Collection<BinaryRowEx> mapped = new ArrayList<>(rows.size());
 
         for (Tuple row : rows) {
-            mapped.add(marshal(row, key));
+            mapped.add(marshal(row, schemaVersion, key));
         }
 
         return mapped;
@@ -386,8 +446,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) ->
-                convertToPublicFuture(this.tbl.upsertAll(mapToBinary(items, false), partitionId));
+        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> withSchemaSync(null, (actualTx, schemaVersion) -> {
+            return this.tbl.upsertAll(mapToBinary(items, schemaVersion, false), partitionId, actualTx);
+        });
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

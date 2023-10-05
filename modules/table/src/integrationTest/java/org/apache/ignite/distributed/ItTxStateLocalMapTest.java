@@ -81,7 +81,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         this.testInfo = testInfo;
     }
 
-    protected static SchemaDescriptor TABLE_SCHEMA = new SchemaDescriptor(
+    protected static final SchemaDescriptor TABLE_SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("col1".toUpperCase(), NativeTypes.INT64, false)},
             new Column[]{new Column("col2".toUpperCase(), NativeTypes.INT32, false)}

@@ -39,6 +39,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
@@ -142,7 +143,14 @@ public class TxLocalTest extends TxAbstractTest {
                 timestampTracker
         );
 
-        accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), lockManager);
+        accounts = new TableImpl(
+                table,
+                new DummySchemaManagerImpl(ACCOUNTS_SCHEMA),
+                lockManager,
+                txManager,
+                timestampTracker,
+                new ConstantSchemaVersions(1)
+        );
 
         DummyInternalTableImpl table2 = new DummyInternalTableImpl(
                 replicaSvc,
@@ -153,7 +161,14 @@ public class TxLocalTest extends TxAbstractTest {
                 timestampTracker
         );
 
-        customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
+        customers = new TableImpl(
+                table2,
+                new DummySchemaManagerImpl(CUSTOMERS_SCHEMA),
+                lockManager,
+                txManager,
+                timestampTracker,
+                new ConstantSchemaVersions(1)
+        );
 
         tables.put(table.groupId(), table);
         tables.put(table2.groupId(), table2);

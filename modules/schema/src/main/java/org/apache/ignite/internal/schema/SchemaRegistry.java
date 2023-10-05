@@ -89,7 +89,7 @@ public interface SchemaRegistry extends ManuallyCloseable {
      * @param row Binary row.
      * @return Schema-aware row.
      */
-    Row resolve(BinaryRow row);
+    Row resolve(BinaryRow row, int targetSchemaVersion);
 
     /**
      * Resolves batch of binary rows against the latest schema.
@@ -97,7 +97,7 @@ public interface SchemaRegistry extends ManuallyCloseable {
      * @param rows Binary rows.
      * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code rows}.
      */
-    List<Row> resolve(Collection<BinaryRow> rows);
+    List<Row> resolve(Collection<BinaryRow> rows, int targetSchemaVersion);
 
     /**
      * Resolves batch of binary rows, that only contain the key component, against the latest schema.
@@ -105,7 +105,7 @@ public interface SchemaRegistry extends ManuallyCloseable {
      * @param keyOnlyRows Binary rows that only contain the key component.
      * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code keyOnlyRows}.
      */
-    List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows);
+    List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion);
 
     /**
      * Closes the registry freeing any resources it holds.

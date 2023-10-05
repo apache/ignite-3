@@ -183,7 +183,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition, InternalTransaction tx) {
         throw new UnsupportedOperationException();
     }
 

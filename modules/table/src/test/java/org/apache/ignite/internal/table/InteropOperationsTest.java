@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -45,9 +47,13 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -57,12 +63,11 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Tests for different access methods:
  * 1) Create single table.
- * 2) Write throw different API's into it (row 1 - with all values, row 2 - with nulls).
+ * 2) Write using different API's into it (row 1 - with all values, row 2 - with nulls).
  * 3) Read data back through all possible APIs and validate it.
  */
 public class InteropOperationsTest extends BaseIgniteAbstractTest {
@@ -105,25 +110,47 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             valueCols.add(new Column(colName + "N", type, true));
         }
 
-        SCHEMA = new SchemaDescriptor(1,
+        int schemaVersion = 1;
+
+        SCHEMA = new SchemaDescriptor(schemaVersion,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 valueCols.toArray(Column[]::new)
         );
 
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        INT_TABLE = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), SCHEMA);
+        INT_TABLE = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), SCHEMA);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
-        KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry);
+        TxManager txManager = INT_TABLE.txManager();
 
-        KV_VIEW = new KeyValueViewImpl<Long, Value>(INT_TABLE, schemaRegistry,
-                Mapper.of(Long.class, "id"), Mapper.of(Value.class));
+        HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+
+        SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
+
+        TABLE = new TableImpl(
+                INT_TABLE,
+                schemaRegistry,
+                new HeapLockManager(),
+                txManager,
+                observableTimestampTracker,
+                schemaVersions
+        );
+        KV_BIN_VIEW = new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry, txManager, observableTimestampTracker, schemaVersions);
+
+        KV_VIEW = new KeyValueViewImpl<>(
+                INT_TABLE,
+                schemaRegistry,
+                txManager,
+                observableTimestampTracker,
+                schemaVersions,
+                Mapper.of(Long.class, "id"),
+                Mapper.of(Value.class)
+        );
 
         R_BIN_VIEW = TABLE.recordView();
         R_VIEW = TABLE.recordView(Mapper.of(Row.class));

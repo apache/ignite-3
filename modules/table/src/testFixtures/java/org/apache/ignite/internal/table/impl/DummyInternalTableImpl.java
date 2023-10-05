@@ -176,7 +176,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
-            TransactionStateResolver transactionStateResolver,
+            @Nullable TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
@@ -198,7 +198,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         this(
                 replicaSvc,
                 mvPartStorage,
-                new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), LOCAL_NODE::id),
+                txManager(replicaSvc),
                 false,
                 null,
                 schema,
@@ -424,6 +424,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      */
     public TxManager txManager() {
         return txManager;
+    }
+
+    /**
+     * Creates a {@link TxManager}.
+     *
+     * @param replicaSvc Replica service to use.
+     * @return Created TxManager.
+     */
+    public static TxManagerImpl txManager(ReplicaService replicaSvc) {
+        return new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), LOCAL_NODE::id);
     }
 
     /** {@inheritDoc} */

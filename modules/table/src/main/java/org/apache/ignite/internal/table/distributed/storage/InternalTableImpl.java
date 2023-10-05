@@ -877,8 +877,12 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_UPSERT)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build());
+    }
+
+    private static boolean isOriginalTxImplicit(@Nullable InternalTransaction tx) {
+        return tx == null || tx.implicit();
     }
 
     /** {@inheritDoc} */
@@ -894,8 +898,9 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, false);
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition, InternalTransaction tx) {
+        assert tx.implicit();
+
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         CompletableFuture<Void> fut = enlistWithRetry(
@@ -922,7 +927,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build()
         );
     }
@@ -941,7 +946,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_INSERT)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build()
         );
     }
@@ -980,7 +985,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build()
         );
     }
@@ -1000,7 +1005,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_REPLACE)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build()
         );
     }
@@ -1019,7 +1024,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build()
         );
     }
@@ -1038,7 +1043,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_DELETE)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build()
         );
     }
@@ -1057,7 +1062,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build()
         );
     }
@@ -1076,7 +1081,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isOriginalTxImplicit(tx))
                         .build()
         );
     }
