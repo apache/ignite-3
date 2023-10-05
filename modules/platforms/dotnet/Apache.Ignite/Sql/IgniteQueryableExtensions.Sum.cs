@@ -23,6 +23,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
+using Internal.Common;
 using Table;
 
 /// <summary>
@@ -43,7 +44,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<int> SumAsync(this IQueryable<int> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<int>, int>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -66,7 +67,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, int>>, int>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -85,7 +86,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<int?> SumAsync(this IQueryable<int?> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<int?>, int?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -108,7 +109,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int?>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, int?>>, int?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -127,7 +128,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<long> SumAsync(this IQueryable<long> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<long>, long>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -150,7 +151,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, long>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long>>, long>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -169,7 +170,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<long?> SumAsync(this IQueryable<long?> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<long?>, long?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -192,7 +193,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, long?>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long?>>, long?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -211,7 +212,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<float> SumAsync(this IQueryable<float> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<float>, float>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -234,7 +235,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, float>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, float>>, float>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -253,7 +254,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<float?> SumAsync(this IQueryable<float?> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<float?>, float?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -276,7 +277,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, float?>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, float?>>, float?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -295,7 +296,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<double> SumAsync(this IQueryable<double> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<double>, double>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -318,7 +319,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, double>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double>>, double>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -337,7 +338,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<double?> SumAsync(this IQueryable<double?> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<double?>, double?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -360,7 +361,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, double?>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double?>>, double?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -379,7 +380,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<decimal> SumAsync(this IQueryable<decimal> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<decimal>, decimal>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -402,7 +403,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, decimal>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, decimal>>, decimal>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -421,7 +422,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Sum", typeof(Queryable))]
     public static async Task<decimal?> SumAsync(this IQueryable<decimal?> queryable)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<decimal?>, decimal?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -444,7 +445,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, decimal?>> selector)
     {
-        ArgumentNullException.ThrowIfNull(queryable);
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, decimal?>>, decimal?>(Queryable.Sum).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));

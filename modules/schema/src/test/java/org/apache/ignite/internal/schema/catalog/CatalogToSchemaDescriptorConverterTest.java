@@ -32,6 +32,7 @@ import org.apache.ignite.internal.schema.AbstractSchemaConverterTest;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.NativeType;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
-import org.apache.ignite.internal.schema.testutils.definition.DefaultValueGenerators;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -105,7 +105,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     @Test
     public void convertColumnDescriptorFunctionalDefault() {
         String columnName = "UUID";
-        String functionName = DefaultValueGenerators.GEN_RANDOM_UUID;
+        String functionName = DefaultValueGenerator.GEN_RANDOM_UUID.name();
         DefaultValue defaultValue = DefaultValue.functionCall(functionName);
 
         CatalogTableColumnDescriptor columnDescriptor = new CatalogTableColumnDescriptor(

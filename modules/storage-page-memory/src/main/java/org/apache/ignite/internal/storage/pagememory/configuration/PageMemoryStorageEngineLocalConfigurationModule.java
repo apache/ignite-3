@@ -34,11 +34,11 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-page-memory.
  */
 @AutoService(ConfigurationModule.class)
-public class PageMemoryStorageEngineDistributedConfigurationModule implements ConfigurationModule {
+public class PageMemoryStorageEngineLocalConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
+        return ConfigurationType.LOCAL;
     }
 
     /** {@inheritDoc} */
@@ -52,8 +52,7 @@ public class PageMemoryStorageEngineDistributedConfigurationModule implements Co
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
                 VolatilePageMemoryDataStorageConfigurationSchema.class,
-                PersistentPageMemoryDataStorageConfigurationSchema.class
-        );
+                PersistentPageMemoryDataStorageConfigurationSchema.class);
     }
 
     /** {@inheritDoc} */

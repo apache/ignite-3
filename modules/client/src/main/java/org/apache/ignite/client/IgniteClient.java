@@ -34,7 +34,7 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.lang.LoggerFactory;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 

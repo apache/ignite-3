@@ -15,28 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition;
+package org.apache.ignite.lang;
 
 /**
- * Schema object.
+ * An interface describing a factory to create a logger instance.
  */
-public interface SchemaObject {
-    /** Default schema name. */
-    String DEFAULT_DATABASE_SCHEMA_NAME = "PUBLIC";
-
+@FunctionalInterface
+public interface LoggerFactory {
     /**
-     * Returns name of schema object.
+     * Creates a logger instance with a given name.
      *
-     * @return Object name.
+     * @param name Name to create logger with.
+     * @return Logger instance.
      */
-    String name();
-
-    /**
-     * Returns database schema name this object belongs to.
-     *
-     * @return Database schema name.
-     */
-    default String schemaName() {
-        return DEFAULT_DATABASE_SCHEMA_NAME;
-    }
+    System.Logger forName(String name);
 }

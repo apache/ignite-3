@@ -42,7 +42,7 @@ public class ItRocksdbStorageExampleTest extends AbstractExamplesTest {
     }
 
     private void addDataRegionConfig(String name) throws Exception {
-        ignite.clusterConfiguration().getConfiguration(RocksDbStorageEngineConfiguration.KEY)
+        ignite.nodeConfiguration().getConfiguration(RocksDbStorageEngineConfiguration.KEY)
                 .regions()
                 .change(regionsChange -> regionsChange.create(name, regionChange -> {}))
                 .get(1, TimeUnit.SECONDS);

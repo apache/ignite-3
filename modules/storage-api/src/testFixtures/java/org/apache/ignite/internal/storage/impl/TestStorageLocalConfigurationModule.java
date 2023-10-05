@@ -15,37 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition;
+package org.apache.ignite.internal.storage.impl;
 
-import org.apache.ignite.internal.tostring.S;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 
 /**
- * Schema object base class.
+ * Implementation for {@link TestStorageEngine}.
  */
-public abstract class AbstractSchemaObject implements SchemaObject {
-    /** Schema object name. */
-    private final String name;
-
-    /**
-     * Constructor.
-     *
-     * @param name Schema object name.
-     */
-    protected AbstractSchemaObject(String name) {
-        this.name = name;
+@AutoService(ConfigurationModule.class)
+public class TestStorageLocalConfigurationModule implements ConfigurationModule {
+    /** {@inheritDoc} */
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
     }
 
     /** {@inheritDoc} */
     @Override
-    public String name() {
-        return name;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString("SchemaObject",
-                "name", name,
-                "class", getClass().getName());
+    public Collection<Class<?>> polymorphicSchemaExtensions() {
+        return List.of(TestDataStorageConfigurationSchema.class);
     }
 }
