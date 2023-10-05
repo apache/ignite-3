@@ -74,7 +74,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog) {
+    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
@@ -94,11 +94,13 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                                         table.tableVersion() + 1,
                                         CollectionUtils.concat(table.columns(), descriptors),
                                         table.primaryKeyColumns(),
-                                        table.colocationColumns()) : table
+                                        table.colocationColumns(),
+                                        causalityToken) : table
                                 )
                                 .toArray(CatalogTableDescriptor[]::new),
                         schema.indexes(),
-                        schema.systemViews()
+                        schema.systemViews(),
+                        causalityToken
                 ), catalog.schemas())
         );
     }

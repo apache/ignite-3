@@ -54,10 +54,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -103,8 +101,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.event.TableEvent;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -659,19 +656,9 @@ public class TableManagerTest extends IgniteAbstractTest {
             });
         }
 
-        CountDownLatch createTblLatch = new CountDownLatch(1);
-
-        tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-            createTblLatch.countDown();
-
-            return completedFuture(true);
-        });
-
         createZone(PARTITIONS, REPLICAS);
 
         createTable(tableName);
-
-        assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
 
         TableImpl tbl2 = tableManager.tableImpl(tableName);
 
@@ -723,7 +710,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 distributionZoneManager,
-                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
+                new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(NODE_NAME)

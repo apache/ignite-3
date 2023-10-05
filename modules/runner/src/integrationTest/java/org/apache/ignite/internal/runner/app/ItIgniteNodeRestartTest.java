@@ -61,6 +61,7 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -108,7 +109,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -247,6 +247,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        var placementDriver = new TestPlacementDriver(name);
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
@@ -254,7 +256,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                nodeAttributes,
+                new NodeAttributesCollector(nodeAttributes),
                 new TestConfigurationValidator());
 
         ReplicaManager replicaMgr = new ReplicaManager(
@@ -262,7 +264,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc,
                 cmgManager,
                 hybridClock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                placementDriver
         );
 
         var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
@@ -377,7 +380,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaSyncService,
                 catalogManager,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(name)
+                placementDriver
         );
 
         var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
@@ -387,8 +390,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
+                logicalTopologyService,
                 tableManager,
-                indexManager,
                 schemaManager,
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
@@ -859,6 +862,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         for (int i = 0; i < 100; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
 
+            Objects.requireNonNull(row, "row");
+
             assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
         }
     }
@@ -1141,10 +1146,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     public void updateClusterCfgWithDefaultValue() {
         IgniteImpl ignite = startNode(0);
 
-        RocksDbStorageEngineConfiguration dbStorageEngineConfiguration = ignite.clusterConfiguration()
-                .getConfiguration(RocksDbStorageEngineConfiguration.KEY);
-        int defaultValue = dbStorageEngineConfiguration.flushDelayMillis().value();
-        CompletableFuture<Void> update = dbStorageEngineConfiguration.flushDelayMillis().update(defaultValue);
+        GcConfiguration gcConfiguration = ignite.clusterConfiguration()
+                .getConfiguration(GcConfiguration.KEY);
+        int defaultValue = gcConfiguration.onUpdateBatchSize().value();
+        CompletableFuture<Void> update = gcConfiguration.onUpdateBatchSize().update(defaultValue);
         assertThat(update, willCompleteSuccessfully());
 
         stopNode(0);

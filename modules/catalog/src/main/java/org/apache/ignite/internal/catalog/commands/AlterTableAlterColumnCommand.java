@@ -115,8 +115,6 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
     private void validate() {
         validateIdentifier(columnName, "Name of the column");
-
-        // TODO: IGNITE-19938 Add validation column length, precision and scale
     }
 
     private CatalogTableColumnDescriptor createNewTableColumn(CatalogTableColumnDescriptor origin) {

@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -132,7 +133,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    nodeAttributes,
+                    new NodeAttributesCollector(nodeAttributes),
                     new TestConfigurationValidator());
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

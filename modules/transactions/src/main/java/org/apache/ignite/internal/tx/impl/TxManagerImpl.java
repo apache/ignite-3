@@ -19,12 +19,14 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -35,6 +37,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -44,8 +50,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -65,6 +74,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager {
+
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -72,6 +84,9 @@ public class TxManagerImpl implements TxManager {
 
     /** Lock manager. */
     private final LockManager lockManager;
+
+    /** Executor that runs async transaction cleanup actions. */
+    private final ExecutorService cleanupExecutor;
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
@@ -118,6 +133,16 @@ public class TxManagerImpl implements TxManager {
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
+
+        int cpus = Runtime.getRuntime().availableProcessors();
+
+        cleanupExecutor = new ThreadPoolExecutor(
+                cpus,
+                cpus,
+                100,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory("tx-async-cleanup", LOG));
     }
 
     @Override
@@ -127,12 +152,21 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
+        return beginTx(timestampTracker, readOnly, false);
+    }
+
+    @Override
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+        return beginTx(timestampTracker, readOnly, true);
+    }
+
+    private InternalTransaction beginTx(HybridTimestampTracker timestampTracker, boolean readOnly, boolean implicit) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, implicit);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -140,8 +174,6 @@ public class TxManagerImpl implements TxManager {
         HybridTimestamp readTimestamp = observableTimestamp != null
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
                 : currentReadTimestamp();
-
-        timestampTracker.update(readTimestamp);
 
         lowWatermarkReadWriteLock.readLock().lock();
 
@@ -162,7 +194,7 @@ public class TxManagerImpl implements TxManager {
                 return new CompletableFuture<>();
             });
 
-            return new ReadOnlyTransactionImpl(this, txId, readTimestamp);
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp, implicit);
         } finally {
             lowWatermarkReadWriteLock.readLock().unlock();
         }
@@ -269,51 +301,43 @@ public class TxManagerImpl implements TxManager {
                 .build();
 
         return replicaService.invoke(recipientNode, req)
-                .thenRun(() -> {
-                    updateTxMeta(txId, old -> {
-                        if (isFinalState(old.txState())) {
-                            finishingStateMeta.txFinishFuture().complete(old);
+                .thenRun(() ->
+                        updateTxMeta(txId, old -> {
+                            if (isFinalState(old.txState())) {
+                                finishingStateMeta.txFinishFuture().complete(old);
 
-                            return old;
-                        }
+                                return old;
+                            }
 
-                        assert old instanceof TxStateMetaFinishing;
+                            assert old instanceof TxStateMetaFinishing;
 
-                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+                            TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
 
-                        finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+                            finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
 
-                        return finalTxStateMeta;
-                    });
-                });
+                            return finalTxStateMeta;
+                        })
+                );
     }
 
     @Override
     public CompletableFuture<Void> cleanup(
-            ClusterNode recipientNode,
-            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        var cleanupFutures = new CompletableFuture[tablePartitionIds.size()];
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17582 Grouping replica requests.
-        for (int i = 0; i < tablePartitionIds.size(); i++) {
-            cleanupFutures[i] = replicaService.invoke(
-                    recipientNode,
-                    FACTORY.txCleanupReplicaRequest()
-                            .groupId(tablePartitionIds.get(i).get1())
-                            .timestampLong(clock.nowLong())
-                            .txId(txId)
-                            .commit(commit)
-                            .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                            .term(tablePartitionIds.get(i).get2())
-                            .build()
-            );
-        }
-
-        return allOf(cleanupFutures);
+        return replicaService.invoke(
+                primaryConsistentId,
+                FACTORY.txCleanupReplicaRequest()
+                        .groupId(tablePartitionId)
+                        .timestampLong(clock.nowLong())
+                        .txId(txId)
+                        .commit(commit)
+                        .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                        .build()
+        );
     }
 
     @Override
@@ -337,12 +361,17 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public void stop() {
-        // No-op.
+        shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
 
     @Override
     public LockManager lockManager() {
         return lockManager;
+    }
+
+    @Override
+    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+        return runAsync(runnable, cleanupExecutor);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {

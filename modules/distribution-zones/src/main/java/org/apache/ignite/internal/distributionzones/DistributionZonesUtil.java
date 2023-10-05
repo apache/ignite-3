@@ -381,7 +381,7 @@ public class DistributionZonesUtil {
      */
     public static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
         Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.attributes()))
                 .collect(toSet());
 
         return ops(

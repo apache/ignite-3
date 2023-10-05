@@ -90,6 +90,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -145,12 +146,9 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -775,12 +773,21 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             vaultManager = createVault(name, dir);
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
-                    NetworkConfiguration.KEY, RestConfiguration.KEY, ClientConnectorConfiguration.KEY
+                    List.of(
+                            NetworkConfiguration.KEY,
+                            RestConfiguration.KEY,
+                            ClientConnectorConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY),
+                    List.of(),
+                    List.of(UnsafeMemoryAllocatorConfigurationSchema.class)
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
+                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator),
@@ -802,6 +809,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var placementDriver = new TestPlacementDriver(name);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -810,7 +818,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    nodeAttributes,
+                    new NodeAttributesCollector(nodeAttributes),
                     new TestConfigurationValidator());
 
             replicaManager = spy(new ReplicaManager(
@@ -818,7 +826,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService,
                     cmgManager,
                     hybridClock,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class)
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    placementDriver
             ));
 
             ReplicaService replicaSvc = new ReplicaService(
@@ -858,24 +867,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
 
-            clusterCfgGenerator = new ConfigurationTreeGenerator(
-                    List.of(
-                            PersistentPageMemoryStorageEngineConfiguration.KEY,
-                            VolatilePageMemoryStorageEngineConfiguration.KEY,
-                            GcConfiguration.KEY
-                    ),
-                    List.of(),
-                    List.of(
-                            VolatilePageMemoryDataStorageConfigurationSchema.class,
-                            UnsafeMemoryAllocatorConfigurationSchema.class,
-                            PersistentPageMemoryDataStorageConfigurationSchema.class,
-                            TestDataStorageConfigurationSchema.class
-                    )
-            );
+            clusterCfgGenerator = new ConfigurationTreeGenerator(GcConfiguration.KEY);
+
             clusterCfgMgr = new ConfigurationManager(
                     List.of(
-                            PersistentPageMemoryStorageEngineConfiguration.KEY,
-                            VolatilePageMemoryStorageEngineConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     cfgStorage,
@@ -901,7 +896,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(
                             name,
-                            clusterConfigRegistry,
+                            nodeCfgMgr.configurationRegistry(),
                             dir.resolve("storage"),
                             null
                     )
@@ -954,7 +949,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaSyncService,
                     catalogManager,
                     new HybridTimestampTracker(),
-                    new TestPlacementDriver(name)
+                    placementDriver
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

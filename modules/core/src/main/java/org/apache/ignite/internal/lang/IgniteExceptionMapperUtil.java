@@ -102,6 +102,7 @@ public class IgniteExceptionMapperUtil {
         }
 
         if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
+
             return origin;
         }
 

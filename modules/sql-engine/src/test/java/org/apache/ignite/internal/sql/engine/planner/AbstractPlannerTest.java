@@ -85,10 +85,11 @@ import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.prepare.QuerySplitter;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
@@ -518,6 +519,24 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
+     * Predicate builder for "Table scan with given name" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteSystemViewScan> isSystemViewScan(String viewName) {
+        return isInstanceOf(IgniteSystemViewScan.class).and(
+                n -> {
+                    String scanViewName = Util.last(n.getTable().getQualifiedName());
+
+                    if (viewName.equalsIgnoreCase(scanViewName)) {
+                        return true;
+                    }
+
+                    lastErrorMsg = "Unexpected system view name [exp=" + viewName + ", act=" + scanViewName + ']';
+
+                    return false;
+                });
+    }
+
+    /**
      * Predicate builder for "Operator has distribution" condition.
      */
     protected <T extends IgniteRel> Predicate<IgniteRel> hasDistribution(IgniteDistribution distribution) {
@@ -627,7 +646,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         rel = Cloner.clone(rel);
 
-        List<Fragment> fragments = new Splitter().go(rel);
+        List<Fragment> fragments = new QuerySplitter().go(rel);
         List<String> serialized = new ArrayList<>(fragments.size());
 
         for (Fragment fragment : fragments) {

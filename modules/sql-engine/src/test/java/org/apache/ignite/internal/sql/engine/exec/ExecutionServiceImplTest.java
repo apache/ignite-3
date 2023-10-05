@@ -53,12 +53,13 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.schema.NativeType;
@@ -67,6 +68,10 @@ import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
@@ -74,6 +79,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
@@ -81,14 +87,12 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.CatalogColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -114,6 +118,7 @@ import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -139,8 +144,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             nodeNames.get(2), List.of(new Object[]{2, 2}, new Object[]{5, 5}, new Object[]{8, 8})
     );
 
-    private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
-            "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
+    private final TestTable table = TestBuilders.table()
+            .name("TEST_TBL")
+            .addColumn("ID", NativeTypes.INT32)
+            .addColumn("VAL", NativeTypes.INT32)
+            .distribution(IgniteDistributions.random())
+            .size(1_000_000)
+            .build();
 
     private final IgniteSchema schema = new IgniteSchema(DEFAULT_SCHEMA_NAME, SCHEMA_VERSION, List.of(table));
 
@@ -594,15 +604,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(CompletableFuture.completedFuture(null));
 
-        TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
-        executableTableRegistry.setColocatioGroupProvider((tableId) -> {
-            // Make sure the exception is handled properly if it occurs during the mapping phase.
-            if (mappingException != null) {
-                return CompletableFuture.failedFuture(mappingException);
-            } else {
-                return CompletableFuture.completedFuture(ColocationGroup.forNodes(nodeNames));
-            }
-        });
+        NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
@@ -612,10 +614,29 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(schemaManagerMock.schema(any(), anyInt())).thenReturn(plus);
 
+        var targetProvider = new ExecutionTargetProvider() {
+            @Override
+            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, int tableId) {
+                if (mappingException != null) {
+                    return CompletableFuture.failedFuture(mappingException);
+                }
+
+                return CompletableFuture.completedFuture(factory.allOf(nodeNames));
+            }
+        };
+
+        var mappingService = new MappingServiceImpl(nodeName, targetProvider);
+
+        List<LogicalNode> logicalNodes = nodeNames.stream()
+                .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
+                .collect(Collectors.toList());
+
+        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes));
+
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
                 topologyService,
-                (single, filter) -> single ? List.of(nodeNames.get(ThreadLocalRandom.current().nextInt(nodeNames.size()))) : nodeNames,
+                mappingService,
                 schemaManagerMock,
                 mock(DdlCommandHandler.class),
                 taskExecutor,
@@ -867,20 +888,18 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         List<ColumnDescriptor> columns = new ArrayList<>();
 
         for (int i = 0; i < fields.length; i += 2) {
+            NativeType nativeType = (NativeType) fields[i + 1];
+            ColumnType columnType = nativeType.spec().asColumnType();
+
             columns.add(
-                    new ColumnDescriptorImpl(
+                    new CatalogColumnDescriptor(
                             (String) fields[i], false, true, i,
-                            (NativeType) fields[i + 1], DefaultValueStrategy.DEFAULT_NULL, null
+                            columnType, 0, 0, 0, DefaultValueStrategy.DEFAULT_NULL, null
                     )
             );
         }
 
-        return new TestTable(
-                new TableDescriptorImpl(columns, distr),
-                name,
-                size,
-                List.of()
-        );
+        return new TestTable(new TableDescriptorImpl(columns, distr), name, size, List.of());
     }
 
     private static class CapturingMailboxRegistry implements MailboxRegistry {

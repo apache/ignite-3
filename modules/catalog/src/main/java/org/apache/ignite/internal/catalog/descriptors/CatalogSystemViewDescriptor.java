@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
@@ -40,7 +42,7 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      * @param columns View columns.
      */
     public CatalogSystemViewDescriptor(int id, String name, List<CatalogTableColumnDescriptor> columns, SystemViewType systemViewType) {
-        super(id, Type.SYSTEM_VIEW, name);
+        super(id, Type.SYSTEM_VIEW, name, INITIAL_CAUSALITY_TOKEN);
 
         this.columns = Objects.requireNonNull(columns, "columns");
         this.systemViewType = Objects.requireNonNull(systemViewType, "viewType");

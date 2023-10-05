@@ -55,6 +55,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -161,7 +162,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
-    private InternalTransaction deleteUpsert() {
+    protected InternalTransaction deleteUpsert() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
@@ -1956,6 +1957,68 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         // Commit pending tx.
         tx.commit();
+    }
+
+    @Test
+    public void testSingleGet() {
+        var accountRecordsView = accounts.recordView();
+
+        accountRecordsView.upsert(null, makeValue(1, 100.));
+
+        Transaction tx1 = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
+
+        accountRecordsView.upsert(tx1, makeValue(1, 200.));
+
+        assertThrows(TransactionException.class, () -> accountRecordsView.get(tx2, makeKey(1)));
+
+        assertEquals(100., accountRecordsView.get(null, makeKey(1)).doubleValue("balance"));
+
+        tx1.commit();
+
+        assertEquals(200., accountRecordsView.get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testBatchSinglePartitionGet() throws Exception {
+        var accountRecordsView = accounts.recordView();
+
+        var marshaller = new TupleMarshallerImpl(accounts.schemaView());
+
+        int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
+
+        ArrayList<Integer> keys = new ArrayList<>(10);
+        keys.add(0);
+
+        for (int i = 1; i < 10_000 && keys.size() < 10; i++) {
+            var p = accounts.internalTable().partition(marshaller.marshalKey(makeKey(i)));
+
+            if (p == partId) {
+                keys.add(i);
+            }
+        }
+
+        log.info("A batch of keys for a single partition is found [partId={}, keys{}]", partId, keys);
+
+        accountRecordsView.upsertAll(null, keys.stream().map(k -> makeValue(k, 100.)).collect(toList()));
+
+        Transaction tx1 = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
+
+        accountRecordsView.upsertAll(tx1, keys.stream().map(k -> makeValue(k, 200.)).collect(toList()));
+
+        assertThrows(TransactionException.class,
+                () -> accountRecordsView.getAll(tx2, keys.stream().map(k -> makeKey(k)).collect(toList())));
+
+        for (Tuple tuple : accountRecordsView.getAll(null, keys.stream().map(k -> makeKey(k)).collect(toList()))) {
+            assertEquals(100., tuple.doubleValue("balance"));
+        }
+
+        tx1.commit();
+
+        for (Tuple tuple : accountRecordsView.getAll(null, keys.stream().map(k -> makeKey(k)).collect(toList()))) {
+            assertEquals(200., tuple.doubleValue("balance"));
+        }
     }
 
     /**

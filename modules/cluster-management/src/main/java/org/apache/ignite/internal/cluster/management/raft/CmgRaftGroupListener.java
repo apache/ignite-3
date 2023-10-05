@@ -192,7 +192,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             }
         }
 
-        LogicalNode logicalNode = new LogicalNode(node, command.node().nodeAttributes());
+        LogicalNode logicalNode = new LogicalNode(node, command.node().attributes(), command.node().systemAttributes());
 
         return validationManager.validateNode(storage.getClusterState(), logicalNode, command.igniteVersion(), command.clusterTag());
     }
@@ -201,7 +201,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private Serializable completeValidation(JoinReadyCommand command) {
         ClusterNode node = command.node().asClusterNode();
 
-        LogicalNode logicalNode = new LogicalNode(node, command.node().nodeAttributes());
+        LogicalNode logicalNode = new LogicalNode(node, command.node().attributes(), command.node().systemAttributes());
 
         if (validationManager.isNodeValidated(logicalNode)) {
             validationManager.completeValidation(logicalNode);
@@ -218,7 +218,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
         // Nodes will be removed from a topology, so it is safe to set nodeAttributes to the default value
-        Set<LogicalNode> logicalNodes = nodes.stream().map(n -> new LogicalNode(n, Collections.emptyMap())).collect(Collectors.toSet());
+        Set<LogicalNode> logicalNodes = nodes.stream()
+                .map(n -> new LogicalNode(n, Collections.emptyMap(), Collections.emptyMap())).collect(Collectors.toSet());
 
         logicalTopology.removeNodes(logicalNodes);
         validationManager.removeValidatedNodes(logicalNodes);

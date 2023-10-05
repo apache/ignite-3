@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -227,22 +226,22 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(node1.logicalTopologyNodes(), willBe(empty()));
         assertThat(node1.validatedNodes(), willBe(empty()));
 
-        assertThat(node1.raftService.startJoinCluster(clusterState.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(clusterState.clusterTag(), null), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), willBe(empty()));
         assertThat(node1.validatedNodes(), will(contains(clusterNode1)));
 
-        assertThat(node1.raftService.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(node1.raftService.completeJoinCluster(null), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), will(contains(clusterNode1)));
         assertThat(node1.validatedNodes(), will(contains(clusterNode1)));
 
-        assertThat(node2.raftService.startJoinCluster(clusterState.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(node2.raftService.startJoinCluster(clusterState.clusterTag(), null), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), willBe(contains(clusterNode1)));
         assertThat(node1.validatedNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
-        assertThat(node2.raftService.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(node2.raftService.completeJoinCluster(null), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
         assertThat(node1.validatedNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
@@ -259,8 +258,8 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     }
 
     private static CompletableFuture<Void> joinCluster(Node node, ClusterTag clusterTag) {
-        return node.raftService.startJoinCluster(clusterTag, Collections.emptyMap())
-                .thenCompose(v -> node.raftService.completeJoinCluster(Collections.emptyMap()));
+        return node.raftService.startJoinCluster(clusterTag, null)
+                .thenCompose(v -> node.raftService.completeJoinCluster(null));
     }
 
     /**
@@ -381,13 +380,13 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(node1.raftService.initClusterState(state), willCompleteSuccessfully());
 
         // correct tag
-        assertThat(node1.raftService.startJoinCluster(state.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(state.clusterTag(), null), willCompleteSuccessfully());
 
         // incorrect tag
         var incorrectTag = clusterTag(msgFactory, "invalid");
 
         assertThrowsWithCause(
-                () -> node2.raftService.startJoinCluster(incorrectTag, Collections.emptyMap()).get(10, TimeUnit.SECONDS),
+                () -> node2.raftService.startJoinCluster(incorrectTag, null).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 String.format(
                         "Join request denied, reason: Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
@@ -415,7 +414,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
 
         assertThrowsWithCause(
-                () -> raftService.startJoinCluster(state.clusterTag(), Collections.emptyMap()).get(10, TimeUnit.SECONDS),
+                () -> raftService.startJoinCluster(state.clusterTag(), null).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 String.format(
                         "Join request denied, reason: Ignite versions do not match. Version: %s, version stored in CMG: %s",
@@ -448,15 +447,15 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         );
 
         assertThrowsWithCause(
-                () -> raftService.completeJoinCluster(Collections.emptyMap()).get(10, TimeUnit.SECONDS),
+                () -> raftService.completeJoinCluster(null).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 errMsg
         );
 
-        assertThat(raftService.startJoinCluster(state.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(raftService.startJoinCluster(state.clusterTag(), null), willCompleteSuccessfully());
 
         // Everything is ok after the node has passed validation.
-        assertThat(raftService.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(raftService.completeJoinCluster(null), willCompleteSuccessfully());
     }
 
     /**
@@ -571,14 +570,14 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         CmgRaftService service = cluster.get(1).raftService;
 
-        assertThat(service.startJoinCluster(state.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(service.startJoinCluster(state.clusterTag(), null), willCompleteSuccessfully());
 
-        assertThat(service.startJoinCluster(state.clusterTag(), Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(service.startJoinCluster(state.clusterTag(), null), willCompleteSuccessfully());
 
-        assertThat(service.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(service.completeJoinCluster(null), willCompleteSuccessfully());
 
-        assertThat(service.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(service.completeJoinCluster(null), willCompleteSuccessfully());
 
-        assertThat(service.completeJoinCluster(Collections.emptyMap()), willCompleteSuccessfully());
+        assertThat(service.completeJoinCluster(null), willCompleteSuccessfully());
     }
 }

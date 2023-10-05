@@ -37,7 +37,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a read-write transaction coordinated by a local node.
+     * Starts an explicit read-write transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
@@ -46,7 +46,7 @@ public interface TxManager extends IgniteComponent {
     InternalTransaction begin(HybridTimestampTracker timestampTracker);
 
     /**
-     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     * Starts either explicit read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
@@ -58,6 +58,17 @@ public interface TxManager extends IgniteComponent {
      *         available in the tables.
      */
     InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
+
+    /**
+     * Starts an implicit read-write transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
+     * @return The transaction.
+     */
+    InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
 
     /**
      * Returns a transaction state meta.
@@ -83,6 +94,14 @@ public interface TxManager extends IgniteComponent {
      */
     @Deprecated
     public LockManager lockManager();
+
+    /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param runnable Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
 
     /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
@@ -120,16 +139,16 @@ public interface TxManager extends IgniteComponent {
     /**
      * Sends cleanup request to the specified primary replica.
      *
-     * @param recipientNode Primary replica to process given cleanup request.
-     * @param tablePartitionIds Table partition ids with raft terms.
+     * @param primaryConsistentId  A consistent id of the primary replica node.
+     * @param tablePartitionId Table partition id.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ClusterNode recipientNode,
-            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp

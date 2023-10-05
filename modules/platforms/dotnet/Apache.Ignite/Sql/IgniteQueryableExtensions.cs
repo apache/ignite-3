@@ -45,7 +45,7 @@ public static partial class IgniteQueryableExtensions
     /// <returns>Result set.</returns>
     public static async Task<IResultSet<T>> ToResultSetAsync<T>(this IQueryable<T> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var queryableInternal = queryable.ToQueryableInternal();
         var model = queryableInternal.GetQueryModel();
@@ -63,7 +63,7 @@ public static partial class IgniteQueryableExtensions
     [SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "False positive.")]
     public static async IAsyncEnumerable<T> AsAsyncEnumerable<T>(this IQueryable<T> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         await using var resultSet = await queryable.ToResultSetAsync().ConfigureAwait(false);
 
@@ -85,7 +85,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Any`1", typeof(Queryable))]
     public static async Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, bool>(Queryable.Any).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -108,7 +108,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Any`1", typeof(Queryable))]
     public static async Task<bool> AnyAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, bool>(Queryable.Any).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
@@ -130,7 +130,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("All`1", typeof(Queryable))]
     public static async Task<bool> AllAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, bool>(Queryable.All).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
@@ -149,7 +149,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Count`1", typeof(Queryable))]
     public static async Task<int> CountAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, int>(Queryable.Count).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -169,7 +169,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Count`1", typeof(Queryable))]
     public static async Task<int> CountAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, int>(Queryable.Count).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
@@ -188,7 +188,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("LongCount`1", typeof(Queryable))]
     public static async Task<long> LongCountAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, long>(Queryable.LongCount).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -208,7 +208,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("LongCount`1", typeof(Queryable))]
     public static async Task<long> LongCountAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, long>(Queryable.LongCount).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
@@ -227,7 +227,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("First`1", typeof(Queryable))]
     public static async Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, TSource>(Queryable.First).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -247,7 +247,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("First`1", typeof(Queryable))]
     public static async Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, TSource>(Queryable.First).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
@@ -268,7 +268,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("FirstOrDefault`1", typeof(Queryable))]
     public static async Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, TSource?>(Queryable.FirstOrDefault).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -292,7 +292,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, TSource?>(Queryable.FirstOrDefault).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
@@ -312,7 +312,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Single`1", typeof(Queryable))]
     public static async Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, TSource>(Queryable.Single).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -333,7 +333,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Single`1", typeof(Queryable))]
     public static async Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> queryable, Expression<Func<TSource, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, TSource>(Queryable.Single).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
@@ -355,7 +355,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("SingleOrDefault`1", typeof(Queryable))]
     public static async Task<TSource?> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, TSource?>(Queryable.SingleOrDefault).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -380,7 +380,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, bool>> predicate)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, bool>>, TSource?>(Queryable.SingleOrDefault).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(predicate));
@@ -400,7 +400,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Min`1", typeof(Queryable))]
     public static async Task<TSource> MinAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, TSource?>(Queryable.Min).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -426,7 +426,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, TResult>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, TResult>>, TResult?>(Queryable.Min).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -446,7 +446,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Max`1", typeof(Queryable))]
     public static async Task<TSource> MaxAsync<TSource>(this IQueryable<TSource> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, TSource?>(Queryable.Max).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -470,7 +470,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, TResult>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, TResult>>, TResult?>(Queryable.Max).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -491,7 +491,7 @@ public static partial class IgniteQueryableExtensions
     public static async Task<List<TSource>> ToListAsync<TSource>(this IQueryable<TSource> queryable)
     {
         // NOTE: ToArrayAsync counterpart is not implemented here, because it is just ToList().ToArray(), which is less efficient.
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         await using var resultSet = await queryable.ToResultSetAsync().ConfigureAwait(false);
 
@@ -519,7 +519,7 @@ public static partial class IgniteQueryableExtensions
         IEqualityComparer<TK>? comparer = null)
         where TK : notnull
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         await using var resultSet = await queryable.ToResultSetAsync().ConfigureAwait(false);
 

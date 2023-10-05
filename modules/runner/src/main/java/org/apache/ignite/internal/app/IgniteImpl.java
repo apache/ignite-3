@@ -46,6 +46,7 @@ import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -127,6 +128,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -299,6 +301,9 @@ public class IgniteImpl implements Ignite {
     /** Timestamp tracker for embedded transactions. */
     private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
 
+    /** System views manager. */
+    private final SystemViewManagerImpl systemViewManager;
+
     /**
      * The Constructor.
      *
@@ -402,6 +407,9 @@ public class IgniteImpl implements Ignite {
         distributedConfigurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
 
+        NodeAttributesCollector nodeAttributesCollector =
+                new NodeAttributesCollector(nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY));
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
@@ -409,16 +417,8 @@ public class IgniteImpl implements Ignite {
                 clusterStateStorage,
                 logicalTopology,
                 nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
-                nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
+                nodeAttributesCollector,
                 distributedConfigurationValidator);
-
-        replicaMgr = new ReplicaManager(
-                name,
-                clusterSvc,
-                cmgMgr,
-                clock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class)
-        );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
@@ -473,6 +473,15 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        replicaMgr = new ReplicaManager(
+                name,
+                clusterSvc,
+                cmgMgr,
+                clock,
+                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                placementDriverMgr.placementDriver()
+        );
+
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
         restAddressReporter = new RestAddressReporter(workDir);
@@ -489,7 +498,7 @@ public class IgniteImpl implements Ignite {
         dataStorageMgr = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterConfigRegistry,
+                        nodeConfigRegistry,
                         storagePath,
                         longJvmPauseDetector
                 )
@@ -510,6 +519,9 @@ public class IgniteImpl implements Ignite {
                 clockWaiter,
                 delayDurationMsSupplier
         );
+
+        systemViewManager = new SystemViewManagerImpl(catalogManager);
+        nodeAttributesCollector.register(systemViewManager);
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
@@ -559,11 +571,11 @@ public class IgniteImpl implements Ignite {
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
+                logicalTopologyService,
                 distributedTblMgr,
-                indexManager,
                 schemaManager,
                 dataStorageMgr,
-                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
                 catalogManager,
@@ -612,8 +624,10 @@ public class IgniteImpl implements Ignite {
                 new ClientHandlerMetricSource(),
                 authenticationManager,
                 authenticationConfiguration,
-                clock
-                );
+                clock,
+                schemaSyncService,
+                catalogManager
+        );
 
         restComponent = createRestComponent(name);
     }
@@ -768,6 +782,10 @@ public class IgniteImpl implements Ignite {
                                     clientHandlerModule,
                                     deploymentManager
                             );
+
+                            // The system view manager comes last because other components
+                            // must register system views before it starts.
+                            lifecycleManager.startComponent(systemViewManager);
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
@@ -791,6 +809,8 @@ public class IgniteImpl implements Ignite {
 
                         return cmgMgr.onJoinReady();
                     }, startupExecutor)
+                    // TODO Remove waiting for schema update after https://issues.apache.org/jira/browse/IGNITE-20498
+                    .thenComposeAsync(v -> systemViewManager.completeRegistration())
                     .thenRunAsync(() -> {
                         try {
                             // Transfer the node to the STARTED state.

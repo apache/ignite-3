@@ -249,19 +249,27 @@ public class LeaseUpdater {
      */
     private @Nullable ClusterNode nextLeaseHolder(Set<Assignment> assignments, @Nullable String proposedConsistentId) {
         //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
-        String consistentId = null;
+        ClusterNode primaryCandidate = null;
 
         for (Assignment assignment : assignments) {
+            // Check whether given assignments is actually available in logical topology. It's a best effort check because it's possible
+            // for proposed primary candidate to leave the topology at any time. In that case primary candidate will be recalculated.
+            ClusterNode candidateNode = topologyTracker.nodeByConsistentId(assignment.consistentId());
+
+            if (candidateNode == null) {
+                continue;
+            }
+
             if (assignment.consistentId().equals(proposedConsistentId)) {
-                consistentId = proposedConsistentId;
+                primaryCandidate = candidateNode;
 
                 break;
-            } else if (consistentId == null || consistentId.hashCode() > assignment.consistentId().hashCode()) {
-                consistentId = assignment.consistentId();
+            } else if (primaryCandidate == null || primaryCandidate.name().hashCode() > assignment.consistentId().hashCode()) {
+                primaryCandidate = candidateNode;
             }
         }
 
-        return consistentId == null ? null : topologyTracker.nodeByConsistentId(consistentId);
+        return primaryCandidate;
     }
 
     /** Returns {@code true} if active. */
@@ -376,6 +384,8 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param lease Old lease to apply CAS in Meta storage.
          * @param candidate Lease candidate.
+         * @param renewedLeases Leases to renew.
+         * @param toBeNegotiated Leases that are required to be negotiated.
          */
         private void writeNewLease(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
                 Map<ReplicationGroupId, Lease> renewedLeases, Map<ReplicationGroupId, Boolean> toBeNegotiated) {
@@ -387,7 +397,7 @@ public class LeaseUpdater {
 
             renewedLeases.put(grpId, renewedLease);
 
-            toBeNegotiated.put(grpId, Objects.equals(lease.getLeaseholder(), candidate.name()));
+            toBeNegotiated.put(grpId, !lease.isAccepted() && Objects.equals(lease.getLeaseholder(), candidate.name()));
         }
 
         /**

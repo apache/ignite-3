@@ -103,7 +103,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
     {
-        IgniteArgumentCheck.NotNull(keys, nameof(keys));
+        IgniteArgumentCheck.NotNull(keys);
 
         return await _recordView.DeleteAllAsync(
             transaction,
@@ -118,7 +118,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
     {
-        IgniteArgumentCheck.NotNull(pairs, nameof(pairs));
+        IgniteArgumentCheck.NotNull(pairs);
 
         return await _recordView.DeleteAllAsync(
             transaction,
@@ -172,25 +172,25 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
-        IgniteArgumentCheck.NotNull(x.Key, "key");
-        IgniteArgumentCheck.NotNull(x.Value, "val");
+        IgniteArgumentCheck.NotNull(x.Key);
+        IgniteArgumentCheck.NotNull(x.Value);
 
         return new(x.Key, x.Value);
     }
 
-    private static KvPair<TK, TV> ToKv(TK k)
+    private static KvPair<TK, TV> ToKv(TK key)
     {
-        IgniteArgumentCheck.NotNull(k, "key");
+        IgniteArgumentCheck.NotNull(key);
 
-        return new(k);
+        return new(key);
     }
 
-    private static KvPair<TK, TV> ToKv(TK k, TV v)
+    private static KvPair<TK, TV> ToKv(TK key, TV val)
     {
-        IgniteArgumentCheck.NotNull(k, "key");
-        IgniteArgumentCheck.NotNull(v, "val");
+        IgniteArgumentCheck.NotNull(key);
+        IgniteArgumentCheck.NotNull(val);
 
-        return new(k, v);
+        return new(key, val);
     }
 
     private static async IAsyncEnumerable<KvPair<TK, TV>> ToKv(IAsyncEnumerable<KeyValuePair<TK, TV>> pairs)

@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.DecimalColumnType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -112,52 +111,10 @@ public class AbstractSchemaConverterTest extends BaseIgniteAbstractTest {
     @SuppressWarnings("unchecked")
     protected static <T> T adjust(T val) {
         if (val instanceof BigDecimal) {
-            return (T) ((BigDecimal) val).setScale(DecimalColumnType.DEFAULT_SCALE, HALF_UP);
+            return (T) ((BigDecimal) val).setScale(CatalogUtils.DEFAULT_SCALE, HALF_UP);
         }
 
         return val;
-    }
-
-    /** Creates a native type from given type spec. */
-    protected static NativeType specToType(NativeTypeSpec spec) {
-        switch (spec) {
-            case BOOLEAN:
-                return NativeTypes.BOOLEAN;
-            case INT8:
-                return NativeTypes.INT8;
-            case INT16:
-                return NativeTypes.INT16;
-            case INT32:
-                return NativeTypes.INT32;
-            case INT64:
-                return NativeTypes.INT64;
-            case FLOAT:
-                return NativeTypes.FLOAT;
-            case DOUBLE:
-                return NativeTypes.DOUBLE;
-            case DECIMAL:
-                return NativeTypes.decimalOf(10, 3);
-            case DATE:
-                return NativeTypes.DATE;
-            case TIME:
-                return NativeTypes.time();
-            case DATETIME:
-                return NativeTypes.datetime();
-            case TIMESTAMP:
-                return NativeTypes.timestamp();
-            case NUMBER:
-                return NativeTypes.numberOf(CatalogUtils.DEFAULT_DECIMAL_PRECISION);
-            case STRING:
-                return NativeTypes.stringOf(8);
-            case UUID:
-                return NativeTypes.UUID;
-            case BYTES:
-                return NativeTypes.blobOf(8);
-            case BITMASK:
-                return NativeTypes.bitmaskOf(10);
-            default:
-                throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
-        }
     }
 
     /**

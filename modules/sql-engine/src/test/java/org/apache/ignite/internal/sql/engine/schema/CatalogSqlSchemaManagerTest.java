@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -40,11 +42,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -54,6 +58,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
@@ -67,7 +72,8 @@ import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -116,36 +122,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
      * Table column types.
      */
     @ParameterizedTest
-    @CsvSource({
-            // column type, precision, scale, has native type.
-            "BOOLEAN, -1, -1, true",
-
-            "INT8, -1, -1, true",
-            "INT16, -1, -1, true",
-            "INT32, -1, -1, true",
-            "INT64, -1, -1, true",
-
-            "FLOAT, -1, -1, true",
-            "DOUBLE, -1, -1, true",
-
-            "DECIMAL, 4, -1, true",
-            "DECIMAL, 4, 2, true",
-            "NUMBER, 4, -1, true",
-
-            "STRING, 40, -1, true",
-            "BYTE_ARRAY, 40, -1, true",
-
-            "DATE, -1, -1, true",
-            "TIME, 2, -1, true",
-            "DATETIME, 2, -1, true",
-            "TIMESTAMP, 2, -1, true",
-
-            "PERIOD, 2, -1, false",
-            "DURATION, 2, -1, false",
-
-            "UUID, 2, -1, true",
-            "BITMASK, 2, -1, true"
-    })
+    @MethodSource("columnTypes")
     public void testTableColumns(ColumnType columnType, int precision, int scale, boolean hasNativeType) {
         TestTable testTable = new TestTable("TEST");
 
@@ -165,15 +142,19 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         IgniteTable table = getTable(schema, testTable);
 
         assertEquals(testTable.id, table.id());
-        assertEquals(schema.version(), table.version());
 
-        assertEquals(testTable.columns.size(), table.descriptor().columnsCount(), "column count");
+        TableDescriptor descriptor = table.descriptor();
+        assertEquals(testTable.columns.size(), descriptor.columnsCount(), "column count");
 
-        ColumnDescriptor c1 = table.descriptor().columnDescriptor(0);
+        checkColumns(columnType, precision, scale, hasNativeType, descriptor);
+    }
+
+    private static void checkColumns(ColumnType columnType, int precision, int scale, boolean hasNativeType, TableDescriptor descriptor) {
+        ColumnDescriptor c1 = descriptor.columnDescriptor(0);
         assertEquals(0, c1.logicalIndex());
         assertTrue(c1.nullable());
 
-        ColumnDescriptor c2 = table.descriptor().columnDescriptor(1);
+        ColumnDescriptor c2 = descriptor.columnDescriptor(1);
         assertEquals(1, c2.logicalIndex());
         assertFalse(c2.nullable());
 
@@ -241,7 +222,6 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         IgniteTable table = getTable(schema, testTable);
 
         assertEquals(testTable.id, table.id());
-        assertEquals(schema.version(), table.version());
 
         ColumnDescriptor c1 = table.descriptor().columnDescriptor("c1");
         assertNull(c1.defaultValue());
@@ -347,6 +327,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         int tableId = table.id();
         assertEquals(IgniteDistributions.affinity(List.of(1, 2), tableId, tableId), distribution);
+        assertEquals(distribution, table.getStatistic().getDistribution());
     }
 
     /**
@@ -432,6 +413,92 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         ), testIdx.collation());
     }
 
+    /**
+     * Tests basic properties of a system view.
+     */
+    @ParameterizedTest
+    @MethodSource("systemViewDistributions")
+    public void testBasicView(SystemViewType viewType, IgniteDistribution distribution) {
+        TestSystemView testSystemView = new TestSystemView("TEST", viewType);
+        testSystemView.addColumn("c1", ColumnType.STRING);
+
+        TestSchema testSchema = new TestSchema();
+        testSchema.systemViews.add(testSystemView);
+        testSchema.init(catalogManager);
+
+        SqlSchemaManager sqlSchemaManager = newSchemaManager();
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
+        IgniteSchema igniteSchema = unwrapSchema(schemaPlus);
+        IgniteSystemView systemView = getSystemView(igniteSchema, testSystemView);
+
+        assertEquals(testSystemView.id, systemView.id());
+        assertEquals(distribution, systemView.distribution());
+        assertEquals(distribution, systemView.getStatistic().getDistribution());
+    }
+
+    /**
+     * Tests system view column types.
+     */
+    @ParameterizedTest
+    @MethodSource("systemViewColumnTypes")
+    public void testViewColumns(SystemViewType viewType, ColumnType columnType, int precision, int scale, boolean hasNativeType) {
+        TestSystemView testSystemView = new TestSystemView("TEST", viewType);
+
+        testSystemView.addColumn("c1_nullable", columnType, precision, scale);
+        testSystemView.addColumn("c1_not_nullable", columnType, precision, scale);
+
+        testSystemView.notNull("c1_not_nullable");
+
+        TestSchema testSchema = new TestSchema();
+        testSchema.systemViews.add(testSystemView);
+        testSchema.init(catalogManager);
+
+        SqlSchemaManager sqlSchemaManager = newSchemaManager();
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
+        IgniteSchema igniteSchema = unwrapSchema(schemaPlus);
+        IgniteSystemView systemView = getSystemView(igniteSchema, testSystemView);
+
+        TableDescriptor descriptor = systemView.descriptor();
+        assertEquals(testSystemView.columns.size(), descriptor.columnsCount(), "column count");
+    }
+
+    private static Stream<Arguments> systemViewColumnTypes() {
+        List<Arguments> allArgs = new ArrayList<>();
+
+        for (SystemViewType type : SystemViewType.values()) {
+            columnTypes().map(args -> {
+                Object[] vals = args.get();
+
+                Object[] newVals = new Object[vals.length + 1];
+                newVals[0] = type;
+
+                System.arraycopy(vals, 0, newVals, 1, vals.length);
+
+                return Arguments.of(newVals);
+            }).forEach(allArgs::add);
+        }
+
+        return allArgs.stream();
+    }
+
+    private static Stream<Arguments> systemViewDistributions() {
+        return Stream.of(
+                Arguments.of(SystemViewType.LOCAL, IgniteDistributions.identity(0)),
+                Arguments.of(SystemViewType.GLOBAL, IgniteDistributions.single())
+        );
+    }
+
+
+    private static IgniteSystemView getSystemView(IgniteSchema schema, TestSystemView testSystemView) {
+        Table systemViewTable = schema.getTable(testSystemView.name);
+        assertNotNull(systemViewTable);
+
+        IgniteSystemView systemView = assertInstanceOf(IgniteSystemView.class, systemViewTable);
+        assertEquals(systemView.name(), testSystemView.name);
+
+        return systemView;
+    }
+
     private CatalogSqlSchemaManager newSchemaManager() {
         return new CatalogSqlSchemaManager(catalogManager, 200);
     }
@@ -448,6 +515,31 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         return table;
     }
 
+    private static Stream<Arguments> columnTypes() {
+        return Stream.of(
+                Arguments.of(ColumnType.BOOLEAN, -1, -1, true),
+                Arguments.of(ColumnType.INT8, -1, -1, true),
+                Arguments.of(ColumnType.INT16, -1, -1, true),
+                Arguments.of(ColumnType.INT32, -1, -1, true),
+                Arguments.of(ColumnType.INT64, -1, -1, true),
+                Arguments.of(ColumnType.FLOAT, -1, -1, true),
+                Arguments.of(ColumnType.DOUBLE, -1, -1, true),
+                Arguments.of(ColumnType.DECIMAL, 4, -1, true),
+                Arguments.of(ColumnType.DECIMAL, 4, 2, true),
+                Arguments.of(ColumnType.NUMBER, 4, -1, true),
+                Arguments.of(ColumnType.STRING, 40, -1, true),
+                Arguments.of(ColumnType.BYTE_ARRAY, 40, -1, true),
+                Arguments.of(ColumnType.DATE, -1, -1, true),
+                Arguments.of(ColumnType.TIME, 2, -1, true),
+                Arguments.of(ColumnType.DATETIME, 2, -1, true),
+                Arguments.of(ColumnType.TIMESTAMP, 2, -1, true),
+                Arguments.of(ColumnType.PERIOD, 2, -1, false),
+                Arguments.of(ColumnType.DURATION, 2, -1, false),
+                Arguments.of(ColumnType.UUID, 2, -1, true),
+                Arguments.of(ColumnType.BITMASK, 2, -1, true)
+        );
+    }
+
     private static final class TestSchema {
 
         final String name;
@@ -455,6 +547,8 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         final Set<TestTable> tables = new LinkedHashSet<>();
 
         final Set<TestIndex> indexes = new LinkedHashSet<>();
+
+        final Set<TestSystemView> systemViews = new LinkedHashSet<>();
 
         TestSchema() {
             this(DEFAULT_SCHEMA_NAME);
@@ -496,35 +590,42 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
                 indexDescriptorMap.put(name, testIndex.newDescriptor(tableId));
             }
 
+            LinkedHashMap<String, CatalogSystemViewDescriptor> systemViewDescriptorMap = new LinkedHashMap<>();
+
+            for (TestSystemView testSystemView : systemViews) {
+                CatalogSystemViewDescriptor descriptor = testSystemView.newDescriptor(testSystemView.id);
+
+                systemViewDescriptorMap.put(testSystemView.name, descriptor);
+            }
+
             CatalogTableDescriptor[] tablesArray = tableDescriptors.values().toArray(new CatalogTableDescriptor[0]);
             CatalogIndexDescriptor[] indexesArray = indexDescriptorMap.values().toArray(new CatalogIndexDescriptor[0]);
-            CatalogSystemViewDescriptor[] systemViewsArray = new CatalogSystemViewDescriptor[0];
+            CatalogSystemViewDescriptor[] systemViewsArray = systemViewDescriptorMap.values().toArray(new CatalogSystemViewDescriptor[0]);
 
-            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, tablesArray, indexesArray, systemViewsArray);
+            return new CatalogSchemaDescriptor(
+                    ID.incrementAndGet(),
+                    name,
+                    tablesArray,
+                    indexesArray,
+                    systemViewsArray,
+                    INITIAL_CAUSALITY_TOKEN
+            );
         }
     }
 
-    private static final class TestTable {
+    private abstract static class TestDataSource {
 
-        private final List<CatalogTableColumnDescriptor> columns = new ArrayList<>();
+        final List<CatalogTableColumnDescriptor> columns = new ArrayList<>();
 
-        private int id = ID.incrementAndGet();
+        int id = ID.incrementAndGet();
 
-        private final String name;
+        final String name;
 
-        private final int zoneId = ID.incrementAndGet();
+        final Set<String> notNull = new HashSet<>();
 
-        private final Set<String> notNull = new HashSet<>();
+        final Map<String, DefaultValue> defaultValueMap = new HashMap<>();
 
-        private List<String> primaryKey = Collections.emptyList();
-
-        private List<String> colocationKey;
-
-        private final Map<String, DefaultValue> defaultValueMap = new HashMap<>();
-
-        private int version;
-
-        private TestTable(String name) {
+        TestDataSource(String name) {
             this.name = name;
         }
 
@@ -548,6 +649,21 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         void notNull(String... names) {
             notNull.clear();
             notNull.addAll(Arrays.asList(names));
+        }
+    }
+
+    private static final class TestTable extends TestDataSource {
+
+        private final int zoneId = ID.incrementAndGet();
+
+        private List<String> primaryKey = Collections.emptyList();
+
+        private List<String> colocationKey;
+
+        private int version;
+
+        private TestTable(String name) {
+            super(name);
         }
 
         // Sets primary key columns
@@ -584,7 +700,8 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
                     CatalogTableDescriptor.INITIAL_TABLE_VERSION,
                     columnDescriptors,
                     primaryKey,
-                    colocationKey
+                    colocationKey,
+                    INITIAL_CAUSALITY_TOKEN
             );
         }
     }
@@ -619,6 +736,20 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
             } else {
                 throw new IllegalStateException("Unable to create index");
             }
+        }
+    }
+
+    private static class TestSystemView extends TestDataSource {
+
+        final SystemViewType systemViewType;
+
+        private TestSystemView(String name, SystemViewType systemViewType) {
+            super(name);
+            this.systemViewType = systemViewType;
+        }
+
+        CatalogSystemViewDescriptor newDescriptor(int id) {
+            return new CatalogSystemViewDescriptor(id, name, List.copyOf(columns), systemViewType);
         }
     }
 }

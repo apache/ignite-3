@@ -36,15 +36,16 @@ public class IgniteSchema extends AbstractSchema {
 
     private final int version;
 
-    private final Map<String, IgniteTable> tableByName;
-    private final Int2ObjectMap<IgniteTable> tableById;
+    private final Map<String, IgniteDataSource> tableByName;
+
+    private final Int2ObjectMap<IgniteDataSource> tableById;
 
     /** Constructor. */
-    public IgniteSchema(String name, int version, Collection<IgniteTable> tables) {
+    public IgniteSchema(String name, int version, Collection<? extends IgniteDataSource> tables) {
         this.name = name;
         this.version = version;
-        this.tableByName = tables.stream().collect(Collectors.toMap(IgniteTable::name, Function.identity()));
-        this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteTable::id, Function.identity()));
+        this.tableByName = tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Function.identity()));
+        this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteDataSource::id, Function.identity()));
     }
 
     /** Schema name. */
@@ -65,6 +66,9 @@ public class IgniteSchema extends AbstractSchema {
 
     /** Returns table by given id. */
     public IgniteTable getTable(int tableId) {
-        return tableById.get(tableId);
+        IgniteDataSource dataSource = tableById.get(tableId);
+        assert dataSource instanceof IgniteTable : "Expected table but got " + dataSource;
+
+        return (IgniteTable) dataSource;
     }
 }

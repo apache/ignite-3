@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -40,7 +41,12 @@ public class TestPlacementDriver implements PlacementDriver {
     }
 
     @Override
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
         return completedFuture(primaryReplica);
     }
 
@@ -51,11 +57,18 @@ public class TestPlacementDriver implements PlacementDriver {
 
     @Override
     public void listen(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
-        throw new UnsupportedOperationException();
+        if (evt != PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Override
     public void removeListener(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
+        return CompletableFuture.completedFuture(null);
     }
 }

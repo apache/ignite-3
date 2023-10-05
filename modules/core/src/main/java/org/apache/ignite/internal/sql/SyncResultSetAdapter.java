@@ -89,7 +89,7 @@ class SyncResultSetAdapter<T> implements ResultSet<T> {
     @Override
     public boolean hasNext() {
         if (it == null) {
-            throw new NoRowSetExpectedException();
+            return false;
         }
 
         return it.hasNext();

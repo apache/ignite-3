@@ -66,8 +66,10 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
 
     /** {@inheritDoc} */
     @Override
-    public Catalog applyUpdate(Catalog catalog) {
+    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor systemSchema = catalog.schema(schemaName);
+
+        descriptor.updateToken(causalityToken);
 
         Map<String, CatalogSystemViewDescriptor> systemViews = Arrays.stream(systemSchema.systemViews())
                 .collect(Collectors.toMap(CatalogSystemViewDescriptor::name, Function.identity()));
@@ -80,7 +82,8 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
                 systemSchema.name(),
                 systemSchema.tables(),
                 systemSchema.indexes(),
-                sysViewArray);
+                sysViewArray,
+                causalityToken);
 
         return new Catalog(
                 catalog.version(),

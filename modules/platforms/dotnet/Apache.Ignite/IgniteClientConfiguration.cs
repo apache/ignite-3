@@ -64,7 +64,7 @@ namespace Apache.Ignite
         public IgniteClientConfiguration(params string[] endpoints)
             : this()
         {
-            IgniteArgumentCheck.NotNull(endpoints, nameof(endpoints));
+            IgniteArgumentCheck.NotNull(endpoints);
 
             foreach (var endpoint in endpoints)
             {
@@ -78,7 +78,7 @@ namespace Apache.Ignite
         /// <param name="other">Other configuration.</param>
         public IgniteClientConfiguration(IgniteClientConfiguration other)
         {
-            IgniteArgumentCheck.NotNull(other, nameof(other));
+            IgniteArgumentCheck.NotNull(other);
 
             Logger = other.Logger;
             SocketTimeout = other.SocketTimeout;

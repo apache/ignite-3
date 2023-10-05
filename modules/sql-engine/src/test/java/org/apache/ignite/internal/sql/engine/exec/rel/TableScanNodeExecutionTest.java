@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
@@ -42,11 +44,11 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -56,18 +58,22 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests execution flow of TableScanNode.
  */
 public class TableScanNodeExecutionTest extends AbstractExecutionTest {
+
+    private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
 
     // Ensures that all data from TableScanNode is being propagated correctly.
     @Test
@@ -103,7 +109,16 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
-            TestInternalTableImpl internalTable = new TestInternalTableImpl(mock(ReplicaService.class), size, timestampTracker);
+            ReplicaService replicaSvc = mock(ReplicaService.class);
+
+            TxManagerImpl txManager = new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(),
+                    new TransactionIdGenerator(0xdeadbeef), () -> "local");
+
+            txManager.start();
+
+            closeables.add(txManager::stop);
+
+            TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 
             TableRowConverter rowConverter = new TableRowConverter() {
                 @Override
@@ -132,6 +147,11 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         }
     }
 
+    @AfterEach
+    public void afterEach() throws Exception {
+        closeAll(closeables);
+    }
+
     private static class TestInternalTableImpl extends InternalTableImpl {
 
         private static final Object[] ROW = {1, "2", 3};
@@ -148,15 +168,14 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         private final CountDownLatch scanComplete = new CountDownLatch(1);
 
-        TestInternalTableImpl(ReplicaService replicaSvc, int dataAmount, HybridTimestampTracker timestampTracker) {
+        TestInternalTableImpl(ReplicaService replicaSvc, int dataAmount, HybridTimestampTracker timestampTracker, TxManager txManager) {
             super(
                     "test",
                     1,
                     Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
                     addr -> mock(ClusterNode.class),
-                    new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(), new TransactionIdGenerator(0xdeadbeef),
-                            () -> "local"),
+                    txManager,
                     mock(MvTableStorage.class),
                     mock(TxStateTableStorage.class),
                     replicaSvc,

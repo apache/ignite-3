@@ -19,22 +19,24 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
+import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.DECIMAL;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
-import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -47,7 +49,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -169,31 +170,20 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .colocationColumns(colocationColumns);
     }
 
-    protected static ColumnParams columnParams(String name, ColumnType type) {
-        return columnParams(name, type, false);
+    protected CatalogCommand simpleTable(String name) {
+        List<ColumnParams> cols = List.of(
+                columnParams("ID", INT32),
+                columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
+                columnParamsBuilder("VAL_NOT_NULL", INT32).defaultValue(constant(1)).build(),
+                columnParams("DEC", DECIMAL, true, 11, 2),
+                columnParams("STR", STRING, 101, true),
+                columnParamsBuilder("DEC_SCALE", DECIMAL).precision(12).scale(3).build()
+        );
+
+        return simpleTable(name, cols);
     }
 
-    protected static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
-        return columnParamsBuilder(name, type, nullable).build();
-    }
-
-    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type) {
-        return columnParamsBuilder(name, type, false);
-    }
-
-    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable) {
-        return ColumnParams.builder().name(name).nullable(nullable).type(type);
-    }
-
-    protected static CatalogCommand dropTableCommand(String tableName) {
-        return DropTableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
-    }
-
-    protected static CatalogCommand dropColumnParams(String... columns) {
-        return AlterTableDropColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(Set.of(columns)).build();
-    }
-
-    protected static CatalogCommand addColumnParams(ColumnParams... columns) {
-        return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(List.of(columns)).build();
+    protected CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
+        return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
     }
 }
