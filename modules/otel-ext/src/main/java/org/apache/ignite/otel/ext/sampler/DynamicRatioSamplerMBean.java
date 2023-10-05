@@ -17,8 +17,6 @@
 
 package org.apache.ignite.otel.ext.sampler;
 
-import javax.management.DynamicMBean;
-
 /**
  * IgniteDynamicRatioSamplerMBean.
  */

@@ -26,7 +26,7 @@ import io.opentelemetry.context.propagation.TextMapGetter;
 import org.apache.ignite.internal.network.message.TraceableMessage;
 
 /**
- * Inbound handler that handles incoming acknowledgement messages and sends acknowledgement messages for other messages.
+ * Inbound handler that handles incoming trace headers and restore trace context.
  */
 public class InboundTraceHandler extends ChannelInboundHandlerAdapter {
     /** Handler name. */
