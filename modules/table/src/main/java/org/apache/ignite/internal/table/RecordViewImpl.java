@@ -87,7 +87,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, true, (actualTx, schemaVersion) -> {
             BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
 
             return tbl.get(keyRow, actualTx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
@@ -103,10 +103,14 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, isSinglePartitionKeys(keyRecs), (actualTx, schemaVersion) -> {
             return tbl.getAll(marshalKeys(keyRecs, schemaVersion), actualTx)
                     .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, true));
         });
+    }
+
+    private boolean isSinglePartitionKeys(Collection<R> keys) {
+        return isSinglePartitionBatch(marshal(keys, rowConverter.registry().lastSchemaVersion()));
     }
 
     /** {@inheritDoc} */

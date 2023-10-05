@@ -90,7 +90,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, true, (actualTx, schemaVersion) -> {
             Row keyRow = marshal(key, null, schemaVersion);
 
             return tbl.get(keyRow, actualTx).thenApply(row -> unmarshalValue(row, schemaVersion));
@@ -128,7 +128,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, true, (actualTx, schemaVersion) -> {
             BinaryRowEx keyRow = marshal(key, null, schemaVersion);
 
             return tbl.get(keyRow, actualTx)
@@ -147,11 +147,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         checkKeysForNulls(keys);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, isSinglePartitionTuples(keys), (actualTx, schemaVersion) -> {
             List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
 
             return tbl.getAll(keyRows, actualTx).thenApply(rows -> unmarshalValues(rows, schemaVersion));
         });
+    }
+
+    private boolean isSinglePartitionTuples(Collection<Tuple> keys) {
+        return isSinglePartitionBatch(marshalKeys(keys, schemaRegistry.lastSchemaVersion()));
     }
 
     private static void checkKeysForNulls(Collection<Tuple> keys) {

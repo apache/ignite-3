@@ -259,7 +259,7 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx, false);
 
         int partId = partitionId(row);
 
@@ -321,7 +321,7 @@ public class InternalTableImpl implements InternalTable {
                     "The operation is attempted for completed transaction"));
         }
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx, false);
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
@@ -367,8 +367,8 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, implicit && !singlePart, actualTx, implicit && singlePart);
     }
 
-    private InternalTransaction startImplicitTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.beginImplicit(observableTimestampTracker, false) : tx;
+    private InternalTransaction startImplicitTxIfNeeded(@Nullable InternalTransaction tx, boolean readOnly) {
+        return tx == null ? txManager.beginImplicit(observableTimestampTracker, readOnly) : tx;
     }
 
     /**
@@ -555,16 +555,18 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Evaluates the single-row request to the cluster for a read-only single-partition transaction.
      *
+     * @param <R> Result type.
+     * @param tx Transaction.
      * @param row Binary row.
      * @param op Operation.
-     * @param <R> Result type.
      * @return The future.
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            @Nullable InternalTransaction tx,
             BinaryRowEx row,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, true);
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx, true);
 
         int partId = partitionId(row);
 
@@ -572,7 +574,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
                 tablePartitionId,
-                tx.startTimestamp(),
+                actualTx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 TimeUnit.SECONDS
         );
@@ -600,22 +602,24 @@ public class InternalTableImpl implements InternalTable {
             }
         });
 
-        return postEvaluate(fut, tx);
+        return postEvaluate(fut, actualTx);
     }
 
     /**
      * Evaluates the multi-row request to the cluster for a read-only single-partition transaction.
      *
+     * @param <R> Result type.
+     * @param tx Transaction.
      * @param rows Rows.
      * @param op Replica requests factory.
-     * @param <R> Result type.
      * @return The future.
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            @Nullable InternalTransaction tx,
             Collection<BinaryRowEx> rows,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, true);
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx, true);
 
         int partId = partitionId(rows.iterator().next());
 
@@ -623,7 +627,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
                 tablePartitionId,
-                tx.startTimestamp(),
+                actualTx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 TimeUnit.SECONDS
         );
@@ -651,7 +655,7 @@ public class InternalTableImpl implements InternalTable {
             }
         });
 
-        return postEvaluate(fut, tx);
+        return postEvaluate(fut, actualTx);
     }
 
     /**
@@ -687,9 +691,10 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        if (tx == null) {
+    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
+        if (isNullOrImplicit(tx)) {
             return evaluateReadOnlyPrimaryNode(
+                    tx,
                     keyRow,
                     (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
                             .groupId(groupId)
@@ -716,7 +721,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET)
                         .timestampLong(clock.nowLong())
-                        .full(tx == null)
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -763,13 +768,14 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx) {
         if (CollectionUtils.nullOrEmpty(keyRows)) {
             return completedFuture(Collections.emptyList());
         }
 
-        if (tx == null && isSinglePartitionBatch(keyRows)) {
+        if (isNullOrImplicit(tx) && isSinglePartitionBatch(keyRows)) {
             return evaluateReadOnlyPrimaryNode(
+                    tx,
                     keyRows,
                     (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
                             .groupId(groupId)
@@ -877,11 +883,11 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_UPSERT)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build());
     }
 
-    private static boolean isOriginalTxImplicit(@Nullable InternalTransaction tx) {
+    private static boolean isNullOrImplicit(@Nullable InternalTransaction tx) {
         return tx == null || tx.implicit();
     }
 
@@ -927,7 +933,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -946,7 +952,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_INSERT)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -985,7 +991,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -1005,7 +1011,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_REPLACE)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -1024,7 +1030,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -1043,7 +1049,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_DELETE)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -1062,7 +1068,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -1081,7 +1087,7 @@ public class InternalTableImpl implements InternalTable {
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
                         .timestampLong(clock.nowLong())
-                        .full(isOriginalTxImplicit(tx))
+                        .full(isNullOrImplicit(tx))
                         .build()
         );
     }
@@ -1259,7 +1265,7 @@ public class InternalTableImpl implements InternalTable {
 
         validatePartitionIndex(partId);
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx, false);
 
         boolean implicit = actualTx.implicit();
 

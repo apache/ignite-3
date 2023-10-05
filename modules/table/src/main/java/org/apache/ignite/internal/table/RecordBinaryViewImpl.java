@@ -83,7 +83,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, true, (actualTx, schemaVersion) -> {
             Row keyRow = marshal(keyRec, schemaVersion, true); // Convert to portable format to pass TX/storage layer.
 
             return tbl.get(keyRow, actualTx).thenApply(row -> wrap(row, schemaVersion));
@@ -113,10 +113,14 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, isSinglePartitionTuples(keyRecs), (actualTx, schemaVersion) -> {
             return tbl.getAll(mapToBinary(keyRecs, schemaVersion, true), actualTx)
                     .thenApply(binaryRows -> wrap(binaryRows, schemaVersion, true));
         });
+    }
+
+    private boolean isSinglePartitionTuples(Collection<Tuple> keys) {
+        return isSinglePartitionBatch(mapToBinary(keys, schemaRegistry.lastSchemaVersion(), true));
     }
 
     /** {@inheritDoc} */

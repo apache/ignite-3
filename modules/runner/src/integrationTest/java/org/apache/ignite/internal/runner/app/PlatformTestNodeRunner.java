@@ -47,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -68,17 +69,18 @@ import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.platform.commons.util.ReflectionUtils;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -680,13 +682,18 @@ public class PlatformTestNodeRunner {
             @SuppressWarnings("resource")
             Table table = context.ignite().tables().table(tableName);
             RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
-            TupleMarshallerImpl marsh = IgniteTestUtils.getFieldValue(view, "marsh");
+            TupleMarshaller marsh = getMarshaller(view);
 
             try {
                 return marsh.marshal(key).colocationHash();
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        private static TupleMarshaller getMarshaller(RecordBinaryViewImpl serverView) {
+            Method marshallerMethod = ReflectionUtils.findMethod(RecordBinaryViewImpl.class, "marshaller", int.class).orElseThrow();
+            return (TupleMarshaller) ReflectionUtils.invokeMethod(marshallerMethod, serverView, 1);
         }
     }
 

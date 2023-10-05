@@ -20,9 +20,12 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -107,7 +110,24 @@ abstract class AbstractTableView {
      * @return Whatever the action returns.
      */
     protected final <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, KvAction<T> action) {
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
+        return withSchemaSync(tx, false, action);
+    }
+
+    /**
+     * Executes the provided KV action in the given transaction or, if {@code null} is given instead of a transaction,
+     * in an implicit transaction, maintaining Schema Synchronization semantics: that is, before executing
+     * the action, a check is made to make sure that the current node has schemas complete wrt timestamp
+     * corresponding to the transaction (if not, a wait is made till this condition is satisfied) and then
+     * the action is provided with the table schema version corresponding to the transaction.
+     *
+     * @param tx Transaction or {@code null}.
+     * @param startRoTx Whether an implicit TX (if it's needed) should be RO.
+     * @param action Action to execute.
+     * @param <T> Type of the data the action returns.
+     * @return Whatever the action returns.
+     */
+    protected final <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, boolean startRoTx, KvAction<T> action) {
+        InternalTransaction actualTx = startImplicitTxIfNeeded(tx, startRoTx);
         boolean weStartedImplicitTx = actualTx != tx;
 
         boolean operationMightBeExecuted = false;
@@ -128,8 +148,8 @@ abstract class AbstractTableView {
         }
     }
 
-    private InternalTransaction startImplicitTxIfNeeded(@Nullable Transaction tx) {
-        return tx == null ? txManager.beginImplicit(observableTimestampTracker) : (InternalTransaction) tx;
+    private InternalTransaction startImplicitTxIfNeeded(@Nullable Transaction tx, boolean startRoTx) {
+        return tx == null ? txManager.beginImplicit(observableTimestampTracker, startRoTx) : (InternalTransaction) tx;
     }
 
     private CompletableFuture<Integer> schemaVersionFor(InternalTransaction actualTx) {
@@ -150,5 +170,30 @@ abstract class AbstractTableView {
 
     private void eraseTxMeta(InternalTransaction actualTx) {
         txManager.updateTxMeta(actualTx.id(), oldMeta -> null);
+    }
+
+    /**
+     * Determines whether rows belong to the same partition.
+     *
+     * @param rows Rows batch.
+     */
+    protected final boolean isSinglePartitionBatch(Collection<BinaryRowEx> rows) {
+        if (rows.isEmpty()) {
+            return true;
+        }
+
+        Iterator<BinaryRowEx> rowIterator = rows.iterator();
+
+        int partId = tbl.partitionId(rowIterator.next());
+
+        while (rowIterator.hasNext()) {
+            BinaryRowEx row = rowIterator.next();
+
+            if (partId != tbl.partitionId(row)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
