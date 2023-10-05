@@ -22,6 +22,7 @@
 #include "ignite/client/ignite_client_configuration.h"
 
 #include <gtest/gtest.h>
+#include <gmock/gmock-matchers.h>
 
 #include <chrono>
 
@@ -133,6 +134,23 @@ TEST_F(key_value_binary_view_test, put_empty_value_throws) {
                 kv_view.put(nullptr, get_tuple(1), {});
             } catch (const ignite_error &e) {
                 EXPECT_STREQ("Value tuple can not be empty", e.what());
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(key_value_binary_view_test, put_extra_collumn_value_throws) {
+    auto key_tuple = get_tuple(1);
+    auto val_tuple = get_tuple("foo");
+    val_tuple.set("extra", std::string("extra"));
+    EXPECT_THROW(
+        {
+            try {
+                kv_view.put(nullptr, key_tuple, val_tuple);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::MatchesRegex(
+                    "Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
                 throw;
             }
         },
