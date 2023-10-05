@@ -105,7 +105,7 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -126,7 +126,7 @@ import org.jetbrains.annotations.Nullable;
  * Handles messages from thin clients.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements ConfigurationListener<AuthenticationView> {
+public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements ConfigurationListener<SecurityView> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -719,14 +719,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ctx.close();
     }
 
-    @Override
-    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationView> ctx) {
-        if (clientContext != null && channelHandlerContext != null) {
-            channelHandlerContext.close();
-        }
-        return CompletableFuture.completedFuture(null);
-    }
-
     private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
         int mapSize = unpacker.unpackInt();
@@ -771,5 +763,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
 
         return clock.now().longValue();
+    }
+
+    @Override
+    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<SecurityView> ctx) {
+        if (clientContext != null && channelHandlerContext != null) {
+            channelHandlerContext.close();
+        }
+        return CompletableFuture.completedFuture(null);
     }
 }

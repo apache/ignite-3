@@ -19,7 +19,6 @@ package org.apache.ignite.internal.security.authentication.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidator;
 
 /**
@@ -28,10 +27,6 @@ import org.apache.ignite.internal.security.authentication.configuration.validato
 @SuppressWarnings("PMD.UnusedPrivateField")
 @Config
 public class AuthenticationConfigurationSchema {
-    /** Enabled. */
-    @Value(hasDefault = true)
-    public final boolean enabled = false;
-
     /** Auth configurations. */
     @NamedConfigValue
     @AuthenticationProvidersValidator
