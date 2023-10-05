@@ -329,7 +329,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     @WithSpan
-    private void onMessage(String nodeName, QueryStartRequest msg) {
+    private void onMessage(String nodeName, @SpanAttribute("msg") QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
         CompletableFuture<Void> fut = sqlSchemaManager.schemaReadyFuture(msg.schemaVersion());
