@@ -50,7 +50,6 @@ import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -69,7 +68,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
  */
-public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
+public class PrepareServiceImpl implements PrepareService {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
 
     /** DML metadata holder. */
@@ -216,12 +215,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void onSchemaUpdated() {
-        cache.clear();
-    }
-
     @WithSpan
     private CompletableFuture<QueryPlan> prepareDdl(ParsedResult parsedResult, PlanningContext ctx) {
         SqlNode sqlNode = parsedResult.parsedTree();
@@ -278,7 +271,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
             // Split query plan to query fragments.
-            List<Fragment> fragments = new Splitter().go(igniteRel);
+            List<Fragment> fragments = new QuerySplitter().go(igniteRel);
 
             return new MultiStepPlan(SqlQueryType.QUERY, fragments,
                     resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
@@ -305,7 +298,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
             // Split query plan to query fragments.
-            List<Fragment> fragments = new Splitter().go(igniteRel);
+            List<Fragment> fragments = new QuerySplitter().go(igniteRel);
 
             return new MultiStepPlan(SqlQueryType.DML, fragments, DML_METADATA);
         }, planningPool));

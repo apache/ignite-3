@@ -24,10 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptUtil;
@@ -40,34 +38,21 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
-import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.Splitter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -76,10 +61,6 @@ import org.junit.jupiter.api.Test;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class PlannerTest extends AbstractPlannerTest {
-    private static final String DEVELOPER_TABLE = "DEVELOPER";
-
-    private static final String PROJECT_TABLE = "PROJECT";
-
     private static List<String> NODES;
 
     private static List<NodeWithTerm> NODES_WITH_TERM;
@@ -99,267 +80,6 @@ public class PlannerTest extends AbstractPlannerTest {
             NODES.add(nodeName);
             NODES_WITH_TERM.add(new NodeWithTerm(nodeName, 0L));
         }
-    }
-
-    @Test
-    public void testSplitterColocatedPartitionedPartitioned() throws Exception {
-        ColocationGroup partitionedGroup = ColocationGroup.forAssignments(Arrays.asList(
-                select(NODES_WITH_TERM, 0, 1),
-                select(NODES_WITH_TERM, 1, 2),
-                select(NODES_WITH_TERM, 2, 0),
-                select(NODES_WITH_TERM, 0, 1),
-                select(NODES_WITH_TERM, 1, 2)
-        ));
-
-        IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
-                projectsTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
-        );
-
-        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
-        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
-
-        Map<Integer, ColocationGroup> colocationGroups = Map.of(
-                developerTableId, partitionedGroup,
-                projectTableId, partitionedGroup
-        );
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.id = p.id0";
-
-        PlanningContext ctx = plannerContext(schema, sql);
-
-        assertNotNull(ctx);
-
-        IgniteRel phys = physicalPlan(ctx);
-
-        assertNotNull(phys);
-
-        MultiStepPlan plan = newPlan(phys,
-                colocationGroups);
-
-        assertNotNull(plan);
-
-        assertEquals(2, plan.fragments().size());
-    }
-
-    @Test
-    public void testSplitterColocatedReplicatedReplicated() throws Exception {
-        ColocationGroup replicatedGroup = ColocationGroup.forNodes(select(NODES, 0, 1, 2, 3));
-
-        IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(IgniteDistributions.broadcast()),
-                projectsTable(IgniteDistributions.broadcast())
-        );
-
-        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
-        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
-
-        Map<Integer, ColocationGroup> colocationGroups = Map.of(
-                developerTableId, replicatedGroup,
-                projectTableId, replicatedGroup
-        );
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, (d.id + 1) as id2, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.id = p.id0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        PlanningContext ctx = plannerContext(schema, sql, 2);
-
-        IgniteRel phys = physicalPlan(ctx);
-
-        assertNotNull(phys);
-
-        MultiStepPlan plan = newPlan(phys, colocationGroups);
-
-        assertNotNull(plan);
-
-        assertEquals(1, plan.fragments().size());
-    }
-
-    @Test
-    public void testSplitterPartiallyColocatedReplicatedAndPartitioned() throws Exception {
-        ColocationGroup replicatedGroup = ColocationGroup.forNodes(select(NODES, 0));
-        ColocationGroup partitionedGroup = ColocationGroup.forAssignments(Arrays.asList(
-                select(NODES_WITH_TERM, 1, 2),
-                select(NODES_WITH_TERM, 2, 3),
-                select(NODES_WITH_TERM, 3, 0),
-                select(NODES_WITH_TERM, 0, 1)
-        ));
-
-        IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(IgniteDistributions.broadcast()),
-                projectsTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
-        );
-
-        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
-        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
-
-        Map<Integer, ColocationGroup> colocationGroups = Map.of(
-                developerTableId, replicatedGroup,
-                projectTableId, partitionedGroup
-        );
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.id = p.id0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        PlanningContext ctx = plannerContext(schema, sql, 2);
-
-        IgniteRel phys = physicalPlan(ctx);
-
-        assertNotNull(phys);
-
-        MultiStepPlan plan = newPlan(phys, colocationGroups);
-
-        assertEquals(3, plan.fragments().size());
-    }
-
-    @Test
-    public void testSplitterPartiallyColocated1() throws Exception {
-        ColocationGroup replicatedGroup = ColocationGroup.forNodes(select(NODES, 1, 2, 3));
-        ColocationGroup partitionedGroup = ColocationGroup.forAssignments(Arrays.asList(
-                select(NODES_WITH_TERM, 0),
-                select(NODES_WITH_TERM, 1),
-                select(NODES_WITH_TERM, 2)
-        ));
-
-        IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(IgniteDistributions.broadcast()),
-                projectsTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
-        );
-
-        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
-        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
-
-        Map<Integer, ColocationGroup> colocationGroups = Map.of(
-                developerTableId, replicatedGroup,
-                projectTableId, partitionedGroup
-        );
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.projectId = p.id0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        PlanningContext ctx = plannerContext(schema, sql, 2);
-
-        IgniteRel phys = physicalPlan(ctx);
-
-        assertNotNull(phys);
-
-        MultiStepPlan plan = newPlan(phys, colocationGroups);
-
-        assertNotNull(plan);
-
-        assertEquals(3, plan.fragments().size());
-    }
-
-    @Test
-    public void testSplitterPartiallyColocated2() throws Exception {
-        ColocationGroup replicatedGroup = ColocationGroup.forNodes(select(NODES, 0));
-        ColocationGroup partitionedGroup = ColocationGroup.forAssignments(Arrays.asList(
-                select(NODES_WITH_TERM, 1),
-                select(NODES_WITH_TERM, 2),
-                select(NODES_WITH_TERM, 3)
-        ));
-
-        IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(IgniteDistributions.broadcast()),
-                projectsTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
-        );
-
-        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
-        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
-
-        Map<Integer, ColocationGroup> colocationGroups = Map.of(
-                developerTableId, replicatedGroup,
-                projectTableId, partitionedGroup
-        );
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.projectId = p.id0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        PlanningContext ctx = plannerContext(schema, sql, 2);
-
-        IgniteRel phys = physicalPlan(ctx);
-
-        assertNotNull(phys);
-
-        MultiStepPlan plan = newPlan(phys, colocationGroups);
-
-        assertEquals(3, plan.fragments().size());
-    }
-
-    @Test
-    public void testSplitterNonColocated() throws Exception {
-        ColocationGroup developerGroup = ColocationGroup.forNodes(select(NODES, 2));
-        ColocationGroup projectsGroup = ColocationGroup.forNodes(select(NODES, 0, 1));
-
-        IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(IgniteDistributions.broadcast()),
-                projectsTable(IgniteDistributions.broadcast())
-        );
-
-        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
-        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
-
-        Map<Integer, ColocationGroup> colocationGroups = Map.of(
-                developerTableId, developerGroup,
-                projectTableId, projectsGroup
-        );
-
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
-
-        String sql = "SELECT d.id, d.name, d.projectId, p.id0, p.ver0 "
-                + "FROM PUBLIC.Developer d JOIN ("
-                + "SELECT pp.id as id0, pp.ver as ver0 FROM PUBLIC.Project pp"
-                + ") p "
-                + "ON d.projectId = p.ver0 "
-                + "WHERE (d.projectId + 1) > ?";
-
-        PlanningContext ctx = plannerContext(schema, sql, 2);
-
-        IgniteRel phys = physicalPlan(ctx);
-
-        assertNotNull(phys);
-
-        MultiStepPlan plan = newPlan(phys, colocationGroups);
-
-        assertNotNull(plan);
-
-        assertEquals(2, plan.fragments().size());
     }
 
     @Test
@@ -572,42 +292,6 @@ public class PlannerTest extends AbstractPlannerTest {
         checkSplitAndSerialization(phys, publicSchema);
     }
 
-    private MultiStepPlan newPlan(IgniteRel phys, Map<Integer, ColocationGroup> colocationGroups) {
-        List<Fragment> fragments = new Splitter().go(phys);
-        MappingQueryContext ctx = mapContext(CollectionUtils.first(NODES), this::intermediateMapping);
-
-        List<Fragment> mappedFragments = FragmentMapping.mapFragments(ctx, fragments, colocationGroups);
-
-        return new MultiStepPlan(SqlQueryType.QUERY, mappedFragments, new ResultSetMetadataImpl(Collections.emptyList()));
-    }
-
-    /**
-     * IntermediateMapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    private List<String> intermediateMapping(boolean single,
-            @Nullable Predicate<ClusterNode> filter) {
-        return single ? select(NODES, 0) : select(NODES, 0, 1, 2, 3);
-    }
-
-    private static MappingQueryContext mapContext(String locNodeName,
-            MappingService mappingService) {
-        return new MappingQueryContext(locNodeName, mappingService);
-    }
-
-    private PlanningContext plannerContext(SchemaPlus schema, String sql, Object... params) {
-        return PlanningContext.builder()
-                .parentContext(BaseQueryContext.builder()
-                        .logger(log)
-                        .parameters(params)
-                        .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
-                                .build())
-                        .build())
-                .query(sql)
-                .build();
-    }
-
     private static UnaryOperator<TableBuilder> employerTable(IgniteDistribution distribution) {
         return tableBuilder -> tableBuilder
                 .name("EMP")
@@ -627,23 +311,5 @@ public class PlannerTest extends AbstractPlannerTest {
                 .distribution(distribution);
     }
 
-    private static UnaryOperator<TableBuilder> developerTable(IgniteDistribution distribution) {
-        return tableBuilder -> tableBuilder
-                .name(DEVELOPER_TABLE)
-                .addColumn("ID", NativeTypes.INT32)
-                .addColumn("NAME", NativeTypes.STRING)
-                .addColumn("PROJECTID", NativeTypes.INT32)
-                .size(100)
-                .distribution(distribution);
-    }
 
-    private static UnaryOperator<TableBuilder> projectsTable(IgniteDistribution distribution) {
-        return tableBuilder -> tableBuilder
-                .name(PROJECT_TABLE)
-                .addColumn("ID", NativeTypes.INT32)
-                .addColumn("NAME", NativeTypes.STRING)
-                .addColumn("VER", NativeTypes.INT32)
-                .size(100)
-                .distribution(distribution);
-    }
 }

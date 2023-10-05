@@ -126,6 +126,11 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
+    public boolean implicit() {
+        return false;
+    }
+
+    @Override
     public UUID id() {
         return id;
     }

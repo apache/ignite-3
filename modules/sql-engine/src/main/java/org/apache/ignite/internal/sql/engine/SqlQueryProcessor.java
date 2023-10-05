@@ -37,9 +37,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -56,10 +58,15 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -138,6 +145,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ClusterService clusterSrvc;
 
+    private final LogicalTopologyService logicalTopologyService;
+
     private final TableManager tableManager;
 
     private final CatalogSchemaManager schemaManager;
@@ -177,6 +186,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
+            LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
             CatalogSchemaManager schemaManager,
             DataStorageManager dataStorageManager,
@@ -187,6 +197,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             MetricManager metricManager
     ) {
         this.clusterSrvc = clusterSrvc;
+        this.logicalTopologyService = logicalTopologyService;
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
@@ -224,7 +235,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
-                clusterSrvc.topologyService(),
+                nodeName,
                 clusterSrvc.messagingService(),
                 taskExecutor,
                 busyLock
@@ -243,6 +254,25 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
+        var executionTargetProvider = new ExecutionTargetProvider() {
+            @Override
+            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, int tableId) {
+                return tableManager.tableAsync(tableId)
+                        .thenCompose(table -> table.internalTable().primaryReplicas())
+                        .thenApply(replicas -> {
+                            List<NodeWithTerm> assignments = replicas.stream()
+                                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
+                                    .collect(Collectors.toList());
+
+                            return factory.partitioned(assignments);
+                        });
+            }
+        };
+
+        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider);
+
+        logicalTopologyService.addEventListener(mappingService);
+
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
                 msgSrvc,
@@ -252,6 +282,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 SqlRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
+                mappingService,
                 dependencyResolver
         ));
 
@@ -476,6 +507,7 @@ public class SqlQueryProcessor implements QueryProcessor {
      * @return Wrapper for an active transaction.
      * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
      */
+    // TODO: IGNITE-20539 - unify creation of implicit transactions.
     static QueryTransactionWrapper wrapTxOrStartImplicit(
             SqlQueryType queryType,
             IgniteTransactions transactions,

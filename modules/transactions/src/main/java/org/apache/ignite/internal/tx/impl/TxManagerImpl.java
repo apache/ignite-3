@@ -155,12 +155,21 @@ public class TxManagerImpl implements TxManager {
     @WithSpan
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
+        return beginTx(timestampTracker, readOnly, false);
+    }
+
+    @Override
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker) {
+        return beginTx(timestampTracker, false, true);
+    }
+
+    private InternalTransaction beginTx(HybridTimestampTracker timestampTracker, boolean readOnly, boolean implicit) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, implicit);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();

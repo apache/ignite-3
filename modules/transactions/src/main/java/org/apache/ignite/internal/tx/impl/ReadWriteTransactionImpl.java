@@ -63,6 +63,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The tracker is used to track an observable timestamp. */
     private final HybridTimestampTracker observableTsTracker;
 
+    private final boolean implicit;
+
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
 
@@ -70,16 +72,29 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private volatile CompletableFuture<Void> finishFut;
 
     /**
-     * The constructor.
+     * Constructs an explicit read-write transaction.
      *
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      */
     public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
+        this(txManager, observableTsTracker, id, false);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param txManager The tx manager.
+     * @param observableTsTracker Observable timestamp tracker.
+     * @param id The id.
+     * @param implicit Whether the transaction will be implicit or not.
+     */
+    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id, boolean implicit) {
         super(txManager, id);
 
         this.observableTsTracker = observableTsTracker;
+        this.implicit = implicit;
     }
 
     /** {@inheritDoc} */
@@ -186,5 +201,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public HybridTimestamp startTimestamp() {
         return TransactionIds.beginTimestamp(id());
+    }
+
+    @Override
+    public boolean implicit() {
+        return implicit;
     }
 }
