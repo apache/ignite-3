@@ -1453,7 +1453,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
 
-        return distributionZoneManager.currentDataNodes(tableDescriptor.zoneId()).thenApply(dataNodes ->
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+
+        return distributionZoneManager.dataNodes(zoneDescriptor.updateToken(), tableDescriptor.zoneId()).thenApply(dataNodes ->
                 AffinityUtils.calculateAssignmentForPartition(
                         dataNodes,
                         tablePartitionId.partitionId(),
@@ -2032,7 +2034,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
                                 CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion);
 
-                                return distributionZoneManager.currentDataNodes(tableDescriptor.zoneId())
+                                CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+
+                                return distributionZoneManager.dataNodes(zoneDescriptor.updateToken(), tableDescriptor.zoneId())
                                         .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
                                                 metaStorageMgr,
                                                 dataNodes,
