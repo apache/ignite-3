@@ -1551,7 +1551,7 @@ public class InternalTableImpl implements InternalTable {
      * @param rowBatches Row batches.
      * @return Future of collecting results.
      */
-    static CompletableFuture<List<BinaryRow>> collectRejectedRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+    public static CompletableFuture<List<BinaryRow>> collectRejectedRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
         return collectMultiRowsResponsesWithRestoreOrder(
                 rowBatches,
                 batch -> {

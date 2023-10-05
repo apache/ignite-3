@@ -182,7 +182,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 });
 
                 if (cmd instanceof UpdateAllCommand) {
-                    return completedFuture(List.of());
+                    return completedFuture(((UpdateAllCommand) cmd).rowsToUpdate().keySet().stream().map(uuid -> true).collect(Collectors.toList()));
                 } else {
                     return completedFuture(true);
                 }
