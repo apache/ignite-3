@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import java.io.Serializable;
 import java.util.Set;
@@ -48,6 +49,8 @@ import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockSettings;
+import org.mockito.quality.Strictness;
 
 /**
  * MetaStorageManager dummy implementation.
@@ -59,6 +62,8 @@ import org.mockito.ArgumentCaptor;
 @TestOnly
 public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final String TEST_NODE_NAME = "standalone-ms-node";
+
+    private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
     /**
      * Creates standalone MetaStorage manager for provided VaultManager.
@@ -137,7 +142,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     private static RaftManager mockRaftManager() {
         ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
-        RaftManager raftManager = mock(RaftManager.class);
+        RaftManager raftManager = mock(RaftManager.class, LENIENT_SETTINGS);
         TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
 
         try {
@@ -176,8 +181,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     private static MetaStorageConfiguration mockConfiguration() {
-        MetaStorageConfiguration configuration = mock(MetaStorageConfiguration.class);
-        ConfigurationValue<Long> value = mock(ConfigurationValue.class);
+        MetaStorageConfiguration configuration = mock(MetaStorageConfiguration.class, LENIENT_SETTINGS);
+        ConfigurationValue<Long> value = mock(ConfigurationValue.class, LENIENT_SETTINGS);
 
         when(configuration.idleSyncTimeInterval()).thenReturn(value);
         when(value.value()).thenReturn(1000L);
