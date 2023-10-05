@@ -74,7 +74,7 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog) {
+    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
@@ -87,7 +87,8 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
                         schema.name(),
                         schema.tables(),
                         Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new),
-                        schema.systemViews()
+                        schema.systemViews(),
+                        causalityToken
                 ), catalog.schemas())
         );
     }
