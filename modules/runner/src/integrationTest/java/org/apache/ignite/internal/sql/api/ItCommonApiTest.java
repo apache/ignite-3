@@ -168,11 +168,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(1, txManager.pending());
-        InternalTransaction tx0 = (InternalTransaction) tx;
-        assertEquals(TxState.PENDING, tx0.state());
-
-        tx.rollback();
         assertEquals(0, txManager.pending());
 
         sql("INSERT INTO TEST VALUES(1, 1)");
