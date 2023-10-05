@@ -32,7 +32,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 public class IgniteSqlCommitTransaction extends SqlCall {
 
     /** Commit transaction operator. */
-    private static final SqlOperator OPERATOR = new SqlSpecialOperator("COMMIT", SqlKind.OTHER);
+    private static final SqlOperator OPERATOR = new SqlSpecialOperator("COMMIT", SqlKind.COMMIT);
 
     public IgniteSqlCommitTransaction(SqlParserPos pos) {
         super(pos);
