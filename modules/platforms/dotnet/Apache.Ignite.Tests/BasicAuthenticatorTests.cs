@@ -66,7 +66,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         var inner = (IgniteException)ex!.InnerException!;
 
         StringAssert.Contains("Authentication failed", inner.Message);
-        Assert.AreEqual(ErrorGroups.Authentication.CommonAuthentication, inner.Code);
+        Assert.AreEqual(ErrorGroups.Authentication.InvalidCredentials, inner.Code);
     }
 
     [Test]

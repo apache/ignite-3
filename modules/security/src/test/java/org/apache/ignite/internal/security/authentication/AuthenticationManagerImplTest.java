@@ -30,8 +30,8 @@ import org.apache.ignite.internal.security.authentication.configuration.Authenti
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
 import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderChange;
-import org.apache.ignite.security.authentication.exception.InvalidCredentialsException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.security.authentication.exception.InvalidCredentialsException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
