@@ -40,7 +40,6 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
@@ -235,9 +234,6 @@ public class IgniteImpl implements Ignite {
 
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
-
-    /** Baseline manager. */
-    private final BaselineManager baselineMgr;
 
     /** Replica manager. */
     private final ReplicaManager replicaMgr;
@@ -481,11 +477,6 @@ public class IgniteImpl implements Ignite {
 
         restAddressReporter = new RestAddressReporter(workDir);
 
-        baselineMgr = new BaselineManager(
-                clusterCfgMgr,
-                metaStorageMgr,
-                clusterSvc
-        );
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
@@ -498,7 +489,7 @@ public class IgniteImpl implements Ignite {
         dataStorageMgr = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterConfigRegistry,
+                        nodeConfigRegistry,
                         storagePath,
                         longJvmPauseDetector
                 )
@@ -520,8 +511,9 @@ public class IgniteImpl implements Ignite {
                 delayDurationMsSupplier
         );
 
-        systemViewManager = new SystemViewManagerImpl(catalogManager);
+        systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
+        logicalTopology.addEventListener(systemViewManager);
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
@@ -558,7 +550,6 @@ public class IgniteImpl implements Ignite {
                 replicaMgr,
                 lockMgr,
                 replicaSvc,
-                baselineMgr,
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageMgr,
@@ -582,14 +573,16 @@ public class IgniteImpl implements Ignite {
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
+                logicalTopologyService,
                 distributedTblMgr,
                 schemaManager,
                 dataStorageMgr,
-                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
                 catalogManager,
-                metricManager
+                metricManager,
+                systemViewManager
         );
 
         sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
@@ -782,7 +775,6 @@ public class IgniteImpl implements Ignite {
                                     computeComponent,
                                     replicaMgr,
                                     txManager,
-                                    baselineMgr,
                                     dataStorageMgr,
                                     schemaManager,
                                     volatileLogStorageFactoryCreator,

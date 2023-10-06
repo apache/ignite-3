@@ -39,6 +39,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -52,7 +53,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Fork(3)
+@Fork(1)
+@Threads(1)
 @State(Scope.Benchmark)
 public class SqlBenchmark {
     private final DataProvider<Object[]> dataProvider = DataProvider.fromRow(

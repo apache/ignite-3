@@ -99,4 +99,21 @@ public interface InternalTransaction extends Transaction {
      * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
      */
     HybridTimestamp startTimestamp();
+
+    /**
+     * Returns whether this transaction is implicit (i.e. started by the system automatically when the user
+     * provided no transaction for an operation) or not.
+     */
+    boolean implicit();
+
+    /**
+     * Finishes a read-only transaction with a specific execution timestamp.
+     *
+     * @param commit Commit flag. The flag is ignored for read-only transactions.
+     * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node.
+     * @return The future.
+     */
+    default CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
+        return commit ? commitAsync() : rollbackAsync();
+    }
 }

@@ -254,6 +254,16 @@ public class ErrorGroups {
 
         /** Session closed error. Operation is rejected because SQL session was closed. */
         public static final int SESSION_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 11);
+
+        /**
+         * SQL engine was unable to map query on current cluster topology.
+         *
+         * <p>This may be due to a variety of reasons, but most probably because of all nodes hosting certain system view
+         * or a table partition went offline.
+         *
+         * <p>See error message for details.
+         */
+        public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
     }
 
     /** Meta storage error group. */

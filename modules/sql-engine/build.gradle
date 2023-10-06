@@ -37,6 +37,8 @@ dependencies {
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-catalog')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-system-view')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -68,7 +70,6 @@ dependencies {
     testAnnotationProcessor libs.jmh.annotation.processor
     testAnnotationProcessor libs.value.annotation.processor
     testImplementation project(':ignite-core')
-    testImplementation project(':ignite-baseline')
     testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-network-api')
     testImplementation project(':ignite-raft-api')

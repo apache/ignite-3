@@ -44,13 +44,17 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractSetOpNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.CorrelatedNestedLoopJoinNode;
+import org.apache.ignite.internal.sql.engine.exec.rel.DataSourceScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.FilterNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.HashAggregateNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
@@ -72,7 +76,6 @@ import org.apache.ignite.internal.sql.engine.exec.rel.TableScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.TableSpoolNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.UnionAllNode;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -108,9 +111,12 @@ import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapSetOp;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -167,7 +173,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSender rel) {
         IgniteDistribution distribution = rel.distribution();
 
-        Destination<RowT> dest = destinationFactory.createDestination(distribution, ctx.target());
+        ColocationGroup targetGroup = ctx.target();
+
+        assert targetGroup != null;
+
+        Destination<RowT> dest = destinationFactory.createDestination(distribution, targetGroup);
 
         // Outbox fragment ID is used as exchange ID as well.
         Outbox<RowT> outbox = new Outbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.targetFragmentId(), dest);
@@ -200,7 +210,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteTrimExchange rel) {
         assert TraitUtils.distribution(rel).getType() == HASH_DISTRIBUTED;
 
-        Destination<RowT> dest = destinationFactory.createDestination(rel.distribution(), ctx.target());
+        ColocationGroup targetGroup = ctx.target();
+
+        assert targetGroup != null;
+
+        Destination<RowT> dest = destinationFactory.createDestination(rel.distribution(), targetGroup);
 
         String localNodeName = ctx.localNode().name();
 
@@ -367,6 +381,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         ColocationGroup group = ctx.group(rel.sourceId());
+
+        assert group != null;
+
         Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
 
         if (!group.nodeNames().contains(ctx.localNode().name())) {
@@ -410,6 +427,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
+        assert group != null;
+
         if (!group.nodeNames().contains(ctx.localNode().name())) {
             return new ScanNode<>(ctx, Collections.emptyList());
         }
@@ -431,7 +450,33 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteSystemViewScan rel) {
-        throw new UnsupportedOperationException("System view scan is not implemented");
+        RexNode condition = rel.condition();
+        List<RexNode> projects = rel.projects();
+        ImmutableBitSet requiredColumns = rel.requiredColumns();
+        IgniteDataSource igniteDataSource = rel.getTable().unwrapOrThrow(IgniteDataSource.class);
+
+        BinaryTupleSchema schema = fromTableDescriptor(igniteDataSource.descriptor());
+
+        ScannableDataSource dataSource = resolvedDependencies.dataSource(igniteDataSource.id());
+
+        IgniteTypeFactory typeFactory = ctx.getTypeFactory();
+
+        RelDataType rowType = igniteDataSource.getRowType(typeFactory, requiredColumns);
+
+        Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
+        Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
+
+        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
+        return new DataSourceScanNode<>(
+                ctx,
+                rowFactory,
+                schema,
+                dataSource,
+                filters,
+                prj,
+                requiredColumns == null ? null : requiredColumns.toBitSet()
+        );
     }
 
     /** {@inheritDoc} */
@@ -845,5 +890,16 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     @SuppressWarnings("unchecked")
     public <T extends Node<RowT>> T go(IgniteRel rel) {
         return (T) visit(rel);
+    }
+
+    private static BinaryTupleSchema fromTableDescriptor(TableDescriptor descriptor) {
+        Element[] elements = new Element[descriptor.columnsCount()];
+
+        int idx = 0;
+        for (ColumnDescriptor column : descriptor) {
+            elements[idx++] = new Element(column.physicalType(), column.nullable());
+        }
+
+        return BinaryTupleSchema.create(elements);
     }
 }

@@ -66,8 +66,8 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             params object?[]? args)
         {
-            ArgumentNullException.ThrowIfNull(nodes);
-            ArgumentNullException.ThrowIfNull(jobClassName);
+            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobClassName);
 
             return await ExecuteOnOneNode<T>(GetRandomNode(nodes), units, jobClassName, args).ConfigureAwait(false);
         }
@@ -112,9 +112,9 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             params object?[]? args)
         {
-            ArgumentNullException.ThrowIfNull(nodes);
-            ArgumentNullException.ThrowIfNull(jobClassName);
-            ArgumentNullException.ThrowIfNull(units);
+            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobClassName);
+            IgniteArgumentCheck.NotNull(units);
 
             var res = new Dictionary<IClusterNode, Task<T>>();
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
@@ -188,7 +188,7 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             object?[]? args)
         {
-            ArgumentNullException.ThrowIfNull(node);
+            IgniteArgumentCheck.NotNull(node);
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
@@ -246,9 +246,9 @@ namespace Apache.Ignite.Internal.Compute
             params object?[]? args)
             where TKey : notnull
         {
-            ArgumentNullException.ThrowIfNull(tableName);
-            ArgumentNullException.ThrowIfNull(key);
-            ArgumentNullException.ThrowIfNull(jobClassName);
+            IgniteArgumentCheck.NotNull(tableName);
+            IgniteArgumentCheck.NotNull(key);
+            IgniteArgumentCheck.NotNull(jobClassName);
 
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
             int? schemaVersion = null;

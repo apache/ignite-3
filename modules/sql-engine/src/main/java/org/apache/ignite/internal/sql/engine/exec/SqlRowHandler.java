@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 
 import java.math.BigDecimal;
@@ -176,7 +177,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             /** {@inheritDoc} */
             @Override
             public RowWrapper create(InternalTuple tuple) {
-                assert schemaLen == tuple.elementCount();
+                assert schemaLen == tuple.elementCount() : format("schemaLen={}, tupleSize={}", schemaLen, tuple.elementCount());
 
                 return new BinaryTupleRowWrapper(rowSchema, tuple);
             }

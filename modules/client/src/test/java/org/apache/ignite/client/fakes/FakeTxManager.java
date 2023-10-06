@@ -139,7 +139,17 @@ public class FakeTxManager implements TxManager {
             public HybridTimestamp startTimestamp() {
                 return timestamp;
             }
+
+            @Override
+            public boolean implicit() {
+                return false;
+            }
         };
+    }
+
+    @Override
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+        throw new UnsupportedOperationException("Not expected to be called here");
     }
 
     @Override

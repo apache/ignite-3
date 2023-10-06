@@ -70,9 +70,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             int tableVersion,
             List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
-            @Nullable List<String> colocationCols
+            @Nullable List<String> colocationCols,
+            long causalityToken
     ) {
-        super(id, Type.TABLE, name);
+        super(id, Type.TABLE, name, causalityToken);
 
         this.pkIndexId = pkIndexId;
         this.zoneId = zoneId;

@@ -85,8 +85,10 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -256,10 +258,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         when(partitionReplicaListener.invoke(any(), any())).thenAnswer(invocationOnMock -> {
             ReplicaRequest req = invocationOnMock.getArgument(0);
 
-            if (req instanceof ReadWriteSingleRowPkReplicaRequest) {
-                ReadWriteSingleRowPkReplicaRequest req0 = (ReadWriteSingleRowPkReplicaRequest) req;
+            if (req instanceof ReadWriteSingleRowPkReplicaRequest || req instanceof ReadOnlyDirectSingleRowReplicaRequest) {
+                SingleRowPkReplicaRequest req0 = (SingleRowPkReplicaRequest) req;
 
-                if (req0.requestType() == RequestType.RW_GET) {
+                if (req0.requestType() == RequestType.RW_GET || req0.requestType() == RequestType.RO_GET) {
                     List<JraftServerImpl> servers = servers();
 
                     JraftServerImpl leader = servers.stream()
@@ -288,8 +290,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     return completedFuture(row);
                 } else if (req0.requestType() == RequestType.RW_DELETE) {
+                    ReadWriteSingleRowPkReplicaRequest rwReq = (ReadWriteSingleRowPkReplicaRequest) req0;
+
                     UpdateCommand cmd = msgFactory.updateCommand()
-                            .txId(req0.transactionId())
+                            .txId(rwReq.transactionId())
                             .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                             .rowUuid(new RowId(0).uuid())
                             .safeTimeLong(hybridClock.nowLong())

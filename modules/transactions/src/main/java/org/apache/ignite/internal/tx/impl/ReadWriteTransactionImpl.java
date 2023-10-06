@@ -76,14 +76,26 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private volatile CompletableFuture<Void> finishFut;
 
     /**
-     * The constructor.
+     * Constructs an explicit read-write transaction.
      *
      * @param txManager The tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      */
     public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
-        super(txManager, id);
+        this(txManager, observableTsTracker, id, false);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param txManager The tx manager.
+     * @param observableTsTracker Observable timestamp tracker.
+     * @param id The id.
+     * @param implicit Whether the transaction will be implicit or not.
+     */
+    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id, boolean implicit) {
+        super(txManager, id, implicit);
 
         this.observableTsTracker = observableTsTracker;
     }

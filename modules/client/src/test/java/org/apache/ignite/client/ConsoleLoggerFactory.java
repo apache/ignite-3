@@ -20,7 +20,7 @@ package org.apache.ignite.client;
 import java.lang.System.Logger;
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.LoggerFactory;
+import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**

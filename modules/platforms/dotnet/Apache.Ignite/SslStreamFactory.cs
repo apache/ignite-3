@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite;
 
-using System;
 using System.IO;
 using System.Net.Security;
 using System.Threading.Tasks;
@@ -36,7 +35,7 @@ public sealed class SslStreamFactory : ISslStreamFactory
     /// <inheritdoc />
     public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
     {
-        ArgumentNullException.ThrowIfNull(stream);
+        IgniteArgumentCheck.NotNull(stream);
 
         var sslStream = new SslStream(stream, false, null, null);
 
