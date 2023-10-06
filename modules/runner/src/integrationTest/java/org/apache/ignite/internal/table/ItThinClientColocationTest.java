@@ -41,7 +41,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -131,7 +130,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
         var colocationColumns = new String[]{columnName};
         var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
 
-        return new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        return new TupleMarshallerImpl(schema);
     }
 
     private static Stream<Arguments> nativeTypes() {

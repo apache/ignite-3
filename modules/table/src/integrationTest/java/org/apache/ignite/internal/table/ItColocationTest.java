@@ -405,7 +405,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new ConstantSchemaVersions(1)
         );
 
-        marshaller = new TupleMarshallerImpl(schemaRegistry);
+        marshaller = new TupleMarshallerImpl(schema);
     }
 
     private Tuple createTuple(int k, NativeTypeSpec t0, NativeTypeSpec t1) {

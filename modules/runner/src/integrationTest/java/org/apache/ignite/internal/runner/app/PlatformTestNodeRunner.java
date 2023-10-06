@@ -74,7 +74,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
@@ -656,7 +655,7 @@ public class PlatformTestNodeRunner {
             var colocationColumns = Arrays.stream(columns).map(Column::name).toArray(String[]::new);
             var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
 
-            var marsh = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+            var marsh = new TupleMarshallerImpl(schema);
 
             try {
                 Row row = marsh.marshal(tuple);

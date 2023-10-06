@@ -47,7 +47,10 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.table.Tuple;
@@ -101,8 +104,8 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 nodeName(2)
         ), table.tableId());
 
-        BinaryRowEx row = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1).set("value", "value1"));
-        BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1));
+        BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("value", "value1"));
+        BinaryRowEx key = marshalTuple(table, Tuple.create().set("id", 1));
 
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(nullValue()));
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(nullValue()));
@@ -147,6 +150,13 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 table.internalTable().get(key, clock.now(), cluster.node(3).node()),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
+    }
+
+    private static Row marshalTuple(TableImpl table, Tuple tuple) throws TupleMarshallerException {
+        SchemaRegistry schemaReg = table.schemaView();
+        var marshaller = new TupleMarshallerImpl(schemaReg.schema(schemaReg.lastSchemaVersion()));
+
+        return marshaller.marshal(tuple);
     }
 
     private void waitForStableAssignmentsInMetastore(Set<String> expectedNodes, int table) throws InterruptedException {

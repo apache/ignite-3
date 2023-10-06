@@ -1985,7 +1985,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testBatchSinglePartitionGet() throws Exception {
         var accountRecordsView = accounts.recordView();
 
-        var marshaller = new TupleMarshallerImpl(accounts.schemaView());
+        var marshaller = new TupleMarshallerImpl(accounts.schemaView().schema(accounts.schemaView().lastSchemaVersion()));
 
         int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
 
