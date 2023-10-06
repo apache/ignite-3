@@ -15,41 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.List;
-import java.util.Set;
+import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Table schema configuration.
+ * Read only direct node single row replica request.
+ * The type of RO request never waits and is executed at the current node timestamp.
  */
-public interface TableDefinition extends SchemaObject {
-    /**
-     * Returns table name.
-     *
-     * @return Table name.
-     */
-    @Override
-    String name();
-
-    /**
-     * Returns key columns.
-     *
-     * @return List of columns.
-     */
-    Set<String> keyColumns();
-
-    /**
-     * Returns affinity columns.
-     *
-     * @return List of columns.
-     */
-    List<String> colocationColumns();
-
-    /**
-     * Returns table columns in user-defined order.
-     *
-     * @return List of columns.
-     */
-    List<ColumnDefinition> columns();
+@Transferable(TableMessageGroup.RO_DIRECT_SINGLE_ROW_REPLICA_REQUEST)
+public interface ReadOnlyDirectSingleRowReplicaRequest extends SingleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest {
 }

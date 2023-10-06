@@ -42,6 +42,7 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -78,6 +79,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     /** Safe time to wait before new Catalog version activation. */
     private static final int DEFAULT_DELAY_DURATION = 0;
+
+    /** Initial update token for a catalog descriptor, this token is valid only before the first call of
+     * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)}.
+     * After that {@link CatalogObjectDescriptor#updateToken()} will be initialised with a causality token from
+     * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)}
+     */
+    public static final long INITIAL_CAUSALITY_TOKEN = 0L;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogManagerImpl.class);
@@ -129,7 +137,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 DEFAULT_SCHEMA_NAME,
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0]
+                new CatalogSystemViewDescriptor[0],
+                INITIAL_CAUSALITY_TOKEN
         );
 
         // TODO: IGNITE-19082 Move system schema objects initialization to cluster init procedure.
@@ -138,7 +147,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 SYSTEM_SCHEMA_NAME,
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0]
+                new CatalogSystemViewDescriptor[0],
+                INITIAL_CAUSALITY_TOKEN
         );
 
         CatalogZoneDescriptor defaultZone = fromParams(
@@ -447,7 +457,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             assert catalog != null : version - 1;
 
             for (UpdateEntry entry : update.entries()) {
-                catalog = entry.applyUpdate(catalog);
+                catalog = entry.applyUpdate(catalog, causalityToken);
             }
 
             catalog = applyUpdateFinal(catalog, update, metaStorageUpdateTimestamp);
@@ -518,7 +528,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 List<UpdateEntry> entries = producer.get(catalog);
 
                 for (UpdateEntry entry : entries) {
-                    catalog = entry.applyUpdate(catalog);
+                    catalog = entry.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
                 }
 
                 bulkUpdateEntries.addAll(entries);

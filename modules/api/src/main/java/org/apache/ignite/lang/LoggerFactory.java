@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition.index;
+package org.apache.ignite.lang;
 
 /**
- * Index column sort order.
+ * An interface describing a factory to create a logger instance.
  */
-public enum SortOrder {
+@FunctionalInterface
+public interface LoggerFactory {
     /**
-     * Ascending sort order.
+     * Creates a logger instance with a given name.
+     *
+     * @param name Name to create logger with.
+     * @return Logger instance.
      */
-    ASC,
-
-    /**
-     * Descending sort order.
-     */
-    DESC
+    System.Logger forName(String name);
 }

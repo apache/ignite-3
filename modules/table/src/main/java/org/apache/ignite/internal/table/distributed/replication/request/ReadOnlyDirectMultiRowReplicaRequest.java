@@ -15,8 +15,15 @@
  * limitations under the License.
  */
 
-/**
- * Contains index definition interfaces.
- */
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-package org.apache.ignite.internal.schema.testutils.definition.index;
+import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
+
+/**
+ * Read only direct multi row replica request.
+ */
+@Transferable(TableMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST)
+public interface ReadOnlyDirectMultiRowReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest {
+}

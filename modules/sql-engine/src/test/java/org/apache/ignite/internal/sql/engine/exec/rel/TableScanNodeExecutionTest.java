@@ -45,10 +45,12 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -71,7 +73,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests execution flow of TableScanNode.
  */
-public class TableScanNodeExecutionTest extends AbstractExecutionTest {
+public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
 
@@ -229,5 +231,10 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 });
             };
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

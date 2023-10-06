@@ -169,7 +169,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteException(int code, String message, Throwable cause) {
+    public IgniteException(int code, String message, @Nullable Throwable cause) {
         this(getOrCreateTraceId(cause), code, message, cause);
     }
 

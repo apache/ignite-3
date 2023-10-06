@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition.index;
+package org.apache.ignite.internal.sql.engine.exec;
+
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 
 /**
- * Hash index descriptor.
+ * An integration point that helps the execution to scan over arbitrary source of rows.
  */
-public interface HashIndexDefinition extends ColumnarIndexDefinition {
-    /** {@inheritDoc} */
-    @Override
-    default String type() {
-        return "HASH";
-    }
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ScannableDataSourceProvider {
+    ScannableDataSource forSystemView(IgniteSystemView view);
 }

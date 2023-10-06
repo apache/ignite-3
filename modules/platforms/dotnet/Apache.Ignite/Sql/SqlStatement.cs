@@ -62,7 +62,7 @@ namespace Apache.Ignite.Sql
             int? pageSize = null,
             IReadOnlyDictionary<string, object?>? properties = null)
         {
-            ArgumentNullException.ThrowIfNull(query);
+            IgniteArgumentCheck.NotNull(query);
             IgniteArgumentCheck.Ensure(pageSize is null or > 0, nameof(pageSize), "Page size must be positive.");
 
             Query = query;

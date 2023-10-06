@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
@@ -72,6 +73,8 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.CatalogSqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
@@ -82,16 +85,19 @@ import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.systemview.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
@@ -158,6 +164,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ReplicaService replicaService;
 
+    private final SqlSchemaManager sqlSchemaManager;
+
+    private final SystemViewManager systemViewManager;
+
     private volatile SessionManager sessionManager;
 
     private volatile QueryTaskExecutor taskExecutor;
@@ -165,8 +175,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     private volatile ExecutionService executionSrvc;
 
     private volatile PrepareService prepareSvc;
-
-    private volatile SqlSchemaManager sqlSchemaManager;
 
     /** Clock. */
     private final HybridClock clock;
@@ -192,7 +200,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             ReplicaService replicaService,
             HybridClock clock,
             CatalogManager catalogManager,
-            MetricManager metricManager
+            MetricManager metricManager,
+            SystemViewManager systemViewManager
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -204,6 +213,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.clock = clock;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
+        this.systemViewManager = systemViewManager;
 
         sqlSchemaManager = new CatalogSqlSchemaManager(
                 catalogManager,
@@ -250,13 +260,16 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
 
-        var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
+        var dependencyResolver = new ExecutionDependencyResolverImpl(
+                executableTableRegistry,
+                view -> () -> systemViewManager.scanView(view.name())
+        );
 
         var executionTargetProvider = new ExecutionTargetProvider() {
             @Override
-            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, int tableId) {
-                return tableManager.tableAsync(tableId)
-                        .thenCompose(table -> table.internalTable().primaryReplicas())
+            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
+                return tableManager.tableAsync(table.id())
+                        .thenCompose(tbl -> tbl.internalTable().primaryReplicas())
                         .thenApply(replicas -> {
                             List<NodeWithTerm> assignments = replicas.stream()
                                     .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
@@ -264,6 +277,24 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                             return factory.partitioned(assignments);
                         });
+            }
+
+            @Override
+            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                List<String> nodes = systemViewManager.owningNodes(view.name());
+
+                if (nullOrEmpty(nodes)) {
+                    return CompletableFuture.failedFuture(
+                            new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                                    + " any active nodes in the cluster", view.name()))
+                    );
+                }
+
+                return CompletableFuture.completedFuture(
+                        view.distribution() == IgniteDistributions.single()
+                                ? factory.oneOf(nodes)
+                                : factory.allOf(nodes)
+                );
             }
         };
 

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -57,7 +58,7 @@ import org.junit.jupiter.params.provider.EnumSource;
  * A test class that defines basic test scenarios to verify the execution of each type of aggregate.
  */
 @SuppressWarnings("resource")
-public abstract class BaseAggregateTest extends AbstractExecutionTest {
+public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> {
     @ParameterizedTest
     @EnumSource
     public void count(TestAggregateType testAgg) {
@@ -719,5 +720,10 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         COLOCATED,
 
         MAP_REDUCE
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

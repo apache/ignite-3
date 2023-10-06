@@ -17,9 +17,9 @@
 
 namespace Apache.Ignite
 {
-    using System;
     using System.Threading.Tasks;
     using Internal;
+    using Internal.Common;
 
     /// <summary>
     /// Ignite client builder.
@@ -33,7 +33,7 @@ namespace Apache.Ignite
         /// <returns>Started client.</returns>
         public static async Task<IIgniteClient> StartAsync(IgniteClientConfiguration configuration)
         {
-            ArgumentNullException.ThrowIfNull(configuration);
+            IgniteArgumentCheck.NotNull(configuration);
 
             var socket = await ClientFailoverSocket.ConnectAsync(configuration).ConfigureAwait(false);
 

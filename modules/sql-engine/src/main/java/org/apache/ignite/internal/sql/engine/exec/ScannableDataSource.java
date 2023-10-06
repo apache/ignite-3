@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition;
+package org.apache.ignite.internal.sql.engine.exec;
+
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 
 /**
- * Enumeration of all supported value generators that could be used as a default value provider
- * (i.e. could be specified as a default in column definition).
+ * Provides read operations over an abstract data source.
  */
-public class DefaultValueGenerators {
-    /** Generator that generates random UUID string. */
-    public static final String GEN_RANDOM_UUID = "GEN_RANDOM_UUID";
+@FunctionalInterface
+public interface ScannableDataSource {
+    Publisher<InternalTuple> scan();
 }

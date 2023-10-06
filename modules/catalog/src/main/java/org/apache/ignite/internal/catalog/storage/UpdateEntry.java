@@ -28,7 +28,8 @@ public interface UpdateEntry extends Serializable {
      * Applies own change to the catalog.
      *
      * @param catalog Current catalog.
+     * @param causalityToken Token that is associated with the corresponding update being applied.
      * @return New catalog.
      */
-    Catalog applyUpdate(Catalog catalog);
+    Catalog applyUpdate(Catalog catalog, long causalityToken);
 }

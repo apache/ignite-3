@@ -42,6 +42,7 @@ import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -55,7 +56,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * MergeJoinExecutionTest;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class MergeJoinExecutionTest extends AbstractExecutionTest {
+public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
     @ParameterizedTest(name = "treat nulls as equals: {0}")
     @ValueSource(booleans = {true, false})
     public void joinEmptyTables(boolean equalNulls) {
@@ -537,5 +538,10 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
     @SafeVarargs
     private static <T> Set<T> setOf(T... items) {
         return new HashSet<>(Arrays.asList(items));
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

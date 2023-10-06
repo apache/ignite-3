@@ -515,7 +515,7 @@ public class IgniteImpl implements Ignite {
         dataStorageMgr = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterConfigRegistry,
+                        nodeConfigRegistry,
                         storagePath,
                         longJvmPauseDetector
                 )
@@ -537,8 +537,9 @@ public class IgniteImpl implements Ignite {
                 delayDurationMsSupplier
         );
 
-        systemViewManager = new SystemViewManagerImpl(catalogManager);
+        systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
+        logicalTopology.addEventListener(systemViewManager);
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
@@ -604,11 +605,12 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 schemaManager,
                 dataStorageMgr,
-                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
+                () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
                 catalogManager,
-                metricManager
+                metricManager,
+                systemViewManager
         );
 
         sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
