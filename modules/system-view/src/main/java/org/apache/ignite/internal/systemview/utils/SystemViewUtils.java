@@ -54,6 +54,7 @@ public class SystemViewUtils {
                             .name(((NodeSystemView<?>) view).nodeNameColumnAlias())
                             .type(ColumnType.STRING)
                             .length(NODE_NAME_FIELD_LENGTH)
+                            .nullable(false)
                             .build()
             );
         }
@@ -76,7 +77,8 @@ public class SystemViewUtils {
 
         Builder builder = ColumnParams.builder()
                 .name(column.name())
-                .type(typeSpec.asColumnType());
+                .type(typeSpec.asColumnType())
+                .nullable(true);
 
         switch (typeSpec) {
             case INT8:
