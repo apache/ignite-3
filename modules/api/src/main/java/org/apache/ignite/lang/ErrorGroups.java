@@ -335,6 +335,13 @@ public class ErrorGroups {
 
         /** Failure due to an abandoned transaction. */
         public static final int TX_ABANDONED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Failure due to primary replica expiration. */
+        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
+        /** Failure due to unexpected exception on transaction finish. */
+        public static final int TX_FINISH_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Replicator error group. */

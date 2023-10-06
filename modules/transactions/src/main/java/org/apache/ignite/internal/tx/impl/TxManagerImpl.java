@@ -69,7 +69,6 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -253,8 +252,15 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> finish(HybridTimestampTracker observableTimestampTracker, TablePartitionId commitPartition,
-            ClusterNode recipientNode, Long term, boolean commit, Map<TablePartitionId, Long> enlistedGroups, UUID txId) {
+    public CompletableFuture<Void> finish(
+            HybridTimestampTracker observableTimestampTracker,
+            TablePartitionId commitPartition,
+            ClusterNode recipientNode,
+            Long term,
+            boolean commit,
+            Map<TablePartitionId, Long> enlistedGroups,
+            UUID txId
+    ) {
         assert enlistedGroups != null;
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
@@ -295,10 +301,18 @@ public class TxManagerImpl implements TxManager {
                     // TODO: sanpwc tmp cast
                     replicationGroupIds.addAll((Collection<ReplicationGroupId>) (Collection<?>) enlistedGroups.keySet());
 
-                    TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest().txId(txId).timestampLong(clock.nowLong()).groupId(commitPartition)
+                    boolean verifiedCommit = throwable == null && commit;
+
+                    TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
+                            .txId(txId)
+                            .timestampLong(clock.nowLong())
+                            .groupId(commitPartition)
                             .groups(replicationGroupIds)
                             // In case of verification future failure transaction will be rolled back.
-                            .commit(throwable == null && commit).commitTimestampLong(hybridTimestampToLong(commitTimestamp)).term(term).build();
+                            .commit(verifiedCommit)
+                            .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                            .term(term)
+                            .build();
 
                     return replicaService.invoke(recipientNode, req).thenRun(
                             () -> {
@@ -311,14 +325,14 @@ public class TxManagerImpl implements TxManager {
 
                                     assert old instanceof TxStateMetaFinishing;
 
-                                    TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+                                    TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(verifiedCommit, commitTimestamp);
 
                                     finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
 
                                     return finalTxStateMeta;
                                 });
 
-                                if (commit) {
+                                if (verifiedCommit) {
                                     observableTimestampTracker.update(commitTimestamp);
                                 }
                             });
@@ -434,13 +448,21 @@ public class TxManagerImpl implements TxManager {
         int cnt = -1;
 
         for (Map.Entry<TablePartitionId, Long> enlistedGroup : enlistedGroups.entrySet()) {
-            verificationFutures[++cnt] = placementDriver.getPrimaryReplica(enlistedGroup.getKey(), commitTimestamp)
+            TablePartitionId groupId = enlistedGroup.getKey();
+            Long expectedEnlistmentConsistencyToken = enlistedGroup.getValue();
+
+            verificationFutures[++cnt] = placementDriver.getPrimaryReplica(groupId, commitTimestamp)
                     .thenAccept(currentPrimaryReplica -> {
                         if (currentPrimaryReplica == null
-                                || !enlistedGroup.getValue().equals(currentPrimaryReplica.getStartTime().longValue())
-                                || commitTimestamp.after(currentPrimaryReplica.getExpirationTime())) {
-                            // TODO: sanpwc throw proper exception.
-                            throw new TransactionException(1, "Aaaa");
+                                || !expectedEnlistmentConsistencyToken.equals(currentPrimaryReplica.getStartTime().longValue())
+                                || commitTimestamp.after(currentPrimaryReplica.getExpirationTime())
+                        ) {
+                            throw new PrimaryReplicaExpiredException(
+                                    groupId,
+                                    expectedEnlistmentConsistencyToken,
+                                    commitTimestamp,
+                                    currentPrimaryReplica
+                            );
                         }
                     });
         }

@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FINISH_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -37,6 +42,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.TransactionException;
 
 /**
  * The read-write implementation of an internal transaction.
@@ -113,7 +119,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             return finishFut;
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
         CompletableFuture<Void> mainFinishFut = CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
                 .thenCompose(
@@ -157,6 +162,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         enlistedGroups,
                                         id()
                                 );
+                            }
+                        }
+                ). exceptionally(e -> {
+                            if (e instanceof IgniteInternalException) {
+                                // Transaction is already rolled back. Just wrapping internal exception with public one.
+                                throw withCause(TransactionException::new, TX_PRIMARY_REPLICA_EXPIRED_ERR,
+                                        "Primary replica has expired, transaction will be rolled back", e);
+                            } else {
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
+                                throw withCause(TransactionException::new, TX_FINISH_ERR, e);
                             }
                         }
                 );
