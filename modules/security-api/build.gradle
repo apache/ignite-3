@@ -23,6 +23,7 @@ description = 'ignite-security-api'
 
 dependencies {
     implementation project(':ignite-api')
+    implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations

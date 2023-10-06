@@ -17,13 +17,13 @@
 
 package org.apache.ignite.security.authentication;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.ErrorGroups.Authentication;
-import org.apache.ignite.lang.IgniteCheckedException;
 
 /**
  * The general authentication exception.
  */
-public class AuthenticationException extends IgniteCheckedException {
+public class AuthenticationException extends IgniteInternalCheckedException {
     /**
      * Creates a new authentication exception.
      *

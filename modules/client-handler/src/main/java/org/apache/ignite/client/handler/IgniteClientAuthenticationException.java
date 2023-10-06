@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.AUTHENTICATION_ERR;
 
