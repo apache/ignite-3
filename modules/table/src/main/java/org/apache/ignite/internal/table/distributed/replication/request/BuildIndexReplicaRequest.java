@@ -27,7 +27,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Replica request to build a table index.
  *
- * <p>It is possible to receive an {@link PrimaryReplicaMissException} in response to message processing if the leaseholder changes.</p>
+ * <p>It is possible to receive a {@link PrimaryReplicaMissException} in response to message processing if the leaseholder changes.</p>
  */
 @Transferable(TableMessageGroup.BUILD_INDEX_REPLICA_REQUEST)
 public interface BuildIndexReplicaRequest extends ReplicaRequest {

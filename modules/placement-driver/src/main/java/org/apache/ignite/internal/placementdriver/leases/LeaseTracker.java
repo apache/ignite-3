@@ -109,7 +109,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      *
      * @param recoveryRevision Revision from {@link MetaStorageManager#recoveryFinishedFuture()}.
      */
-    public void startTrackAsync(long recoveryRevision) {
+    public void startTrack(long recoveryRevision) {
         inBusyLock(busyLock, () -> {
             msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 

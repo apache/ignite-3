@@ -367,4 +367,13 @@ public class CatalogUtils {
 
         return zone;
     }
+
+    /**
+     * Returns the primary key index name for table.
+     *
+     * @param tableName Table name.
+     */
+    public static String pkIndexName(String tableName) {
+        return tableName + "_PK";
+    }
 }

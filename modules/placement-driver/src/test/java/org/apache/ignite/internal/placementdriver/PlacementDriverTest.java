@@ -133,7 +133,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         assertThat(recoveryFinishedFuture, willCompleteSuccessfully());
 
-        placementDriver.startTrackAsync(recoveryFinishedFuture.join());
+        placementDriver.startTrack(recoveryFinishedFuture.join());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
     }

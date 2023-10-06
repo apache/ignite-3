@@ -245,6 +245,6 @@ public class PlacementDriverManager implements IgniteComponent {
 
         long recoveryRevision = recoveryFinishedFuture.join();
 
-        leaseTracker.startTrackAsync(recoveryRevision);
+        leaseTracker.startTrack(recoveryRevision);
     }
 }

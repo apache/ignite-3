@@ -35,7 +35,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -109,7 +108,7 @@ public class IndexManager implements IgniteComponent {
     public IndexManager(
             CatalogSchemaManager schemaManager,
             TableManager tableManager,
-            CatalogManager catalogService,
+            CatalogService catalogService,
             MetaStorageManager metaStorageManager,
             Consumer<LongFunction<CompletableFuture<?>>> registry
     ) {

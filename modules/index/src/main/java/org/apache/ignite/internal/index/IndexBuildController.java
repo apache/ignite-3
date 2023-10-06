@@ -148,7 +148,7 @@ public class IndexBuildController implements ManuallyCloseable {
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
                 if (primaryReplicaId.tableId() == parameters.indexDescriptor().tableId()) {
                     CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                            .thenCompose(mvTableStorage -> awaitPrimaryReplicaFowNow(primaryReplicaId)
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplicaForNow(primaryReplicaId)
                                     .thenAccept(replicaMeta -> tryStartBuildIndex(
                                             primaryReplicaId,
                                             parameters.indexDescriptor(),
@@ -185,7 +185,7 @@ public class IndexBuildController implements ManuallyCloseable {
                 int catalogVersion = catalogService.latestCatalogVersion();
 
                 return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplicaFowNow(primaryReplicaId)
+                        .thenCompose(mvTableStorage -> awaitPrimaryReplicaForNow(primaryReplicaId)
                                 .thenAccept(replicaMeta -> tryStartBuildIndexesForNewPrimaryReplica(
                                         catalogVersion,
                                         primaryReplicaId,
@@ -194,7 +194,7 @@ public class IndexBuildController implements ManuallyCloseable {
                                 ))
                         );
             } else {
-                stopBuildingIndexesIfPrimacyLost(primaryReplicaId);
+                stopBuildingIndexesIfIfPrimaryExpired(primaryReplicaId);
 
                 return completedFuture(null);
             }
@@ -209,7 +209,7 @@ public class IndexBuildController implements ManuallyCloseable {
     ) {
         inBusyLock(busyLock, () -> {
             if (isLeaseExpire(replicaMeta)) {
-                stopBuildingIndexesIfPrimacyLost(primaryReplicaId);
+                stopBuildingIndexesIfIfPrimaryExpired(primaryReplicaId);
 
                 return;
             }
@@ -231,7 +231,7 @@ public class IndexBuildController implements ManuallyCloseable {
     ) {
         inBusyLock(busyLock, () -> {
             if (isLeaseExpire(replicaMeta)) {
-                stopBuildingIndexesIfPrimacyLost(primaryReplicaId);
+                stopBuildingIndexesIfIfPrimaryExpired(primaryReplicaId);
 
                 return;
             }
@@ -240,7 +240,7 @@ public class IndexBuildController implements ManuallyCloseable {
         });
     }
 
-    private void stopBuildingIndexesIfPrimacyLost(TablePartitionId replicaId) {
+    private void stopBuildingIndexesIfIfPrimaryExpired(TablePartitionId replicaId) {
         if (primaryReplicaIds.remove(replicaId)) {
             // Primary replica is no longer current, we need to stop building indexes for it.
             indexBuilder.stopBuildingIndexes(replicaId.tableId(), replicaId.partitionId());
@@ -251,7 +251,7 @@ public class IndexBuildController implements ManuallyCloseable {
         return indexManager.getMvTableStorage(causalityToken, replicaId.tableId());
     }
 
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFowNow(TablePartitionId replicaId) {
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(TablePartitionId replicaId) {
         return placementDriver
                 .awaitPrimaryReplica(replicaId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((replicaMeta, throwable) -> {
@@ -259,7 +259,7 @@ public class IndexBuildController implements ManuallyCloseable {
                         Throwable unwrapThrowable = ExceptionUtils.unwrapCause(throwable);
 
                         if (unwrapThrowable instanceof PrimaryReplicaAwaitTimeoutException) {
-                            return awaitPrimaryReplicaFowNow(replicaId);
+                            return awaitPrimaryReplicaForNow(replicaId);
                         } else {
                             throw new CompletionException(unwrapThrowable);
                         }
