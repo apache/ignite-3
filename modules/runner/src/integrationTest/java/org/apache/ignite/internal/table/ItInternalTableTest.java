@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -39,6 +40,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -360,29 +362,33 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void getAllOrderTest() throws Exception {
-        var keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
+    public void getAllOrderTest() {
+        List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
-        var schemaDescriptor = ((TableImpl) table).schemaView().schema();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
 
-        List<BinaryRow> res = internalTable.getAll(keyRows, null).get();
+        CompletableFuture<List<BinaryRow>> getAllFut = internalTable.getAll(keyRows, null);
+
+        assertThat(getAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = getAllFut.join();
 
         assertEquals(keyRows.size(), res.size());
 
-        var resIter = res.iterator();
+        Iterator<BinaryRow> resIter = res.iterator();
 
         for (BinaryRowEx key : keyRows) {
             int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
 
-            var resRow = resIter.next();
+            BinaryRow resRow = resIter.next();
 
             if (i % 2 == 1) {
                 assertNull(resRow);
             } else {
                 assertNotNull(resRow);
 
-                var rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resRow));
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resRow));
 
                 assertEquals(i % 100L, rowTuple.<Long>value("key"));
                 assertEquals(i, rowTuple.<Integer>value("valInt"));
@@ -392,21 +398,25 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void deleteAllOrderTest() throws Exception {
-        var keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
+    public void deleteAllOrderTest() {
+        List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
-        var schemaDescriptor = ((TableImpl) table).schemaView().schema();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
 
-        List<BinaryRow> res = internalTable.deleteAll(keyRows, null).get();
+        CompletableFuture<List<BinaryRow>> deleteAllFut = internalTable.deleteAll(keyRows, null);
 
-        var resIter = res.iterator();
+        assertThat(deleteAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = deleteAllFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
 
         for (BinaryRowEx key : keyRows) {
             int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
 
             if (i % 2 == 1) {
-                var rowTuple = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, resIter.next()));
+                Tuple rowTuple = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, resIter.next()));
 
                 assertEquals(i % 100L, rowTuple.<Long>value("key"));
             }
@@ -414,21 +424,25 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void deleteAllExactOrderTest() throws Exception {
-        var rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
+    public void deleteAllExactOrderTest() {
+        List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
-        var schemaDescriptor = ((TableImpl) table).schemaView().schema();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
 
-        List<BinaryRow> res = internalTable.deleteAllExact(rowsToLookup, null).get();
+        CompletableFuture<List<BinaryRow>> deleteAllExactFut = internalTable.deleteAllExact(rowsToLookup, null);
 
-        var resIter = res.iterator();
+        assertThat(deleteAllExactFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = deleteAllExactFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
 
         for (BinaryRowEx key : rowsToLookup) {
             int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
 
             if (i % 2 == 1) {
-                var rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
 
                 assertEquals(i % 100L, rowTuple.<Long>value("key"));
                 assertEquals(i, rowTuple.<Integer>value("valInt"));
@@ -438,21 +452,25 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void insertAllOrderTest() throws Exception {
-        var rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
+    public void insertAllOrderTest() {
+        List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
-        var schemaDescriptor = ((TableImpl) table).schemaView().schema();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
 
-        List<BinaryRow> res = internalTable.insertAll(rowsToLookup, null).get();
+        CompletableFuture<List<BinaryRow>> insertAllFut = internalTable.insertAll(rowsToLookup, null);
 
-        var resIter = res.iterator();
+        assertThat(insertAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = insertAllFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
 
         for (BinaryRowEx key : rowsToLookup) {
             int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
 
             if (i % 2 == 0) {
-                var rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
 
                 assertEquals(i % 100L, rowTuple.<Long>value("key"));
                 assertEquals(i, rowTuple.<Integer>value("valInt"));
@@ -484,7 +502,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
-        var retrievedItems = scanAllPartitions(node);
+        List<BinaryRow> retrievedItems = scanAllPartitions(node);
 
         assertEquals(0, retrievedItems.size());
 
@@ -538,7 +556,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             });
         }
 
-        subscriberAllDataAwaitLatch.await();
+        subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS);
 
         return retrievedItems;
     }

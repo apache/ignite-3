@@ -178,8 +178,10 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously insert rows into the table which do not exist, skipping existed ones.
      *
      * @param rows Rows to insert into the table.
-     * @param tx   The transaction.
-     * @return Future representing pending completion of the operation.
+     * @param tx The transaction.
+     * @return Future represents the pending completion of the operation, with rejected rows for insertion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is inserted, the element will be
+     *         excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
@@ -243,8 +245,10 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously remove rows with the same key columns values as the given one has from the table.
      *
      * @param rows Rows with key columns set.
-     * @param tx   The transaction.
-     * @return Future representing pending completion of the operation.
+     * @param tx The transaction.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is deleted, the element will be
+     *         excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
@@ -252,8 +256,10 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously remove given rows from the table.
      *
      * @param rows Rows to delete.
-     * @param tx   The transaction.
-     * @return Future representing pending completion of the operation.
+     * @param tx The transaction.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is deleted, the element will be
+     *         excluded from the collection result.
      */
     CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 

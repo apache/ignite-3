@@ -1558,7 +1558,9 @@ public class InternalTableImpl implements InternalTable {
                     List<BinaryRow> result = new ArrayList<>();
                     List<Boolean> response = (List<Boolean>) batch.getCompletedResult();
 
-                    assert batch.requestedRows.size() == response.size();
+                    assert batch.requestedRows.size() == response.size() :
+                            "Replication response does not fit to request [requestRows=" + batch.requestedRows.size()
+                                    + "responseRows=" + response.size() + ']';
 
                     for (int i = 0; i < response.size(); i++) {
                         result.add(response.get(i) ? null : batch.requestedRows.get(i));
