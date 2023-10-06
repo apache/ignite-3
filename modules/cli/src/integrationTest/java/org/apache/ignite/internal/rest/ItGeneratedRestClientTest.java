@@ -286,12 +286,26 @@ public class ItGeneratedRestClientTest {
     void updateNodeConfigurationWithInvalidParam() throws JsonProcessingException {
         ApiException thrown = assertThrows(
                 ApiException.class,
-                () -> clusterConfigurationApi.updateClusterConfiguration("security.authentication.enabled=true")
+                () -> clusterConfigurationApi.updateClusterConfiguration("{\n"
+                        + "    \"security\": {\n"
+                        + "        \"authentication\": {\n"
+                        + "            \"enabled\": true,\n"
+                        + "            \"providers\": [\n"
+                        + "                {\n"
+                        + "                    \"name\": \"basic\",\n"
+                        + "                    \"type\": \"basic\",\n"
+                        + "                    \"username\": \"\",\n"
+                        + "                    \"password\": \"\"\n"
+                        + "                }\n"
+                        + "            ]\n"
+                        + "        }\n"
+                        + "    }\n"
+                        + "}")
         );
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(400));
-        assertThat(problem.getInvalidParams(), hasSize(1));
+        assertThat(problem.getInvalidParams(), hasSize(2));
     }
 
     @Test

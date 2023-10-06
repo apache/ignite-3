@@ -33,18 +33,25 @@ import org.apache.ignite.network.TopologyService;
 public class ClusterManagementRestFactory implements RestFactory {
     private ClusterService clusterService;
 
+    private ClusterInitializer clusterInitializer;
+
     private ClusterManagementGroupManager cmgManager;
 
     /** Constructor. */
-    public ClusterManagementRestFactory(ClusterService clusterService, ClusterManagementGroupManager cmgManager) {
+    public ClusterManagementRestFactory(
+            ClusterService clusterService,
+            ClusterInitializer clusterInitializer,
+            ClusterManagementGroupManager cmgManager
+    ) {
         this.clusterService = clusterService;
+        this.clusterInitializer = clusterInitializer;
         this.cmgManager = cmgManager;
     }
 
     @Bean
     @Singleton
     public ClusterInitializer clusterInitializer() {
-        return new ClusterInitializer(clusterService);
+        return clusterInitializer;
     }
 
     @Bean

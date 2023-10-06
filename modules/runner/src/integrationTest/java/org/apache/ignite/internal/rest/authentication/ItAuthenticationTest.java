@@ -22,8 +22,8 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -86,7 +86,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void disabledAuthentication(TestInfo testInfo) {
+    public void disabledAuthentication(TestInfo testInfo) throws IOException, InterruptedException {
         RestNode metaStorageNode = nodes.get(0);
 
         // when
@@ -107,7 +107,38 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void changeCredentials(TestInfo testInfo) throws InterruptedException {
+    public void defaultUser(TestInfo testInfo) throws InterruptedException, IOException {
+        // when
+        RestNode metaStorageNode = nodes.get(0);
+
+        String initClusterBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + metaStorageNode.name() + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"clusterConfiguration\": \"{"
+                + "         security.authentication.enabled:true"
+                + "     }\"\n"
+                + "  }";
+
+        initCluster(metaStorageNode.httpAddress(), initClusterBody);
+
+        // then
+        // authentication is enabled
+        for (RestNode node : nodes) {
+            assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
+                    Duration.ofSeconds(5).toMillis()));
+        }
+
+        // REST is available with valid credentials
+        for (RestNode node : nodes) {
+            assertTrue(isRestAvailable(node.httpAddress(), "ignite", "ignite"));
+        }
+    }
+
+    @Test
+    public void changeCredentials(TestInfo testInfo) throws InterruptedException, IOException {
         // when
         RestNode metaStorageNode = nodes.get(0);
 
@@ -173,7 +204,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws InterruptedException {
+    public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws InterruptedException, IOException {
         // when
         RestNode metaStorageNode = nodes.get(0);
 
@@ -223,15 +254,15 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private void initCluster(String baseUrl, String initClusterBody) {
+    private void initCluster(String baseUrl, String initClusterBody) throws IOException, InterruptedException {
         URI clusterInitUri = URI.create(baseUrl + "/management/v1/cluster/init");
         HttpRequest initRequest = HttpRequest.newBuilder(clusterInitUri)
                 .header("content-type", "application/json")
                 .POST(BodyPublishers.ofString(initClusterBody))
                 .build();
 
-        HttpResponse<String> response = sendRequest(client, initRequest);
-        assertThat(response.statusCode(), is(200));
+        assertThat(sendRequest(client, initRequest), hasStatusCode(200));
+
         waitForAllNodesStarted(nodes);
     }
 
@@ -243,8 +274,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
                 .method("PATCH", BodyPublishers.ofString(configToApply))
                 .build();
 
-        HttpResponse<String> updateClusterConfigResponse = sendRequest(client, updateClusterConfigRequest);
-        assertThat(updateClusterConfigResponse.statusCode(), is(200));
+        assertThat(sendRequest(client, updateClusterConfigRequest), hasStatusCode(200));
     }
 
     private boolean isRestNotAvailable(String baseUrl, String username, String password) {

@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCodeAndBody;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -156,14 +158,18 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
         HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "security.authentication.enabled=true"),
+                patch("/management/v1/configuration/cluster", "security.enabled=true"),
                 BodyHandlers.ofString()
         );
 
         // Then
-        assertThat(patchRequest.statusCode(), is(400));
-        // And invalidParams key is in response body
-        assertThat(patchRequest.body(), hasJsonPath("$.invalidParams"));
+        assertThat(
+                patchRequest,
+                hasStatusCodeAndBody(
+                        400,
+                        containsString("'security' configuration doesn't have the 'enabled' sub-configuration")
+                )
+        );
     }
 
     @Test

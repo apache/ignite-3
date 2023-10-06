@@ -210,8 +210,8 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
     }
 
     @Test
-    @DisplayName("Cluster is not initialized, if config is invalid")
-    void initClusterWithInvalidConfig() throws IOException, InterruptedException {
+    @DisplayName("Cluster is not initialized, if config has a syntax error")
+    void initClusterWithInvalidHoconConfig() throws IOException, InterruptedException {
         // When POST /management/v1/cluster/init with invalid config
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
@@ -220,7 +220,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.authentication.enabled:true "
+                + "         qwe123 "
                 + "     }\"\n"
                 + "  }";
 
@@ -234,8 +234,40 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(initProblem.title(), is("Bad Request")),
                 () -> assertThat(
                         initProblem.detail(),
-                        containsString("Validation did not pass for keys: "
-                                + "[security.authentication.providers, Providers must be present, if auth is enabled]")
+                        containsString("Key 'qwe123' may not be followed")
+                )
+        );
+
+        // And cluster is not initialized
+        startingNodes.forEach(it -> assertThat(it, willTimeoutFast()));
+    }
+
+    @Test
+    @DisplayName("Cluster is not initialized, if config has logic error")
+    void initClusterWithInvalidConfig() throws IOException, InterruptedException {
+        // When POST /management/v1/cluster/init with invalid config
+        String requestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + nodeNames.get(0) + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"clusterConfiguration\": \"{"
+                + "         security.authentication.enabled:1 "
+                + "     }\"\n"
+                + "  }";
+
+        // Then
+        HttpResponse<String> initResponse = client.send(post("/management/v1/cluster/init", requestBody), BodyHandlers.ofString());
+        Problem initProblem = objectMapper.readValue(initResponse.body(), Problem.class);
+
+        assertThat(initResponse.statusCode(), is(400));
+        assertAll(
+                () -> assertThat(initProblem.status(), is(400)),
+                () -> assertThat(initProblem.title(), is("Bad Request")),
+                () -> assertThat(
+                        initProblem.detail(),
+                        containsString("'boolean' is expected as a type for the 'security.authentication.enabled' configuration value")
                 )
         );
 

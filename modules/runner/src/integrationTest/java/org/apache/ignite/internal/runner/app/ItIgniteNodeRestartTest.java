@@ -60,6 +60,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -250,15 +251,22 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var placementDriver = new TestPlacementDriver(name);
 
+        var clusterInitializer = new ClusterInitializer(
+                clusterSvc,
+                CompletableFuture::completedFuture,
+                new TestConfigurationValidator()
+        );
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
+                clusterInitializer,
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                new NodeAttributesCollector(nodeAttributes),
-                new TestConfigurationValidator());
+                new NodeAttributesCollector(nodeAttributes)
+        );
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,

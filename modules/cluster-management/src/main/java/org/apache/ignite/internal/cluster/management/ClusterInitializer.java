@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
@@ -27,11 +28,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationDefaultsSetter;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.StringUtils;
@@ -50,11 +55,20 @@ public class ClusterInitializer {
 
     private final ClusterService clusterService;
 
+    private final ConfigurationDefaultsSetter configurationDefaultsSetter;
+
+    private final ConfigurationValidator clusterConfigurationValidator;
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Constructor. */
-    public ClusterInitializer(ClusterService clusterService) {
+    public ClusterInitializer(
+            ClusterService clusterService,
+            ConfigurationDefaultsSetter configurationDefaultsSetter,
+            ConfigurationValidator clusterConfigurationValidator
+    ) {
         this.clusterService = clusterService;
+        this.configurationDefaultsSetter = configurationDefaultsSetter;
+        this.clusterConfigurationValidator = clusterConfigurationValidator;
     }
 
     /**
@@ -122,44 +136,57 @@ public class ClusterInitializer {
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
-            CmgInitMessage initMessage = msgFactory.cmgInitMessage()
-                    .metaStorageNodes(msNodeNameSet)
-                    .cmgNodes(cmgNodeNameSet)
-                    .clusterName(clusterName)
-                    .clusterConfigurationToApply(clusterConfiguration)
-                    .build();
+            String initialClusterConfiguration = clusterConfiguration == null
+                    ? ""
+                    : clusterConfiguration;
 
-            return invokeMessage(cmgNodes, initMessage)
-                    .handle((v, e) -> {
-                        if (e == null) {
-                            LOG.info(
-                                    "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
-                                    initMessage.clusterName(),
-                                    initMessage.cmgNodes(),
-                                    initMessage.metaStorageNodes()
-                            );
+            CompletableFuture<CmgInitMessage> initMessageFuture = setDefaultsToClusterConfiguration(
+                    initialClusterConfiguration)
+                    .thenCompose(cfg -> validateConfiguration(cfg).thenApply(v -> cfg))
+                    .thenApply(cfg -> {
+                        return msgFactory.cmgInitMessage()
+                                .metaStorageNodes(msNodeNameSet)
+                                .cmgNodes(cmgNodeNameSet)
+                                .clusterName(clusterName)
+                                .clusterConfigurationToApply(cfg)
+                                .build();
+                    });
 
-                            return CompletableFuture.<Void>completedFuture(null);
-                        } else {
-                            if (e instanceof CompletionException) {
-                                e = e.getCause();
-                            }
-
-                            LOG.info("Initialization failed [reason={}]", e, e.getMessage());
-
-                            if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
-                                return CompletableFuture.<Void>failedFuture(e);
-                            } else {
-                                LOG.debug("Critical error encountered, rolling back the init procedure");
-
-                                return cancelInit(cmgNodes, e);
-                            }
-                        }
-                    })
-                    .thenCompose(Function.identity());
+            return initMessageFuture.thenCompose(initMessage -> init(cmgNodes, initMessage));
         } catch (Exception e) {
             return failedFuture(e);
         }
+    }
+
+    private CompletableFuture<Void> init(List<ClusterNode> cmgNodes, CmgInitMessage msg) {
+        return invokeMessage(cmgNodes, msg)
+                .handle((v, e) -> {
+                    if (e == null) {
+                        LOG.info(
+                                "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
+                                msg.clusterName(),
+                                msg.cmgNodes(),
+                                msg.metaStorageNodes()
+                        );
+
+                        return CompletableFuture.<Void>completedFuture(null);
+                    } else {
+                        if (e instanceof CompletionException) {
+                            e = e.getCause();
+                        }
+
+                        LOG.info("Initialization failed [reason={}]", e, e.getMessage());
+
+                        if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
+                            return CompletableFuture.<Void>failedFuture(e);
+                        } else {
+                            LOG.debug("Critical error encountered, rolling back the init procedure");
+
+                            return cancelInit(cmgNodes, e);
+                        }
+                    }
+                })
+                .thenCompose(Function.identity());
     }
 
     private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
@@ -234,5 +261,21 @@ public class ClusterInitializer {
                     return node;
                 })
                 .collect(Collectors.toList());
+    }
+
+
+    private CompletableFuture<String> setDefaultsToClusterConfiguration(@Nullable String hocon) {
+        return configurationDefaultsSetter.setDefaults(hocon == null ? "" : hocon);
+    }
+
+    private CompletableFuture<Void> validateConfiguration(String hocon) {
+        if (hocon != null) {
+            List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(hocon);
+            if (!issues.isEmpty()) {
+                return failedFuture(new ConfigurationValidationException(issues));
+            }
+        }
+
+        return completedFuture(null);
     }
 }

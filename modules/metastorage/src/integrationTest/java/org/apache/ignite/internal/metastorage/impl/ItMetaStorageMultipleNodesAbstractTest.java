@@ -43,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -149,15 +150,22 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            var clusterInitializer = new ClusterInitializer(
+                    clusterService,
+                    CompletableFuture::completedFuture,
+                    new TestConfigurationValidator()
+            );
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    new NodeAttributesCollector(nodeAttributes),
-                    new TestConfigurationValidator());
+                    new NodeAttributesCollector(nodeAttributes)
+            );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 

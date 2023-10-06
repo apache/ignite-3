@@ -37,6 +37,7 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -152,15 +153,22 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            var clusterInitializer = new ClusterInitializer(
+                    clusterService,
+                    CompletableFuture::completedFuture,
+                    new TestConfigurationValidator()
+            );
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes),
-                    new TestConfigurationValidator());
+                    new NodeAttributesCollector(nodeAttributes)
+            );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
