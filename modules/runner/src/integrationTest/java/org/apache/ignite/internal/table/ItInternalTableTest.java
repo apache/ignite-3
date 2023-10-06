@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
@@ -556,7 +557,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             });
         }
 
-        subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS);
+        assertTrue(subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS));
 
         return retrievedItems;
     }

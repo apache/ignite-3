@@ -171,13 +171,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> insertAll(@Nullable Transaction tx, Collection<R> recs) {
+    public List<R> insertAll(@Nullable Transaction tx, Collection<R> recs) {
         return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
+    public CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
         return withSchemaSync(tx, (schemaVersion) -> {
@@ -299,13 +299,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs) {
+    public List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs) {
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
+    public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         return withSchemaSync(tx, (schemaVersion) -> {
@@ -317,13 +317,13 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs) {
+    public List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs) {
         return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
+    public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         return withSchemaSync(tx, (schemaVersion) -> {
