@@ -472,6 +472,12 @@ public class ErrorGroups {
     public static class Authentication {
         /** Authentication error group. */
         public static final ErrorGroup AUTHENTICATION_ERR_GROUP = registerGroup("AUTHENTICATION", (short) 15);
+
+        /** Authentication error caused by unsupported authentication schema. */
+        public static final int UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Authentication error caused by invalid credentials. */
+        public static final int INVALID_CREDENTIALS_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /**

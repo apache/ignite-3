@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.security.authentication.exception;
 
-import static org.apache.ignite.internal.security.authentication.exception.ErrorCodes.UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR;
+
+import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
 

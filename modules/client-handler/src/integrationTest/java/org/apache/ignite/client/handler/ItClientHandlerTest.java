@@ -18,8 +18,8 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
-import static org.apache.ignite.internal.security.authentication.exception.ErrorCodes.INVALID_CREDENTIALS_ERR;
-import static org.apache.ignite.internal.security.authentication.exception.ErrorCodes.UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
