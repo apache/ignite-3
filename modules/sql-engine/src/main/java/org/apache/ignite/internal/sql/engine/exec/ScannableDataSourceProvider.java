@@ -15,37 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition;
+package org.apache.ignite.internal.sql.engine.exec;
 
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 
 /**
- * Schema object base class.
+ * An integration point that helps the execution to scan over arbitrary source of rows.
  */
-public abstract class AbstractSchemaObject implements SchemaObject {
-    /** Schema object name. */
-    private final String name;
-
-    /**
-     * Constructor.
-     *
-     * @param name Schema object name.
-     */
-    protected AbstractSchemaObject(String name) {
-        this.name = name;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String name() {
-        return name;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString("SchemaObject",
-                "name", name,
-                "class", getClass().getName());
-    }
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ScannableDataSourceProvider {
+    ScannableDataSource forSystemView(IgniteSystemView view);
 }

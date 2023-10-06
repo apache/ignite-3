@@ -95,6 +95,8 @@ import org.apache.ignite.internal.sql.engine.schema.CatalogColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -606,7 +608,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
 
-        ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
+        ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
         CalciteSchema rootSch = CalciteSchema.createRootSchema(false);
         rootSch.add(schema.getName(), schema);
@@ -616,12 +618,17 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         var targetProvider = new ExecutionTargetProvider() {
             @Override
-            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, int tableId) {
+            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
                 if (mappingException != null) {
                     return CompletableFuture.failedFuture(mappingException);
                 }
 
                 return CompletableFuture.completedFuture(factory.allOf(nodeNames));
+            }
+
+            @Override
+            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                return CompletableFuture.failedFuture(new AssertionError("Not supported"));
             }
         };
 

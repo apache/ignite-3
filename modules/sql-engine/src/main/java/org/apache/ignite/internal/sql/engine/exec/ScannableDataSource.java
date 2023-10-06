@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition.index;
+package org.apache.ignite.internal.sql.engine.exec;
+
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 
 /**
- * Hash index descriptor.
+ * Provides read operations over an abstract data source.
  */
-public interface HashIndexDefinition extends ColumnarIndexDefinition {
-    /** {@inheritDoc} */
-    @Override
-    default String type() {
-        return "HASH";
-    }
+@FunctionalInterface
+public interface ScannableDataSource {
+    Publisher<InternalTuple> scan();
 }

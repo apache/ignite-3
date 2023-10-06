@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
@@ -172,7 +173,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                TABLE_ID, -1, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null
+                TABLE_ID, -1, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN
         );
 
         CompletableFuture<Boolean> future = tableCreatedListener()
@@ -242,7 +243,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     private void completeCausalityToken(long causalityToken) {
@@ -278,7 +279,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("k2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     @Test
@@ -316,7 +317,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT64, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     @Test

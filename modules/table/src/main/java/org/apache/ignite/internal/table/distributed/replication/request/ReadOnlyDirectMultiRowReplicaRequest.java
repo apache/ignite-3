@@ -15,19 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition.index;
+package org.apache.ignite.internal.table.distributed.replication.request;
+
+import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Index column sort order.
+ * Read only direct multi row replica request.
  */
-public enum SortOrder {
-    /**
-     * Ascending sort order.
-     */
-    ASC,
-
-    /**
-     * Descending sort order.
-     */
-    DESC
+@Transferable(TableMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST)
+public interface ReadOnlyDirectMultiRowReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest {
 }

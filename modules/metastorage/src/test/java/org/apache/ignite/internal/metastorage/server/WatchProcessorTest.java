@@ -19,6 +19,8 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
@@ -80,17 +82,19 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0);
         var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0);
 
-        watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+
+        assertThat(notificationFuture, willCompleteSuccessfully());
 
         var entryEvent1 = new EntryEvent(oldEntry(entry1), entry1);
         var entryEvent2 = new EntryEvent(oldEntry(entry2), entry2);
 
-        verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(entryEvent1));
-        verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(entryEvent2));
+        verify(listener1).onUpdate(new WatchEvent(entryEvent1));
+        verify(listener2).onUpdate(new WatchEvent(entryEvent2));
 
         var watchEventCaptor = ArgumentCaptor.forClass(WatchEvent.class);
 
-        verify(revisionCallback, timeout(1_000)).onRevisionApplied(watchEventCaptor.capture());
+        verify(revisionCallback).onRevisionApplied(watchEventCaptor.capture());
 
         WatchEvent event = watchEventCaptor.getValue();
 
@@ -114,23 +118,27 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp ts = new HybridTimestamp(1, 2);
 
-        watchProcessor.notifyWatches(List.of(entry1), ts);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1), ts);
+
+        assertThat(notificationFuture, willCompleteSuccessfully());
 
         var event = new WatchEvent(new EntryEvent(oldEntry(entry1), entry1));
 
-        verify(listener1, timeout(1_000)).onUpdate(event);
+        verify(listener1).onUpdate(event);
 
-        verify(revisionCallback, timeout(1_000)).onRevisionApplied(event);
+        verify(revisionCallback).onRevisionApplied(event);
 
         ts = new HybridTimestamp(2, 3);
 
-        watchProcessor.notifyWatches(List.of(entry2), ts);
+        notificationFuture = watchProcessor.notifyWatches(List.of(entry2), ts);
+
+        assertThat(notificationFuture, willCompleteSuccessfully());
 
         event = new WatchEvent(new EntryEvent(oldEntry(entry2), entry2));
 
-        verify(listener2, timeout(1_000)).onUpdate(event);
+        verify(listener2).onUpdate(event);
 
-        verify(revisionCallback, timeout(1_000)).onRevisionApplied(event);
+        verify(revisionCallback).onRevisionApplied(event);
     }
 
     /**
@@ -150,11 +158,13 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0);
         var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0);
 
-        watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
-        verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
-        verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
-        verify(listener2, timeout(1_000)).onError(any(IllegalStateException.class));
+        assertThat(notificationFuture, willThrow(IllegalStateException.class));
+
+        verify(listener1).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
+        verify(listener2).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
+        verify(listener2).onError(any(IllegalStateException.class));
 
         verify(revisionCallback, never()).onRevisionApplied(any());
     }
@@ -190,19 +200,36 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         var entry3 = new EntryImpl("foo".getBytes(UTF_8), null, 2, 0);
         var entry4 = new EntryImpl("bar".getBytes(UTF_8), null, 2, 0);
 
-        watchProcessor.notifyWatches(List.of(entry3, entry4), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry3, entry4), HybridTimestamp.MAX_VALUE);
 
         verify(listener1, never()).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry3), entry3)));
         verify(listener2, never()).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry4), entry4)));
 
         blockingFuture.complete(null);
 
-        verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry3), entry3)));
+        assertThat(notificationFuture, willCompleteSuccessfully());
+
+        verify(listener1).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry3), entry3)));
 
         InOrder inOrder = inOrder(listener2);
 
-        inOrder.verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
-        inOrder.verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry4), entry4)));
+        inOrder.verify(listener2).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
+        inOrder.verify(listener2).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry4), entry4)));
+    }
+
+    @Test
+    void testEmptyEvents() {
+        WatchListener listener = mockListener();
+
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+
+        var entry = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0);
+
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry), HybridTimestamp.MAX_VALUE);
+
+        assertThat(notificationFuture, willCompleteSuccessfully());
+
+        verify(listener, never()).onUpdate(any());
     }
 
     private static WatchListener mockListener() {

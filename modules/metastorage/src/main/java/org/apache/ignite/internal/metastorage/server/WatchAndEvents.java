@@ -26,6 +26,8 @@ class WatchAndEvents {
     final List<EntryEvent> events;
 
     WatchAndEvents(Watch watch, List<EntryEvent> events) {
+        assert !events.isEmpty();
+
         this.watch = watch;
         this.events = events;
     }

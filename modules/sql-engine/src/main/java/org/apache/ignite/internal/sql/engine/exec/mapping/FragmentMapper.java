@@ -63,6 +63,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -413,10 +414,10 @@ class FragmentMapper {
         }
 
         private Mapping mapTableScan(long sourceId, ProjectableFilterableTableScan rel) {
-            IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
+            IgniteDataSource igniteDataSource = rel.getTable().unwrapOrThrow(IgniteDataSource.class);
 
-            ExecutionTarget target = targets.get(igniteTable.id());
-            assert target != null : "No colocation group for " + igniteTable.id();
+            ExecutionTarget target = targets.get(igniteDataSource.id());
+            assert target != null : "No colocation group for " + igniteDataSource.id();
 
             return newMapping(sourceId, target);
         }

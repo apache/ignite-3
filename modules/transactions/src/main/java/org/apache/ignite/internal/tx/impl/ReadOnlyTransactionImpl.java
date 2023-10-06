@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.network.ClusterNode;
 
@@ -39,17 +40,29 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Prevents double finish of the transaction. */
     private final AtomicBoolean finishGuard = new AtomicBoolean();
 
+    /** The tracker is used to track an observable timestamp. */
+    private final HybridTimestampTracker observableTsTracker;
+
     /**
      * The constructor.
      *
      * @param txManager The tx manager.
+     * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      * @param readTimestamp The read timestamp.
+     * @param implicit Whether the transaction will be implicit or not.
      */
-    ReadOnlyTransactionImpl(TxManagerImpl txManager, UUID id, HybridTimestamp readTimestamp) {
-        super(txManager, id);
+    ReadOnlyTransactionImpl(
+            TxManagerImpl txManager,
+            HybridTimestampTracker observableTsTracker,
+            UUID id,
+            HybridTimestamp readTimestamp,
+            boolean implicit
+    ) {
+        super(txManager, id, implicit);
 
         this.readTimestamp = readTimestamp;
+        this.observableTsTracker = observableTsTracker;
     }
 
     @Override
@@ -65,11 +78,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public HybridTimestamp startTimestamp() {
         return readTimestamp;
-    }
-
-    @Override
-    public boolean implicit() {
-        return false;
     }
 
     @Override
@@ -96,9 +104,16 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
     protected CompletableFuture<Void> finish(boolean commit) {
+        return finish(commit, readTimestamp);
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
         if (!finishGuard.compareAndSet(false, true)) {
             return completedFuture(null);
         }
+
+        observableTsTracker.update(executionTimestamp);
 
         return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()))
                 .thenRun(() -> txManager.updateTxMeta(

@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.testutils.definition;
+package org.apache.ignite.internal.replicator.message;
 
 /**
- * Schema object.
+ * Read-only request that sand to a specific node directly. This request has no read timestamp as other read-only requests because the
+ * timestamp is calculated on the replica side. The linearization is guaranteed by sending the request directly to the primary node.
+ *
+ * <p>The requests are used to implement an implicit read-only transaction for a single partition.
  */
-public interface SchemaObject {
-    /** Default schema name. */
-    String DEFAULT_DATABASE_SCHEMA_NAME = "PUBLIC";
-
+public interface ReadOnlyDirectReplicaRequest extends ReplicaRequest {
     /**
-     * Returns name of schema object.
+     * Gets an enlistment consistency token.
+     * The token is used to check that the lease is still actual while the message goes to the replica.
      *
-     * @return Object name.
+     * @return Enlistment consistency token.
      */
-    String name();
-
-    /**
-     * Returns database schema name this object belongs to.
-     *
-     * @return Database schema name.
-     */
-    default String schemaName() {
-        return DEFAULT_DATABASE_SCHEMA_NAME;
-    }
+    Long enlistmentConsistencyToken();
 }

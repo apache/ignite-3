@@ -29,6 +29,8 @@ import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -38,7 +40,7 @@ import org.junit.jupiter.api.Test;
  * TableSpoolExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class TableSpoolExecutionTest extends AbstractExecutionTest {
+public class TableSpoolExecutionTest extends AbstractExecutionTest<Object[]> {
     @Test
     public void testLazyTableSpool() {
         checkTableSpool(
@@ -146,5 +148,10 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
                 root.rewind();
             }
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

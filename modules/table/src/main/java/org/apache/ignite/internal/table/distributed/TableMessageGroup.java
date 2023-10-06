@@ -166,6 +166,16 @@ public interface TableMessageGroup {
     short BUILD_INDEX_REPLICA_REQUEST = 21;
 
     /**
+     * Message type for {@link ReadOnlyDirectSingleRowReplicaRequest}.
+     */
+    short RO_DIRECT_SINGLE_ROW_REPLICA_REQUEST = 22;
+
+    /**
+     * Message type for {@link ReadOnlyDirectMultiRowReplicaRequest}.
+     */
+    short RO_DIRECT_MULTI_ROW_REPLICA_REQUEST = 23;
+
+    /**
      * Message types for Table module RAFT commands.
      *
      * <p>NOTE: Commands must be immutable because they will be stored in the replication log.</p>

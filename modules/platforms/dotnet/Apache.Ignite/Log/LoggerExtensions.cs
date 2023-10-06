@@ -19,6 +19,7 @@ namespace Apache.Ignite.Log
 {
     using System;
     using System.Globalization;
+    using Internal.Common;
 
     /// <summary>
     /// Extension methods for <see cref="IIgniteLogger" />.
@@ -255,7 +256,7 @@ namespace Apache.Ignite.Log
         /// <param name="message">The message.</param>
         public static void Log(this IIgniteLogger logger, LogLevel level, string message)
         {
-            ArgumentNullException.ThrowIfNull(logger);
+            IgniteArgumentCheck.NotNull(logger);
 
             logger.Log(level, message, null, null, null, null, null);
         }
@@ -269,7 +270,7 @@ namespace Apache.Ignite.Log
         /// <param name="args">The arguments.</param>
         public static void Log(this IIgniteLogger logger, LogLevel level, string message, params object?[]? args)
         {
-            ArgumentNullException.ThrowIfNull(logger);
+            IgniteArgumentCheck.NotNull(logger);
 
             logger.Log(level, message, args, CultureInfo.InvariantCulture, null, null, null);
         }
@@ -283,7 +284,7 @@ namespace Apache.Ignite.Log
         /// <param name="message">The message.</param>
         public static void Log(this IIgniteLogger logger, LogLevel level, Exception? ex, string message)
         {
-            ArgumentNullException.ThrowIfNull(logger);
+            IgniteArgumentCheck.NotNull(logger);
 
             logger.Log(level, message, null, null, null, null, ex);
         }
@@ -298,7 +299,7 @@ namespace Apache.Ignite.Log
         /// <param name="args">The arguments.</param>
         public static void Log(this IIgniteLogger logger, LogLevel level, Exception? ex, string message, params object?[]? args)
         {
-            ArgumentNullException.ThrowIfNull(logger);
+            IgniteArgumentCheck.NotNull(logger);
 
             logger.Log(level, message, args, CultureInfo.InvariantCulture, null, null, ex);
         }
@@ -311,7 +312,7 @@ namespace Apache.Ignite.Log
         /// <returns>Logger that uses specified category when no other category is provided.</returns>
         public static IIgniteLogger? GetLogger(this IIgniteLogger? logger, string category)
         {
-            ArgumentNullException.ThrowIfNull(category);
+            IgniteArgumentCheck.NotNull(category);
 
             return logger == null ? null : new CategoryLogger(logger, category);
         }
@@ -324,7 +325,7 @@ namespace Apache.Ignite.Log
         /// <returns>Logger that uses specified category when no other category is provided.</returns>
         public static IIgniteLogger? GetLogger(this IIgniteLogger? logger, Type category)
         {
-            ArgumentNullException.ThrowIfNull(category);
+            IgniteArgumentCheck.NotNull(category);
 
             return logger == null ? null : new CategoryLogger(logger, category.Name);
         }

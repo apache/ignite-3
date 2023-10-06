@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -601,7 +602,14 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
             CatalogIndexDescriptor[] indexesArray = indexDescriptorMap.values().toArray(new CatalogIndexDescriptor[0]);
             CatalogSystemViewDescriptor[] systemViewsArray = systemViewDescriptorMap.values().toArray(new CatalogSystemViewDescriptor[0]);
 
-            return new CatalogSchemaDescriptor(ID.incrementAndGet(), name, tablesArray, indexesArray, systemViewsArray);
+            return new CatalogSchemaDescriptor(
+                    ID.incrementAndGet(),
+                    name,
+                    tablesArray,
+                    indexesArray,
+                    systemViewsArray,
+                    INITIAL_CAUSALITY_TOKEN
+            );
         }
     }
 
@@ -692,7 +700,8 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
                     CatalogTableDescriptor.INITIAL_TABLE_VERSION,
                     columnDescriptors,
                     primaryKey,
-                    colocationKey
+                    colocationKey,
+                    INITIAL_CAUSALITY_TOKEN
             );
         }
     }

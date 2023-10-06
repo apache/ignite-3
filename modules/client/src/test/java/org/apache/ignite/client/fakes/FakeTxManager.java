@@ -145,7 +145,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker) {
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
         throw new UnsupportedOperationException("Not expected to be called here");
     }
 

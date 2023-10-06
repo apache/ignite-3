@@ -272,7 +272,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override int GetValues(object[] values)
     {
-        ArgumentNullException.ThrowIfNull(values);
+        IgniteArgumentCheck.NotNull(values);
 
         var cols = Metadata.Columns;
         var count = Math.Min(values.Length, cols.Count);

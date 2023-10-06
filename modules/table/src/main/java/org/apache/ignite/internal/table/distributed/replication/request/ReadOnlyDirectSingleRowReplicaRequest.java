@@ -15,8 +15,16 @@
  * limitations under the License.
  */
 
-/**
- * Contains index definition interfaces.
- */
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-package org.apache.ignite.internal.schema.testutils.definition.index;
+import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
+
+/**
+ * Read only direct node single row replica request.
+ * The type of RO request never waits and is executed at the current node timestamp.
+ */
+@Transferable(TableMessageGroup.RO_DIRECT_SINGLE_ROW_REPLICA_REQUEST)
+public interface ReadOnlyDirectSingleRowReplicaRequest extends SingleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest {
+}

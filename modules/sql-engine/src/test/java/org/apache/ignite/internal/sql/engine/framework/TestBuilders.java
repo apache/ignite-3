@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -52,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
@@ -363,20 +362,11 @@ public class TestBuilders {
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            Int2ObjectMap<IgniteTable> tablesById = new Int2ObjectOpenHashMap<>(tableByName.size());
-            tableByName.forEach((name, table) -> tablesById.put(table.id(), table));
-
             IgniteSchema schema = new IgniteSchema(DEFAULT_SCHEMA_NAME, SCHEMA_VERSION, tableByName.values());
             var schemaManager = new PredefinedSchemaManager(schema);
             var targetProvider = new ExecutionTargetProvider() {
                 @Override
-                public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, int tableId) {
-                    IgniteTable table = tablesById.get(tableId);
-
-                    if (table == null) {
-                        throw new AssertionError("Table not found: " + tableId);
-                    }
-
+                public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
                     Map<String, DataProvider<?>> dataProviders = dataProvidersByTableName.get(table.name());
 
                     if (nullOrEmpty(dataProviders)) {
@@ -384,6 +374,11 @@ public class TestBuilders {
                     }
 
                     return CompletableFuture.completedFuture(factory.allOf(List.copyOf(dataProviders.keySet())));
+                }
+
+                @Override
+                public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                    return CompletableFuture.failedFuture(new AssertionError("Not supported"));
                 }
             };
 
