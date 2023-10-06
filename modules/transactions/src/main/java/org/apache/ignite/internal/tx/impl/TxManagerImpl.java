@@ -296,9 +296,8 @@ public class TxManagerImpl implements TxManager {
 
         return verificationFuture.handle(
                 (unused, throwable) -> {
-                    // TODO: sanpwc tmp
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
                     Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>();
-                    // TODO: sanpwc tmp cast
                     replicationGroupIds.addAll((Collection<ReplicationGroupId>) (Collection<?>) enlistedGroups.keySet());
 
                     boolean verifiedCommit = throwable == null && commit;
@@ -443,6 +442,14 @@ public class TxManagerImpl implements TxManager {
         return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId.get(), commitTimestamp);
     }
 
+    /**
+     * Check whether previously enlisted primary replicas aren't expired and that commit timestamp is less or equal than primary replicas
+     * expiration timestamp. Given method will either complete result future with void or {@link PrimaryReplicaExpiredException}
+     *
+     * @param enlistedGroups enlisted primary replicas map from groupId to enlistment consistency token.
+     * @param commitTimestamp Commit timestamp.
+     * @return Verification future.
+     */
     private CompletableFuture<Void> verifyCommitTimestamp(Map<TablePartitionId, Long> enlistedGroups, HybridTimestamp commitTimestamp) {
         var verificationFutures = new CompletableFuture[enlistedGroups.size()];
         int cnt = -1;

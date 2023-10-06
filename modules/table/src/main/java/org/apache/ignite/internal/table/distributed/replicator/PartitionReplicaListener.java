@@ -1172,7 +1172,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request, String txCoordinatorId) {
-        // TODO: sanpwc Rempve tmp cast.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
         Collection<TablePartitionId> enlistedGroups = (Collection<TablePartitionId>) (Collection<?>) request.groups();
 
         UUID txId = request.txId();

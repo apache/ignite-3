@@ -164,7 +164,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                 );
                             }
                         }
-                ). exceptionally(e -> {
+                ).exceptionally(
+                        e -> {
                             if (e instanceof IgniteInternalException) {
                                 // Transaction is already rolled back. Just wrapping internal exception with public one.
                                 throw withCause(TransactionException::new, TX_PRIMARY_REPLICA_EXPIRED_ERR,
