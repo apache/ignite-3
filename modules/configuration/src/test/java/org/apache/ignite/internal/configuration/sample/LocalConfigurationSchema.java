@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
  */
 @ConfigurationRoot(rootName = "local", type = ConfigurationType.LOCAL)
 public class LocalConfigurationSchema {
-    /** Baseline. */
+    /** Test schema. */
     @ConfigValue
-    public BaselineConfigurationSchema baseline;
+    public TestConfigurationSchema testConfigurationSchema;
 }
