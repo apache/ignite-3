@@ -60,7 +60,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matchers;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -394,7 +393,6 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertRollbackSucceeds();
     }
 
-    @NotNull
     private InternalTransaction prepareTransaction() {
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
