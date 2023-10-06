@@ -45,9 +45,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -66,10 +64,6 @@ public class TableImpl implements Table {
 
     private final LockManager lockManager;
 
-    private final TxManager txManager;
-
-    private final HybridTimestampTracker observableTimestampTracker;
-
     private final SchemaVersions schemaVersions;
 
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
@@ -86,21 +80,11 @@ public class TableImpl implements Table {
      *
      * @param tbl The table.
      * @param lockManager Lock manager.
-     * @param txManager Transaction manager.
-     * @param observableTimestampTracker Tracker to use when starting implicit transactions.
      * @param schemaVersions Schema versions access.
      */
-    public TableImpl(
-            InternalTable tbl,
-            LockManager lockManager,
-            TxManager txManager,
-            HybridTimestampTracker observableTimestampTracker,
-            SchemaVersions schemaVersions
-    ) {
+    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions) {
         this.tbl = tbl;
         this.lockManager = lockManager;
-        this.txManager = txManager;
-        this.observableTimestampTracker = observableTimestampTracker;
         this.schemaVersions = schemaVersions;
     }
 
@@ -110,20 +94,11 @@ public class TableImpl implements Table {
      * @param tbl The table.
      * @param schemaReg Table schema registry.
      * @param lockManager Lock manager.
-     * @param txManager Transaction manager.
-     * @param observableTimestampTracker Tracker to use when starting implicit transactions.
      * @param schemaVersions Schema versions access.
      */
     @TestOnly
-    public TableImpl(
-            InternalTable tbl,
-            SchemaRegistry schemaReg,
-            LockManager lockManager,
-            TxManager txManager,
-            HybridTimestampTracker observableTimestampTracker,
-            SchemaVersions schemaVersions
-    ) {
-        this(tbl, lockManager, txManager, observableTimestampTracker, schemaVersions);
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions) {
+        this(tbl, lockManager, schemaVersions);
 
         this.schemaReg = schemaReg;
     }
@@ -182,22 +157,22 @@ public class TableImpl implements Table {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, txManager, observableTimestampTracker, schemaVersions, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg, txManager, observableTimestampTracker, schemaVersions);
+        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, txManager, observableTimestampTracker, schemaVersions, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, keyMapper, valMapper);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg, txManager, observableTimestampTracker, schemaVersions);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions);
     }
 
     /**

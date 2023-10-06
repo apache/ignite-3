@@ -349,8 +349,6 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
         return new RecordViewImpl<>(
                 table,
                 new DummySchemaManagerImpl(schema),
-                txManager,
-                observableTimestampTracker,
                 schemaVersions,
                 recMapper
         );

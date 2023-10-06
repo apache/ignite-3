@@ -28,7 +28,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -39,7 +38,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
@@ -64,10 +62,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     public static final String BAD_TABLE_ERR = "Err!";
 
-    private final HybridClock clock;
-
-    private final HybridTimestampTracker observableTimestampTracker;
-
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, TableImpl> tablesById = new ConcurrentHashMap<>();
@@ -77,11 +71,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     private volatile List<String> partitionAssignments = null;
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
-
-    public FakeIgniteTables(HybridClock clock, HybridTimestampTracker observableTimestampTracker) {
-        this.clock = clock;
-        this.observableTimestampTracker = observableTimestampTracker;
-    }
 
     /**
      * Creates a table.
@@ -255,11 +244,14 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                 new FakeInternalTable(name, id, keyExtractor),
                 schemaReg,
                 new HeapLockManager(),
-                new FakeTxManager(clock),
-                observableTimestampTracker,
                 new SchemaVersions() {
                     @Override
                     public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
+                        return completedFuture(schemaReg.lastSchemaVersion());
+                    }
+
+                    @Override
+                    public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
                         return completedFuture(schemaReg.lastSchemaVersion());
                     }
                 }

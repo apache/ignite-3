@@ -147,8 +147,6 @@ public class TxLocalTest extends TxAbstractTest {
                 table,
                 new DummySchemaManagerImpl(ACCOUNTS_SCHEMA),
                 lockManager,
-                txManager,
-                timestampTracker,
                 new ConstantSchemaVersions(1)
         );
 
@@ -165,8 +163,6 @@ public class TxLocalTest extends TxAbstractTest {
                 table2,
                 new DummySchemaManagerImpl(CUSTOMERS_SCHEMA),
                 lockManager,
-                txManager,
-                timestampTracker,
                 new ConstantSchemaVersions(1)
         );
 

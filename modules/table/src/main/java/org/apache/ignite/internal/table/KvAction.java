@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
  * Action representing some KV operation.
@@ -30,9 +29,8 @@ interface KvAction<R> {
     /**
      * Executes the action.
      *
-     * @param actualTx Transaction in which the action will be executed.
-     * @param schemaVersion Schema version corresponding to the transaction.
+     * @param schemaVersion Schema version corresponding to the operation.
      * @return Action result.
      */
-    CompletableFuture<R> act(InternalTransaction actualTx, int schemaVersion);
+    CompletableFuture<R> act(int schemaVersion);
 }

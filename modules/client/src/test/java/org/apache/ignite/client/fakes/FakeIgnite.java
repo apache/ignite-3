@@ -61,7 +61,7 @@ public class FakeIgnite implements Ignite {
         this.name = name;
     }
 
-    private final IgniteTables tables = new FakeIgniteTables(clock, hybridTimestampTracker);
+    private final IgniteTables tables = new FakeIgniteTables();
 
     /** {@inheritDoc} */
     @Override

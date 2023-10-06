@@ -36,4 +36,9 @@ public class ConstantSchemaVersions implements SchemaVersions {
     public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
         return completedFuture(schemaVersion);
     }
+
+    @Override
+    public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
+        return completedFuture(schemaVersion);
+    }
 }

@@ -689,8 +689,6 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         return new KeyValueViewImpl<>(
                 table.internalTable(),
                 new DummySchemaManagerImpl(schema),
-                txManager,
-                observableTimestampTracker,
                 new ConstantSchemaVersions(1),
                 keyMapper,
                 valMapper

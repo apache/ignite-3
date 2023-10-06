@@ -904,8 +904,8 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition, InternalTransaction tx) {
-        assert tx.implicit();
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
+        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, false);
 
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 

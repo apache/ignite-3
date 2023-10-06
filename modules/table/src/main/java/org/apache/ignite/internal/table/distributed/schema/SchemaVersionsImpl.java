@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.schema;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
@@ -30,9 +31,19 @@ public class SchemaVersionsImpl implements SchemaVersions {
 
     private final CatalogService catalogService;
 
-    public SchemaVersionsImpl(SchemaSyncService schemaSyncService, CatalogService catalogService) {
+    private final HybridClock clock;
+
+    /**
+     * Creates a new instance.
+     *
+     * @param schemaSyncService Service to use for schema synchronization.
+     * @param catalogService Catalog access.
+     * @param clock Clock used by the node.
+     */
+    public SchemaVersionsImpl(SchemaSyncService schemaSyncService, CatalogService catalogService, HybridClock clock) {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.clock = clock;
     }
 
     @Override
@@ -50,5 +61,10 @@ public class SchemaVersionsImpl implements SchemaVersions {
 
                     return table;
                 });
+    }
+
+    @Override
+    public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
+        return schemaVersionAt(clock.now(), tableId);
     }
 }

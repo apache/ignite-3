@@ -29,12 +29,9 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -47,21 +44,11 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
     @Mock(answer = RETURNS_DEEP_STUBS)
     protected ReplicaService replicaService;
 
-    protected TxManager txManager;
-
-    @Mock
-    protected HybridTimestampTracker observableTimestampTracker;
-
     protected final int schemaVersion = 1;
 
     private final UUID txId = UUID.randomUUID();
 
     protected final SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
-
-    @BeforeEach
-    void setUp() {
-        txManager = DummyInternalTableImpl.txManager(replicaService);
-    }
 
     protected final TableImpl createTable(SchemaDescriptor schema) {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -76,20 +63,11 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 new HeapLockManager(),
-                txManager,
-                observableTimestampTracker,
                 schemaVersions
         );
     }
 
     protected final DummyInternalTableImpl createInternalTable(SchemaDescriptor schema) {
-        return new DummyInternalTableImpl(
-                replicaService,
-                txManager,
-                false,
-                null,
-                schema,
-                observableTimestampTracker
-        );
+        return new DummyInternalTableImpl(replicaService, schema);
     }
 }

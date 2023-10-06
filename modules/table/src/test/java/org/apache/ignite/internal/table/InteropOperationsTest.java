@@ -52,8 +52,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -126,27 +124,14 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        TxManager txManager = INT_TABLE.txManager();
-
-        HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
-
         SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
 
-        TABLE = new TableImpl(
-                INT_TABLE,
-                schemaRegistry,
-                new HeapLockManager(),
-                txManager,
-                observableTimestampTracker,
-                schemaVersions
-        );
-        KV_BIN_VIEW = new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry, txManager, observableTimestampTracker, schemaVersions);
+        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager(), schemaVersions);
+        KV_BIN_VIEW = new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry, schemaVersions);
 
         KV_VIEW = new KeyValueViewImpl<>(
                 INT_TABLE,
                 schemaRegistry,
-                txManager,
-                observableTimestampTracker,
                 schemaVersions,
                 Mapper.of(Long.class, "id"),
                 Mapper.of(Value.class)

@@ -23,7 +23,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 /**
  * Used to work with schema versions as seen at a timestamp (applying logic of Schema Synchronization).
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface SchemaVersions {
     /**
      * Obtains a schema version at a timestamp in obedience to rules of Schema Synchronization.
@@ -33,4 +32,12 @@ public interface SchemaVersions {
      * @return Future that will complete with the version.
      */
     CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId);
+
+    /**
+     * Obtains a schema version at 'now' in obedience to rules of Schema Synchronization.
+     *
+     * @param tableId ID of the table which schema to return.
+     * @return Future that will complete with the version.
+     */
+    CompletableFuture<Integer> schemaVersionAtNow(int tableId);
 }

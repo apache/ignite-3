@@ -596,8 +596,6 @@ public class ItTxTestCluster {
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
-                clientTxManager,
-                timestampTracker,
                 new ConstantSchemaVersions(1)
         );
     }

@@ -679,8 +679,6 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         return new KeyValueViewImpl<>(
                 table,
                 new DummySchemaManagerImpl(schema),
-                txManager,
-                observableTimestampTracker,
                 schemaVersions,
                 keyMapper,
                 valMapper

@@ -35,8 +35,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
@@ -63,18 +62,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
-     * @param txManager Transaction manager.
-     * @param observableTimestampTracker Timestamp tracker to use when creating implicit transactions.
      * @param schemaVersions Schema versions access.
      */
-    public KeyValueBinaryViewImpl(
-            InternalTable tbl,
-            SchemaRegistry schemaReg,
-            TxManager txManager,
-            HybridTimestampTracker observableTimestampTracker,
-            SchemaVersions schemaVersions
-    ) {
-        super(tbl, txManager, observableTimestampTracker, schemaVersions, schemaReg);
+    public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, SchemaVersions schemaVersions) {
+        super(tbl, schemaVersions, schemaReg);
 
         this.schemaRegistry = schemaReg;
     }
@@ -90,10 +81,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, true, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             Row keyRow = marshal(key, null, schemaVersion);
 
-            return tbl.get(keyRow, actualTx).thenApply(row -> unmarshalValue(row, schemaVersion));
+            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(row -> unmarshalValue(row, schemaVersion));
         });
     }
 
@@ -128,10 +119,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, true, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshal(key, null, schemaVersion);
 
-            return tbl.get(keyRow, actualTx)
+            return tbl.get(keyRow, (InternalTransaction) tx)
                     .thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalValue(r, schemaVersion), defaultValue));
         });
     }
@@ -147,15 +138,11 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         checkKeysForNulls(keys);
 
-        return withSchemaSync(tx, isSinglePartitionTuples(keys), (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
 
-            return tbl.getAll(keyRows, actualTx).thenApply(rows -> unmarshalValues(rows, schemaVersion));
+            return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> unmarshalValues(rows, schemaVersion));
         });
-    }
-
-    private boolean isSinglePartitionTuples(Collection<Tuple> keys) {
-        return isSinglePartitionBatch(marshalKeys(keys, schemaRegistry.lastSchemaVersion()));
     }
 
     private static void checkKeysForNulls(Collection<Tuple> keys) {
@@ -190,10 +177,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
 
-            return tbl.upsert(row, actualTx);
+            return tbl.upsert(row, (InternalTransaction) tx);
         });
     }
 
@@ -212,8 +199,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             Objects.requireNonNull(entry.getValue());
         }
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
-            return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion), actualTx);
+        return withSchemaSync(tx, (schemaVersion) -> {
+            return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion), (InternalTransaction) tx);
         });
     }
 
@@ -229,10 +216,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
 
-            return tbl.getAndUpsert(row, actualTx).thenApply(resultRow -> unmarshalValue(resultRow, schemaVersion));
+            return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(resultRow -> unmarshalValue(resultRow, schemaVersion));
         });
     }
 
@@ -269,10 +256,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
 
-            return tbl.insert(row, actualTx);
+            return tbl.insert(row, (InternalTransaction) tx);
         });
     }
 
@@ -293,10 +280,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             Row row = marshal(key, null, schemaVersion);
 
-            return tbl.delete(row, actualTx);
+            return tbl.delete(row, (InternalTransaction) tx);
         });
     }
 
@@ -306,10 +293,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
 
-            return tbl.deleteExact(row, actualTx);
+            return tbl.deleteExact(row, (InternalTransaction) tx);
         });
     }
 
@@ -324,10 +311,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         checkKeysForNulls(keys);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
 
-            return tbl.deleteAll(keyRows, actualTx).thenApply(rows -> unmarshalKeys(rows, schemaVersion));
+            return tbl.deleteAll(keyRows, (InternalTransaction) tx).thenApply(rows -> unmarshalKeys(rows, schemaVersion));
         });
     }
 
@@ -344,8 +331,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
-            return tbl.getAndDelete(marshal(key, null, schemaVersion), actualTx)
+        return withSchemaSync(tx, (schemaVersion) -> {
+            return tbl.getAndDelete(marshal(key, null, schemaVersion), (InternalTransaction) tx)
                     .thenApply(row -> unmarshalValue(row, schemaVersion));
         });
     }
@@ -388,10 +375,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
 
-            return tbl.replace(row, actualTx);
+            return tbl.replace(row, (InternalTransaction) tx);
         });
     }
 
@@ -407,11 +394,11 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(oldVal);
         Objects.requireNonNull(newVal);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
+        return withSchemaSync(tx, (schemaVersion) -> {
             Row oldRow = marshal(key, oldVal, schemaVersion);
             Row newRow = marshal(key, newVal, schemaVersion);
 
-            return tbl.replace(oldRow, newRow, actualTx);
+            return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
         });
     }
 
@@ -427,8 +414,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (actualTx, schemaVersion) -> {
-            return tbl.getAndReplace(marshal(key, val, schemaVersion), actualTx)
+        return withSchemaSync(tx, (schemaVersion) -> {
+            return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
                     .thenApply(row -> unmarshalValue(row, schemaVersion));
         });
     }
@@ -567,8 +554,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items) -> {
-            return withSchemaSync(null, (actualTx, schemaVersion) -> {
-                return this.tbl.upsertAll(marshalPairs(items, schemaVersion), partitionId, actualTx);
+            return withSchemaSync(null, (schemaVersion) -> {
+                return this.tbl.upsertAll(marshalPairs(items, schemaVersion), partitionId);
             });
         };
 

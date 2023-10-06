@@ -441,7 +441,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 clusterService.messagingService()
         );
 
-        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService);
+        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -1273,7 +1273,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitions, clusterNodeResolver, txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr, txManager, observableTimestampTracker, schemaVersions);
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion));

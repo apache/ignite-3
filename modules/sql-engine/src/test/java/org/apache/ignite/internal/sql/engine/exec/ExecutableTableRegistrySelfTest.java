@@ -38,8 +38,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,9 +67,6 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
 
     @Mock
     private SchemaRegistry schemaRegistry;
-
-    @Mock
-    private TxManager txManager;
 
     private final HybridClock clock = new TestHybridClock(() -> 1000);
 
@@ -133,14 +128,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             int schemaVersion = 1;
             int tableVersion = 10;
 
-            TableImpl table = new TableImpl(
-                    internalTable,
-                    schemaRegistry,
-                    new HeapLockManager(),
-                    txManager,
-                    new HybridTimestampTracker(),
-                    new ConstantSchemaVersions(tableVersion)
-            );
+            TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(tableVersion));
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
