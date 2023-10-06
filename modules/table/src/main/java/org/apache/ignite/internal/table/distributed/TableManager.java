@@ -2040,7 +2040,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
                                                 metaStorageMgr,
                                                 dataNodes,
-                                                getZoneDescriptor(tableDescriptor, catalogVersion).replicas(),
+                                                zoneDescriptor.replicas(),
                                                 replicaGrpId,
                                                 evt
                                         ));
