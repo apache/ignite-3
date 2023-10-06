@@ -1459,7 +1459,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 AffinityUtils.calculateAssignmentForPartition(
                         dataNodes,
                         tablePartitionId.partitionId(),
-                        getZoneDescriptor(tableDescriptor, catalogVersion).replicas()
+                        zoneDescriptor.replicas()
                 ));
     }
 
