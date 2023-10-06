@@ -81,7 +81,7 @@ public class IndexBuilder implements ManuallyCloseable {
     }
 
     /**
-     * Starts building the index if it is not already built or is not yet in progress.
+     * Schedules building the index if it is not already built or is not yet in progress.
      *
      * <p>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand} on the
      * replica, batches are sent sequentially.</p>
@@ -96,7 +96,7 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param node Node to which requests to build the index will be sent.
      */
     // TODO: IGNITE-19498 Perhaps we need to start building the index only once
-    public void startBuildIndex(
+    public void scheduleBuildIndex(
             int tableId,
             int partitionId,
             int indexId,

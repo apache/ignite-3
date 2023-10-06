@@ -148,7 +148,6 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -310,9 +309,6 @@ public class IgniteImpl implements Ignite {
 
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
-
-    /** Index builder. */
-    private final IndexBuilder indexBuilder;
 
     /** Index build controller. */
     private final IndexBuildController indexBuildController;
@@ -587,7 +583,7 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
 
-        indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors(), replicaSvc);
+        IndexBuilder indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors(), replicaSvc);
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,
@@ -810,6 +806,7 @@ public class IgniteImpl implements Ignite {
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
                                     indexManager,
+                                    indexBuildController,
                                     qryEngine,
                                     clientHandlerModule,
                                     deploymentManager
@@ -874,23 +871,17 @@ public class IgniteImpl implements Ignite {
 
         LOG.debug(errMsg, e);
 
-        try {
-            stop();
-        } catch (Exception exception) {
-            exception.addSuppressed(exception);
-        }
+        lifecycleManager.stopNode();
 
         return new IgniteException(errMsg, e);
     }
 
-    /** Stops ignite node. */
-    public void stop() throws Exception {
-        IgniteUtils.closeAll(
-                lifecycleManager::stopNode,
-                restAddressReporter::removeReport,
-                indexBuilder::close,
-                indexBuildController::close
-        );
+    /**
+     * Stops ignite node.
+     */
+    public void stop() {
+        lifecycleManager.stopNode();
+        restAddressReporter.removeReport();
     }
 
     /** {@inheritDoc} */

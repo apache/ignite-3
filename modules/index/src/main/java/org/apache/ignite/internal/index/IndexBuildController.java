@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -36,8 +35,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -66,8 +65,8 @@ import org.apache.ignite.network.ClusterService;
  * </ul>
  */
 // TODO: IGNITE-20544 Start building indexes on node recovery
-public class IndexBuildController implements ManuallyCloseable {
-    private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+public class IndexBuildController implements IgniteComponent {
+    private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
 
     private final IndexBuilder indexBuilder;
 
@@ -107,12 +106,19 @@ public class IndexBuildController implements ManuallyCloseable {
     }
 
     @Override
-    public void close() {
+    public void start() {
+        // No-op.
+    }
+
+    @Override
+    public void stop() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
+
+        indexBuilder.close();
     }
 
     private void addListeners() {
@@ -149,7 +155,7 @@ public class IndexBuildController implements ManuallyCloseable {
                 if (primaryReplicaId.tableId() == parameters.indexDescriptor().tableId()) {
                     CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                             .thenCompose(mvTableStorage -> awaitPrimaryReplicaForNow(primaryReplicaId)
-                                    .thenAccept(replicaMeta -> tryStartBuildIndex(
+                                    .thenAccept(replicaMeta -> tryScheduleBuildIndex(
                                             primaryReplicaId,
                                             parameters.indexDescriptor(),
                                             mvTableStorage,
@@ -186,7 +192,7 @@ public class IndexBuildController implements ManuallyCloseable {
 
                 return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                         .thenCompose(mvTableStorage -> awaitPrimaryReplicaForNow(primaryReplicaId)
-                                .thenAccept(replicaMeta -> tryStartBuildIndexesForNewPrimaryReplica(
+                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
                                         catalogVersion,
                                         primaryReplicaId,
                                         mvTableStorage,
@@ -201,7 +207,7 @@ public class IndexBuildController implements ManuallyCloseable {
         });
     }
 
-    private void tryStartBuildIndexesForNewPrimaryReplica(
+    private void tryScheduleBuildIndexesForNewPrimaryReplica(
             int catalogVersion,
             TablePartitionId primaryReplicaId,
             MvTableStorage mvTableStorage,
@@ -217,13 +223,13 @@ public class IndexBuildController implements ManuallyCloseable {
             // TODO: IGNITE-20530 We only need to get write-only indexes
             for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
                 if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
-                    startBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
+                    scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
                 }
             }
         });
     }
 
-    private void tryStartBuildIndex(
+    private void tryScheduleBuildIndex(
             TablePartitionId primaryReplicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
@@ -236,10 +242,18 @@ public class IndexBuildController implements ManuallyCloseable {
                 return;
             }
 
-            startBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
+            scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
         });
     }
 
+    /**
+     * Stops building indexes for a replica that has expired, if it has not been done before.
+     *
+     * <p>We need to stop building indexes at the event of a change of primary replica or after executing asynchronous code, we understand
+     * that the {@link ReplicaMeta#getExpirationTime() expiration time} has come.</p>
+     *
+     * @param replicaId Replica ID.
+     */
     private void stopBuildingIndexesIfIfPrimaryExpired(TablePartitionId replicaId) {
         if (primaryReplicaIds.remove(replicaId)) {
             // Primary replica is no longer current, we need to stop building indexes for it.
@@ -253,7 +267,7 @@ public class IndexBuildController implements ManuallyCloseable {
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(TablePartitionId replicaId) {
         return placementDriver
-                .awaitPrimaryReplica(replicaId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+                .awaitPrimaryReplica(replicaId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                 .handle((replicaMeta, throwable) -> {
                     if (throwable != null) {
                         Throwable unwrapThrowable = ExceptionUtils.unwrapCause(throwable);
@@ -261,7 +275,7 @@ public class IndexBuildController implements ManuallyCloseable {
                         if (unwrapThrowable instanceof PrimaryReplicaAwaitTimeoutException) {
                             return awaitPrimaryReplicaForNow(replicaId);
                         } else {
-                            throw new CompletionException(unwrapThrowable);
+                            return CompletableFuture.<ReplicaMeta>failedFuture(unwrapThrowable);
                         }
                     }
 
@@ -269,7 +283,8 @@ public class IndexBuildController implements ManuallyCloseable {
                 }).thenCompose(Function.identity());
     }
 
-    private void startBuildIndex(TablePartitionId replicaId, CatalogIndexDescriptor indexDescriptor, MvTableStorage mvTableStorage) {
+    /** Shortcut to schedule index building. */
+    private void scheduleBuildIndex(TablePartitionId replicaId, CatalogIndexDescriptor indexDescriptor, MvTableStorage mvTableStorage) {
         int partitionId = replicaId.partitionId();
 
         MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partitionId);
@@ -282,7 +297,7 @@ public class IndexBuildController implements ManuallyCloseable {
 
         assert indexStorage != null : "replicaId=" + replicaId + ", indexId=" + indexId;
 
-        indexBuilder.startBuildIndex(replicaId.tableId(), partitionId, indexId, indexStorage, mvPartition, localNode());
+        indexBuilder.scheduleBuildIndex(replicaId.tableId(), partitionId, indexId, indexStorage, mvPartition, localNode());
     }
 
     private boolean isLocalNode(String nodeConsistentId) {

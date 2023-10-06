@@ -128,10 +128,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stop,
-                indexBuildController == null ? null : indexBuildController::close
-        );
+        IgniteUtils.stopAll(catalogManager, indexBuildController);
     }
 
     @Test
@@ -142,7 +139,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         createIndex(INDEX_NAME);
 
-        verify(indexBuilder).startBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
+        verify(indexBuilder).scheduleBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
     }
 
     @Test
@@ -151,9 +148,9 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
 
-        verify(indexBuilder).startBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
+        verify(indexBuilder).scheduleBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
 
-        verify(indexBuilder).startBuildIndex(
+        verify(indexBuilder).scheduleBuildIndex(
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(TABLE_NAME))),
