@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.systemview;
 
+import java.util.List;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 
 /**
  * The system view manager is responsible for registering system views in the cluster.
@@ -32,4 +36,21 @@ public interface SystemViewManager extends IgniteComponent {
      * @param view System view to register.
      */
     void register(SystemView<?> view);
+
+    /**
+     * Returns a list of nodes a view with given name can be found on.
+     *
+     * @param name Name of view of interest.
+     * @return A list of nodes owning a view, or empty list if there is no node in the cluster owning this view.
+     */
+    List<String> owningNodes(String name);
+
+    /**
+     * Opens a cursor over view with a given name and returns publisher emitting rows of the view.
+     *
+     * @param name Name of view of interest.
+     * @return A publisher.
+     * @throws IgniteInternalException if view with given name is not presented on local node.
+     */
+    Publisher<InternalTuple> scanView(String name) throws IgniteInternalException;
 }
