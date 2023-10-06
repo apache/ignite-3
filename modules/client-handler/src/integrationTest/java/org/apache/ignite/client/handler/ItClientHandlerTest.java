@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -145,7 +145,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testHandshakeWithUnsupportedAuthenticationSchema() throws Exception {
+    void testHandshakeWithUnsupportedAuthenticationType() throws Exception {
         setupAuthentication("admin", "password");
 
         try (var sock = new Socket("127.0.0.1", serverPort)) {
@@ -197,11 +197,11 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
-            assertEquals(UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR, code);
+            assertEquals(UNSUPPORTED_AUTHENTICATION_TYPE_ERR, code);
 
-            assertThat(errMsg, containsString("Unsupported authentication schema: ldap"));
+            assertThat(errMsg, containsString("Unsupported authentication type: ldap"));
             assertEquals(
-                    "org.apache.ignite.internal.security.authentication.exception.UnsupportedAuthenticationSchemaException",
+                    "org.apache.ignite.internal.security.authentication.exception.UnsupportedAuthenticationTypeException",
                     errClassName
             );
             assertNull(errStackTrace);

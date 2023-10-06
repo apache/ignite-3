@@ -107,7 +107,7 @@ import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
 import org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException;
-import org.apache.ignite.internal.security.authentication.exception.UnsupportedAuthenticationSchemaException;
+import org.apache.ignite.internal.security.authentication.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -370,7 +370,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));
         }
 
-        throw new UnsupportedAuthenticationSchemaException("Unsupported authentication schema: " + authnType);
+        throw new UnsupportedAuthenticationTypeException("Unsupported authentication type: " + authnType);
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {

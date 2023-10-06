@@ -18,20 +18,20 @@
 package org.apache.ignite.internal.security.authentication.exception;
 
 
-import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * The exception thrown when authentication schema is not supported.
+ * The exception thrown when authentication type is not supported.
  */
-public class UnsupportedAuthenticationSchemaException extends IgniteInternalException {
+public class UnsupportedAuthenticationTypeException extends IgniteInternalException {
     /**
      * Creates a new authentication exception.
      *
      * @param message Detailed message.
      */
-    public UnsupportedAuthenticationSchemaException(String message) {
-        super(UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR, message);
+    public UnsupportedAuthenticationTypeException(String message) {
+        super(UNSUPPORTED_AUTHENTICATION_TYPE_ERR, message);
     }
 }
