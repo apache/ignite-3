@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.exception;
+package org.apache.ignite.security.authentication.exception;
 
 
-import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteCheckedException;
 
 /**
- * The exception thrown when authentication type is not supported.
+ * Exception thrown when authentication fails due to invalid credentials.
  */
-public class UnsupportedAuthenticationTypeException extends IgniteInternalException {
+public class InvalidCredentialsException extends IgniteCheckedException {
     /**
      * Creates a new authentication exception.
      *
      * @param message Detailed message.
      */
-    public UnsupportedAuthenticationTypeException(String message) {
-        super(UNSUPPORTED_AUTHENTICATION_TYPE_ERR, message);
+    public InvalidCredentialsException(String message) {
+        super(INVALID_CREDENTIALS_ERR, message);
     }
 }

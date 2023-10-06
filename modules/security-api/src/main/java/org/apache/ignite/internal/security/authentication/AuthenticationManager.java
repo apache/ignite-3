@@ -20,7 +20,7 @@ package org.apache.ignite.internal.security.authentication;
 
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
-import org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException;
+import org.apache.ignite.security.authentication.exception.InvalidCredentialsException;
 
 /**
  * Authentication manager.

@@ -42,6 +42,8 @@ import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
 import org.apache.ignite.network.UnresolvableConsistentIdException;
+import org.apache.ignite.security.authentication.exception.InvalidCredentialsException;
+import org.apache.ignite.security.authentication.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 
@@ -85,6 +87,8 @@ public class IgniteExceptionArchTest {
         exclusions.add(UnresolvableConsistentIdException.class.getCanonicalName());
         exclusions.add(CursorClosedException.class.getCanonicalName());
         exclusions.add(NoRowSetExpectedException.class.getCanonicalName());
+        exclusions.add(InvalidCredentialsException.class.getCanonicalName());
+        exclusions.add(UnsupportedAuthenticationTypeException.class.getCanonicalName());
     }
 
     private static class ExclusionPredicate extends DescribedPredicate<JavaClass> {

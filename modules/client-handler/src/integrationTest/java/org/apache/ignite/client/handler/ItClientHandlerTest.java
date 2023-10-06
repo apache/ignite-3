@@ -201,7 +201,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             assertThat(errMsg, containsString("Unsupported authentication type: ldap"));
             assertEquals(
-                    "org.apache.ignite.internal.security.authentication.exception.UnsupportedAuthenticationTypeException",
+                    "org.apache.ignite.security.authentication.exception.UnsupportedAuthenticationTypeException",
                     errClassName
             );
             assertNull(errStackTrace);
@@ -332,7 +332,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals(INVALID_CREDENTIALS_ERR, code);
 
             assertThat(errMsg, containsString("Authentication failed"));
-            assertEquals("org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException", errClassName);
+            assertEquals("org.apache.ignite.security.authentication.exception.InvalidCredentialsException", errClassName);
             assertNull(errStackTrace);
         }
     }
@@ -387,7 +387,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals(INVALID_CREDENTIALS_ERR, code);
 
             assertThat(errMsg, containsString("Authentication failed"));
-            assertEquals("org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException", errClassName);
+            assertEquals("org.apache.ignite.security.authentication.exception.InvalidCredentialsException", errClassName);
             assertNull(errStackTrace);
         }
     }
