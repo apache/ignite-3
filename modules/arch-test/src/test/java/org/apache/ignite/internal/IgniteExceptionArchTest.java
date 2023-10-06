@@ -36,14 +36,13 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.client.handler.IgniteClientAuthenticationException;
+import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
 import org.apache.ignite.network.UnresolvableConsistentIdException;
-import org.apache.ignite.security.authentication.AuthenticationException;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 

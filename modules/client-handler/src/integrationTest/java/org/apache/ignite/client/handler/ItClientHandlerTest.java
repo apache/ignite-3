@@ -261,7 +261,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             assertEquals(COMMON_AUTHENTICATION_ERR, code);
 
             assertThat(errMsg, containsString("Authentication failed"));
-            assertEquals("org.apache.ignite.security.authentication.AuthenticationException", errClassName);
+            assertEquals("org.apache.ignite.internal.security.authentication.AuthenticationException", errClassName);
             assertNull(errStackTrace);
         }
     }

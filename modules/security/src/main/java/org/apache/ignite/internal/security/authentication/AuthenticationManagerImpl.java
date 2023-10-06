@@ -30,7 +30,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
-import org.apache.ignite.security.authentication.AuthenticationException;
 import org.jetbrains.annotations.Nullable;
 
 /**

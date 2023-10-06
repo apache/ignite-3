@@ -15,21 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.security.authentication;
+package org.apache.ignite.client;
 
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.ErrorGroups.Authentication;
+import static org.apache.ignite.lang.ErrorGroups.Client.AUTHENTICATION_ERR;
+
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * The general authentication exception.
+ * Indicates invalid credentials.
  */
-public class AuthenticationException extends IgniteInternalCheckedException {
+public class IgniteClientAuthenticationException extends IgniteException {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
+
     /**
-     * Creates a new authentication exception.
+     * Constructor.
      *
-     * @param message Detailed message.
+     * @param msg the detail message.
      */
-    public AuthenticationException(String message) {
-        super(Authentication.COMMON_AUTHENTICATION_ERR, message);
+    public IgniteClientAuthenticationException(String msg) {
+        this(msg, null);
+    }
+
+    /**
+     * Constructs a new exception with the specified detail message and cause.
+     *
+     * @param msg   the detail message.
+     * @param cause the cause.
+     */
+    public IgniteClientAuthenticationException(String msg, Throwable cause) {
+        super(AUTHENTICATION_ERR, msg, cause);
     }
 }
