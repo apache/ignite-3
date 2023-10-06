@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -79,28 +81,52 @@ class FragmentSplitter extends IgniteRelShuttle {
 
     @Override
     public IgniteRel visit(IgniteSystemViewScan rel) {
-        curr.systemViews.add(rel.getTable().unwrap(IgniteSystemView.class));
+        IgniteSystemView view = rel.getTable().unwrap(IgniteSystemView.class);
+
+        assert view != null;
+
+        if (curr.seenRelations.add(view.id())) {
+            curr.systemViews.add(view);
+        }
 
         return super.visit(rel);
     }
 
     @Override
     public IgniteRel visit(IgniteTableScan rel) {
-        curr.tables.add(rel.getTable().unwrap(IgniteTable.class));
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+
+        assert table != null;
+
+        if (curr.seenRelations.add(table.id())) {
+            curr.tables.add(table);
+        }
 
         return super.visit(rel);
     }
 
     @Override
     public IgniteRel visit(IgniteIndexScan rel) {
-        curr.tables.add(rel.getTable().unwrap(IgniteTable.class));
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+
+        assert table != null;
+
+        if (curr.seenRelations.add(table.id())) {
+            curr.tables.add(table);
+        }
 
         return super.visit(rel);
     }
 
     @Override
     public IgniteRel visit(IgniteTableModify rel) {
-        curr.tables.add(rel.getTable().unwrap(IgniteTable.class));
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+
+        assert table != null;
+
+        if (curr.seenRelations.add(table.id())) {
+            curr.tables.add(table);
+        }
 
         return super.visit(rel);
     }
@@ -188,6 +214,8 @@ class FragmentSplitter extends IgniteRelShuttle {
         private final boolean correlated;
 
         private IgniteRel root;
+
+        private final IntSet seenRelations = new IntOpenHashSet();
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
         private final List<IgniteTable> tables = new ArrayList<>();

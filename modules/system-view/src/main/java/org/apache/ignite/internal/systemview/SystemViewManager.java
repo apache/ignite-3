@@ -41,10 +41,9 @@ public interface SystemViewManager extends IgniteComponent {
      * Returns a list of nodes a view with given name can be found on.
      *
      * @param name Name of view of interest.
-     * @return A list of nodes owning a view. Never empty.
-     * @throws IgniteInternalException if we were unable to find nodes owning view with given name.
+     * @return A list of nodes owning a view, or empty list if there is no node in the cluster owning this view.
      */
-    List<String> owningNodes(String name) throws IgniteInternalException;
+    List<String> owningNodes(String name);
 
     /**
      * Opens a cursor over view with a given name and returns publisher emitting rows of the view.

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.systemview;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -29,8 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -131,19 +128,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public List<String> owningNodes(String name) throws IgniteInternalException {
-        return inBusyLock(busyLock, () -> {
-            List<String> owningNodes = owningNodesByViewName.get(name);
-
-            if (nullOrEmpty(owningNodes)) {
-                throw new IgniteInternalException(
-                        Common.INTERNAL_ERR,
-                        format("Unable to find nodes owning the view with name '{}'", name)
-                );
-            }
-
-            return owningNodes;
-        });
+    public List<String> owningNodes(String name) {
+        return inBusyLock(busyLock, () -> owningNodesByViewName.getOrDefault(name, List.of()));
     }
 
     @Override
@@ -155,8 +141,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
             );
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-20578 implement me
-        return new EmptyPublisher<>();
+        throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-20578");
     }
 
     /** {@inheritDoc} */
@@ -229,30 +214,5 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         }
 
         this.owningNodesByViewName = Map.copyOf(owningNodesByViewName);
-    }
-
-    private static class EmptyPublisher<T> implements Publisher<T> {
-        @Override
-        public void subscribe(Subscriber<? super T> subscriber) {
-            Subscription subscription = new Subscription() {
-                @Override
-                public void request(long n) {
-                    if (n <= 0) {
-                        subscriber.onError(new IllegalArgumentException("N should be positive: " + n));
-
-                        return;
-                    }
-
-                    subscriber.onComplete();
-                }
-
-                @Override
-                public void cancel() {
-                    // NO-OP
-                }
-            };
-
-            subscriber.onSubscribe(subscription);
-        }
     }
 }

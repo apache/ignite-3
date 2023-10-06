@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
@@ -96,6 +97,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
@@ -279,11 +281,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             @Override
             public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                List<String> nodes;
-                try {
-                    nodes = systemViewManager.owningNodes(view.name());
-                } catch (IgniteInternalException ex) {
-                    return CompletableFuture.failedFuture(ex);
+                List<String> nodes = systemViewManager.owningNodes(view.name());
+
+                if (nullOrEmpty(nodes)) {
+                    return CompletableFuture.failedFuture(
+                            new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                                    + " any active nodes in the cluster", view.name()))
+                    );
                 }
 
                 return CompletableFuture.completedFuture(

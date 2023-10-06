@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -208,11 +208,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     void managerDerivesViewPlacementFromLogicalTopologyEvents() {
         String viewName = "MY_VIEW";
 
-        assertThrowsWithCause(
-                () -> viewMgr.owningNodes(viewName),
-                IgniteInternalException.class,
-                "Unable to find nodes owning the view"
-        );
+        assertThat(viewMgr.owningNodes(viewName), empty());
 
         List<String> allNodes = List.of("A", "B", "C");
 
