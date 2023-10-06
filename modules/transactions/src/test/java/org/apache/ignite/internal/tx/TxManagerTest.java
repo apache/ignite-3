@@ -103,7 +103,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        when(replicaService.invoke(any(ClusterNode.class),any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(CompletableFuture.completedFuture(null));
 
         txManager = new TxManagerImpl(
                 replicaService,
