@@ -36,7 +36,6 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
 import org.apache.ignite.lang.IgniteCheckedException;
@@ -81,7 +80,6 @@ public class IgniteExceptionArchTest {
     private static final Set<String> exclusions = new HashSet<>();
 
     static {
-        exclusions.add(IgniteClientAuthenticationException.class.getCanonicalName());
         exclusions.add(IgniteClientConnectionException.class.getCanonicalName());
         exclusions.add(IgniteClientFeatureNotSupportedByServerException.class.getCanonicalName());
         exclusions.add(UnresolvableConsistentIdException.class.getCanonicalName());

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.security.authentication;
 
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException;
 
 /**
  * Authentication manager.
@@ -31,7 +32,7 @@ public interface AuthenticationManager extends ConfigurationListener<Authenticat
      *
      * @param authenticationRequest The authentication request.
      * @return The user details.
-     * @throws AuthenticationException If the authentication failed.
+     * @throws InvalidCredentialsException If the authentication failed.
      */
-    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws AuthenticationException;
+    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws InvalidCredentialsException;
 }

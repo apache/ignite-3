@@ -25,7 +25,7 @@ import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
-import org.apache.ignite.internal.security.authentication.AuthenticationException;
+import org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -48,7 +48,7 @@ public class DelegatingAuthenticationProvider implements AuthenticationProvider 
                 UserDetails userDetails = authenticationManager.authenticate(toIgniteAuthenticationRequest(authenticationRequest));
                 emitter.next(AuthenticationResponse.success(userDetails.username()));
                 emitter.complete();
-            } catch (AuthenticationException ex) {
+            } catch (InvalidCredentialsException ex) {
                 emitter.error(AuthenticationResponse.exception(ex.getMessage()));
             }
         }, FluxSink.OverflowStrategy.ERROR);

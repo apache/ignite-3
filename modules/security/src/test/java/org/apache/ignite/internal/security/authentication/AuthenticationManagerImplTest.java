@@ -30,6 +30,7 @@ import org.apache.ignite.internal.security.authentication.configuration.Authenti
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
 import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +44,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     private AuthenticationConfiguration authenticationConfiguration;
 
     @Test
-    public void enableAuth() throws AuthenticationException {
+    public void enableAuth() throws InvalidCredentialsException {
         // when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -66,7 +67,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void leaveOldSettingWhenInvalidConfiguration() throws AuthenticationException {
+    public void leaveOldSettingWhenInvalidConfiguration() throws InvalidCredentialsException {
         // when
         AuthenticationView invalidAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -83,7 +84,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void disableAuthEmptyProviders() throws AuthenticationException {
+    public void disableAuthEmptyProviders() throws InvalidCredentialsException {
         //when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -124,7 +125,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void disableAuthNotEmptyProviders() throws AuthenticationException {
+    public void disableAuthNotEmptyProviders() throws InvalidCredentialsException {
         //when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -162,7 +163,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void changedCredentials() throws AuthenticationException {
+    public void changedCredentials() throws InvalidCredentialsException {
         // when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -196,7 +197,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         manager.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, adminNewPasswordAuthView)).join();
 
-        assertThrows(AuthenticationException.class, () -> manager.authenticate(adminPasswordCredentials));
+        assertThrows(InvalidCredentialsException.class, () -> manager.authenticate(adminPasswordCredentials));
 
         // then
         // successful authentication with the new password

@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication;
+package org.apache.ignite.internal.security.authentication.exception;
 
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.ErrorGroups.Authentication;
+import static org.apache.ignite.internal.security.authentication.exception.ErrorCodes.UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * The general authentication exception.
+ * The exception thrown when authentication schema is not supported.
  */
-public class AuthenticationException extends IgniteInternalCheckedException {
+public class UnsupportedAuthenticationSchemaException extends IgniteInternalException {
     /**
      * Creates a new authentication exception.
      *
      * @param message Detailed message.
      */
-    public AuthenticationException(String message) {
-        super(Authentication.COMMON_AUTHENTICATION_ERR, message);
+    public UnsupportedAuthenticationSchemaException(String message) {
+        super(UNSUPPORTED_AUTHENTICATION_SCHEMA_ERR, message);
     }
 }

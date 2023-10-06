@@ -101,12 +101,13 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
-import org.apache.ignite.internal.security.authentication.AuthenticationException;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException;
+import org.apache.ignite.internal.security.authentication.exception.UnsupportedAuthenticationSchemaException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -350,14 +351,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) throws AuthenticationException {
+    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) throws InvalidCredentialsException {
         AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
 
         return authenticationManager.authenticate(authenticationRequest);
     }
 
-    private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions)
-            throws AuthenticationException {
+    private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
         Object authnType = extensions.get(HandshakeExtension.AUTHENTICATION_TYPE);
 
         if (authnType == null) {
@@ -370,7 +370,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));
         }
 
-        throw new AuthenticationException("Unsupported authentication type: " + authnType);
+        throw new UnsupportedAuthenticationSchemaException("Unsupported authentication schema: " + authnType);
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {

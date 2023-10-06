@@ -472,9 +472,6 @@ public class ErrorGroups {
     public static class Authentication {
         /** Authentication error group. */
         public static final ErrorGroup AUTHENTICATION_ERR_GROUP = registerGroup("AUTHENTICATION", (short) 15);
-
-        /** General authentication error. */
-        public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 1);
     }
 
     /**

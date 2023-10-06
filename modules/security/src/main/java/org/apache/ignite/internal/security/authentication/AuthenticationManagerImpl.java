@@ -30,6 +30,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.authentication.exception.InvalidCredentialsException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,7 +46,7 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
     private boolean authEnabled = false;
 
     @Override
-    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws AuthenticationException {
+    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws InvalidCredentialsException {
         rwLock.readLock().lock();
         try {
             if (authEnabled) {
@@ -53,7 +54,7 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
                         .map(authenticator -> authenticator.authenticate(authenticationRequest))
                         .filter(Objects::nonNull)
                         .findFirst()
-                        .orElseThrow(() -> new AuthenticationException("Authentication failed"));
+                        .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
             } else {
                 return new UserDetails("Unknown");
             }
