@@ -216,7 +216,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         }
 
         CompletableFuture<ResolvedDependencies> resolveDependencies(String sql) {
-            ExecutionDependencyResolver resolver = new ExecutionDependencyResolverImpl(registry);
+            ExecutionDependencyResolver resolver = new ExecutionDependencyResolverImpl(registry, null);
 
             IgniteRel rel;
             try {

@@ -32,6 +32,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -41,7 +43,7 @@ import org.junit.jupiter.api.Test;
  * TreeIndexSpoolExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
+public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest<Object[]> {
     @Test
     public void testIndexSpool() {
         ExecutionContext<Object[]> ctx = executionContext();
@@ -241,4 +243,8 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
         }
     }
 
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
 }

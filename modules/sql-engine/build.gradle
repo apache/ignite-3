@@ -38,6 +38,7 @@ dependencies {
     implementation project(':ignite-catalog')
     implementation project(':ignite-metrics')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-system-view')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine

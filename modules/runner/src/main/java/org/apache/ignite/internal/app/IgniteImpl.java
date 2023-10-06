@@ -529,8 +529,9 @@ public class IgniteImpl implements Ignite {
                 delayDurationMsSupplier
         );
 
-        systemViewManager = new SystemViewManagerImpl(catalogManager);
+        systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
+        logicalTopology.addEventListener(systemViewManager);
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
@@ -589,7 +590,8 @@ public class IgniteImpl implements Ignite {
                 replicaSvc,
                 clock,
                 catalogManager,
-                metricManager
+                metricManager,
+                systemViewManager
         );
 
         sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));

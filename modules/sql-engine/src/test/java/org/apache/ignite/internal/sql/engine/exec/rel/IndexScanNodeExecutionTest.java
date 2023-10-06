@@ -40,10 +40,12 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
@@ -58,7 +60,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test {@link IndexScanNode} execution.
  */
-public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
+public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     /**
      * Sorted index scan execution.
@@ -306,5 +308,10 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 });
             }
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

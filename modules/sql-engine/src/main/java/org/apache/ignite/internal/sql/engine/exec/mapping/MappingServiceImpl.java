@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -34,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
  * An implementation of {@link MappingService}.
@@ -76,14 +77,17 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
         List<Fragment> fragments0 = Commons.transform(fragments, fragment -> fragment.attach(context.cluster()));
 
-        List<CompletableFuture<IntObjectPair<ExecutionTarget>>> targets = fragments0.stream()
-                .flatMap(fragment ->
-                        fragment.tableIds().intStream()
-                                .mapToObj(id ->
-                                        targetProvider.forTable(context.targetFactory(), id)
-                                                .thenApply(target -> IntObjectPair.of(id, target))
+        List<CompletableFuture<IntObjectPair<ExecutionTarget>>> targets =
+                fragments0.stream().flatMap(fragment -> Stream.concat(
+                        fragment.tables().stream()
+                                .map(table -> targetProvider.forTable(context.targetFactory(), table)
+                                        .thenApply(target -> IntObjectPair.of(table.id(), target))
+                                ),
+                        fragment.systemViews().stream()
+                                .map(view -> targetProvider.forSystemView(context.targetFactory(), view)
+                                        .thenApply(target -> IntObjectPair.of(view.id(), target))
                                 )
-                )
+                ))
                 .collect(Collectors.toList());
 
         return allOf(targets.toArray(new CompletableFuture[0]))
@@ -155,12 +159,12 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     }
 
                     if (!lastAttemptSucceed) {
-                        throw new IgniteInternalException(INTERNAL_ERR, "Unable to map query", ex);
+                        throw new IgniteInternalException(Sql.MAPPING_ERR, "Unable to map query: " + ex.getMessage(), ex);
                     }
 
                     List<MappedFragment> result = new ArrayList<>(fragmentsToMap.size());
                     for (Fragment fragment : fragmentsToMap) {
-                        FragmentMapping mapping =  mappingByFragmentId.get(fragment.fragmentId());
+                        FragmentMapping mapping = mappingByFragmentId.get(fragment.fragmentId());
 
                         ColocationGroup targetGroup = null;
                         if (!fragment.rootFragment()) {
@@ -242,7 +246,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     sender = new IgniteSender(sender.getCluster(), sender.getTraitSet(),
                             sender.getInput(), sender.exchangeId(), newTargetId, sender.distribution());
 
-                    fragment = new Fragment(fragment.fragmentId(), fragment.correlated(), sender, fragment.remotes(), fragment.tableIds());
+                    fragment = new Fragment(fragment.fragmentId(), fragment.correlated(), sender,
+                            fragment.remotes(), fragment.tables(), fragment.systemViews());
                 }
             }
 
