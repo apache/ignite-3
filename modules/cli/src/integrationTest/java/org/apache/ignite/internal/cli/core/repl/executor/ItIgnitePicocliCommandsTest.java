@@ -265,7 +265,9 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("rest", "clientConnector", "network", "cluster", "deployment", "nodeAttributes")
+                containsInAnyOrder(
+                        "rest", "clientConnector", "network", "cluster", "deployment", "nodeAttributes", "aimem", "aipersist", "rocksDb"
+                )
         );
     }
 

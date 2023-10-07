@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
@@ -110,7 +111,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                 CatalogTableDescriptor.INITIAL_TABLE_VERSION,
                 columns.stream().map(CatalogUtils::fromParams).collect(toList()),
                 primaryKeyColumns,
-                colocationColumns
+                colocationColumns,
+                INITIAL_CAUSALITY_TOKEN
         );
 
         String indexName = tableName + "_PK";

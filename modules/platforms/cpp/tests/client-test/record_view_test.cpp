@@ -50,16 +50,16 @@ struct test_type {
     std::string val;
 };
 
-struct wrong_mapping_key {
-    wrong_mapping_key() = default;
+struct missing_mapping_key {
+    missing_mapping_key() = default;
 
-    explicit wrong_mapping_key(std::int64_t key)
+    explicit missing_mapping_key(std::int64_t key)
         : key(key) {}
 
-    explicit wrong_mapping_key(std::string val)
+    explicit missing_mapping_key(std::string val)
         : val(std::move(val)) {}
 
-    explicit wrong_mapping_key(std::int64_t key, std::string val)
+    explicit missing_mapping_key(std::int64_t key, std::string val)
         : key(key)
         , val(std::move(val)) {}
 
@@ -67,22 +67,40 @@ struct wrong_mapping_key {
     std::string val;
 };
 
-struct wrong_mapping_value {
-    wrong_mapping_value() = default;
+struct missing_mapping_value {
+    missing_mapping_value() = default;
 
-    explicit wrong_mapping_value(std::int64_t key)
+    explicit missing_mapping_value(std::int64_t key)
         : key(key) {}
 
-    explicit wrong_mapping_value(std::string val)
+    explicit missing_mapping_value(std::string val)
         : val(std::move(val)) {}
 
-    explicit wrong_mapping_value(std::int64_t key, std::string val)
+    explicit missing_mapping_value(std::int64_t key, std::string val)
         : key(key)
         , val(std::move(val)) {}
 
     std::int64_t key{0};
     std::string val;
 };
+
+struct extra_mapping_value {
+    extra_mapping_value() = default;
+
+    explicit extra_mapping_value(std::int64_t key)
+        : key(key) {}
+
+    explicit extra_mapping_value(std::string val)
+        : val(std::move(val)) {}
+
+    explicit extra_mapping_value(std::int64_t key, std::string val)
+        : key(key)
+        , val(std::move(val)) {}
+
+    std::int64_t key{0};
+    std::string val;
+};
+
 
 namespace ignite {
 
@@ -109,45 +127,62 @@ test_type convert_from_tuple(ignite_tuple &&value) {
 }
 
 template<>
-ignite_tuple convert_to_tuple(wrong_mapping_key &&value) {
+ignite_tuple convert_to_tuple(missing_mapping_key &&value) {
     ignite_tuple tuple;
 
-    tuple.set("id", value.key);
     tuple.set("val", value.val);
 
     return tuple;
 }
 
 template<>
-wrong_mapping_key convert_from_tuple(ignite_tuple &&value) {
-    wrong_mapping_key res;
+missing_mapping_key convert_from_tuple(ignite_tuple &&value) {
+    missing_mapping_key res;
 
-    res.key = value.get<std::int64_t>("id");
-
-    if (value.column_count() > 1)
-        res.val = value.get<std::string>("val");
+    res.val = value.get<std::string>("val");
 
     return res;
 }
 
 template<>
-ignite_tuple convert_to_tuple(wrong_mapping_value &&value) {
+ignite_tuple convert_to_tuple(missing_mapping_value &&value) {
     ignite_tuple tuple;
 
     tuple.set("key", value.key);
-    tuple.set("str", value.val);
 
     return tuple;
 }
 
 template<>
-wrong_mapping_value convert_from_tuple(ignite_tuple &&value) {
-    wrong_mapping_value res;
+missing_mapping_value convert_from_tuple(ignite_tuple &&value) {
+    missing_mapping_value res;
 
     res.key = value.get<std::int64_t>("key");
 
-    if (value.column_count() > 1)
-        res.val = value.get<std::string>("str");
+    return res;
+}
+
+template<>
+ignite_tuple convert_to_tuple(extra_mapping_value &&value) {
+    ignite_tuple tuple;
+
+    tuple.set("key", value.key);
+    tuple.set("val", value.val);
+    tuple.set("extra", std::string("extra"));
+
+    return tuple;
+}
+
+template<>
+extra_mapping_value convert_from_tuple(ignite_tuple &&value) {
+    extra_mapping_value res;
+
+    res.key = value.get<std::int64_t>("key");
+
+    if (value.column_count() > 1) {
+        res.val = value.get<std::string>("val");
+        (void) value.get<std::string>("extra");
+    }
 
     return res;
 }
@@ -185,17 +220,17 @@ protected:
     record_view<test_type> view;
 };
 
-TEST_F(record_view_test, wrong_mapped_key_throws) {
+TEST_F(record_view_test, missing_mapping_key_throws) {
     {
         test_type val{1, "foo"};
         view.upsert(nullptr, val);
     }
 
     auto table = m_client.get_tables().get_table(TABLE_1);
-    auto wrong_view = table->get_record_view<wrong_mapping_key>();
+    auto wrong_view = table->get_record_view<missing_mapping_key>();
 
-    wrong_mapping_key key{1};
-    wrong_mapping_key val{1, "foo"};
+    missing_mapping_key key{1};
+    missing_mapping_key val{1, "foo"};
 
     EXPECT_THROW(
         {
@@ -220,31 +255,43 @@ TEST_F(record_view_test, wrong_mapped_key_throws) {
         ignite_error);
 }
 
-TEST_F(record_view_test, wrong_mapped_value_throws) {
+TEST_F(record_view_test, extra_mapping_value_throws) {
+    auto table = m_client.get_tables().get_table(TABLE_1);
+    auto wrong_view = table->get_record_view<extra_mapping_value>();
+
+    extra_mapping_value key{1};
+    extra_mapping_value val{1, "foo"};
+
+    EXPECT_THROW(
+        {
+            try {
+                wrong_view.upsert(nullptr, val);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::MatchesRegex(
+                    "Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(record_view_test, missing_mapped_value_dont_throw) {
     {
         test_type val{1, "foo"};
         view.upsert(nullptr, val);
     }
 
     auto table = m_client.get_tables().get_table(TABLE_1);
-    auto wrong_view = table->get_record_view<wrong_mapping_value>();
+    auto wrong_view = table->get_record_view<missing_mapping_value>();
 
-    wrong_mapping_value key{1};
-    wrong_mapping_value val{1, "foo"};
+    missing_mapping_value key{1};
+    missing_mapping_value val{1, "foo"};
 
     // Should work just fine. Having additional field and not providing value field is not an error.
     wrong_view.upsert(nullptr, val);
 
-    EXPECT_THROW(
-        {
-            try {
-                (void) wrong_view.get(nullptr, key);
-            } catch (const ignite_error &e) {
-                EXPECT_EQ(e.what_str(), "Can not find column with the name 'str' in the tuple");
-                throw;
-            }
-        },
-        ignite_error);
+    auto actual = wrong_view.get(nullptr, key);
+    EXPECT_TRUE(actual->val.empty());
 }
 
 TEST_F(record_view_test, upsert_get) {

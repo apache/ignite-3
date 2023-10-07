@@ -102,7 +102,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<Option<T>> GetAsync(ITransaction? transaction, T key)
         {
-            ArgumentNullException.ThrowIfNull(key);
+            IgniteArgumentCheck.NotNull(key);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGet, transaction, key, keyOnly: true).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
@@ -113,7 +113,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<bool> ContainsKeyAsync(ITransaction? transaction, T key)
         {
-            ArgumentNullException.ThrowIfNull(key);
+            IgniteArgumentCheck.NotNull(key);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleContainsKey, transaction, key, keyOnly: true).ConfigureAwait(false);
             return ReadSchemaAndBoolean(resBuf);
@@ -150,7 +150,7 @@ namespace Apache.Ignite.Internal.Table
             Func<int, TRes> resultFactory,
             Action<TRes, Option<T>> addAction)
         {
-            ArgumentNullException.ThrowIfNull(keys);
+            IgniteArgumentCheck.NotNull(keys);
 
             using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleGetAll, transaction, keys, true).ConfigureAwait(false);
             if (resBuf == null)
@@ -167,7 +167,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task UpsertAsync(ITransaction? transaction, T record)
         {
-            ArgumentNullException.ThrowIfNull(record);
+            IgniteArgumentCheck.NotNull(record);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleUpsert, transaction, record).ConfigureAwait(false);
         }
@@ -175,7 +175,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task UpsertAllAsync(ITransaction? transaction, IEnumerable<T> records)
         {
-            ArgumentNullException.ThrowIfNull(records);
+            IgniteArgumentCheck.NotNull(records);
 
             using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleUpsertAll, transaction, records).ConfigureAwait(false);
         }
@@ -183,7 +183,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<Option<T>> GetAndUpsertAsync(ITransaction? transaction, T record)
         {
-            ArgumentNullException.ThrowIfNull(record);
+            IgniteArgumentCheck.NotNull(record);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndUpsert, transaction, record).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
@@ -194,7 +194,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<bool> InsertAsync(ITransaction? transaction, T record)
         {
-            ArgumentNullException.ThrowIfNull(record);
+            IgniteArgumentCheck.NotNull(record);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleInsert, transaction, record).ConfigureAwait(false);
             return ReadSchemaAndBoolean(resBuf);
@@ -203,7 +203,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<T>> InsertAllAsync(ITransaction? transaction, IEnumerable<T> records)
         {
-            ArgumentNullException.ThrowIfNull(records);
+            IgniteArgumentCheck.NotNull(records);
 
             using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleInsertAll, transaction, records).ConfigureAwait(false);
             if (resBuf == null)
@@ -227,7 +227,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<bool> ReplaceAsync(ITransaction? transaction, T record)
         {
-            ArgumentNullException.ThrowIfNull(record);
+            IgniteArgumentCheck.NotNull(record);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleReplace, transaction, record).ConfigureAwait(false);
             return ReadSchemaAndBoolean(resBuf);
@@ -236,7 +236,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<bool> ReplaceAsync(ITransaction? transaction, T record, T newRecord)
         {
-            ArgumentNullException.ThrowIfNull(record);
+            IgniteArgumentCheck.NotNull(record);
 
             using var resBuf = await DoTwoRecordOutOpAsync(ClientOp.TupleReplaceExact, transaction, record, newRecord)
                 .ConfigureAwait(false);
@@ -247,7 +247,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<Option<T>> GetAndReplaceAsync(ITransaction? transaction, T record)
         {
-            ArgumentNullException.ThrowIfNull(record);
+            IgniteArgumentCheck.NotNull(record);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndReplace, transaction, record).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
@@ -258,7 +258,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<bool> DeleteAsync(ITransaction? transaction, T key)
         {
-            ArgumentNullException.ThrowIfNull(key);
+            IgniteArgumentCheck.NotNull(key);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
             return ReadSchemaAndBoolean(resBuf);
@@ -267,7 +267,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<bool> DeleteExactAsync(ITransaction? transaction, T record)
         {
-            ArgumentNullException.ThrowIfNull(record);
+            IgniteArgumentCheck.NotNull(record);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleDeleteExact, transaction, record).ConfigureAwait(false);
             return ReadSchemaAndBoolean(resBuf);
@@ -276,7 +276,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<Option<T>> GetAndDeleteAsync(ITransaction? transaction, T key)
         {
-            ArgumentNullException.ThrowIfNull(key);
+            IgniteArgumentCheck.NotNull(key);
 
             using var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGetAndDelete, transaction, key, keyOnly: true).ConfigureAwait(false);
             var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
@@ -361,7 +361,7 @@ namespace Apache.Ignite.Internal.Table
             Action<TRes, T> addAction,
             bool exact)
         {
-            ArgumentNullException.ThrowIfNull(records);
+            IgniteArgumentCheck.NotNull(records);
 
             var clientOp = exact ? ClientOp.TupleDeleteAllExact : ClientOp.TupleDeleteAll;
             using var resBuf = await DoMultiRecordOutOpAsync(clientOp, transaction, records, keyOnly: !exact).ConfigureAwait(false);

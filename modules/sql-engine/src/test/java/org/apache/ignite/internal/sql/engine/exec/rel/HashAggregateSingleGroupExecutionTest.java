@@ -37,8 +37,10 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -51,7 +53,7 @@ import org.junit.jupiter.api.Test;
  * HashAggregateSingleGroupExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest {
+public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest<Object[]> {
 
     @Test
     public void mapReduceSum() {
@@ -432,5 +434,10 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         MapReduceAgg reduceAggCall = MapReduceAggregates.createMapReduceAggCall(call, 0);
 
         return newHashAggNode(ctx, REDUCE, grpSets, hashRowType, reduceAggCall.getReduceCall());
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

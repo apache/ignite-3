@@ -19,10 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
-import java.util.List;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -32,7 +31,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -105,22 +103,6 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
         assertTrue(done, "Failed to clear the cache");
     }
 
-    /** Table cache is purged on schema update. */
-    @Test
-    public void testCacheIsClearedOnSchemaUpdate() {
-        Tester tester = new Tester();
-
-        CompletableFuture<ExecutableTable> f1 = tester.getTable(1);
-        CompletableFuture<ExecutableTable> f2 = tester.getTable(2);
-
-        f1.join();
-        f2.join();
-
-        tester.schemaUpdated();
-
-        assertTrue(tester.registry.tableCache.isEmpty());
-    }
-
     private static SchemaDescriptor newDescriptor(int schemaVersion) {
         return new SchemaDescriptor(
                 schemaVersion,
@@ -141,20 +123,16 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
             registry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, cacheSize);
         }
 
-        void schemaUpdated() {
-            registry.onSchemaUpdated();
-        }
-
         CompletableFuture<ExecutableTable> getTable(int tableId) {
             TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager());
             int schemaVersion = 1;
-            int tableVersion = 1;
+            int tableVersion = 10;
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
-            when(schemaRegistry.schema(anyInt())).thenReturn(schemaDescriptor);
-            when(descriptor.iterator()).thenReturn(List.<ColumnDescriptor>of().iterator());
+            when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
+            when(descriptor.iterator()).thenReturn(Collections.emptyIterator());
 
             return registry.getTable(tableId, tableVersion, descriptor);
         }

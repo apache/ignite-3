@@ -24,8 +24,11 @@ import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_A
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -36,11 +39,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -49,6 +57,9 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -192,6 +203,34 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         viewMgr.stop();
     }
 
+    @Test
+    @SuppressWarnings("DataFlowIssue")
+    void managerDerivesViewPlacementFromLogicalTopologyEvents() {
+        String viewName = "MY_VIEW";
+
+        assertThat(viewMgr.owningNodes(viewName), empty());
+
+        List<String> allNodes = List.of("A", "B", "C");
+
+        LogicalTopologySnapshot topologySnapshot = topologySnapshot(viewName, allNodes, 0, 2);
+        viewMgr.onNodeJoined(first(topologySnapshot.nodes()), topologySnapshot);
+
+        assertThat(viewMgr.owningNodes(viewName), hasItem("A"));
+        assertThat(viewMgr.owningNodes(viewName), hasItem("C"));
+
+        topologySnapshot = topologySnapshot(viewName, allNodes, 0, 1);
+        viewMgr.onNodeLeft(first(topologySnapshot.nodes()), topologySnapshot);
+
+        assertThat(viewMgr.owningNodes(viewName), hasItem("A"));
+        assertThat(viewMgr.owningNodes(viewName), hasItem("B"));
+
+        topologySnapshot = topologySnapshot(viewName, allNodes, 1, 2);
+        viewMgr.onTopologyLeap(topologySnapshot);
+
+        assertThat(viewMgr.owningNodes(viewName), hasItem("B"));
+        assertThat(viewMgr.owningNodes(viewName), hasItem("C"));
+    }
+
     private static SystemView<?> dummyView(String name) {
         return dummyView(name, NativeTypes.INT32);
     }
@@ -213,5 +252,32 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
                     }
                 })
                 .build();
+    }
+
+    private static LogicalTopologySnapshot topologySnapshot(String viewName, List<String> allNodes, int... owningNodes) {
+        BitSet owningNodesSet = new BitSet();
+
+        for (int idx : owningNodes) {
+            owningNodesSet.set(idx);
+        }
+
+        List<LogicalNode> topology = new ArrayList<>(allNodes.size());
+
+        for (int i = 0; i < allNodes.size(); i++) {
+            String name = allNodes.get(i);
+
+            ClusterNode clusterNode = new ClusterNodeImpl(name, name, new NetworkAddress("127.0.0.1", 1010 + i));
+
+            Map<String, String> systemAttributes;
+            if (owningNodesSet.get(i)) {
+                systemAttributes = Map.of(NODE_ATTRIBUTES_KEY, viewName);
+            } else {
+                systemAttributes = Map.of();
+            }
+
+            topology.add(new LogicalNode(clusterNode, Map.of(), systemAttributes));
+        }
+
+        return new LogicalTopologySnapshot(1, topology);
     }
 }

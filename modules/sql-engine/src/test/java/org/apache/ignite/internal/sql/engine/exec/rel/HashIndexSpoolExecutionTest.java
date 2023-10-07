@@ -29,6 +29,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -38,7 +40,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Hash index based spool implementation test.
  */
-public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
+public class HashIndexSpoolExecutionTest extends AbstractExecutionTest<Object[]> {
     @Test
     public void testIndexSpool() {
         ExecutionContext<Object[]> ctx = executionContext(true);
@@ -202,5 +204,10 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
             this.bounds = bounds;
             this.expectedResultSize = expectedResultSize;
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

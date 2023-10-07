@@ -28,12 +28,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test LimitNode execution.
  */
-public class LimitExecutionTest extends AbstractExecutionTest {
+public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
     /** Tests correct results fetched with Limit node. */
     @Test
     public void testLimit() {
@@ -213,5 +215,10 @@ public class LimitExecutionTest extends AbstractExecutionTest {
                 }
             }, this::onError);
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

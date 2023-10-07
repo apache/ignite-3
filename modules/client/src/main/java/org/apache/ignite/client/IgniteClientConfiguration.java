@@ -20,7 +20,7 @@ package org.apache.ignite.client;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
-import org.apache.ignite.internal.lang.LoggerFactory;
+import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**

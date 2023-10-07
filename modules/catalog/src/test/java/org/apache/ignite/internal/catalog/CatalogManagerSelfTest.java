@@ -1894,23 +1894,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         return manager.execute(builder.build());
     }
 
-    private CatalogCommand simpleTable(String name) {
-        List<ColumnParams> cols = List.of(
-                columnParams("ID", INT32),
-                columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
-                columnParamsBuilder("VAL_NOT_NULL", INT32).defaultValue(constant(1)).build(),
-                columnParams("DEC", DECIMAL, true, 11, 2),
-                columnParams("STR", STRING, 101, true),
-                columnParamsBuilder("DEC_SCALE", DECIMAL).precision(12).scale(3).build()
-        );
-
-        return simpleTable(name, cols);
-    }
-
-    private CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
-        return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
-    }
-
     private static CatalogCommand simpleIndex() {
         return createSortedIndexCommand(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST));
     }
