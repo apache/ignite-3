@@ -22,15 +22,15 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
- * Test baseline configuration schema.
+ * Test configuration schema.
  */
 @Config
-public class BaselineConfigurationSchema {
-    /** Auto adjust. */
+public class TestConfigurationSchema {
+    /** Test configuration value schema. */
     @ConfigValue
-    public AutoAdjustConfigurationSchema autoAdjust;
+    public TestConfigValueConfigurationSchema testConfigValue;
 
-    /** Nodes. */
+    /** Test configuration values schema. */
     @NamedConfigValue
-    public NodeConfigurationSchema nodes;
+    public TestConfigValueConfigurationSchema testConfigValues;
 }

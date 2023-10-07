@@ -15,27 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.sample;
+package org.apache.ignite.internal.sql.engine.exec;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 
 /**
- * Test node configuration schema.
+ * An integration point that helps the execution to scan over arbitrary source of rows.
  */
-@Config
-public class NodeConfigurationSchema {
-    /** Consistent id. */
-    @Value
-    @Immutable
-    public String consistentId;
-
-    /** Port. */
-    @Value
-    public int port;
-
-    /** Auto adjust enabled. */
-    @Value(hasDefault = true)
-    public boolean autoAdjustEnabled = true;
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ScannableDataSourceProvider {
+    ScannableDataSource forSystemView(IgniteSystemView view);
 }

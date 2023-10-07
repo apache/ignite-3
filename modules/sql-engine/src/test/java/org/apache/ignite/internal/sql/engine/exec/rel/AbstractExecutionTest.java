@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
@@ -36,6 +38,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
@@ -61,10 +67,8 @@ import org.junit.jupiter.api.BeforeEach;
  * AbstractExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public abstract class AbstractExecutionTest extends IgniteAbstractTest {
+public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     public static final Object[][] EMPTY = new Object[0][];
-
-    private Throwable lastE;
 
     private QueryTaskExecutorImpl taskExecutor;
 
@@ -81,17 +85,15 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
     @AfterEach
     public void afterTest() {
         taskExecutor.stop();
-
-        if (lastE != null) {
-            throw new AssertionError(lastE);
-        }
     }
 
-    protected ExecutionContext<Object[]> executionContext() {
+    protected abstract RowHandler<T> rowHandler();
+
+    protected ExecutionContext<T> executionContext() {
         return executionContext(false);
     }
 
-    protected ExecutionContext<Object[]> executionContext(boolean withDelays) {
+    protected ExecutionContext<T> executionContext(boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
                     NamedThreadFactory.threadPrefix("fake-test-node", "sqlTestExec"),
@@ -120,15 +122,10 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
                 new ClusterNodeImpl("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                 "fake-test-node",
                 fragmentDesc,
-                ArrayRowHandler.INSTANCE,
+                rowHandler(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node"))
         );
-    }
-
-    private void handle(Thread t, Throwable ex) {
-        log.error(ex.getMessage(), ex);
-        lastE = ex;
     }
 
     protected Object[] row(Object... fields) {
@@ -341,7 +338,7 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
         }
     }
 
-    protected RowHandler.RowFactory<Object[]> rowFactory() {
+    static RowHandler.RowFactory<Object[]> rowFactory() {
         return new RowHandler.RowFactory<>() {
             @Override
             public RowHandler<Object[]> handler() {
@@ -368,5 +365,39 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+    static TupleFactory tupleFactoryFromSchema(BinaryTupleSchema schema) {
+        return new BinaryTupleFactory(schema);
+    }
+
+    @FunctionalInterface
+    interface TupleFactory {
+        InternalTuple create(Object... values);
+    }
+
+    private static class BinaryTupleFactory implements TupleFactory {
+        private final BinaryTupleSchema schema;
+
+        BinaryTupleFactory(BinaryTupleSchema schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public InternalTuple create(Object... values) {
+            if (schema.elementCount() != values.length) {
+                throw new IllegalArgumentException(
+                        format("Expecting {} elements, but was {}", schema.elementCount(), values.length)
+                );
+            }
+
+            BinaryTupleBuilder builder = new BinaryTupleBuilder(schema.elementCount());
+
+            for (int i = 0; i < schema.elementCount(); i++) {
+                BinaryRowConverter.appendValue(builder, schema.element(i), values[i]);
+            }
+
+            return new BinaryTuple(schema.elementCount(), builder.build());
+        }
     }
 }

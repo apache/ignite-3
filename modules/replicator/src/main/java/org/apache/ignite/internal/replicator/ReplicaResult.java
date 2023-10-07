@@ -15,40 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.listener;
+package org.apache.ignite.internal.replicator;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Replica listener.
+ * Represents replica execution result.
  */
-@FunctionalInterface
-public interface ReplicaListener {
-    /**
-     * Invokes a replica listener to process request.
-     *
-     * @param request Replica request.
-     * @param senderId Sender id.
-     * @return Listener response.
-     */
-    CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
+public class ReplicaResult {
+    /** The result. */
+    private final Object res;
+
+    /** The replication future. */
+    private final CompletableFuture<?> repFut;
 
     /**
-     * Callback on becoming the primary replica.
+     * Construct a replica result.
      *
-     * @param clusterNode Primary replica node.
+     * @param res The result.
+     * @param repFut The replication future.
      */
-    default void onBecomePrimary(ClusterNode clusterNode) {
-        // No-op.
+    public ReplicaResult(@Nullable Object res, @Nullable CompletableFuture<?> repFut) {
+        this.res = res;
+        this.repFut = repFut;
     }
 
     /**
-     * Callback on replica shutdown.
+     * Get the result.
+     *
+     * @return The result.
      */
-    default void onShutdown() {
-        // No-op.
+    public @Nullable Object result() {
+        return res;
+    }
+
+    /**
+     * Get the replication future.
+     *
+     * @return The replication future.
+     */
+    public @Nullable CompletableFuture<?> replicationFuture() {
+        return repFut;
     }
 }

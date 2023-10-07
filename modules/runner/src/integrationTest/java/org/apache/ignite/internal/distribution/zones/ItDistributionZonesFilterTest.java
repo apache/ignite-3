@@ -192,8 +192,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
-        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
@@ -252,8 +250,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
-        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
@@ -280,8 +276,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         waitDataNodeAndListenersAreHandled(metaStorageManager, 2, zoneId);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
-        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),

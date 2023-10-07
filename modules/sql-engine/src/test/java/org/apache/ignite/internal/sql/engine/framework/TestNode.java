@@ -117,7 +117,7 @@ public class TestNode implements LifecycleAware {
                 mailboxRegistry, messageService
         ));
         NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
-        ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
+        ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
         executionService = registerService(new ExecutionServiceImpl<>(
                 messageService,

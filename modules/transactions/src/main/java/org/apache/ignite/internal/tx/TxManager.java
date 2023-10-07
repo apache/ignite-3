@@ -179,4 +179,19 @@ public interface TxManager extends IgniteComponent {
      * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
      */
     CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
+
+    /**
+     * Registers the infligh update for a transaction.
+     *
+     * @param txId The transaction id.
+     * @return {@code True} if the inflight was registered. The update must be failed on false.
+     */
+    boolean addInflight(UUID txId);
+
+    /**
+     * Unregisters the inflight for a transaction.
+     *
+     * @param txId The transction id
+     */
+    void removeInflight(UUID txId);
 }

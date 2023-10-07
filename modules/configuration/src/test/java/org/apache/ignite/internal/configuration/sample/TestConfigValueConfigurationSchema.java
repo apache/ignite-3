@@ -17,20 +17,27 @@
 
 package org.apache.ignite.internal.configuration.sample;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Test cluster wide configuration schema.
+ * Test configuration value schema.
  */
-@ConfigurationRoot(rootName = "cluster")
-public class ClusterWideConfigurationSchema {
-    /** Cache. */
-    @NamedConfigValue
-    public CacheConfigurationSchema cacheConfig;
+@Config
+public class TestConfigValueConfigurationSchema {
+    /** String value. */
+    @Value
+    @Immutable
+    public String stringValue;
 
-    /** Baseline. */
-    @ConfigValue
-    public TestConfigurationSchema testConfigurationSchema;
+    /** Long value. */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public long longValue = 0L;
+
+    /** Boolean value. */
+    @Value(hasDefault = true)
+    public boolean booleanValue = true;
 }
