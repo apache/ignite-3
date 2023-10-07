@@ -41,7 +41,7 @@ class RowBatch {
     /**
      * Future of the result of processing the {@link #requestedRows}, {@code null} if not set and may return {@code null}.
      */
-    @Nullable CompletableFuture<Object> resultFuture;
+    @Nullable CompletableFuture<?> resultFuture;
 
     void add(BinaryRow row, int originalIndex) {
         requestedRows.add(row);
@@ -49,7 +49,7 @@ class RowBatch {
     }
 
     @Nullable Object getCompletedResult() {
-        CompletableFuture<Object> resultFuture = this.resultFuture;
+        CompletableFuture<?> resultFuture = this.resultFuture;
 
         assert resultFuture != null;
         assert resultFuture.isDone();

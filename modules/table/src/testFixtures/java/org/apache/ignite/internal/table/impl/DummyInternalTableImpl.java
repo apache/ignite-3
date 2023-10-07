@@ -53,6 +53,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -255,7 +256,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     .doAnswer(invocationOnMock -> {
                         ClusterNode node = invocationOnMock.getArgument(0);
 
-                        return replicaListener.invoke(invocationOnMock.getArgument(1), node.id());
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), node.id()).thenApply(ReplicaResult::result);
                     })
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
 
@@ -263,7 +264,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     .doAnswer(invocationOnMock -> {
                         String nodeId = invocationOnMock.getArgument(0);
 
-                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId);
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId).thenApply(ReplicaResult::result);
                     })
                     .when(replicaSvc).invoke(anyString(), any());
         }

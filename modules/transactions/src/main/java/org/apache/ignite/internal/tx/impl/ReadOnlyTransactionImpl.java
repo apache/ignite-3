@@ -102,11 +102,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        // No-op.
-    }
-
-    @Override
     // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
     protected CompletableFuture<Void> finish(boolean commit) {
         return finish(commit, readTimestamp);
