@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -48,11 +46,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** Column mappers cache. */
     private final Map<Long, ColumnMapper> mappingCache = new ConcurrentHashMap<>();
 
-    /**
-     * Schema store. It's only safe to apply the function to version numbers for which there is guarantee that the schema was already saved
-     * to the Metastore.
-     */
-    private final IntFunction<SchemaDescriptor> loadSchemaByVersion;
+    /** Schema store. */
+    private final IntFunction<CompletableFuture<SchemaDescriptor>> loadSchemaByVersion;
 
     /** The method to provide the latest schema version on cluster. */
     private final Supplier<CompletableFuture<Integer>> latestVersionStore;
@@ -67,7 +62,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param initialSchema      Initial schema.
      */
     public SchemaRegistryImpl(
-            IntFunction<SchemaDescriptor> loadSchemaByVersion,
+            IntFunction<CompletableFuture<SchemaDescriptor>> loadSchemaByVersion,
             Supplier<CompletableFuture<Integer>> latestVersionStore,
             SchemaDescriptor initialSchema
     ) {
@@ -304,7 +299,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     private CompletableFuture<SchemaDescriptor> tableSchema(int schemaVer) {
         if (schemaVer < lastSchemaVersion()) {
-            return completedFuture(loadSchemaByVersion.apply(schemaVer));
+            return loadSchemaByVersion.apply(schemaVer);
         }
 
         return versionTracker.waitFor(schemaVer).thenApply(unused -> schemaCached(schemaVer));
