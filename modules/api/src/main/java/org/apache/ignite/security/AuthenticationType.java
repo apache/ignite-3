@@ -29,7 +29,7 @@ public enum AuthenticationType {
      *
      * @param type String representation of the type.
      * @return parsed {@link AuthenticationType}.
-     * @throws IllegalArgumentException in case of unknown type.
+     * @throws UnsupportedAuthenticationTypeException in case of unknown type.
      */
     public static AuthenticationType parse(String type) {
         return Arrays.stream(values())

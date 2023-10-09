@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-
 import org.apache.ignite.security.AuthenticationType;
 
 /**
