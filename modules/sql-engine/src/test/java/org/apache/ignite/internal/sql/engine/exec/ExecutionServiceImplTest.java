@@ -553,7 +553,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 return CompletableFuture.completedFuture(null);
             } else {
                 // On other nodes, simulate that the node has already gone.
-                return CompletableFuture.failedFuture(new NodeLeftException("Node left the cluster. Node: " + node.nodeName));
+                return CompletableFuture.failedFuture(new NodeLeftException(node.nodeName));
             }
         }));
 
