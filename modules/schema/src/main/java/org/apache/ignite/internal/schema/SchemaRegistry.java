@@ -75,8 +75,8 @@ public interface SchemaRegistry extends ManuallyCloseable {
     int lastSchemaVersion();
 
     /**
-     * Resolve binary row against given schema. The row schema version must be lower or equal to the version of the given schema.
-     * If the schema versions are not equal, the row will be upgraded to the given schema.
+     * Resolve binary row against given schema ({@code desc}). The row schema version must be lower or equal to the version
+     * of {@code desc}. If the schema versions are not equal, the row will be upgraded to {@code desc}.
      *
      * @param row  Binary row.
      * @param desc Schema descriptor.
