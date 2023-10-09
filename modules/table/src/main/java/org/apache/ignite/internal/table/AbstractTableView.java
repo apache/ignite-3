@@ -105,4 +105,22 @@ abstract class AbstractTableView {
 
         return convertToPublicFuture(future);
     }
+
+    /**
+     * Action representing some KV operation. When executed, the action is supplied with schema version corresponding
+     * to the operation timestamp (see {@link #withSchemaSync(Transaction, KvAction)} for details).
+     *
+     * @param <R> Type of the result.
+     * @see #withSchemaSync(Transaction, KvAction)
+     */
+    @FunctionalInterface
+    protected interface KvAction<R> {
+        /**
+         * Executes the action.
+         *
+         * @param schemaVersion Schema version corresponding to the operation.
+         * @return Action result.
+         */
+        CompletableFuture<R> act(int schemaVersion);
+    }
 }
