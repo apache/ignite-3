@@ -34,12 +34,14 @@ import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -150,9 +152,26 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 willBe(equalTo(originalRows))
         );
 
-        rowBatchByPartitionId.get(0).resultFuture = completedFuture(List.of(false, true));
-        rowBatchByPartitionId.get(1).resultFuture = completedFuture(List.of(false));
-        rowBatchByPartitionId.get(2).resultFuture = completedFuture(List.of(true, false, true));
+        var part1 = new ArrayList<>(2);
+
+        part1.add(null);
+        part1.add(new NullBinaryRow());
+
+        rowBatchByPartitionId.get(0).resultFuture = completedFuture(part1);
+
+        var part2 = new ArrayList<>(2);
+
+        part2.add(null);
+
+        rowBatchByPartitionId.get(1).resultFuture = completedFuture(part2);
+
+        var part3 = new ArrayList<>(2);
+
+        part3.add(new NullBinaryRow());
+        part3.add(null);
+        part3.add(new NullBinaryRow());
+
+        rowBatchByPartitionId.get(2).resultFuture = completedFuture(part3);
 
         List<BinaryRowEx> rejectedRows = List.of(
                 // Rows for 0 partition.

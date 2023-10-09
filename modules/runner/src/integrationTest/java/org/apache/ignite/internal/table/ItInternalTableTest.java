@@ -47,8 +47,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -80,8 +78,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItInternalTableTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItInternalTableTest.class);
-
     private static final String TABLE_NAME = "SOME_TABLE";
 
     private static final SchemaDescriptor SCHEMA_1 = new SchemaDescriptor(
@@ -138,13 +134,9 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
     @AfterAll
     static void stopNode(TestInfo testInfo) throws Exception {
-        LOG.info("Start tearDown()");
-
         NODE = null;
 
         IgniteUtils.closeAll(() -> IgnitionManager.stop(testNodeName(testInfo, 0)));
-
-        LOG.info("End tearDown()");
     }
 
     @BeforeEach
