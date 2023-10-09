@@ -19,13 +19,13 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.jetbrains.annotations.Nullable;
 
 /**
  *  Parse tree for {@code START TRANSACTION } statement.
@@ -38,14 +38,13 @@ public class IgniteSqlStartTransaction extends SqlCall {
     private final IgniteSqlStartTransactionMode mode;
 
     /** Creates a IgniteSqlStartTransaction. */
-    public IgniteSqlStartTransaction(SqlParserPos pos, @Nullable IgniteSqlStartTransactionMode mode) {
+    public IgniteSqlStartTransaction(SqlParserPos pos, IgniteSqlStartTransactionMode mode) {
         super(pos);
 
         this.mode = mode;
     }
 
-    /** Returns {@code true} if transaction access mode is read-only mode. Otherwise returns {@code false} .*/
-    @Nullable
+    /** Returns the transaction mode .*/
     public IgniteSqlStartTransactionMode getMode() {
         return mode;
     }
@@ -67,10 +66,17 @@ public class IgniteSqlStartTransaction extends SqlCall {
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword(getOperator().getName());
 
-        if (mode == IgniteSqlStartTransactionMode.READ_ONLY) {
-            writer.keyword("READ ONLY");
-        } else if (mode == IgniteSqlStartTransactionMode.READ_WRITE) {
-            writer.keyword("READ WRITE");
+        switch (mode) {
+            case READ_ONLY:
+                writer.keyword("READ ONLY");
+                break;
+            case READ_WRITE:
+                writer.keyword("READ WRITE");
+                break;
+            case IMPLICIT_READ_WRITE:
+                //pass through
+            default:
+                break;
         }
     }
 }

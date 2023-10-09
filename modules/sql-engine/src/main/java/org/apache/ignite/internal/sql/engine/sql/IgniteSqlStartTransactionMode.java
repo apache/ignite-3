@@ -21,12 +21,10 @@ package org.apache.ignite.internal.sql.engine.sql;
  * Start transaction mode.
  */
 public enum IgniteSqlStartTransactionMode {
-    /**
-     * Read-only transaction.
-     */
+    /** Read-only transaction. */
     READ_ONLY,
-    /**
-     * Read-write transaction.
-     */
-    READ_WRITE
+    /** Read-write transaction. */
+    READ_WRITE,
+    /** The user have omitted transaction mode, hence the type is set to {@link #READ_WRITE} implicitly. */
+    IMPLICIT_READ_WRITE,
 }
