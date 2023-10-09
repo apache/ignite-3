@@ -68,12 +68,6 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
         }
     }
 
-    @Override
-    public CompletableFuture<?> onUpdate(
-            ConfigurationNotificationEvent<AuthenticationView> ctx) {
-        return CompletableFuture.runAsync(() -> refreshProviders(ctx.newValue()));
-    }
-
     @Nullable
     private static UserDetails authenticate(Authenticator authenticator, AuthenticationRequest<?, ?> authenticationRequest) {
         try {
@@ -84,6 +78,12 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
             LOG.error("Unexpected exception during authentication", e);
             return null;
         }
+    }
+
+    @Override
+    public CompletableFuture<?> onUpdate(
+            ConfigurationNotificationEvent<AuthenticationView> ctx) {
+        return CompletableFuture.runAsync(() -> refreshProviders(ctx.newValue()));
     }
 
     private void refreshProviders(@Nullable AuthenticationView view) {
