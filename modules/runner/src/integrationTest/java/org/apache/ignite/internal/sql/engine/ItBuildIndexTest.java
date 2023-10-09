@@ -96,7 +96,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20330")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20525")
     void testChangePrimaryReplicaOnMiddleBuildIndex() throws Exception {
         prepareBuildIndexToChangePrimaryReplica();
 

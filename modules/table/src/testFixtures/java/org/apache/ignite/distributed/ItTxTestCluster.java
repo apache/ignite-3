@@ -100,7 +100,6 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -518,8 +517,6 @@ public class ItTxTestCluster {
                                         storageUpdateHandler,
                                         new DummySchemas(schemaManager),
                                         consistentIdToNode.apply(assignment),
-                                        mvTableStorage,
-                                        mock(IndexBuilder.class),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         placementDriver
@@ -611,11 +608,10 @@ public class ItTxTestCluster {
             StorageUpdateHandler storageUpdateHandler,
             Schemas schemas,
             ClusterNode localNode,
-            MvTableStorage mvTableStorage,
-            IndexBuilder indexBuilder,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            PlacementDriver placementDriver) {
+            PlacementDriver placementDriver
+    ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
                 raftClient,
@@ -634,8 +630,6 @@ public class ItTxTestCluster {
                 storageUpdateHandler,
                 schemas,
                 localNode,
-                mvTableStorage,
-                indexBuilder,
                 schemaSyncService,
                 catalogService,
                 placementDriver

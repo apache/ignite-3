@@ -37,8 +37,8 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      *
      * @param groupId Replication group id.
      * @param timestamp Timestamp reference value.
-     * @param timeout – How long to wait before completing exceptionally with a TimeoutException, in units of unit.
-     * @param unit – A TimeUnit determining how to interpret the timeout parameter.
+     * @param timeout How long to wait before completing exceptionally with a TimeoutException, in units of unit.
+     * @param unit A TimeUnit determining how to interpret the timeout parameter.
      * @return Primary replica future.
      */
     CompletableFuture<ReplicaMeta> awaitPrimaryReplica(

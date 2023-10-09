@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static org.apache.ignite.lang.ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_ERR;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.lang.ErrorGroups;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * The exception is thrown when a primary replica await process has times out.
+ * The exception is thrown when a primary replica await process has failed. Please pay attention that there is a specific
+ * {@link PrimaryReplicaAwaitTimeoutException} for the primary replica await timeout.
  */
-public class PrimaryReplicaAwaitTimeoutException extends IgniteInternalException {
+public class PrimaryReplicaAwaitException extends IgniteInternalException {
+    private static final long serialVersionUID = 1029917546884926160L;
 
     /**
      * The constructor.
@@ -37,17 +37,12 @@ public class PrimaryReplicaAwaitTimeoutException extends IgniteInternalException
      * @param referenceTimestamp Timestamp reference value.
      * @param cause Cause exception.
      */
-    public PrimaryReplicaAwaitTimeoutException(
-            ReplicationGroupId replicationGroupId,
-            HybridTimestamp referenceTimestamp,
-            @Nullable Lease currentLease,
-            Throwable cause
-    ) {
-        super(ErrorGroups.PlacementDriver.PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR,
-                IgniteStringFormatter.format(
-                        "The primary replica await timed out [replicationGroupId={}, referenceTimestamp={}, currentLease={}]",
-                        replicationGroupId, referenceTimestamp, currentLease
-                ),
-                cause);
+    public PrimaryReplicaAwaitException(ReplicationGroupId replicationGroupId, HybridTimestamp referenceTimestamp, Throwable cause) {
+        super(
+                PRIMARY_REPLICA_AWAIT_ERR,
+                "The primary replica await exception [replicationGroupId={}, referenceTimestamp={}]",
+                cause,
+                replicationGroupId, referenceTimestamp
+        );
     }
 }
