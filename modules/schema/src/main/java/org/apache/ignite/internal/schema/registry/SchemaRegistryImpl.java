@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
@@ -145,13 +146,17 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     public Row resolve(BinaryRow row, int targetSchemaVersion) {
         SchemaDescriptor targetSchema = schema(targetSchemaVersion);
 
+        if (targetSchema == null) {
+            throw new SchemaRegistryException("No schema found: schemaVersion=" + targetSchemaVersion);
+        }
+
         return resolveInternal(row, targetSchema, false);
     }
 
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor schemaDescriptor) {
-        return resolveInternal(row, schemaDescriptor, false);
+        return resolveInternal(row, Objects.requireNonNull(schemaDescriptor), false);
     }
 
     @Override
@@ -179,10 +184,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @throws SchemaRegistryException if no schema exists for the given row.
      */
     private Row resolveInternal(BinaryRow binaryRow, SchemaDescriptor targetSchema, boolean keyOnly) {
-        if (targetSchema == null) {
-            throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + binaryRow.schemaVersion());
-        }
-
         if (binaryRow.schemaVersion() == 0 || targetSchema.version() == binaryRow.schemaVersion()) {
             return keyOnly ? Row.wrapKeyOnlyBinaryRow(targetSchema, binaryRow) : Row.wrapBinaryRow(targetSchema, binaryRow);
         }
@@ -204,6 +205,10 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     private List<Row> resolveInternal(Collection<BinaryRow> binaryRows, int targetSchemaVersion, boolean keyOnly) {
         SchemaDescriptor targetSchema = schema(targetSchemaVersion);
+
+        if (targetSchema == null) {
+            throw new SchemaRegistryException("No schema found: schemaVersion=" + targetSchemaVersion);
+        }
 
         var rows = new ArrayList<Row>(binaryRows.size());
 
