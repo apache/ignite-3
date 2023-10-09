@@ -50,7 +50,6 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.ErrorGroups.Catalog;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
@@ -143,7 +142,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         Table tbl = createTable(ignite0, TABLE_NAME);
 
         assertThrowsSqlException(
-                Catalog.VALIDATION_ERR,
+                Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.TBL1' already exists",
                 () -> createTable(ignite0, TABLE_NAME));
 
@@ -175,7 +174,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
                 assertThrowsSqlException(
-                        Catalog.VALIDATION_ERR,
+                        Sql.STMT_VALIDATION_ERR,
                         "Table with name 'PUBLIC.TBL1' already exists",
                         () -> createTable(ignite, TABLE_NAME));
 
@@ -407,7 +406,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             assertNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
 
             assertThrowsSqlException(
-                    Catalog.VALIDATION_ERR,
+                    Sql.STMT_VALIDATION_ERR,
                     "Table with name 'PUBLIC.TBL1' not found",
                     () -> dropTable(ignite, TABLE_NAME));
 
