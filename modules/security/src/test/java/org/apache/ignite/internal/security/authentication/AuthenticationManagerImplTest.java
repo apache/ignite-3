@@ -64,6 +64,10 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         UsernamePasswordRequest validCredentials = new UsernamePasswordRequest("admin", "password");
 
         assertEquals("admin", manager.authenticate(validCredentials).username());
+
+        // and failed authentication with invalid credentials
+        assertThrows(InvalidCredentialsException.class,
+                () -> manager.authenticate(new UsernamePasswordRequest("admin", "invalid-password")));
     }
 
     @Test
