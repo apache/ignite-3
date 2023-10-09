@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
@@ -156,7 +155,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor schemaDescriptor) {
-        return resolveInternal(row, Objects.requireNonNull(schemaDescriptor), false);
+        return resolveInternal(row, schemaDescriptor, false);
     }
 
     @Override
