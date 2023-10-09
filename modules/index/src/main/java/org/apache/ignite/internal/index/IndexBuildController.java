@@ -200,7 +200,7 @@ public class IndexBuildController implements IgniteComponent {
                                 ))
                         );
             } else {
-                stopBuildingIndexesIfIfPrimaryExpired(primaryReplicaId);
+                stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return completedFuture(null);
             }
@@ -215,7 +215,7 @@ public class IndexBuildController implements IgniteComponent {
     ) {
         inBusyLock(busyLock, () -> {
             if (isLeaseExpire(replicaMeta)) {
-                stopBuildingIndexesIfIfPrimaryExpired(primaryReplicaId);
+                stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
             }
@@ -237,7 +237,7 @@ public class IndexBuildController implements IgniteComponent {
     ) {
         inBusyLock(busyLock, () -> {
             if (isLeaseExpire(replicaMeta)) {
-                stopBuildingIndexesIfIfPrimaryExpired(primaryReplicaId);
+                stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
             }
@@ -254,7 +254,7 @@ public class IndexBuildController implements IgniteComponent {
      *
      * @param replicaId Replica ID.
      */
-    private void stopBuildingIndexesIfIfPrimaryExpired(TablePartitionId replicaId) {
+    private void stopBuildingIndexesIfPrimaryExpired(TablePartitionId replicaId) {
         if (primaryReplicaIds.remove(replicaId)) {
             // Primary replica is no longer current, we need to stop building indexes for it.
             indexBuilder.stopBuildingIndexes(replicaId.tableId(), replicaId.partitionId());
