@@ -57,5 +57,10 @@ public interface CommandClosure<R extends Command> {
      */
     void result(@Nullable Serializable res);
 
-    Context context();
+    /**
+     * Returns trace context.
+     */
+    default Context context() {
+        return Context.current();
+    }
 }
