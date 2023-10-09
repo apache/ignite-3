@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -99,7 +100,6 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -335,15 +335,14 @@ public class ItTxTestCluster {
 
             LOG.info("Replica manager has been started, node=[" + node + ']');
 
-            ReplicaService replicaSvc = new ReplicaService(
+            ReplicaService replicaSvc = spy(new ReplicaService(
                     cluster.get(i).messagingService(),
                     clock
-            );
+            ));
 
             replicaServices.put(node.name(), replicaSvc);
 
             TxManagerImpl txMgr = newTxManager(replicaSvc, clock, new TransactionIdGenerator(i), node);
-
             txMgr.start();
 
             txManagers.put(node.name(), txMgr);
@@ -518,8 +517,6 @@ public class ItTxTestCluster {
                                         storageUpdateHandler,
                                         new DummySchemas(schemaManager),
                                         consistentIdToNode.apply(assignment),
-                                        mvTableStorage,
-                                        mock(IndexBuilder.class),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         placementDriver
@@ -611,11 +608,10 @@ public class ItTxTestCluster {
             StorageUpdateHandler storageUpdateHandler,
             Schemas schemas,
             ClusterNode localNode,
-            MvTableStorage mvTableStorage,
-            IndexBuilder indexBuilder,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            PlacementDriver placementDriver) {
+            PlacementDriver placementDriver
+    ) {
         return new PartitionReplicaListener(
                 mvDataStorage,
                 raftClient,
@@ -634,8 +630,6 @@ public class ItTxTestCluster {
                 storageUpdateHandler,
                 schemas,
                 localNode,
-                mvTableStorage,
-                indexBuilder,
                 schemaSyncService,
                 catalogService,
                 placementDriver
@@ -682,6 +676,12 @@ public class ItTxTestCluster {
         assertNotNull(leader);
 
         return raftServers.get(leader.consistentId());
+    }
+
+    protected Peer getLeaderId(String tableName) {
+        var services = raftClients.get(tableName);
+
+        return services.get(0).leader();
     }
 
     /**
@@ -766,10 +766,10 @@ public class ItTxTestCluster {
 
         LOG.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 
-        clientReplicaSvc = new ReplicaService(
+        clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
                 clientClock
-        );
+        ));
 
         LOG.info("The client has been started");
     }
@@ -789,5 +789,6 @@ public class ItTxTestCluster {
                 client.messagingService()
         );
         clientTxStateResolver.start();
+        clientTxManager.start();
     }
 }

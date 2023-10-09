@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.schema.AbstractSchemaConverterTest;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.NativeType;
@@ -40,7 +42,6 @@ import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
-import org.apache.ignite.internal.schema.testutils.definition.DefaultValueGenerators;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -104,7 +105,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     @Test
     public void convertColumnDescriptorFunctionalDefault() {
         String columnName = "UUID";
-        String functionName = DefaultValueGenerators.GEN_RANDOM_UUID;
+        String functionName = DefaultValueGenerator.GEN_RANDOM_UUID.name();
         DefaultValue defaultValue = DefaultValue.functionCall(functionName);
 
         CatalogTableColumnDescriptor columnDescriptor = new CatalogTableColumnDescriptor(
@@ -140,7 +141,8 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                         new CatalogTableColumnDescriptor("K1", ColumnType.INT32, false, 0, 0, 0, null)
                 ),
                 List.of("K1", "K2"),
-                List.of("K2")
+                List.of("K2"),
+                INITIAL_CAUSALITY_TOKEN
         );
 
         SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor);

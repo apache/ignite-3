@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -85,8 +86,10 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -157,7 +160,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** Map of node indexes to transaction managers. */
     private final Map<Integer, TxManager> txManagers = new ConcurrentHashMap<>();
 
-    private final ReplicaService replicaService = mock(ReplicaService.class);
+    private final ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
             -> new ClusterNodeImpl(NODE_NAME, NODE_NAME, new NetworkAddress(addr, 3333));
@@ -242,10 +245,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         when(partitionReplicaListener.invoke(any(), any())).thenAnswer(invocationOnMock -> {
             ReplicaRequest req = invocationOnMock.getArgument(0);
 
-            if (req instanceof ReadWriteSingleRowPkReplicaRequest) {
-                ReadWriteSingleRowPkReplicaRequest req0 = (ReadWriteSingleRowPkReplicaRequest) req;
+            if (req instanceof ReadWriteSingleRowPkReplicaRequest || req instanceof ReadOnlyDirectSingleRowReplicaRequest) {
+                SingleRowPkReplicaRequest req0 = (SingleRowPkReplicaRequest) req;
 
-                if (req0.requestType() == RequestType.RW_GET) {
+                if (req0.requestType() == RequestType.RW_GET || req0.requestType() == RequestType.RO_GET) {
                     List<JraftServerImpl> servers = servers();
 
                     JraftServerImpl leader = servers.stream()
@@ -274,8 +277,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     return completedFuture(row);
                 } else if (req0.requestType() == RequestType.RW_DELETE) {
+                    ReadWriteSingleRowPkReplicaRequest rwReq = (ReadWriteSingleRowPkReplicaRequest) req0;
+
                     UpdateCommand cmd = msgFactory.updateCommand()
-                            .txId(req0.transactionId())
+                            .txId(rwReq.transactionId())
                             .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                             .rowUuid(new RowId(0).uuid())
                             .safeTimeLong(hybridClock.nowLong())

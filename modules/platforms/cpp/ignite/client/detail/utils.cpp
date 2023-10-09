@@ -201,17 +201,44 @@ std::vector<std::byte> pack_tuple(
             builder.claim_null();
     }
 
+    std::int32_t written = 0;
     builder.layout();
     for (std::int32_t i = 0; i < count; ++i) {
         const auto &col = sch.columns[i];
         auto col_idx = tuple.column_ordinal(col.name);
 
-        if (col_idx >= 0)
+        if (col_idx >= 0) {
             append_column(builder, col.type, tuple.get(col_idx), col.scale);
-        else {
+            ++written;
+        } else {
             builder.append_null();
             no_value.set(std::size_t(i));
         }
+    }
+
+    if (!key_only && written < tuple.column_count()) {
+        std::vector<bool> written_ind(tuple.column_count(), false);
+        for (std::int32_t i = 0; i < count; ++i) {
+            const auto &col = sch.columns[i];
+            auto col_idx = tuple.column_ordinal(col.name);
+
+            if (col_idx >= 0)
+                written_ind[col_idx] = true;
+        }
+
+        std::stringstream unmapped_columns;
+        for (std::int32_t i = 0; i < tuple.column_count(); ++i) {
+            if (written_ind[i])
+                continue;
+            auto &name = tuple.column_name(i);
+            unmapped_columns << name << ",";
+        }
+        auto unmapped_columns_str = unmapped_columns.str();
+        unmapped_columns_str.pop_back();
+
+        assert(!unmapped_columns_str.empty());
+        throw ignite_error("Key tuple doesn't match schema: schemaVersion="
+            + std::to_string(sch.version) + ", extraColumns=" + unmapped_columns_str);
     }
 
     return builder.build();
@@ -225,8 +252,10 @@ ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right) {
     res.m_indices.insert(left.m_indices.begin(), left.m_indices.end());
 
     for (const auto &pair : right.m_pairs) {
-        res.m_pairs.emplace_back(pair);
-        res.m_indices.emplace(ignite_tuple::parse_name(pair.first), res.m_pairs.size() - 1);
+        bool inserted = res.m_indices.emplace(ignite_tuple::parse_name(pair.first), res.m_pairs.size()).second;
+        if (inserted) {
+            res.m_pairs.emplace_back(pair);
+        }
     }
 
     return res;
