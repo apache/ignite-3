@@ -55,7 +55,7 @@ import org.jetbrains.annotations.Nullable;
 public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
     private final SchemaRegistry schemaRegistry;
 
-    private volatile TupleMarshaller cachedMarshaller;
+    private volatile @Nullable TupleMarshaller cachedMarshaller;
 
     /**
      * The constructor.

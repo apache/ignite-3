@@ -48,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
 public class RecordBinaryViewImpl extends AbstractTableView implements RecordView<Tuple> {
     private final SchemaRegistry schemaRegistry;
 
-    private volatile TupleMarshaller cachedMarshaller;
+    private volatile @Nullable TupleMarshaller cachedMarshaller;
 
     /**
      * Constructor.

@@ -50,7 +50,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     private final Function<SchemaDescriptor, RecordMarshaller<R>> marshallerFactory;
 
     /** Record marshaller. */
-    private volatile RecordMarshaller<R> marsh;
+    private volatile @Nullable RecordMarshaller<R> marsh;
 
     /**
      * Constructor.

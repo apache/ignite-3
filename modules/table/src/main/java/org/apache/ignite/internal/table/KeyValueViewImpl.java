@@ -56,7 +56,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     private final Function<SchemaDescriptor, KvMarshaller<K, V>> marshallerFactory;
 
     /** Key-value marshaller. */
-    private volatile KvMarshaller<K, V> marsh;
+    private volatile @Nullable KvMarshaller<K, V> marsh;
 
     /**
      * Constructor.
