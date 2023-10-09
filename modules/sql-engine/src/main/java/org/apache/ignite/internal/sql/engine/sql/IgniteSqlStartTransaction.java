@@ -74,9 +74,9 @@ public class IgniteSqlStartTransaction extends SqlCall {
                 writer.keyword("READ WRITE");
                 break;
             case IMPLICIT_READ_WRITE:
-                //pass through
-            default:
                 break;
+            default:
+                throw new IllegalStateException("Unexpected start transaction mode: " + mode);
         }
     }
 }
