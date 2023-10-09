@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
@@ -192,7 +192,7 @@ public class SessionImpl implements AbstractSession {
                             )
             );
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
+            return CompletableFuture.failedFuture(mapToPublicException(e));
         } finally {
             busyLock.leaveBusy();
         }
@@ -205,7 +205,7 @@ public class SessionImpl implements AbstractSession {
                 closeInternal();
             }
 
-            throw new CompletionException(mapToPublicSqlException(cause));
+            throw new CompletionException(mapToPublicException(cause));
         });
     }
 
@@ -282,7 +282,7 @@ public class SessionImpl implements AbstractSession {
                             throw (CancellationException) cause;
                         }
 
-                        Throwable t = mapToPublicSqlException(cause);
+                        Throwable t = mapToPublicException(cause);
 
                         if (t instanceof TraceableException) {
                             throw new SqlBatchException(
@@ -305,7 +305,7 @@ public class SessionImpl implements AbstractSession {
 
             return resFut;
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
+            return CompletableFuture.failedFuture(mapToPublicException(e));
         } finally {
             busyLock.leaveBusy();
         }
@@ -367,7 +367,7 @@ public class SessionImpl implements AbstractSession {
 
             return qryProc.closeSession(sessionId);
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
+            return CompletableFuture.failedFuture(mapToPublicException(e));
         }
     }
 

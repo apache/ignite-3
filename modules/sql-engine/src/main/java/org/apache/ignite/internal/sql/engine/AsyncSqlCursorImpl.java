@@ -98,6 +98,6 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private static Throwable wrapIfNecessary(Throwable t) {
         Throwable err = ExceptionUtils.unwrapCause(t);
 
-        return IgniteExceptionMapperUtil.mapToPublicSqlException(err);
+        return IgniteExceptionMapperUtil.mapToPublicException(err);
     }
 }
