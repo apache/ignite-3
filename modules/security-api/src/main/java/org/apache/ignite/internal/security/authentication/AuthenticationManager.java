@@ -34,5 +34,5 @@ public interface AuthenticationManager extends ConfigurationListener<Authenticat
      * @return The user details.
      * @throws InvalidCredentialsException If the authentication failed.
      */
-    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws InvalidCredentialsException;
+    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest);
 }

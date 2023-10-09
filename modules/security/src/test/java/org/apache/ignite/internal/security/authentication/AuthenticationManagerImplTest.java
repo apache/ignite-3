@@ -44,7 +44,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     private AuthenticationConfiguration authenticationConfiguration;
 
     @Test
-    public void enableAuth() throws InvalidCredentialsException {
+    public void enableAuth() {
         // when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -67,7 +67,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void leaveOldSettingWhenInvalidConfiguration() throws InvalidCredentialsException {
+    public void leaveOldSettingWhenInvalidConfiguration() {
         // when
         AuthenticationView invalidAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -84,7 +84,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void disableAuthEmptyProviders() throws InvalidCredentialsException {
+    public void disableAuthEmptyProviders() {
         //when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -125,7 +125,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void disableAuthNotEmptyProviders() throws InvalidCredentialsException {
+    public void disableAuthNotEmptyProviders() {
         //when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {
@@ -163,7 +163,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void changedCredentials() throws InvalidCredentialsException {
+    public void changedCredentials() {
         // when
         AuthenticationView adminPasswordAuthView = mutateConfiguration(
                 authenticationConfiguration, change -> {

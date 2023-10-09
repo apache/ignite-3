@@ -45,8 +45,11 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
 
     private boolean authEnabled = false;
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws InvalidCredentialsException {
+    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
         rwLock.readLock().lock();
         try {
             if (authEnabled) {

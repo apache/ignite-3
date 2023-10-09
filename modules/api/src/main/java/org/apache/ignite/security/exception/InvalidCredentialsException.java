@@ -20,12 +20,12 @@ package org.apache.ignite.security.exception;
 
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 
-import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Exception thrown when authentication fails due to invalid credentials.
  */
-public class InvalidCredentialsException extends IgniteCheckedException {
+public class InvalidCredentialsException extends IgniteException {
     /**
      * Creates a new authentication exception.
      *

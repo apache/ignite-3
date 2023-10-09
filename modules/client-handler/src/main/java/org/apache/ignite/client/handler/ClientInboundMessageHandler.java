@@ -351,7 +351,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) throws InvalidCredentialsException {
+    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
         AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
 
         return authenticationManager.authenticate(authenticationRequest);
