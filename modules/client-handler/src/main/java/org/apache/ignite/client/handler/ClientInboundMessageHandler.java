@@ -115,9 +115,9 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.security.authentication.AuthenticationType;
-import org.apache.ignite.security.authentication.exception.InvalidCredentialsException;
-import org.apache.ignite.security.authentication.exception.UnsupportedAuthenticationTypeException;
+import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.security.authentication.exception;
+package org.apache.ignite.security.exception;
 
 
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;

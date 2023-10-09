@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.security.authentication.exception;
+package org.apache.ignite.security;
 
+import java.util.Arrays;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 
-import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
+/** Authentication types. */
+public enum AuthenticationType {
+    BASIC;
 
-import org.apache.ignite.lang.IgniteException;
-
-/**
- * The exception thrown when authentication type is not supported.
- */
-public class UnsupportedAuthenticationTypeException extends IgniteException {
     /**
-     * Creates a new authentication exception.
+     * Parses {@link AuthenticationType} from the given string.
      *
-     * @param message Detailed message.
+     * @param type String representation of the type.
+     * @return parsed {@link AuthenticationType}.
+     * @throws IllegalArgumentException in case of unknown type.
      */
-    public UnsupportedAuthenticationTypeException(String message) {
-        super(UNSUPPORTED_AUTHENTICATION_TYPE_ERR, message);
+    public static AuthenticationType parse(String type) {
+        return Arrays.stream(values())
+                .filter(it -> type.equalsIgnoreCase(it.name()))
+                .findFirst()
+                .orElseThrow(() -> new UnsupportedAuthenticationTypeException("Unknown authentication type: " + type));
     }
 }

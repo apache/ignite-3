@@ -25,7 +25,7 @@ import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
-import org.apache.ignite.security.authentication.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;

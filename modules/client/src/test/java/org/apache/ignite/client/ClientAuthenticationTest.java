@@ -26,7 +26,7 @@ import org.apache.ignite.internal.security.authentication.configuration.BasicAut
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.security.authentication.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

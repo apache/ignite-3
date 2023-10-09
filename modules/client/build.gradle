@@ -26,7 +26,6 @@ dependencies {
     implementation project(':ignite-client-common')
     implementation project(':ignite-marshaller-common')
     implementation project(':ignite-metrics')
-    implementation project(':ignite-security-api')
 
     implementation libs.jetbrains.annotations
     implementation libs.msgpack.core
