@@ -47,7 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -79,7 +78,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.platform.commons.util.ReflectionUtils;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -681,18 +679,13 @@ public class PlatformTestNodeRunner {
             @SuppressWarnings("resource")
             Table table = context.ignite().tables().table(tableName);
             RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
-            TupleMarshaller marsh = getMarshaller(view);
+            TupleMarshaller marsh = view.marshaller(1);
 
             try {
                 return marsh.marshal(key).colocationHash();
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
-        }
-
-        private static TupleMarshaller getMarshaller(RecordBinaryViewImpl serverView) {
-            Method marshallerMethod = ReflectionUtils.findMethod(RecordBinaryViewImpl.class, "marshaller", int.class).orElseThrow();
-            return (TupleMarshaller) ReflectionUtils.invokeMethod(marshallerMethod, serverView, 1);
         }
     }
 

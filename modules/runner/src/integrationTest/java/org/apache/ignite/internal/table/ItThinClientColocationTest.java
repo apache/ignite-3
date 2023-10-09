@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.table.ItPublicApiColocationTest.generateValueByType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
@@ -48,7 +47,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junit.platform.commons.util.ReflectionUtils;
 
 /**
  * Tests that client and server have matching colocation logic.
@@ -86,7 +84,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
 
         Table serverTable = CLUSTER_NODES.get(0).tables().table(tableName);
         RecordBinaryViewImpl serverView = (RecordBinaryViewImpl) serverTable.recordView();
-        TupleMarshaller marsh = getMarshaller(serverView);
+        TupleMarshaller marsh = serverView.marshaller(1);
 
         try (IgniteClient client = IgniteClient.builder().addresses("localhost").build()) {
             // Perform get to populate schema.
@@ -103,11 +101,6 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 assertEquals(serverHash, clientHash);
             }
         }
-    }
-
-    private static TupleMarshaller getMarshaller(RecordBinaryViewImpl serverView) {
-        Method marshallerMethod = ReflectionUtils.findMethod(RecordBinaryViewImpl.class, "marshaller", int.class).orElseThrow();
-        return (TupleMarshaller) ReflectionUtils.invokeMethod(marshallerMethod, serverView, 1);
     }
 
     private static ClientSchema clientSchema(NativeType type, String columnName) {
