@@ -172,7 +172,8 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     }
 
     private ColumnMapper resolveMapping(SchemaDescriptor targetSchema, SchemaDescriptor rowSchema) {
-        assert targetSchema.version() > rowSchema.version();
+        assert targetSchema.version() > rowSchema.version()
+                : "Target schema version " + targetSchema.version() + " must be higher than row schema version " + rowSchema.version();
 
         if (targetSchema.version() == rowSchema.version() + 1) {
             return targetSchema.columnMapping();
