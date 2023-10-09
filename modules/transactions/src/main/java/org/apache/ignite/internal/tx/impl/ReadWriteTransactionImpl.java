@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -48,25 +47,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
 
-    /** Finish future updater. */
-    @SuppressWarnings("rawtypes")
-    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, CompletableFuture> FINISH_FUT_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, CompletableFuture.class, "finishFut");
-
     /** Enlisted partitions: partition id -> (primary replica node, raft term). */
     private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
-
-    /** Enlisted operation futures in this transaction. */
-    private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
 
     /** The tracker is used to track an observable timestamp. */
     private final HybridTimestampTracker observableTsTracker;
 
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
-
-    /** The future used on repeated commit/rollback. */
-    private volatile CompletableFuture<Void> finishFut;
 
     /**
      * Constructs an explicit read-write transaction.
@@ -120,65 +108,44 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        if (!FINISH_FUT_UPDATER.compareAndSet(this, null, new CompletableFuture<>())) {
-            return finishFut;
+        Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
+
+        if (!enlisted.isEmpty()) {
+            enlisted.forEach((groupId, groupMeta) ->
+                    groups.computeIfAbsent(groupMeta.get1(), clusterNode -> new ArrayList<>())
+                            .add(new IgniteBiTuple<>(groupId, groupMeta.get2())));
+
+            IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
+
+            ClusterNode recipientNode = nodeAndTerm.get1();
+            Long term = nodeAndTerm.get2();
+
+            LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
+                    recipientNode, term, commit, id(), groups);
+
+            assert recipientNode != null;
+            assert term != null;
+
+            return txManager.finish(
+                    observableTsTracker,
+                    commitPart,
+                    recipientNode,
+                    term,
+                    commit,
+                    groups,
+                    id()
+            );
+        } else {
+            return txManager.finish(
+                    observableTsTracker,
+                    null,
+                    null,
+                    null,
+                    commit,
+                    groups,
+                    id()
+            );
         }
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
-        CompletableFuture<Void> mainFinishFut = CompletableFuture
-                .allOf(enlistedResults.toArray(new CompletableFuture[0]))
-                .thenCompose(
-                        ignored -> {
-                            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
-
-                            if (!enlisted.isEmpty()) {
-                                enlisted.forEach((groupId, groupMeta) ->
-                                        groups.computeIfAbsent(groupMeta.get1(), clusterNode -> new ArrayList<>())
-                                                .add(new IgniteBiTuple<>(groupId, groupMeta.get2())));
-
-                                IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
-
-                                ClusterNode recipientNode = nodeAndTerm.get1();
-                                Long term = nodeAndTerm.get2();
-
-                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
-                                        recipientNode, term, commit, id(), groups);
-
-                                assert recipientNode != null;
-                                assert term != null;
-
-                                return txManager.finish(
-                                        observableTsTracker,
-                                        commitPart,
-                                        recipientNode,
-                                        term,
-                                        commit,
-                                        groups,
-                                        id()
-                                );
-                            } else {
-                                return txManager.finish(
-                                        observableTsTracker,
-                                        null,
-                                        null,
-                                        null,
-                                        commit,
-                                        groups,
-                                        id()
-                                );
-                            }
-                        }
-                );
-
-        mainFinishFut.handle((res, e) -> finishFut.complete(null));
-
-        return mainFinishFut;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        enlistedResults.add(resultFuture);
     }
 
     /** {@inheritDoc} */

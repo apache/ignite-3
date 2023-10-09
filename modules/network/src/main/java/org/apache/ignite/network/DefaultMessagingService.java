@@ -115,6 +115,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
 
         this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
+        // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
+        // TODO asch This invariant should be preserved while working on IGNITE-20373
         this.inboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-inbound-", LOG));
     }
 

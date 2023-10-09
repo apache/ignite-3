@@ -148,6 +148,8 @@ public class PartitionListener implements RaftGroupListener {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
+            // LOG.info("CMD {}", command.getClass().getName());
+
             long commandIndex = clo.index();
             long commandTerm = clo.term();
 

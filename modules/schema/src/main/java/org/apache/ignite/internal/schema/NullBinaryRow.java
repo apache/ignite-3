@@ -15,23 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.sample;
+package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import java.nio.ByteBuffer;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Test auto adjust configuration schema.
+ * A binary row without data.
  */
-@Config
-public class AutoAdjustConfigurationSchema {
-    /** Timeout. */
-    @Value(hasDefault = true)
-    @Range(min = 0)
-    public long timeout = 0L;
+public class NullBinaryRow implements BinaryRow {
+    @Override
+    public final int schemaVersion() {
+        return 0;
+    }
 
-    /** Enabled. */
-    @Value(hasDefault = true)
-    public boolean enabled = true;
+    @Override
+    public final int tupleSliceLength() {
+        return 0;
+    }
+
+    @Override
+    public final @Nullable ByteBuffer tupleSlice() {
+        return null;
+    }
 }

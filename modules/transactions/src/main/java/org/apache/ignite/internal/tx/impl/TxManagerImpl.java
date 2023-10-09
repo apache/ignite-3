@@ -54,6 +54,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -66,6 +69,8 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,10 +78,13 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
-public class TxManagerImpl implements TxManager {
-
+public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
+
+    /** Hint for maximum concurrent txns. */
+    private static final int MAX_CONCURRENT_TXNS = 1024;
+
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -96,6 +104,9 @@ public class TxManagerImpl implements TxManager {
 
     /** The local map for tx states. */
     private final ConcurrentHashMap<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
+
+    /** Txn contexts. */
+    private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
 
     /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
     private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
@@ -290,34 +301,81 @@ public class TxManagerImpl implements TxManager {
 
         observableTimestampTracker.update(commitTimestamp);
 
-        TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                .txId(txId)
-                .timestampLong(clock.nowLong())
-                .groupId(commitPartition)
-                .groups(groups)
-                .commit(commit)
-                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                .term(term)
-                .build();
+        Function<Void, CompletableFuture<Void>> clo = ignored -> {
+            TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
+                    .txId(txId)
+                    .timestampLong(clock.nowLong())
+                    .groupId(commitPartition)
+                    .groups(groups)
+                    .commit(commit)
+                    .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                    .term(term)
+                    .build();
 
-        return replicaService.invoke(recipientNode, req)
-                .thenRun(() ->
-                        updateTxMeta(txId, old -> {
-                            if (isFinalState(old.txState())) {
-                                finishingStateMeta.txFinishFuture().complete(old);
+            return replicaService.invoke(recipientNode, req)
+                    .thenRun(() ->
+                            updateTxMeta(txId, old -> {
+                                if (isFinalState(old.txState())) {
+                                    finishingStateMeta.txFinishFuture().complete(old);
 
-                                return old;
-                            }
+                                    return old;
+                                }
 
-                            assert old instanceof TxStateMetaFinishing;
+                                assert old instanceof TxStateMetaFinishing;
 
-                            TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+                                TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
 
-                            finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+                                finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
 
-                            return finalTxStateMeta;
-                        })
-                );
+                                return finalTxStateMeta;
+                            })
+                    );
+        };
+
+        AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
+        TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
+            if (tuple0 == null) {
+                tuple0 = new TxContext(); // No writes enlisted.
+            }
+
+            if (tuple0.finishFut == null) {
+                tuple0.finishFut = new CompletableFuture<>();
+                ref.set(tuple0.finishFut);
+            }
+
+            return tuple0;
+        });
+
+        if (ref.get() != null) { // This is a finishing thread.
+            if (!commit) {
+                clo.apply(null).handle((ignored, err) -> {
+                    if (err == null) {
+                        tuple.finishFut.complete(null);
+                    } else {
+                        tuple.finishFut.completeExceptionally(err);
+                    }
+                    return null;
+                });
+            } else {
+
+                // All inflights have been completed before the finish.
+                if (tuple.inflights == 0) {
+                    tuple.waitRepFut.complete(null);
+                }
+
+                // Wait for commit acks first, then proceed with the finish request.
+                tuple.waitRepFut.thenCompose(clo).handle((ignored, err) -> {
+                    if (err == null) {
+                        tuple.finishFut.complete(null);
+                    } else {
+                        tuple.finishFut.completeExceptionally(err);
+                    }
+                    return null;
+                });
+            }
+        }
+
+        return tuple.finishFut;
     }
 
     @Override
@@ -356,7 +414,7 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public void start() {
-        // No-op.
+        replicaService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
     }
 
     @Override
@@ -410,6 +468,66 @@ public class TxManagerImpl implements TxManager {
         }
     }
 
+    @Override
+    public boolean addInflight(UUID txId) {
+        boolean[] res = {true};
+
+        txCtxMap.compute(txId, (uuid, tuple) -> {
+            if (tuple == null) {
+                tuple = new TxContext();
+            }
+
+            if (tuple.finishFut != null) {
+                res[0] = false;
+                return tuple;
+            } else {
+                //noinspection NonAtomicOperationOnVolatileField
+                tuple.inflights++;
+            }
+
+            return tuple;
+        });
+
+        return res[0];
+    }
+
+    @Override
+    public void removeInflight(UUID txId) {
+        TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
+            assert ctx != null && ctx.inflights > 0 : ctx;
+
+            //noinspection NonAtomicOperationOnVolatileField
+            ctx.inflights--;
+
+            return ctx;
+        });
+
+        if (tuple.inflights == 0 && tuple.finishFut != null) {
+            tuple.waitRepFut.complete(null); // Avoid completion under lock.
+        }
+    }
+
+    @Override
+    public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+        if (!(message instanceof ReplicaResponse) || correlationId != null) {
+            return;
+        }
+
+        // Ignore error responses here. A transaction will be rolled back in other place.
+        if (message instanceof ErrorReplicaResponse) {
+            return;
+        }
+
+        // Process directly sent response.
+        ReplicaResponse request = (ReplicaResponse) message;
+
+        Object result = request.result();
+
+        if (result instanceof UUID) {
+            removeInflight((UUID) result);
+        }
+    }
+
     /**
      * Creates final {@link TxStateMeta} for coordinator node.
      *
@@ -419,5 +537,16 @@ public class TxManagerImpl implements TxManager {
      */
     private TxStateMeta coordinatorFinalTxStateMeta(boolean commit, HybridTimestamp commitTimestamp) {
         return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId.get(), commitTimestamp);
+    }
+
+    private static class TxContext {
+        volatile long inflights = 0; // Updated under lock.
+        final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
+        volatile CompletableFuture<Void> finishFut = null;
+
+        @Override
+        public String toString() {
+            return "TxContext [inflights=" + inflights + ", waitRepFut=" + waitRepFut + ", finishFut=" + finishFut + ']';
+        }
     }
 }

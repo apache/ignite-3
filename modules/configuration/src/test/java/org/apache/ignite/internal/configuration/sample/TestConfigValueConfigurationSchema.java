@@ -15,15 +15,29 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.configuration.sample;
 
-dependencies {
-    implementation project(':ignite-network-api')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-metastorage-api')
-    implementation project(':ignite-core')
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.Range;
+
+/**
+ * Test configuration value schema.
+ */
+@Config
+public class TestConfigValueConfigurationSchema {
+    /** String value. */
+    @Value
+    @Immutable
+    public String stringValue;
+
+    /** Long value. */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public long longValue = 0L;
+
+    /** Boolean value. */
+    @Value(hasDefault = true)
+    public boolean booleanValue = true;
 }
-
-description = 'ignite-baseline'

@@ -2,10 +2,10 @@ The most recent version of the transaction protocol is described in the
 [IEP-91: Transaction protocol](https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol)
 
 # Ignite transactions
-This module provides transactions support for cross partition operations. Using the transactions, such operations are
-executed in atomic way (either all changes all applied, or nothing at all) with a strong isolation.
+This module provides transactions support. Multiple tables and partitions can be enlisted into a transaction. Using the transactions, such 
+operations are executed in atomic way (either all changes all applied, or nothing at all) with a strong isolation.
 
-Transactions support is supposed to be icremental. In the first approach, we are trying to put existing ideas from
+Transactions support is supposed to be incremental. In the first approach, we are trying to put existing ideas from
 ignite 2 to the new consensus based replication infrastructure. 
 In the next phases, MVCC support should be added to avoid blocking reads and possibly some other optimization, 
 like parallel commits from <sup id="a1">[1](#f1)</sup>
@@ -179,7 +179,7 @@ Key -> Tuple (newVal, oldVal, ts) will change after resetting to Key -> Tuple (n
 
 # One phase commit
 
-Implicit tx can be fast committed if all keys belongs to the same partition. TODO IGNITE-15927
+Implicit tx is committed in 1RTT if all keys belongs to the same partition.
 
 # SQL and indexes.
 

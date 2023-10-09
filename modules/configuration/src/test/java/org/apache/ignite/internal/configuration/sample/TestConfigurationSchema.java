@@ -18,24 +18,19 @@
 package org.apache.ignite.internal.configuration.sample;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
- * Test node configuration schema.
+ * Test configuration schema.
  */
 @Config
-public class NodeConfigurationSchema {
-    /** Consistent id. */
-    @Value
-    @Immutable
-    public String consistentId;
+public class TestConfigurationSchema {
+    /** Test configuration value schema. */
+    @ConfigValue
+    public TestConfigValueConfigurationSchema testConfigValue;
 
-    /** Port. */
-    @Value
-    public int port;
-
-    /** Auto adjust enabled. */
-    @Value(hasDefault = true)
-    public boolean autoAdjustEnabled = true;
+    /** Test configuration values schema. */
+    @NamedConfigValue
+    public TestConfigValueConfigurationSchema testConfigValues;
 }

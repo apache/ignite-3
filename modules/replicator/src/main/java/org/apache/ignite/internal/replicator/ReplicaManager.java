@@ -65,6 +65,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -244,13 +245,13 @@ public class ReplicaManager implements IgniteComponent {
             // TODO IGNITE-20296 Id of the node should come along with the message itself.
             String senderId = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId).id();
 
-            CompletableFuture<?> result = replica.processRequest(request, senderId);
+            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
 
-            result.handle((res, ex) -> {
+            resFut.handle((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
-                    msg = prepareReplicaResponse(sendTimestamp, res);
+                    msg = prepareReplicaResponse(sendTimestamp, res.result());
                 } else {
                     LOG.warn("Failed to process replica request [request={}]", ex, request);
 
@@ -267,6 +268,29 @@ public class ReplicaManager implements IgniteComponent {
                     } else if (isConnectivityRelatedException(ex)) {
                         stopLeaseProlongation(request.groupId(), null);
                     }
+                }
+
+                if (res.replicationFuture() != null) {
+                    assert request instanceof PrimaryReplicaRequest;
+
+                    res.replicationFuture().handle((res0, ex0) -> {
+                        NetworkMessage msg0;
+
+                        LOG.debug("Sending delayed response for replica request [request={}]", request);
+
+                        if (ex == null) {
+                            msg0 = prepareReplicaResponse(sendTimestamp, res0);
+                        } else {
+                            LOG.warn("Failed to process delayed response [request={}]", ex, request);
+
+                            msg0 = prepareReplicaErrorResponse(sendTimestamp, ex);
+                        }
+
+                        // Using strong send here is important to avoid a reordering with a normal response.
+                        clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+
+                        return null;
+                    });
                 }
 
                 return null;
@@ -524,7 +548,7 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Extract a hybrid timestamp from timestamp aware request or return null.
      */
-    private HybridTimestamp extractTimestamp(ReplicaRequest request) {
+    private static @Nullable HybridTimestamp extractTimestamp(ReplicaRequest request) {
         if (request instanceof TimestampAware) {
             return ((TimestampAware) request).timestamp();
         } else {

@@ -38,7 +38,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -269,7 +268,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             var placementDriverManager = new PlacementDriverManager(
                     nodeName,
-                    (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply),
                     metaStorageManager,
                     MetastorageGroupId.INSTANCE,
                     clusterService,

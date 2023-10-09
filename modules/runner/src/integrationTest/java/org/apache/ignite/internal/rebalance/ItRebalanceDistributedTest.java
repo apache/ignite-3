@@ -82,7 +82,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
@@ -729,8 +728,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final DistributionZoneManager distributionZoneManager;
 
-        private final BaselineManager baselineMgr;
-
         private final ConfigurationManager nodeCfgMgr;
 
         private final ConfigurationManager clusterCfgMgr;
@@ -905,11 +902,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     )
             );
 
-            baselineMgr = new BaselineManager(
-                    clusterCfgMgr,
-                    metaStorageManager,
-                    clusterService);
-
             clockWaiter = new ClockWaiter(name, hybridClock);
 
             LongSupplier delayDurationMsSupplier = () -> 10L;
@@ -942,7 +934,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     replicaManager,
                     Mockito.mock(LockManager.class),
                     replicaSvc,
-                    baselineMgr,
                     clusterService.topologyService(),
                     txManager,
                     dataStorageMgr,
@@ -1023,7 +1014,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         distributionZoneManager,
                         replicaManager,
                         txManager,
-                        baselineMgr,
                         dataStorageMgr,
                         schemaManager,
                         tableManager,
