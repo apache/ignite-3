@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +53,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -86,7 +86,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -355,70 +354,6 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Index scan - index bound includes some of columns.
-     */
-    @ParameterizedTest
-    @MethodSource("transactions")
-    public void testIndexScanPartialCondition(NoOpTransaction tx) {
-        // 4 column input table.
-        TestInput input = new TestInput(4);
-        // 3 column index.
-        input.indexColumns.set(0);
-        input.indexColumns.set(1);
-        input.indexColumns.set(2);
-        input.addRow(binaryRow, 1, 2, 3, 4);
-
-        Tester tester = new Tester(input);
-
-        int partitionId = 1;
-        long term = 2;
-        int indexId = 3;
-        TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
-        condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2, UNSPECIFIED_VALUE_PLACEHOLDER});
-
-        ArgumentCaptor<BinaryTuplePrefix> prefix = ArgumentCaptor.forClass(BinaryTuplePrefix.class);
-
-        ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
-
-        if (tx.isReadOnly()) {
-            HybridTimestamp timestamp = tx.readTimestamp();
-            ClusterNode clusterNode = tx.clusterNode();
-
-            verify(internalTable).scan(
-                    eq(partitionId),
-                    eq(timestamp),
-                    eq(clusterNode),
-                    eq(indexId),
-                    prefix.capture(),
-                    nullable(BinaryTuplePrefix.class),
-                    anyInt(),
-                    eq(tester.requiredFields)
-            );
-        } else {
-            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
-
-            verify(internalTable).scan(
-                    eq(partitionId),
-                    eq(tx.id()),
-                    eq(primaryReplica),
-                    eq(indexId),
-                    prefix.capture(),
-                    nullable(BinaryTuplePrefix.class),
-                    anyInt(),
-                    eq(tester.requiredFields)
-            );
-        }
-
-        input.sendRows();
-        input.done();
-
-        collector.expectCompleted();
-
-        BinaryTuplePrefix lowerBound = prefix.getValue();
-        assertEquals(2, lowerBound.elementCount());
-    }
-
-    /**
      * Index lookup.
      */
     @ParameterizedTest
@@ -539,27 +474,6 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         collector.expectRow(binaryRow);
         collector.expectError(err);
-    }
-
-    /**
-     * Index lookup - invalid key.
-     */
-    @ParameterizedTest
-    @MethodSource("transactions")
-    public void testIndexLookupInvalidKey(NoOpTransaction tx) {
-        TestInput input = new TestInput();
-
-        Tester tester = new Tester(input);
-
-        int partitionId = 1;
-        long term = 2;
-        int indexId = 3;
-        Object[] key = {UNSPECIFIED_VALUE_PLACEHOLDER};
-
-        AssertionError err = assertThrows(AssertionError.class, () -> tester.indexLookUp(partitionId, term, tx, indexId, key));
-        assertEquals("Invalid lookup key.", err.getMessage());
-
-        verifyNoInteractions(internalTable);
     }
 
     private static Stream<Arguments> transactions() {
@@ -925,6 +839,16 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     @Override
                     public T upper() {
                         return upperValue;
+                    }
+
+                    @Override
+                    public ImmutableBitSet unspecifiedLower() {
+                        return ImmutableBitSet.of();
+                    }
+
+                    @Override
+                    public ImmutableBitSet unspecifiedUpper() {
+                        return ImmutableBitSet.of();
                     }
 
                     @Override

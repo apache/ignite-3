@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import org.apache.calcite.util.ImmutableBitSet;
+
 /**
  * A range condition is a search condition which represents a comparison predicate or a BETWEEN predicate.
  *
@@ -29,9 +31,15 @@ public interface RangeCondition<RowT> {
     /** Upper search row. */
     RowT upper();
 
-    /** Inlusive search by lower row. */
+    /** Return positions of unspecified (i.e. null equal) nodes depends to lower bound. */
+    ImmutableBitSet unspecifiedLower();
+
+    /** Return positions of unspecified (i.e. null equal) nodes depends to upper bound. */
+    ImmutableBitSet unspecifiedUpper();
+
+    /** Inclusive search by lower row. */
     boolean lowerInclude();
 
-    /** Inlusive search by upper row. */
+    /** Inclusive search by upper row. */
     boolean upperInclude();
 }

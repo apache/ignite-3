@@ -24,7 +24,6 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -93,9 +92,6 @@ import org.jetbrains.annotations.Nullable;
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private static final int CACHE_SIZE = 1024;
 
-    /** Placeholder for values, which expressions are not specified. */
-    public static final Object UNSPECIFIED_VALUE_PLACEHOLDER = Placeholder.UNSPECIFIED_VALUE;
-
     // We use enums for placeholders because enum serialization/deserialization guarantees to preserve object's identity.
     private enum Placeholder {
         UNSPECIFIED_VALUE
@@ -155,7 +151,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         return (o1, o2) -> {
             RowHandler<RowT> hnd = ctx.rowHandler();
-            Object unspecifiedVal = UNSPECIFIED_VALUE_PLACEHOLDER;
 
             for (RelFieldCollation field : collation.getFieldCollations()) {
                 int fieldIdx = field.getFieldIndex();
@@ -163,11 +158,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
                 Object c1 = hnd.get(fieldIdx, o1);
                 Object c2 = hnd.get(fieldIdx, o2);
-
-                // If filter for some field is unspecified, assume equality for this field and all subsequent fields.
-                if (c1 == unspecifiedVal || c2 == unspecifiedVal) {
-                    return 0;
-                }
 
                 int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
                         ?
@@ -382,8 +372,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 || (!lowerInclude && !upperInclude)
                 || searchBounds.get(fieldIdx) == null) {
             ranges.add(new RangeConditionImpl(
-                    scalar(curLower, rowType),
-                    scalar(curUpper, rowType),
+                    curLower,
+                    curUpper,
+                    rowType,
                     lowerInclude,
                     upperInclude,
                     rowFactory
@@ -457,7 +448,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /**
      * Creates {@link SingleScalar}, a code-generated expressions evaluator.
      *
-     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link ExpressionFactoryImpl#UNSPECIFIED_VALUE_PLACEHOLDER}.
+     * @param nodes Expressions.
      * @param type Row type.
      * @return SingleScalar.
      */
@@ -487,18 +478,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
-        BitSet unspecifiedValues = new BitSet(nodes.size());
-
         for (int i = 0; i < nodes.size(); i++) {
             RexNode node = nodes.get(i);
 
             if (node != null) {
                 programBuilder.addProject(node, null);
-            } else {
-                unspecifiedValues.set(i);
-
-                programBuilder.addProject(rexBuilder.makeNullLiteral(type == emptyType
-                        ? nullType : type.getFieldList().get(i).getType()), null);
             }
         }
 
@@ -533,12 +517,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
                 builder, null, null, ctx, inputGetter, correlates);
 
-        assert nodes.size() == projects.size();
-
         for (int i = 0; i < projects.size(); i++) {
-            Expression val = unspecifiedValues.get(i)
-                    ? Expressions.field(null, ExpressionFactoryImpl.class, "UNSPECIFIED_VALUE_PLACEHOLDER")
-                    : projects.get(i);
+            Expression val = projects.get(i);
 
             builder.add(
                         Expressions.statement(
@@ -746,6 +726,24 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    private static ImmutableBitSet processUnspecifiedNodes(List<RexNode> nodes) {
+        if (nodes == null) {
+            return ImmutableBitSet.of();
+        }
+
+        ImmutableBitSet.Builder bs = ImmutableBitSet.builder();
+
+        for (int i = 0; i < nodes.size(); i++) {
+            RexNode node = nodes.get(i);
+
+            if (node == null) {
+                bs.set(i);
+            }
+        }
+
+        return bs.build();
+    }
+
     private class RangeConditionImpl implements RangeCondition<RowT> {
         /** Lower bound expression. */
         private final SingleScalar lowerBound;
@@ -771,30 +769,50 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Row factory. */
         private final RowFactory<RowT> factory;
 
+        /** Unspecified nodes positions for lower bound. */
+        private ImmutableBitSet unspecifiedLower;
+
+        /** Unspecified nodes positions for upper bound. */
+        private ImmutableBitSet unspecifiedUpper;
+
         private RangeConditionImpl(
-                SingleScalar lowerBound,
-                SingleScalar upperBound,
+                List<RexNode> lower,
+                List<RexNode> upper,
+                RelDataType rowType,
                 boolean lowerInclude,
                 boolean upperInclude,
                 RowFactory<RowT> factory
         ) {
-            this.lowerBound = lowerBound;
-            this.upperBound = upperBound;
+            this.lowerBound = scalar(lower, rowType);
+            this.upperBound = scalar(upper, rowType);
             this.lowerInclude = lowerInclude;
             this.upperInclude = upperInclude;
             this.factory = factory;
+
+            unspecifiedLower = processUnspecifiedNodes(lower);
+            unspecifiedUpper = processUnspecifiedNodes(upper);
         }
 
         /** {@inheritDoc} */
         @Override
         public RowT lower() {
-            return lowerRow != null ? lowerRow : (lowerRow = getRow(lowerBound));
+            return lowerRow != null ? lowerRow : getRow(lowerBound, true);
         }
 
         /** {@inheritDoc} */
         @Override
         public RowT upper() {
-            return upperRow != null ? upperRow : (upperRow = getRow(upperBound));
+            return upperRow != null ? upperRow : getRow(upperBound, false);
+        }
+
+        @Override
+        public ImmutableBitSet unspecifiedLower() {
+            return unspecifiedLower;
+        }
+
+        @Override
+        public ImmutableBitSet unspecifiedUpper() {
+            return unspecifiedUpper;
         }
 
         /** {@inheritDoc} */
@@ -810,7 +828,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Compute row. */
-        private RowT getRow(SingleScalar scalar) {
+        private RowT getRow(SingleScalar scalar, boolean lower) {
             RowT res = factory.create();
             scalar.execute(ctx, null, res);
 
@@ -822,7 +840,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 Object fldVal = hnd.get(i, res);
 
                 if (fldVal == null) {
-                    skip = Boolean.TRUE;
+                    if (lower ? !unspecifiedLower().get(i) : !unspecifiedUpper().get(i)) {
+                        skip = Boolean.TRUE;
+                    }
                 }
 
                 if (fldVal == ctx.nullBound()) {

@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
-
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -31,7 +30,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.util.IgniteUtils;
+
 
 /**
  * Helper class provides method to convert binary tuple to rows and vice-versa.
@@ -57,13 +56,15 @@ public final class RowConverter {
      * @param factory Row handler factory.
      * @param searchRow Search row.
      * @param <RowT> Row type.
+     * @param unspecified Positions of unspecified nodes, i.e. nodes instantiated with {@code null}
      * @return Binary tuple.
      */
-    public static <RowT> BinaryTuplePrefix toBinaryTuplePrefix(
+    static <RowT> BinaryTuplePrefix toBinaryTuplePrefix(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             RowHandler.RowFactory<RowT> factory,
-            RowT searchRow
+            RowT searchRow,
+            ImmutableBitSet unspecified
     ) {
         RowHandler<RowT> handler = factory.handler();
 
@@ -72,18 +73,18 @@ public final class RowConverter {
 
         assert prefixColumnsCount == indexedColumnsCount : "Invalid range condition";
 
-        int specifiedCols = 0;
+        int rowColumnsCount = 0;
         for (int i = 0; i < prefixColumnsCount; i++) {
-            if (handler.get(i, searchRow) == UNSPECIFIED_VALUE_PLACEHOLDER) {
+            if (unspecified.get(i)) {
                 break;
             }
 
-            specifiedCols++;
+            rowColumnsCount++;
         }
 
-        BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, indexedColumnsCount);
+        BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(rowColumnsCount, indexedColumnsCount);
 
-        return new BinaryTuplePrefix(indexedColumnsCount, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
+        return new BinaryTuplePrefix(indexedColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, searchRow, rowColumnsCount));
     }
 
     /**
@@ -108,34 +109,19 @@ public final class RowConverter {
 
         assert rowColumnsCount == binarySchema.elementCount() : "Invalid lookup key.";
 
-        if (IgniteUtils.assertionsEnabled()) {
-            for (int i = 0; i < rowColumnsCount; i++) {
-                if (handler.get(i, searchRow) == UNSPECIFIED_VALUE_PLACEHOLDER) {
-                    throw new AssertionError("Invalid lookup key.");
-                }
-            }
-        }
-
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount);
 
-        return new BinaryTuple(rowColumnsCount, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
+        return new BinaryTuple(rowColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, searchRow, rowColumnsCount));
     }
 
     private static <RowT> ByteBuffer toByteBuffer(
-            ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             RowHandler<RowT> handler,
             BinaryTupleBuilder tupleBuilder,
-            RowT searchRow
+            RowT searchRow, int colCount
     ) {
-        int columnsCount = handler.columnCount(searchRow);
-
-        for (int i = 0; i < columnsCount; i++) {
+        for (int i = 0; i < colCount; i++) {
             Object val = handler.get(i, searchRow);
-
-            if (val == UNSPECIFIED_VALUE_PLACEHOLDER) {
-                break; // No more columns in prefix.
-            }
 
             Element element = binarySchema.element(i);
 

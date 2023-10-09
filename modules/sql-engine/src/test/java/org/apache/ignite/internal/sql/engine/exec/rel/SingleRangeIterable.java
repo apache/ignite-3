@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.Collections;
 import java.util.Iterator;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 
@@ -62,6 +63,16 @@ final class SingleRangeIterable<T> implements RangeIterable<T> {
             @Override
             public T upper() {
                 return upper;
+            }
+
+            @Override
+            public ImmutableBitSet unspecifiedLower() {
+                return ImmutableBitSet.of();
+            }
+
+            @Override
+            public ImmutableBitSet unspecifiedUpper() {
+                return ImmutableBitSet.of();
             }
 
             @Override

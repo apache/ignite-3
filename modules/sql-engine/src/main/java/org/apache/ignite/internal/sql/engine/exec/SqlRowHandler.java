@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -232,8 +231,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
             for (int i = 0; i < row.length; i++) {
                 Object value = row[i];
-
-                assert value != UNSPECIFIED_VALUE_PLACEHOLDER : "Invalid row value.";
 
                 appendValue(tupleBuilder, rowSchema.fields().get(i), value);
             }
