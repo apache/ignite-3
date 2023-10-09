@@ -15,34 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Test;
 
 /**
- * The exception is thrown when SQL engine can not process an operation because a node has a left cluster.
+ * Ensures that copying {@link NodeLeftException} does not change the exception message.
  */
-public class NodeLeftException extends IgniteException {
+public class NodeLeftExceptionCopyTest {
+    @Test
+    public void exceptionCopyKeepsOriginalMessage() {
+        String nodeName = "node-1";
+        Throwable origin = new NodeLeftException(nodeName);
+        Throwable copy = ExceptionUtils.copyExceptionWithCause(new CompletionException(origin));
 
-    private static final long serialVersionUID = 0L;
-
-    /** Constructor. */
-    public NodeLeftException(String nodeName) {
-        super(NODE_LEFT_ERR, "Node left the cluster. Node: " + nodeName);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @deprecated This constructor is used to prevent the message from being reformatted during a copy exception using
-     *         {@link ExceptionUtils#copyExceptionWithCause(CompletionException)}.
-     */
-    @Deprecated
-    public NodeLeftException(int code, String message) {
-        super(code, message);
+        assertThat(origin.getMessage(), not(equalTo(nodeName)));
+        assertThat(origin.getMessage(), equalTo(copy.getMessage()));
     }
 }
