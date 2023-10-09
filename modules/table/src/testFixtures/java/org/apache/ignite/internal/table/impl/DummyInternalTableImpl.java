@@ -431,7 +431,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * Creates a {@link TxManager}.
      *
      * @param replicaSvc Replica service to use.
-     * @return Created TxManager.
      */
     public static TxManagerImpl txManager(ReplicaService replicaSvc) {
         return new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), LOCAL_NODE::id);
