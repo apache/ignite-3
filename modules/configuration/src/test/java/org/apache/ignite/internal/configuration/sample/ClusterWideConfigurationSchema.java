@@ -32,5 +32,5 @@ public class ClusterWideConfigurationSchema {
 
     /** Baseline. */
     @ConfigValue
-    public BaselineConfigurationSchema baseline;
+    public TestConfigurationSchema testConfigurationSchema;
 }

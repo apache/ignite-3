@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.sql.engine.exec;
 
-dependencies {
-    implementation project(':ignite-network-api')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-metastorage-api')
-    implementation project(':ignite-core')
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+
+/**
+ * An integration point that helps the execution to scan over arbitrary source of rows.
+ */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface ScannableDataSourceProvider {
+    ScannableDataSource forSystemView(IgniteSystemView view);
 }
-
-description = 'ignite-baseline'

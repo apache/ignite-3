@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.sample;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Test baseline configuration schema.
+ * Read only direct multi row replica request.
  */
-@Config
-public class BaselineConfigurationSchema {
-    /** Auto adjust. */
-    @ConfigValue
-    public AutoAdjustConfigurationSchema autoAdjust;
-
-    /** Nodes. */
-    @NamedConfigValue
-    public NodeConfigurationSchema nodes;
+@Transferable(TableMessageGroup.RO_DIRECT_MULTI_ROW_REPLICA_REQUEST)
+public interface ReadOnlyDirectMultiRowReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyDirectReplicaRequest {
 }

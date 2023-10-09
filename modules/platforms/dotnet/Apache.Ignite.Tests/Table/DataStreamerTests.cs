@@ -100,15 +100,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         if (enabled)
         {
-            // TODO IGNITE-19824: Remove read-only TX workaround.
-            // Currently, there might be an exception due to false-positive tx conflict detection, which is fixed by a  read-only tx.
-            await TestUtils.WaitForConditionAsync(
-                async () =>
-                {
-                    await using var roTx = await Client.Transactions.BeginAsync(new(ReadOnly: true));
-                    return await TupleView.ContainsKeyAsync(roTx, GetTuple(0));
-                },
-                3000);
+            TestUtils.WaitForCondition(() => TupleView.ContainsKeyAsync(null, GetTuple(0)).GetAwaiter().GetResult(), 3000);
         }
         else
         {

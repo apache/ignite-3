@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -593,6 +594,19 @@ public class JraftServerImpl implements RaftServer {
         IgniteRpcClient client = (IgniteRpcClient) nodes.get(nodeId).getNodeOptions().getRpcClient();
 
         client.blockMessages(predicate);
+    }
+
+    /**
+     * Return currently blocked messages queue.
+     *
+     * @param nodeId Node id.
+     * @return Blocked messages.
+     */
+    @TestOnly
+    public Queue<Object[]> blockedMessages(RaftNodeId nodeId) {
+        IgniteRpcClient client = (IgniteRpcClient) nodes.get(nodeId).getNodeOptions().getRpcClient();
+
+        return client.blockedMessages();
     }
 
     /**

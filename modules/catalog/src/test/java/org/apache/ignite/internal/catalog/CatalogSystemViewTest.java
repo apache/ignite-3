@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -114,6 +116,38 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         CatalogTableColumnDescriptor col2 = columns.get(1);
         assertEquals("col2", col2.name());
         assertEquals(STRING, col2.type());
+    }
+
+    @ParameterizedTest
+    @EnumSource(SystemViewType.class)
+    public void testCreateSystemViewUpdatesDescriptorToken(SystemViewType type) {
+        CreateSystemViewCommand command = CreateSystemViewCommand.builder()
+                .name(SYS_VIEW_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(INT32).build(),
+                        ColumnParams.builder().name("col2").type(STRING).length(1 << 5).build()
+                ))
+                .type(type)
+                .build();
+
+        CatalogSchemaDescriptor schema = manager.activeSchema(clock.nowLong());
+        assertNotNull(schema);
+        assertEquals(INITIAL_CAUSALITY_TOKEN, schema.updateToken());
+
+        assertThat(manager.execute(command), willCompleteSuccessfully());
+
+        int catalogVersion = manager.latestCatalogVersion();
+
+        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
+        assertNotNull(systemSchema, "systemSchema");
+
+        schema = manager.activeSchema(clock.nowLong());
+        assertNotNull(schema);
+        long schemaCausalityToken = schema.updateToken();
+        assertEquals(INITIAL_CAUSALITY_TOKEN, schemaCausalityToken);
+
+        // Assert that creation of the system view updates token for the descriptor.
+        assertTrue(systemSchema.updateToken() > schemaCausalityToken);
     }
 
     @ParameterizedTest

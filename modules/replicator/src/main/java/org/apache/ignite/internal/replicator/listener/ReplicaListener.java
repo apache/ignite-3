@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator.listener;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.network.ClusterNode;
 
@@ -33,7 +34,7 @@ public interface ReplicaListener {
      * @param senderId Sender id.
      * @return Listener response.
      */
-    CompletableFuture<?> invoke(ReplicaRequest request, String senderId);
+    CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
 
     /**
      * Callback on becoming the primary replica.

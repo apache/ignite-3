@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -234,6 +235,34 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(() -> metastore.appliedRevision() > metastoreRevision, 200));
     }
 
+    @Test
+    void testOnUpdateHandlerUsesCausalityTokenFromMetastore() throws Exception {
+        CompletableFuture<Void> onUpdateHandlerFuture = new CompletableFuture<>();
+
+        AtomicLong causalityTokenFromHandler = new AtomicLong(-1L);
+
+        UpdateLog updateLog = createAndStartUpdateLogImpl((update, metaStorageUpdateTimestamp, causalityToken) -> {
+            causalityTokenFromHandler.set(causalityToken);
+
+            return onUpdateHandlerFuture;
+        });
+
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+
+        long metastoreRevision = metastore.appliedRevision();
+
+        assertThat(updateLog.append(singleEntryUpdateOfVersion(1)), willCompleteSuccessfully());
+
+        // Let's make sure that the metastore revision will not increase until onUpdateHandlerFuture is completed.
+        assertFalse(waitForCondition(() -> metastore.appliedRevision() > metastoreRevision, 200));
+
+        // Let's make sure that the metastore revision increases after completing onUpdateHandlerFuture.
+        onUpdateHandlerFuture.complete(null);
+
+        // Assert that causality token from OnUpdateHandler is the same as the revision of this update in metastorage.
+        assertTrue(waitForCondition(() -> metastore.appliedRevision() == causalityTokenFromHandler.get(), 200));
+    }
+
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {
         return new VersionedUpdate(version, 1, List.of(new TestUpdateEntry("foo_" + version)));
     }
@@ -248,7 +277,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public Catalog applyUpdate(Catalog catalog) {
+        public Catalog applyUpdate(Catalog catalog, long causalityToken) {
             return catalog;
         }
 

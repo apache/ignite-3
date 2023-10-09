@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Table
 {
-    using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading.Tasks;
@@ -101,7 +100,7 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Table.</returns>
         internal async Task<Table?> GetTableInternalAsync(string name)
         {
-            ArgumentNullException.ThrowIfNull(name);
+            IgniteArgumentCheck.NotNull(name);
 
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(name);

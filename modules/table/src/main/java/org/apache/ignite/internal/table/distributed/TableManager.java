@@ -82,7 +82,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -219,9 +218,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Replica service. */
     private final ReplicaService replicaSvc;
-
-    /** Baseline manager. */
-    private final BaselineManager baselineMgr;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -373,7 +369,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
      * @param replicaSvc Replica service.
-     * @param baselineMgr Baseline manager.
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
@@ -392,7 +387,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
-            BaselineManager baselineMgr,
             TopologyService topologyService,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
@@ -413,7 +407,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
-        this.baselineMgr = baselineMgr;
         this.replicaMgr = replicaMgr;
         this.lockMgr = lockMgr;
         this.replicaSvc = replicaSvc;
@@ -1466,17 +1459,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private Set<Assignment> calculateAssignments(TablePartitionId tablePartitionId) {
+    private CompletableFuture<Set<Assignment>> calculateAssignments(TablePartitionId tablePartitionId) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
 
-        return AffinityUtils.calculateAssignmentForPartition(
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 we must use distribution zone keys here
-                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                tablePartitionId.partitionId(),
-                getZoneDescriptor(tableDescriptor, catalogVersion).replicas()
-        );
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+
+        return distributionZoneManager.dataNodes(zoneDescriptor.updateToken(), tableDescriptor.zoneId()).thenApply(dataNodes ->
+                AffinityUtils.calculateAssignmentForPartition(
+                        dataNodes,
+                        tablePartitionId.partitionId(),
+                        zoneDescriptor.replicas()
+                ));
     }
 
     @Override
@@ -2054,11 +2049,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
                                 CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, catalogVersion);
 
-                                return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
+                                CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+
+                                return distributionZoneManager.dataNodes(zoneDescriptor.updateToken(), tableDescriptor.zoneId())
                                         .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
                                                 metaStorageMgr,
                                                 dataNodes,
-                                                getZoneDescriptor(tableDescriptor, catalogVersion).replicas(),
+                                                zoneDescriptor.replicas(),
                                                 replicaGrpId,
                                                 evt
                                         ));

@@ -19,14 +19,14 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 
-import it.unimi.dsi.fastutil.ints.IntSet;
-import it.unimi.dsi.fastutil.ints.IntSets;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -45,7 +45,8 @@ public class Fragment {
     private final String rootSer;
 
     private final List<IgniteReceiver> remotes;
-    private final IntSet tableIds;
+    private final List<IgniteTable> tables;
+    private final List<IgniteSystemView> systemViews;
 
     private final boolean correlated;
 
@@ -56,21 +57,32 @@ public class Fragment {
      * @param correlated Whether some correlated variables should be set prior to fragment execution.
      * @param root Root node of the fragment.
      * @param remotes Remote sources of the fragment.
+     * @param tables A list of tables containing by this fragment.
+     * @param systemViews A list of system views containing by this fragment.
      */
-    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes, IntSet tableIds) {
-        this(id, root, correlated, remotes, null, tableIds);
+    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes,
+            List<IgniteTable> tables, List<IgniteSystemView> systemViews) {
+        this(id, correlated, root, null, remotes, tables, systemViews);
     }
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param id An identifier of this fragment.
+     * @param correlated Whether some correlated variables should be set prior to fragment execution.
+     * @param root Root node of the fragment.
+     * @param rootSer Serialised representation of a root. Optional.
+     * @param remotes Remote sources of the fragment.
+     * @param tables A list of tables containing by this fragment.
+     * @param systemViews A list of system views containing by this fragment.
      */
-    Fragment(long id, IgniteRel root, boolean correlated, List<IgniteReceiver> remotes,
-            @Nullable String rootSer, IntSet tableIds) {
+    Fragment(long id, boolean correlated, IgniteRel root, @Nullable String rootSer, List<IgniteReceiver> remotes,
+            List<IgniteTable> tables, List<IgniteSystemView> systemViews) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
-        this.tableIds = IntSets.unmodifiable(tableIds);
+        this.tables = List.copyOf(tables);
+        this.systemViews = List.copyOf(systemViews);
         this.rootSer = rootSer != null ? rootSer : toJson(root);
         this.correlated = correlated;
     }
@@ -115,8 +127,12 @@ public class Fragment {
         return remotes;
     }
 
-    public IntSet tableIds() {
-        return tableIds;
+    public List<IgniteTable> tables() {
+        return tables;
+    }
+
+    public List<IgniteSystemView> systemViews() {
+        return systemViews;
     }
 
     public boolean rootFragment() {

@@ -15,27 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.sample;
-
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+package org.apache.ignite.internal.replicator.message;
 
 /**
- * Test node configuration schema.
+ * Read-only request that sand to a specific node directly. This request has no read timestamp as other read-only requests because the
+ * timestamp is calculated on the replica side. The linearization is guaranteed by sending the request directly to the primary node.
+ *
+ * <p>The requests are used to implement an implicit read-only transaction for a single partition.
  */
-@Config
-public class NodeConfigurationSchema {
-    /** Consistent id. */
-    @Value
-    @Immutable
-    public String consistentId;
-
-    /** Port. */
-    @Value
-    public int port;
-
-    /** Auto adjust enabled. */
-    @Value(hasDefault = true)
-    public boolean autoAdjustEnabled = true;
+public interface ReadOnlyDirectReplicaRequest extends ReplicaRequest {
+    /**
+     * Gets an enlistment consistency token.
+     * The token is used to check that the lease is still actual while the message goes to the replica.
+     *
+     * @return Enlistment consistency token.
+     */
+    Long enlistmentConsistencyToken();
 }

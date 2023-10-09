@@ -65,8 +65,10 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog) {
+    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+
+        descriptor.updateToken(causalityToken);
 
         return new Catalog(
                 catalog.version(),
@@ -78,7 +80,8 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
                         schema.name(),
                         schema.tables(),
                         ArrayUtils.concat(schema.indexes(), descriptor),
-                        schema.systemViews()
+                        schema.systemViews(),
+                        causalityToken
                 ), catalog.schemas())
         );
     }

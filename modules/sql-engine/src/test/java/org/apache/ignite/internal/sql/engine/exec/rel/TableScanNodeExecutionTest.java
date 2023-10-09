@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -45,10 +46,12 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -71,7 +74,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests execution flow of TableScanNode.
  */
-public class TableScanNodeExecutionTest extends AbstractExecutionTest {
+public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
 
@@ -109,7 +112,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         for (int size : sizes) {
             log.info("Check: size=" + size);
 
-            ReplicaService replicaSvc = mock(ReplicaService.class);
+            ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
             TxManagerImpl txManager = new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef), () -> "local");
@@ -229,5 +232,10 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 });
             };
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

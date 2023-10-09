@@ -132,8 +132,8 @@ namespace Apache.Ignite.Internal.Sql
             IEqualityComparer<TK>? comparer)
             where TK : notnull
         {
-            ArgumentNullException.ThrowIfNull(keySelector);
-            ArgumentNullException.ThrowIfNull(valSelector);
+            IgniteArgumentCheck.NotNull(keySelector);
+            IgniteArgumentCheck.NotNull(valSelector);
 
             return await CollectAsync(
                     constructor: capacity => new Dictionary<TK, TV>(capacity, comparer),
@@ -144,8 +144,8 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async ValueTask<TResult> CollectAsync<TResult>(Func<int, TResult> constructor, Action<TResult, T> accumulator)
         {
-            ArgumentNullException.ThrowIfNull(constructor);
-            ArgumentNullException.ThrowIfNull(accumulator);
+            IgniteArgumentCheck.NotNull(constructor);
+            IgniteArgumentCheck.NotNull(accumulator);
 
             ValidateAndSetIteratorState();
 
