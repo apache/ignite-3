@@ -145,9 +145,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     public Row resolve(BinaryRow row, int targetSchemaVersion) {
         SchemaDescriptor targetSchema = schema(targetSchemaVersion);
 
-        if (targetSchema == null) {
-            throw new SchemaRegistryException("No schema found: schemaVersion=" + targetSchemaVersion);
-        }
+        throwIfNoSuchSchema(targetSchema, targetSchemaVersion);
 
         return resolveInternal(row, targetSchema, false);
     }
@@ -161,6 +159,12 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     @Override
     public List<Row> resolve(Collection<BinaryRow> binaryRows, int targetSchemaVersion) {
         return resolveInternal(binaryRows, targetSchemaVersion, false);
+    }
+
+    private static void throwIfNoSuchSchema(SchemaDescriptor targetSchema, int targetSchemaVersion) {
+        if (targetSchema == null) {
+            throw new SchemaRegistryException("No schema found: schemaVersion=" + targetSchemaVersion);
+        }
     }
 
     @Override
@@ -205,9 +209,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     private List<Row> resolveInternal(Collection<BinaryRow> binaryRows, int targetSchemaVersion, boolean keyOnly) {
         SchemaDescriptor targetSchema = schema(targetSchemaVersion);
 
-        if (targetSchema == null) {
-            throw new SchemaRegistryException("No schema found: schemaVersion=" + targetSchemaVersion);
-        }
+        throwIfNoSuchSchema(targetSchema, targetSchemaVersion);
 
         var rows = new ArrayList<Row>(binaryRows.size());
 
