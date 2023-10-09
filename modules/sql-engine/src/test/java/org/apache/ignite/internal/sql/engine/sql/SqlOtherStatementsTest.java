@@ -17,55 +17,39 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Tests for other SQL statements.
  */
 public class SqlOtherStatementsTest {
 
-    @Test
-    public void testStartReadOnlyTx() {
-        String sql = "START TRANSACTION READ ONLY";
-
-        SqlNode node = parseStatement(sql);
-        IgniteSqlStartTransaction start = assertInstanceOf(IgniteSqlStartTransaction.class, node);
-        assertTrue(start.isReadOnly());
-
-        expectUnparsed(node, sql);
-    }
-
-    @Test
-    public void testStartReadWriteTx() {
-        String sql = "START TRANSACTION READ WRITE";
-
-        SqlNode node = parseStatement(sql);
-        IgniteSqlStartTransaction start = assertInstanceOf(IgniteSqlStartTransaction.class, node);
-        assertFalse(start.isReadOnly());
-
-        expectUnparsed(node, sql);
-    }
-
     @ParameterizedTest
-    @ValueSource(strings = {
-            "START TRANSACTION",
-            "START TRANSACTION READ",
-            "START TRANSACTION WRITE",
-            "START TRANSACTION XYZ",
+    @CsvSource({
+            "START TRANSACTION,",
+            "START TRANSACTION READ ONLY,READ_ONLY",
+            "START TRANSACTION READ WRITE,READ_WRITE",
     })
-    public void testStartRejectInvalid(String sqlStmt) {
-        assertThrows(SqlException.class, () -> parseStatement(sqlStmt));
+    public void testStartTx(String sqlStmt, IgniteSqlStartTransactionMode mode) {
+        SqlNode node = parseStatement(sqlStmt);
+        IgniteSqlStartTransaction start = assertInstanceOf(IgniteSqlStartTransaction.class, node);
+        assertEquals(mode, start.getMode());
+
+        expectUnparsed(node, sqlStmt);
+    }
+
+    @Test
+    public void testStartRejectInvalid() {
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, " Encountered \"XY\"", () -> parseStatement("START TRANSACTION XY"));
     }
 
     @Test

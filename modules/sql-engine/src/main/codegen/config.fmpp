@@ -45,6 +45,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIntervalTypeNameSpec",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType",

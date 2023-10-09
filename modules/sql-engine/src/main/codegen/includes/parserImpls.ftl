@@ -654,20 +654,25 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 SqlNode SqlStartTransaction() :
 {
     final Span s;
+    IgniteSqlStartTransactionMode mode = null;
 }
 {
     <START> { s = span(); }
     <TRANSACTION>
-    <READ>
-    (
-      <ONLY> {
-        return new IgniteSqlStartTransaction(s.end(this), true);
-      }
-      |
-      <WRITE> {
-        return new IgniteSqlStartTransaction(s.end(this), false);
-      }
-    )
+    [
+        <READ>
+        (
+          <ONLY> {
+            mode = IgniteSqlStartTransactionMode.READ_ONLY;
+          }
+          |
+          <WRITE> {
+            mode = IgniteSqlStartTransactionMode.READ_WRITE;
+          }
+        )
+    ] {
+       return new IgniteSqlStartTransaction(s.end(this), mode);
+    }
 }
 
 SqlNode SqlCommitTransaction() :
