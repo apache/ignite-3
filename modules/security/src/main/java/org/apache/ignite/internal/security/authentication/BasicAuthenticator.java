@@ -17,23 +17,32 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
+
 /** Implementation of basic authenticator. */
 class BasicAuthenticator implements Authenticator {
     private final String username;
 
     private final String password;
 
-    public BasicAuthenticator(String username, String password) {
+    BasicAuthenticator(String username, String password) {
         this.username = username;
         this.password = password;
     }
 
     @Override
     public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
+        if (!(authenticationRequest instanceof UsernamePasswordRequest)) {
+            throw new UnsupportedAuthenticationTypeException(
+                    "Unsupported authentication type: " + authenticationRequest.getClass().getName()
+            );
+        }
+
         if (username.equals(authenticationRequest.getIdentity()) && password.equals(authenticationRequest.getSecret())) {
             return new UserDetails(username);
         } else {
-            return null;
+            throw new InvalidCredentialsException("Invalid credentials");
         }
     }
 }

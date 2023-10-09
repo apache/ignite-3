@@ -21,7 +21,12 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -32,6 +37,7 @@ import org.apache.ignite.internal.security.authentication.configuration.Authenti
 import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -208,6 +214,33 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         UsernamePasswordRequest adminNewPasswordCredentials = new UsernamePasswordRequest("admin", "new-password");
 
         assertEquals("admin", manager.authenticate(adminNewPasswordCredentials).username());
+    }
+
+    @Test
+    public void exceptionsDuringAuthentication() {
+        UsernamePasswordRequest credentials = new UsernamePasswordRequest("admin", "password");
+
+        Authenticator authenticator1 = mock(Authenticator.class);
+        doThrow(new InvalidCredentialsException("Invalid credentials")).when(authenticator1).authenticate(credentials);
+
+        Authenticator authenticator2 = mock(Authenticator.class);
+        doThrow(new UnsupportedAuthenticationTypeException("Unsupported type")).when(authenticator2).authenticate(credentials);
+
+        Authenticator authenticator3 = mock(Authenticator.class);
+        doThrow(new RuntimeException("Test exception")).when(authenticator3).authenticate(credentials);
+
+        Authenticator authenticator4 = mock(Authenticator.class);
+        doReturn(new UserDetails("admin")).when(authenticator4).authenticate(credentials);
+
+        manager.authEnabled(true);
+        manager.authenticators(List.of(authenticator1, authenticator2, authenticator3, authenticator4));
+
+        assertEquals("admin", manager.authenticate(credentials).username());
+
+        verify(authenticator1).authenticate(credentials);
+        verify(authenticator2).authenticate(credentials);
+        verify(authenticator3).authenticate(credentials);
+        verify(authenticator4).authenticate(credentials);
     }
 
     private static AuthenticationConfiguration mutateConfiguration(AuthenticationConfiguration configuration,

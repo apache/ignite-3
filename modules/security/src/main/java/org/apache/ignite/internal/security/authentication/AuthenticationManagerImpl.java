@@ -31,10 +31,12 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
- * Implementation of {@link AuthenticationManager}.
+ * Implementation of {@link Authenticator}.
  */
 public class AuthenticationManagerImpl implements AuthenticationManager {
     private static final IgniteLogger LOG = Loggers.forClass(AuthenticationManagerImpl.class);
@@ -54,7 +56,7 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
         try {
             if (authEnabled) {
                 return authenticators.stream()
-                        .map(authenticator -> authenticator.authenticate(authenticationRequest))
+                        .map(authenticator -> authentificate(authenticator, authenticationRequest))
                         .filter(Objects::nonNull)
                         .findFirst()
                         .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
@@ -70,6 +72,18 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
     public CompletableFuture<?> onUpdate(
             ConfigurationNotificationEvent<AuthenticationView> ctx) {
         return CompletableFuture.runAsync(() -> refreshProviders(ctx.newValue()));
+    }
+
+    @Nullable
+    private static UserDetails authentificate(Authenticator authenticator, AuthenticationRequest<?, ?> authenticationRequest) {
+        try {
+            return authenticator.authenticate(authenticationRequest);
+        } catch (InvalidCredentialsException | UnsupportedAuthenticationTypeException exception) {
+            return null;
+        } catch (Exception e) {
+            LOG.error("Unexpected exception during authentication", e);
+            return null;
+        }
     }
 
     private void refreshProviders(@Nullable AuthenticationView view) {
@@ -97,5 +111,15 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
         return providers.stream()
                 .map(AuthenticatorFactory::create)
                 .collect(Collectors.toList());
+    }
+
+    @TestOnly
+    public void authEnabled(boolean authEnabled) {
+        this.authEnabled = authEnabled;
+    }
+
+    @TestOnly
+    public void authenticators(List<Authenticator> authenticators) {
+        this.authenticators = authenticators;
     }
 }

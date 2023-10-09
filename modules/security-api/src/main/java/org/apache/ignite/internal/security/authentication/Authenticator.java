@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 
 /**
  * General interface for all authenticators.
  */
 public interface Authenticator {
     /**
-     * Authenticates a user with the given request. Returns the user details if the authentication was successful. Returns {@code null}
+     * Authenticates a user with the given request. Returns the user details if the authentication was successful. Throws an exception
      * otherwise.
      *
      * @param authenticationRequest The authentication request.
      * @return The user details.
+     * @throws InvalidCredentialsException If the authentication failed.
+     * @throws UnsupportedAuthenticationTypeException If the authentication type is not supported.
      */
-    @Nullable
     UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest);
 }
