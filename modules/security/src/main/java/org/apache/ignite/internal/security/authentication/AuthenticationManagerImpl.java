@@ -56,7 +56,7 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
         try {
             if (authEnabled) {
                 return authenticators.stream()
-                        .map(authenticator -> authentificate(authenticator, authenticationRequest))
+                        .map(authenticator -> authenticate(authenticator, authenticationRequest))
                         .filter(Objects::nonNull)
                         .findFirst()
                         .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
@@ -75,7 +75,7 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
     }
 
     @Nullable
-    private static UserDetails authentificate(Authenticator authenticator, AuthenticationRequest<?, ?> authenticationRequest) {
+    private static UserDetails authenticate(Authenticator authenticator, AuthenticationRequest<?, ?> authenticationRequest) {
         try {
             return authenticator.authenticate(authenticationRequest);
         } catch (InvalidCredentialsException | UnsupportedAuthenticationTypeException exception) {
