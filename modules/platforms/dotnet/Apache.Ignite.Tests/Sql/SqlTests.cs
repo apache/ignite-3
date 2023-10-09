@@ -334,11 +334,8 @@ namespace Apache.Ignite.Tests.Sql
         public void TestInvalidSqlThrowsException()
         {
             var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
-            StringAssert.Contains("Invalid query, check inner exceptions for details: select x from bad", ex!.Message);
 
-            var innerEx = ex.InnerException;
-            Assert.IsInstanceOf<SqlException>(innerEx);
-            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", innerEx!.Message);
+            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
         }
 
         [Test]
@@ -365,7 +362,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
 
-            StringAssert.Contains("Invalid query, check inner exceptions for details: ALTER TABLE TEST ADD COLUMN ID INT", ex!.Message);
+            StringAssert.Contains("Failed to validate query. Column with name 'ID' already exists", ex!.Message);
         }
 
         [Test]
