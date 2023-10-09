@@ -679,7 +679,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         Mapper<T> valMapper = Mapper.of(valueClass, "val");
 
         SchemaDescriptor schema = new SchemaDescriptor(
-                schemaVersion,
+                SCHEMA_VERSION,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{new Column("VAL", type, nullable)}
         );

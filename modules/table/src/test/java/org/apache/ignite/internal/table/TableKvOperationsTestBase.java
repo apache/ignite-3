@@ -21,7 +21,6 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.UUID;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -44,11 +43,9 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
     @Mock(answer = RETURNS_DEEP_STUBS)
     protected ReplicaService replicaService;
 
-    protected final int schemaVersion = 1;
+    protected static final int SCHEMA_VERSION = 1;
 
-    private final UUID txId = UUID.randomUUID();
-
-    protected final SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
+    protected final SchemaVersions schemaVersions = new ConstantSchemaVersions(SCHEMA_VERSION);
 
     protected final TableImpl createTable(SchemaDescriptor schema) {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);

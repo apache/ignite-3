@@ -433,7 +433,7 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
 
     private SchemaDescriptor schemaDescriptor() {
         return new SchemaDescriptor(
-                schemaVersion,
+                SCHEMA_VERSION,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{new Column("VAL", NativeTypes.INT64, false)}
         );

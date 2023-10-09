@@ -50,7 +50,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void insert() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                schemaVersion,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );

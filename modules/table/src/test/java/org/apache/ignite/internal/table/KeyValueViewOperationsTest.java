@@ -661,7 +661,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(
-                schemaVersion,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 valCols
         );
