@@ -35,9 +35,9 @@ public class SqlOtherStatementsTest {
 
     @ParameterizedTest
     @CsvSource({
-            "START TRANSACTION,",
             "START TRANSACTION READ ONLY,READ_ONLY",
             "START TRANSACTION READ WRITE,READ_WRITE",
+            "START TRANSACTION,IMPLICIT_READ_WRITE",
     })
     public void testStartTx(String sqlStmt, IgniteSqlStartTransactionMode mode) {
         SqlNode node = parseStatement(sqlStmt);

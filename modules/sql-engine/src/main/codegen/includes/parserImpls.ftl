@@ -654,7 +654,7 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 SqlNode SqlStartTransaction() :
 {
     final Span s;
-    IgniteSqlStartTransactionMode mode = null;
+    IgniteSqlStartTransactionMode mode = IgniteSqlStartTransactionMode.IMPLICIT_READ_WRITE;
 }
 {
     <START> { s = span(); }
