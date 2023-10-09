@@ -169,7 +169,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(1, txManager.pending());
+        assertEquals(0, txManager.pending());
         InternalTransaction tx0 = (InternalTransaction) tx;
         assertEquals(TxState.ABORTED, tx0.state());
 
