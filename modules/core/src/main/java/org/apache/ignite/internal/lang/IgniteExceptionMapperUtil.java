@@ -174,7 +174,14 @@ public class IgniteExceptionMapperUtil {
         }
 
         Throwable res;
-        IgniteExceptionMapper<? extends Exception, ? extends Exception> m = EXCEPTION_CONVERTERS.get(origin.getClass());
+
+        // Try to find appropriate mapper, moving from original class to supper-classes step by step.
+        Class exceptionClass = origin.getClass();
+        IgniteExceptionMapper<? extends Exception, ? extends Exception> m;
+        while ((m = EXCEPTION_CONVERTERS.get(exceptionClass)) == null && exceptionClass != Throwable.class) {
+            exceptionClass = exceptionClass.getSuperclass();
+        }
+
         if (m != null) {
             res = map(m, origin);
 

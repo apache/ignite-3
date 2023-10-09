@@ -128,8 +128,7 @@ public class IgniteExceptionMapperUtilTest {
      */
     @Test
     public void testSqlInternalExceptionDefaultMapping() {
-        CustomInternalNotMappedException internalSqlErr = new CustomInternalNotMappedException(EXECUTION_CANCELLED_ERR);
-
+        CustomNoMappingException internalSqlErr = new CustomNoMappingException(EXECUTION_CANCELLED_ERR);
         Throwable mappedErr = mapToPublicSqlException(internalSqlErr);
 
         assertThat(mappedErr, instanceOf(SqlException.class));
@@ -238,20 +237,12 @@ public class IgniteExceptionMapperUtilTest {
         public CustomNoMappingException() {
             super(INTERNAL_ERR, "Test internal exception [err=no mapping]");
         }
-    }
-
-    /**
-     * Test runtime exception which does not have a mapper.
-     */
-    public static class CustomInternalNotMappedException extends IgniteInternalException {
-        /** Serial version UID. */
-        private static final long serialVersionUID = 0L;
 
         /**
-         * Creates a new instance of CustomInternalException.
+         * Creates a new instance of CustomNoMappingException with given code.
          */
-        public CustomInternalNotMappedException(int code) {
-            super(code, "Test internal exception.");
+        public CustomNoMappingException(int code) {
+            super(code, "Test internal exception [err=no mapping]");
         }
     }
 }

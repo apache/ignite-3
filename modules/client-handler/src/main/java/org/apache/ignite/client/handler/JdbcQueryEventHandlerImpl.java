@@ -498,7 +498,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                             return action.perform(newSessionId);
                         }
 
-                        return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicSqlException(error));
+                        return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(error));
                     });
         }
 

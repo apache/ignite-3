@@ -59,4 +59,10 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     public void closeSession() {
         super.closeSession();
     }
+
+    @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20598")
+    public void checkTransactionsWithDml() {
+        super.checkTransactionsWithDml();
+    }
 }

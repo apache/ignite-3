@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.ErrorGroups.Catalog;
 import org.apache.ignite.lang.ErrorGroups.Index;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -233,10 +231,6 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     public void implicitTransactionsStates() {
         IgniteSql sql = igniteSql();
 
-        if (sql instanceof ClientSql) {
-            return;
-        }
-
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         Session ses = sql.createSession();
@@ -245,7 +239,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
         for (int i = 0; i < ROW_COUNT; ++i) {
             assertThrowsSqlException(
-                    Catalog.VALIDATION_ERR,
+                    Sql.STMT_VALIDATION_ERR,
                     "Table with name 'PUBLIC.TEST' already exists",
                     () -> execute(ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)")
             );
@@ -259,10 +253,6 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     @Test
     public void checkTransactionsWithDml() {
         IgniteSql sql = igniteSql();
-
-        if (sql instanceof ClientSql) {
-            return;
-        }
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
@@ -287,10 +277,10 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
         // Outdated tx.
         Transaction outerTx0 = outerTx;
-        //ToDo: IGNITE-20387 , here should be used assertThrowsSqlException method with code and message `"Transaction is already finished"
-        IgniteException e = assertThrows(IgniteException.class,
+        assertThrowsSqlException(
+                Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+                "Transaction is already finished",
                 () -> checkDml(1, outerTx0, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
-        assertEquals(Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, e.code());
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
@@ -372,10 +362,6 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
     private void checkMixedTransactions(Matcher<String> planMatcher) {
         IgniteSql sql = igniteSql();
-
-        if (sql instanceof ClientSql) {
-            return;
-        }
 
         Session ses = sql.createSession();
 
