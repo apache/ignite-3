@@ -126,7 +126,13 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, int targetSchemaVersion) {
-        return resolveInternal(row, schema(targetSchemaVersion), false);
+        SchemaDescriptor targetSchema = schema(targetSchemaVersion);
+
+        if (targetSchema == null) {
+            throw new SchemaRegistryException("No schema found: schemaVersion=" + targetSchemaVersion);
+        }
+
+        return resolveInternal(row, targetSchema, false);
     }
 
     @Override
@@ -142,16 +148,16 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     private List<Row> resolveCollectionInternal(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion, boolean keyOnly) {
         SchemaDescriptor targetSchema = schema(targetSchemaVersion);
 
+        if (targetSchema == null) {
+            throw new SchemaRegistryException("No schema found: schemaVersion=" + targetSchemaVersion);
+        }
+
         return keyOnlyRows.stream()
                 .map(row -> row == null ? null : resolveInternal(row, targetSchema, keyOnly))
                 .collect(toList());
     }
 
     private Row resolveInternal(BinaryRow binaryRow, SchemaDescriptor targetSchema, boolean keyOnly) {
-        if (targetSchema == null) {
-            throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + binaryRow.schemaVersion());
-        }
-
         if (binaryRow.schemaVersion() == 0 || targetSchema.version() == binaryRow.schemaVersion()) {
             return keyOnly ? Row.wrapKeyOnlyBinaryRow(targetSchema, binaryRow) : Row.wrapBinaryRow(targetSchema, binaryRow);
         }
