@@ -271,7 +271,8 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
+        boolean implicit = tx == null;
+        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         int partId = partitionId(row);
 
@@ -282,16 +283,16 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<R> fut;
 
         if (primaryReplicaAndTerm != null) {
-            assert !actualTx.implicit();
+            assert !implicit;
 
             fut = trackingInvoke(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), false, primaryReplicaAndTerm,
                     noWriteChecker);
         } else {
             fut = enlistWithRetry(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION,
-                    actualTx.implicit(), noWriteChecker);
+                    implicit, noWriteChecker);
         }
 
-        return postEnlist(fut, false, actualTx, actualTx.implicit());
+        return postEnlist(fut, false, actualTx, implicit);
     }
 
     /**
@@ -329,12 +330,12 @@ public class InternalTableImpl implements InternalTable {
                     "The operation is attempted for completed transaction"));
         }
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
+        boolean implicit = tx == null;
+        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         boolean singlePart = rowBatchByPartitionId.size() == 1;
-        boolean implicit = actualTx.implicit();
         boolean full = implicit && singlePart;
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
@@ -371,8 +372,8 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, implicit && !singlePart, actualTx, full);
     }
 
-    private InternalTransaction startImplicitTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.beginImplicit(observableTimestampTracker, false) : tx;
+    private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
+        return tx == null ? txManager.begin(observableTimestampTracker) : tx;
     }
 
     /**
@@ -598,7 +599,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryRowEx row,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, true);
+        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
         int partId = partitionId(row);
 
@@ -649,7 +650,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> rows,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, true);
+        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
         int partId = partitionId(rows.iterator().next());
 
@@ -934,7 +935,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, false);
+        InternalTransaction tx = txManager.begin(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         CompletableFuture<Void> fut = enlistWithRetry(
@@ -1323,9 +1324,8 @@ public class InternalTableImpl implements InternalTable {
 
         validatePartitionIndex(partId);
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
-
-        boolean implicit = actualTx.implicit();
+        boolean implicit = tx == null;
+        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> enlistCursorInTx(

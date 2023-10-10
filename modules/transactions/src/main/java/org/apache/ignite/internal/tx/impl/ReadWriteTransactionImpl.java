@@ -64,19 +64,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param id The id.
      */
     public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
-        this(txManager, observableTsTracker, id, false);
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param txManager The tx manager.
-     * @param observableTsTracker Observable timestamp tracker.
-     * @param id The id.
-     * @param implicit Whether the transaction will be implicit or not.
-     */
-    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id, boolean implicit) {
-        super(txManager, id, implicit);
+        super(txManager, id);
 
         this.observableTsTracker = observableTsTracker;
     }
