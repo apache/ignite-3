@@ -222,7 +222,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
     private static Row marshalKey(TableImpl table, Tuple tuple) throws TupleMarshallerException {
         SchemaRegistry schemaReg = table.schemaView();
-        var marshaller = new TupleMarshallerImpl(schemaReg.schema(schemaReg.lastSchemaVersion()));
+        var marshaller = new TupleMarshallerImpl(schemaReg.schema(schemaReg.lastKnownSchemaVersion()));
 
         return marshaller.marshalKey(tuple);
     }

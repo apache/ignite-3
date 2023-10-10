@@ -185,7 +185,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(key);
 
         try {
-            final Row keyRow = new TupleMarshallerImpl(schemaReg.schema(schemaReg.lastSchemaVersion())).marshalKey(key);
+            final Row keyRow = new TupleMarshallerImpl(schemaReg.schema(schemaReg.lastKnownSchemaVersion())).marshalKey(key);
 
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {

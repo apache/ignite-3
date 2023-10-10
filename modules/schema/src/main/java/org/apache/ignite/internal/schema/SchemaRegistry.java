@@ -54,13 +54,20 @@ public interface SchemaRegistry extends ManuallyCloseable {
     SchemaDescriptor schema(int ver) throws SchemaRegistryException;
 
     /**
-     * Get last registered schema version.
+     * Returns last schema version known locally. It might be not the last schema version cluster-wide.
+     *
+     * <p>No schema synchronization guarantees are provided (that is, one cannot assume that the returned
+     * schema version corresponds to the current moment).
+     *
+     * <p>This method never blocks.
      */
-    int lastSchemaVersion();
+    int lastKnownSchemaVersion();
 
     /**
      * Resolve binary row against given schema ({@code desc}). The row schema version must be lower or equal to the version
      * of {@code desc}. If the schema versions are not equal, the row will be upgraded to {@code desc}.
+     *
+     * <p>This method never blocks.
      *
      * @param row  Binary row.
      * @param desc Schema descriptor.
@@ -72,6 +79,8 @@ public interface SchemaRegistry extends ManuallyCloseable {
      * Resolve row against a given schema. The row schema version must be lower or equal to the target version.
      * If the schema versions are not equal, the row will be upgraded to the target schema.
      *
+     * <p>This method never blocks.
+     *
      * @param row Binary row.
      * @param targetSchemaVersion Schema version to which the row must be resolved.
      * @return Schema-aware row.
@@ -81,6 +90,8 @@ public interface SchemaRegistry extends ManuallyCloseable {
     /**
      * Resolves batch of binary rows against a given schema. Each row schema version must be lower or equal to the target version.
      * If the schema versions are not equal, the row will be upgraded to the target schema.
+     *
+     * <p>This method never blocks.
      *
      * @param rows Binary rows.
      * @param targetSchemaVersion Schema version to which the rows must be resolved.
@@ -92,6 +103,8 @@ public interface SchemaRegistry extends ManuallyCloseable {
      * Resolves batch of binary rows, that only contain the key component, against a given schema.
      * Each row schema version must be lower or equal to the target version.
      * If the schema versions are not equal, the row will be upgraded to the target schema.
+     *
+     * <p>This method never blocks.
      *
      * @param keyOnlyRows Binary rows that only contain the key component.
      * @param targetSchemaVersion Schema version to which the rows must be resolved.

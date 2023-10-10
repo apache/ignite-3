@@ -129,7 +129,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public int lastSchemaVersion() {
+    public int lastKnownSchemaVersion() {
         return schemaCache.lastKey();
     }
 
@@ -299,7 +299,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     private CompletableFuture<SchemaDescriptor> tableSchema(int schemaVer) {
-        if (schemaVer < lastSchemaVersion()) {
+        if (schemaVer < lastKnownSchemaVersion()) {
             return completedFuture(loadSchemaByVersion.apply(schemaVer));
         }
 

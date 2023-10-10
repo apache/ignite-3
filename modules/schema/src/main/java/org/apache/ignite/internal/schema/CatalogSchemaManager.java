@@ -294,7 +294,7 @@ public class CatalogSchemaManager implements IgniteComponent {
     private @Nullable SchemaDescriptor searchSchemaByVersion(int tblId, int schemaVer) {
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
-        if (registry != null && schemaVer <= registry.lastSchemaVersion()) {
+        if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
             return registry.schema(schemaVer);
         } else {
             return null;

@@ -51,7 +51,7 @@ public class ClientTupleReplaceRequest {
             var tuple = readTuple(in, table, false);
 
             return table.recordView().replaceAsync(tx, tuple).thenAccept(res -> {
-                out.packInt(table.schemaView().lastSchemaVersion());
+                out.packInt(table.schemaView().lastKnownSchemaVersion());
                 out.packBoolean(res);
             });
         });

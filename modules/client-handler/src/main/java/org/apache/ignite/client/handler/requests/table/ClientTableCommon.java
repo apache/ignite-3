@@ -96,7 +96,7 @@ public class ClientTableCommon {
      */
     public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part, SchemaRegistry schemaRegistry) {
         if (tuple == null) {
-            packer.packInt(schemaRegistry.lastSchemaVersion());
+            packer.packInt(schemaRegistry.lastKnownSchemaVersion());
             packer.packNil();
 
             return;
@@ -188,7 +188,7 @@ public class ClientTableCommon {
             SchemaRegistry schemaRegistry
     ) {
         if (tuples == null || tuples.isEmpty()) {
-            packer.packInt(schemaRegistry.lastSchemaVersion());
+            packer.packInt(schemaRegistry.lastKnownSchemaVersion());
             packer.packInt(0);
 
             return;
@@ -229,7 +229,7 @@ public class ClientTableCommon {
             SchemaRegistry schemaRegistry
     ) {
         if (tuples == null || tuples.isEmpty()) {
-            packer.packInt(schemaRegistry.lastSchemaVersion());
+            packer.packInt(schemaRegistry.lastKnownSchemaVersion());
             packer.packInt(0);
 
             return;
@@ -244,7 +244,7 @@ public class ClientTableCommon {
             }
         }
 
-        packer.packInt(schemaVer == null ? schemaRegistry.lastSchemaVersion() : schemaVer);
+        packer.packInt(schemaVer == null ? schemaRegistry.lastKnownSchemaVersion() : schemaVer);
         packer.packInt(tuples.size());
 
         for (Tuple tuple : tuples) {

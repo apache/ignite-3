@@ -308,7 +308,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
             TableImpl tableOnNode = tableImpl(node, TABLE_NAME);
 
-            assertTrue(waitForCondition(() -> tableOnNode.schemaView().lastSchemaVersion() == 2, 10_000));
+            assertTrue(waitForCondition(() -> tableOnNode.schemaView().lastKnownSchemaVersion() == 2, 10_000));
         }
 
         CompletableFuture<?> insertFut = runAsync(() -> {

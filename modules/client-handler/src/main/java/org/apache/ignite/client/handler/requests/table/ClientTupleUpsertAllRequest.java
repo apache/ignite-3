@@ -51,7 +51,7 @@ public class ClientTupleUpsertAllRequest {
             var tuples = readTuples(in, table, false);
 
             return table.recordView().upsertAllAsync(tx, tuples)
-                    .thenAccept(unused -> out.packInt(table.schemaView().lastSchemaVersion()));
+                    .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
         });
     }
 }

@@ -50,7 +50,7 @@ public class ClientTupleUpsertRequest {
             var tx = readTx(in, out, resources);
             var tuple = readTuple(in, table, false);
 
-            return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastSchemaVersion()));
+            return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
         });
     }
 }

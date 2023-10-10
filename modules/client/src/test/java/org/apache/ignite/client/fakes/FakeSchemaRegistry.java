@@ -102,7 +102,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public int lastSchemaVersion() {
+    public int lastKnownSchemaVersion() {
         return lastVer;
     }
 

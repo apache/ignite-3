@@ -52,7 +52,7 @@ public class ClientTupleContainsKeyRequest {
 
             return table.recordView().getAsync(tx, keyTuple)
                     .thenAccept(t -> {
-                        out.packInt(table.schemaView().lastSchemaVersion());
+                        out.packInt(table.schemaView().lastKnownSchemaVersion());
                         out.packBoolean(t != null);
                     });
         });
