@@ -40,7 +40,7 @@ import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -192,7 +192,7 @@ public class PrepareServiceImpl implements PrepareService {
                                 "Planning of a query aborted due to planner timeout threshold is reached");
                     }
 
-                    throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicSqlException(th));
+                    throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
     }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -97,6 +97,6 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private static Throwable wrapIfNecessary(Throwable t) {
         Throwable err = ExceptionUtils.unwrapCause(t);
 
-        return IgniteExceptionMapperUtil.mapToPublicSqlException(err);
+        return SqlExceptionMapperUtil.mapToPublicSqlException(err);
     }
 }
