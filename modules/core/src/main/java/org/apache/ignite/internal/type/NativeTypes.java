@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
-
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIMESTAMP_PRECISION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIME_PRECISION;
+package org.apache.ignite.internal.type;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -30,6 +30,13 @@ import org.jetbrains.annotations.Nullable;
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
  */
 public class NativeTypes {
+    /**
+     * Maximum TIME and TIMESTAMP precision is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 38
+     */
+    public static final int MAX_TIME_PRECISION = 9;
+
     /**
      * BOOLEAN type.
      */
@@ -88,7 +95,7 @@ public class NativeTypes {
     }
 
     /**
-     * Creates a bitmask type of size <code>bits</code>. In row will round up to the closest full byte.
+     * Creates a bitmask type of size {@code bits}. In row will round up to the closest full byte.
      *
      * @param bits The number of bits in the bitmask.
      * @return Native type.
@@ -108,7 +115,7 @@ public class NativeTypes {
     }
 
     /**
-     * Creates a STRING type with maximal length is <code>len</code>.
+     * Creates a STRING type with maximal length is {@code len}.
      *
      * @param len Maximum length of the string, {@link Integer#MAX_VALUE} if not defined.
      * @return Native type.
@@ -118,7 +125,7 @@ public class NativeTypes {
     }
 
     /**
-     * Creates a BYTES type with maximal length is <code>len</code>.
+     * Creates a BYTES type with maximal length is {@code len}.
      *
      * @param len Maximum length of the byte array, {@link Integer#MAX_VALUE} if not defined.
      * @return Native type.
@@ -149,16 +156,6 @@ public class NativeTypes {
     }
 
     /**
-     * Creates a TIME type with default precision.
-     *
-     * @return Native type.
-     * @see #time(int)
-     */
-    public static NativeType time() {
-        return TemporalNativeType.time(DEFAULT_TIME_PRECISION);
-    }
-
-    /**
      * Creates DATETIME type as pair (date, time).
      *
      * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
@@ -169,16 +166,6 @@ public class NativeTypes {
     }
 
     /**
-     * Creates DATETIME type with default precision.
-     *
-     * @return Native type.
-     * @see #datetime(int)
-     */
-    public static NativeType datetime() {
-        return TemporalNativeType.datetime(DEFAULT_TIMESTAMP_PRECISION);
-    }
-
-    /**
      * Creates TIMESTAMP type.
      *
      * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
@@ -186,16 +173,6 @@ public class NativeTypes {
      */
     public static NativeType timestamp(int precision) {
         return TemporalNativeType.timestamp(precision);
-    }
-
-    /**
-     * Creates TIMESTAMP type with default precision.
-     *
-     * @return Native type.
-     * @see #timestamp(int)
-     */
-    public static NativeType timestamp() {
-        return TemporalNativeType.timestamp(DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
@@ -241,13 +218,19 @@ public class NativeTypes {
                 return DATE;
 
             case TIME:
-                return time();
+                assert val instanceof LocalTime : val.getClass().getCanonicalName();
+
+                return time(derivePrecisionFromNanos(((LocalTime) val).getNano()));
 
             case DATETIME:
-                return datetime();
+                assert val instanceof LocalDateTime : val.getClass().getCanonicalName();
+
+                return datetime(derivePrecisionFromNanos(((LocalDateTime) val).getNano()));
 
             case TIMESTAMP:
-                return timestamp();
+                assert val instanceof Instant : val.getClass().getCanonicalName();
+
+                return timestamp(derivePrecisionFromNanos(((Instant) val).getNano()));
 
             case STRING:
                 return stringOf(((CharSequence) val).length());
@@ -269,5 +252,19 @@ public class NativeTypes {
 
                 return null;
         }
+    }
+
+    private static int derivePrecisionFromNanos(int nanos) {
+        if (nanos == 0) {
+            return 0;
+        }
+
+        int trailingZeroes = 0;
+        while (nanos % 10 == 0) {
+            trailingZeroes++;
+            nanos /= 10;
+        }
+
+        return MAX_TIME_PRECISION - trailingZeroes;
     }
 }

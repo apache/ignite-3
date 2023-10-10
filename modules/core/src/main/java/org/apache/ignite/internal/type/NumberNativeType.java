@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.type;
 
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * A number native type representing a BigInteger with <code>precision</code> precision.
+ * A number native type representing a BigInteger with {@code precision} precision.
  */
 public class NumberNativeType extends NativeType {
     private final int precision;
 
     /**
-     * Creates a number type of size <code>bytes</code>.
+     * Creates a number type of size {@code bytes}.
      *
      * @param precision Maximum allowed precision of a BigInteger value.
      */
-    protected NumberNativeType(int precision) {
+    NumberNativeType(int precision) {
         super(NativeTypeSpec.NUMBER);
 
         this.precision = precision;

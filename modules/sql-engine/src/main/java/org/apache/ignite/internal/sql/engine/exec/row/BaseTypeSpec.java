@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine.exec.row;
 
 import java.util.Objects;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
 
 /**
  * Base type represents a {@link NativeType}.

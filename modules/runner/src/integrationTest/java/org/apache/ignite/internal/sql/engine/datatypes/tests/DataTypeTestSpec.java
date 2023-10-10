@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnType;
 
 /**

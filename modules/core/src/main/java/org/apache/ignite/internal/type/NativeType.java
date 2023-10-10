@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.type;
 
 import org.apache.ignite.internal.tostring.S;
 

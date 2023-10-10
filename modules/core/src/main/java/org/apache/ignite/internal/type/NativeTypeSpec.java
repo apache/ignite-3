@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.type;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -131,6 +131,7 @@ public enum NativeTypeSpec {
     private final boolean fixedSize;
 
     /** Single-token type description. */
+    @SuppressWarnings("FieldCanBeLocal")
     private final String desc;
 
     /**
