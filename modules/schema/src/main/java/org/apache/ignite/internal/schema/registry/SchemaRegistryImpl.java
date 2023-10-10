@@ -110,7 +110,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return desc;
         }
 
-        if (schemaCache.lastKey() < ver || ver <= 0) {
+        if (ver <= 0 || ver > schemaCache.lastKey()) {
             throw new SchemaRegistryException("Incorrect schema version requested: ver=" + ver);
         } else {
             throw new SchemaRegistryException("Failed to find schema: ver=" + ver);
