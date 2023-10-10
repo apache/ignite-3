@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_S
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
@@ -216,12 +217,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(manager.table(TABLE_NAME, 123L));
-        assertNull(manager.index(createPkIndexName(TABLE_NAME), 123L));
+        assertNull(manager.index(pkIndexName(TABLE_NAME), 123L));
 
         // Validate actual catalog
         schema = manager.schema(SCHEMA_NAME, 1);
         CatalogTableDescriptor table = schema.table(TABLE_NAME);
-        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.index(createPkIndexName(TABLE_NAME));
+        CatalogHashIndexDescriptor pkIndex = (CatalogHashIndexDescriptor) schema.index(pkIndexName(TABLE_NAME));
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
@@ -230,7 +231,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(table, manager.table(TABLE_NAME, clock.nowLong()));
         assertSame(table, manager.table(table.id(), clock.nowLong()));
 
-        assertSame(pkIndex, manager.index(createPkIndexName(TABLE_NAME), clock.nowLong()));
+        assertSame(pkIndex, manager.index(pkIndexName(TABLE_NAME), clock.nowLong()));
         assertSame(pkIndex, manager.index(pkIndex.id(), clock.nowLong()));
 
         // Validate newly created table
@@ -238,7 +239,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(manager.zone(ZONE_NAME, clock.nowLong()).id(), table.zoneId());
 
         // Validate newly created pk index
-        assertEquals(createPkIndexName(TABLE_NAME), pkIndex.name());
+        assertEquals(pkIndexName(TABLE_NAME), pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
@@ -254,9 +255,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // Validate actual catalog has both tables.
         schema = manager.schema(2);
         table = schema.table(TABLE_NAME);
-        pkIndex = (CatalogHashIndexDescriptor) schema.index(createPkIndexName(TABLE_NAME));
+        pkIndex = (CatalogHashIndexDescriptor) schema.index(pkIndexName(TABLE_NAME));
         CatalogTableDescriptor table2 = schema.table(TABLE_NAME_2);
-        CatalogHashIndexDescriptor pkIndex2 = (CatalogHashIndexDescriptor) schema.index(createPkIndexName(TABLE_NAME_2));
+        CatalogHashIndexDescriptor pkIndex2 = (CatalogHashIndexDescriptor) schema.index(pkIndexName(TABLE_NAME_2));
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
@@ -265,13 +266,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(table, manager.table(TABLE_NAME, clock.nowLong()));
         assertSame(table, manager.table(table.id(), clock.nowLong()));
 
-        assertSame(pkIndex, manager.index(createPkIndexName(TABLE_NAME), clock.nowLong()));
+        assertSame(pkIndex, manager.index(pkIndexName(TABLE_NAME), clock.nowLong()));
         assertSame(pkIndex, manager.index(pkIndex.id(), clock.nowLong()));
 
         assertSame(table2, manager.table(TABLE_NAME_2, clock.nowLong()));
         assertSame(table2, manager.table(table2.id(), clock.nowLong()));
 
-        assertSame(pkIndex2, manager.index(createPkIndexName(TABLE_NAME_2), clock.nowLong()));
+        assertSame(pkIndex2, manager.index(pkIndexName(TABLE_NAME_2), clock.nowLong()));
         assertSame(pkIndex2, manager.index(pkIndex2.id(), clock.nowLong()));
 
         assertNotSame(table, table2);
@@ -300,8 +301,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogSchemaDescriptor schema = manager.schema(2);
         CatalogTableDescriptor table1 = schema.table(TABLE_NAME);
         CatalogTableDescriptor table2 = schema.table(TABLE_NAME_2);
-        CatalogIndexDescriptor pkIndex1 = schema.index(createPkIndexName(TABLE_NAME));
-        CatalogIndexDescriptor pkIndex2 = schema.index(createPkIndexName(TABLE_NAME_2));
+        CatalogIndexDescriptor pkIndex1 = schema.index(pkIndexName(TABLE_NAME));
+        CatalogIndexDescriptor pkIndex2 = schema.index(pkIndexName(TABLE_NAME_2));
 
         assertNotEquals(table1.id(), table2.id());
         assertNotEquals(pkIndex1.id(), pkIndex2.id());
@@ -313,13 +314,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(table1, manager.table(TABLE_NAME, beforeDropTimestamp));
         assertSame(table1, manager.table(table1.id(), beforeDropTimestamp));
 
-        assertSame(pkIndex1, manager.index(createPkIndexName(TABLE_NAME), beforeDropTimestamp));
+        assertSame(pkIndex1, manager.index(pkIndexName(TABLE_NAME), beforeDropTimestamp));
         assertSame(pkIndex1, manager.index(pkIndex1.id(), beforeDropTimestamp));
 
         assertSame(table2, manager.table(TABLE_NAME_2, beforeDropTimestamp));
         assertSame(table2, manager.table(table2.id(), beforeDropTimestamp));
 
-        assertSame(pkIndex2, manager.index(createPkIndexName(TABLE_NAME_2), beforeDropTimestamp));
+        assertSame(pkIndex2, manager.index(pkIndexName(TABLE_NAME_2), beforeDropTimestamp));
         assertSame(pkIndex2, manager.index(pkIndex2.id(), beforeDropTimestamp));
 
         // Validate actual catalog
@@ -333,14 +334,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.table(TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table1.id(), clock.nowLong()));
 
-        assertNull(schema.index(createPkIndexName(TABLE_NAME)));
-        assertNull(manager.index(createPkIndexName(TABLE_NAME), clock.nowLong()));
+        assertNull(schema.index(pkIndexName(TABLE_NAME)));
+        assertNull(manager.index(pkIndexName(TABLE_NAME), clock.nowLong()));
         assertNull(manager.index(pkIndex1.id(), clock.nowLong()));
 
         assertSame(table2, manager.table(TABLE_NAME_2, clock.nowLong()));
         assertSame(table2, manager.table(table2.id(), clock.nowLong()));
 
-        assertSame(pkIndex2, manager.index(createPkIndexName(TABLE_NAME_2), clock.nowLong()));
+        assertSame(pkIndex2, manager.index(pkIndexName(TABLE_NAME_2), clock.nowLong()));
         assertSame(pkIndex2, manager.index(pkIndex2.id(), clock.nowLong()));
 
         // Validate schema wasn't changed.
@@ -1502,7 +1503,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))), willBe(nullValue()));
 
         int tableId = manager.table(TABLE_NAME, clock.nowLong()).id();
-        int pkIndexId = manager.index(createPkIndexName(TABLE_NAME), clock.nowLong()).id();
+        int pkIndexId = manager.index(pkIndexName(TABLE_NAME), clock.nowLong()).id();
         int indexId = manager.index(INDEX_NAME, clock.nowLong()).id();
 
         assertNotEquals(tableId, indexId);
@@ -1563,8 +1564,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleIndex()), willBe(nullValue()));
 
         assertThat(manager.indexes(0), empty());
-        assertThat(manager.indexes(1), hasItems(index(1, createPkIndexName(TABLE_NAME))));
-        assertThat(manager.indexes(2), hasItems(index(2, createPkIndexName(TABLE_NAME)), index(2, INDEX_NAME)));
+        assertThat(manager.indexes(1), hasItems(index(1, pkIndexName(TABLE_NAME))));
+        assertThat(manager.indexes(2), hasItems(index(2, pkIndexName(TABLE_NAME)), index(2, INDEX_NAME)));
     }
 
     @Test
@@ -1914,10 +1915,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             this.length = length;
             this.scale = scale;
         }
-    }
-
-    private static String createPkIndexName(String tableName) {
-        return tableName + "_PK";
     }
 
     private @Nullable CatalogTableDescriptor table(int catalogVersion, String tableName) {

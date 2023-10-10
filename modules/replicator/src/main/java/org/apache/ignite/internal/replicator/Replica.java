@@ -130,7 +130,7 @@ public class Replica {
      * @param senderId Sender id.
      * @return Response.
      */
-    public CompletableFuture<?> processRequest(ReplicaRequest request, String senderId) {
+    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
@@ -163,8 +163,6 @@ public class Replica {
         if (!leaderFuture.isDone()) {
             leaderFuture.complete(leaderRef);
         }
-
-        listener.onBecomePrimary(clusterNode);
     }
 
     private CompletableFuture<ClusterNode> leaderFuture() {

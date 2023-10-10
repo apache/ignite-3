@@ -26,6 +26,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface TupleMarshaller {
     /**
+     * Returns marshaller schema version.
+     */
+    int schemaVersion();
+
+    /**
      * Marshals tuple.
      *
      * @param tuple Record tuple.

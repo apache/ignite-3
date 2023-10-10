@@ -79,13 +79,6 @@ public interface InternalTransaction extends Transaction {
     IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
 
     /**
-     * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.
-     *
-     * @param resultFuture Operation result future.
-     */
-    void enlistResultFuture(CompletableFuture<?> resultFuture);
-
-    /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
      *
      * @return Read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
@@ -99,12 +92,6 @@ public interface InternalTransaction extends Transaction {
      * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
      */
     HybridTimestamp startTimestamp();
-
-    /**
-     * Returns whether this transaction is implicit (i.e. started by the system automatically when the user
-     * provided no transaction for an operation) or not.
-     */
-    boolean implicit();
 
     /**
      * Finishes a read-only transaction with a specific execution timestamp.

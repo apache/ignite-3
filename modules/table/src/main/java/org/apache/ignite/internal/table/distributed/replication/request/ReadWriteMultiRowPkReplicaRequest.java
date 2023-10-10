@@ -32,4 +32,11 @@ public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaR
      * @return Table partition id.
      */
     TablePartitionIdMessage commitPartitionId();
+
+    /**
+     * Disable delayed ack optimization.
+     *
+     * @return {@code True} to disable the delayed ack optimization.
+     */
+    boolean skipDelayedAck();
 }

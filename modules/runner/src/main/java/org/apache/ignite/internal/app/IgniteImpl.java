@@ -84,6 +84,7 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.index.IndexBuildController;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -131,6 +132,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -304,6 +306,9 @@ public class IgniteImpl implements Ignite {
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
 
+    /** Index build controller. */
+    private final IndexBuildController indexBuildController;
+
     /**
      * The Constructor.
      *
@@ -453,7 +458,6 @@ public class IgniteImpl implements Ignite {
 
         placementDriverMgr = new PlacementDriverManager(
                 name,
-                registry,
                 metaStorageMgr,
                 MetastorageGroupId.INSTANCE,
                 clusterSvc,
@@ -569,6 +573,17 @@ public class IgniteImpl implements Ignite {
         );
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
+
+        IndexBuilder indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors(), replicaSvc);
+
+        indexBuildController = new IndexBuildController(
+                indexBuilder,
+                indexManager,
+                catalogManager,
+                clusterSvc,
+                placementDriverMgr.placementDriver(),
+                clock
+        );
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -767,10 +782,10 @@ public class IgniteImpl implements Ignite {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
+                                    catalogManager,
                                     clusterCfgMgr,
                                     placementDriverMgr,
                                     metricManager,
-                                    catalogManager,
                                     distributionZoneManager,
                                     computeComponent,
                                     replicaMgr,
@@ -781,6 +796,7 @@ public class IgniteImpl implements Ignite {
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
                                     indexManager,
+                                    indexBuildController,
                                     qryEngine,
                                     clientHandlerModule,
                                     deploymentManager
@@ -866,11 +882,6 @@ public class IgniteImpl implements Ignite {
 
     public QueryProcessor queryEngine() {
         return qryEngine;
-    }
-
-    @TestOnly
-    public IndexManager indexManager() {
-        return indexManager;
     }
 
     @TestOnly

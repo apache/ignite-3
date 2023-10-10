@@ -137,7 +137,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
@@ -153,6 +152,8 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
@@ -337,14 +338,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final LowWatermark lowWatermark;
 
-    private final IndexBuilder indexBuilder;
-
     private final Marshaller raftCommandsMarshaller;
 
     private final HybridTimestampTracker observableTimestampTracker;
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
+
+    private final SchemaVersions schemaVersions;
 
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
@@ -430,6 +431,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 clusterService.messagingService()
         );
 
+        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
+
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
         localPartsByTableIdVv = new IncrementalVersionedValue<>(dependingOn(tablesByIdVv), HashMap::new);
@@ -476,8 +479,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         mvGc = new MvGc(nodeName, gcConfig);
 
         lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
-
-        indexBuilder = new IndexBuilder(nodeName, cpus, replicaSvc);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 
@@ -951,8 +952,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionUpdateHandlers.storageUpdateHandler,
                 new NonHistoricSchemas(schemaManager),
                 localNode(),
-                table.internalTable().storage(),
-                indexBuilder,
                 schemaSyncService,
                 catalogService,
                 placementDriver
@@ -1062,7 +1061,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         cleanUpTablesResources(tablesToStop);
 
         try {
-            IgniteUtils.closeAllManually(lowWatermark, mvGc, indexBuilder);
+            IgniteUtils.closeAllManually(lowWatermark, mvGc);
         } catch (Throwable t) {
             LOG.error("Failed to close internal components", t);
         }
@@ -1260,7 +1259,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitions, clusterNodeResolver, txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr);
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion));

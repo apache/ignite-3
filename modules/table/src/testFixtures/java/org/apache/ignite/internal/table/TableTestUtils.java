@@ -28,7 +28,9 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -75,6 +77,20 @@ public class TableTestUtils {
     public static void dropTable(CatalogManager catalogManager, String schemaName, String tableName) {
         assertThat(
                 catalogManager.execute(DropTableCommand.builder().schemaName(schemaName).tableName(tableName).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    /**
+     * Drops index in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param indexName Index name.
+     */
+    public static void dropIndex(CatalogManager catalogManager, String schemaName, String indexName) {
+        assertThat(
+                catalogManager.execute(DropIndexCommand.builder().schemaName(schemaName).indexName(indexName).build()),
                 willCompleteSuccessfully()
         );
     }
@@ -158,5 +174,34 @@ public class TableTestUtils {
      */
     public static int getTableIdStrict(CatalogService catalogService, String tableName, long timestamp) {
         return getTableStrict(catalogService, tableName, timestamp).id();
+    }
+
+    /**
+     * Returns index ID form catalog, {@code null} if table is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param indexName Index name.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable Integer getIndexId(CatalogService catalogService, String indexName, long timestamp) {
+        CatalogIndexDescriptor index = catalogService.index(indexName, timestamp);
+
+        return index == null ? null : index.id();
+    }
+
+    /**
+     * Returns index ID from catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param indexName Index name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If table is absent.
+     */
+    public static int getIndexIdStrict(CatalogService catalogService, String indexName, long timestamp) {
+        Integer indexId = getIndexId(catalogService, indexName, timestamp);
+
+        assertNotNull(indexId, "indexName=" + indexName + ", timestamp=" + timestamp);
+
+        return indexId;
     }
 }

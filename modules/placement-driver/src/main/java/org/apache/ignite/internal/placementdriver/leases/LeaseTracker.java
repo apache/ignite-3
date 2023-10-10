@@ -109,11 +109,11 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      *
      * @param recoveryRevision Revision from {@link MetaStorageManager#recoveryFinishedFuture()}.
      */
-    public CompletableFuture<Void> startTrackAsync(long recoveryRevision) {
-        return inBusyLock(busyLock, () -> {
+    public void startTrack(long recoveryRevision) {
+        inBusyLock(busyLock, () -> {
             msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
-            return loadLeasesBusyAsync(recoveryRevision);
+            loadLeasesBusyAsync(recoveryRevision);
         });
     }
 
@@ -281,23 +281,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         return primaryReplicaWaiters.computeIfAbsent(groupId, key -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE));
     }
 
-    private CompletableFuture<Void> loadLeasesBusyAsync(long recoveryRevision) {
+    private void loadLeasesBusyAsync(long recoveryRevision) {
         Entry entry = msManager.getLocally(PLACEMENTDRIVER_LEASES_KEY, recoveryRevision);
-
-        CompletableFuture<Void> loadLeasesFuture;
 
         if (entry.empty() || entry.tombstone()) {
             leases = new Leases(Map.of(), BYTE_EMPTY_ARRAY);
-
-            loadLeasesFuture = completedFuture(null);
         } else {
             byte[] leasesBytes = entry.value();
 
             LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
 
             Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
-
-            List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
 
             leaseBatch.leases().forEach(lease -> {
                 ReplicationGroupId grpId = lease.replicationGroupId();
@@ -306,22 +300,13 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
                 if (lease.isAccepted()) {
                     getOrCreatePrimaryReplicaWaiter(grpId).update(lease.getExpirationTime(), lease);
-
-                    // needFireEventReplicaBecomePrimary is not needed because we need to recover the last leases.
-                    fireEventFutures.add(fireEventReplicaBecomePrimary(recoveryRevision, lease));
                 }
-
-                firePrimaryReplicaExpiredEventIfNeed(recoveryRevision, lease);
             });
 
             leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
-
-            loadLeasesFuture = allOf(fireEventFutures.toArray(CompletableFuture[]::new));
         }
 
         LOG.info("Leases cache recovered [leases={}]", leases);
-
-        return loadLeasesFuture;
     }
 
     /**
@@ -365,6 +350,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     private static boolean needFireEventReplicaBecomePrimary(@Nullable Lease previousLease, Lease newLease) {
         assert newLease.isAccepted() : newLease;
 
-        return previousLease == null || !previousLease.getStartTime().equals(newLease.getStartTime());
+        return previousLease == null || !previousLease.isAccepted() || !previousLease.getStartTime().equals(newLease.getStartTime());
     }
 }

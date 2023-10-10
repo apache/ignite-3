@@ -37,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -46,25 +48,22 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
  */
-public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
+public class RecordViewOperationsTest extends TableKvOperationsTestBase {
 
     private final Random rnd = new Random();
 
@@ -292,11 +291,11 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
      * Creates RecordView.
      */
     private RecordViewImpl<TestObjectWithAllTypes> recordView() {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         Mapper<TestObjectWithAllTypes> recMapper = Mapper.of(TestObjectWithAllTypes.class);
 
@@ -337,7 +336,7 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
                 valCols
         );
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
+        DummyInternalTableImpl table = createInternalTable(schema);
 
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
@@ -350,6 +349,7 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
         return new RecordViewImpl<>(
                 table,
                 new DummySchemaManagerImpl(schema),
+                schemaVersions,
                 recMapper
         );
     }

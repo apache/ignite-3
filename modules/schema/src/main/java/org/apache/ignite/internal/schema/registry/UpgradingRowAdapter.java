@@ -38,7 +38,7 @@ import org.apache.ignite.internal.schema.row.Row;
 /**
  * Adapter for row of older schema.
  */
-class UpgradingRowAdapter extends Row {
+public class UpgradingRowAdapter extends Row {
     /** Column mapper. */
     private final ColumnMapper mapper;
 
@@ -63,7 +63,7 @@ class UpgradingRowAdapter extends Row {
      * @param row Row to convert.
      * @return Adapter that converts a given {@code row} to a new schema.
      */
-    static UpgradingRowAdapter upgradeRow(SchemaDescriptor newSchema, ColumnMapper mapper, Row row) {
+    public static UpgradingRowAdapter upgradeRow(SchemaDescriptor newSchema, ColumnMapper mapper, Row row) {
         return new UpgradingRowAdapter(newSchema, BinaryTupleSchema.createRowSchema(newSchema), row, mapper);
     }
 
@@ -75,7 +75,7 @@ class UpgradingRowAdapter extends Row {
      * @param row Row to convert, that only contains a key component.
      * @return Adapter that converts a given {@code row} to a new schema.
      */
-    static UpgradingRowAdapter upgradeKeyOnlyRow(SchemaDescriptor newSchema, ColumnMapper mapper, Row row) {
+    public static UpgradingRowAdapter upgradeKeyOnlyRow(SchemaDescriptor newSchema, ColumnMapper mapper, Row row) {
         return new UpgradingRowAdapter(newSchema, BinaryTupleSchema.createKeySchema(newSchema), row, mapper);
     }
 

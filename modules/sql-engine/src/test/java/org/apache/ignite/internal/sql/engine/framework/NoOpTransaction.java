@@ -126,11 +126,6 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public boolean implicit() {
-        return false;
-    }
-
-    @Override
     public UUID id() {
         return id;
     }
@@ -159,11 +154,6 @@ public final class NoOpTransaction implements InternalTransaction {
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         return nodeAndTerm;
-    }
-
-    @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        resultFuture.complete(null);
     }
 
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */

@@ -65,7 +65,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -219,7 +218,7 @@ public class MutableRowTupleAdapterTest {
                 .set("name", "Shirt")
                 .set("price", 5.99d);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(original);
 
@@ -245,7 +244,7 @@ public class MutableRowTupleAdapterTest {
 
     @Test
     public void testRowTupleMutability() throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
@@ -272,7 +271,7 @@ public class MutableRowTupleAdapterTest {
 
     @Test
     public void testKeyValueTupleMutability() throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
@@ -301,7 +300,7 @@ public class MutableRowTupleAdapterTest {
 
     @Test
     public void testRowTupleSchemaAwareness() throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
@@ -324,7 +323,7 @@ public class MutableRowTupleAdapterTest {
 
     @Test
     public void testKeyValueTupleSchemaAwareness() throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
@@ -351,7 +350,7 @@ public class MutableRowTupleAdapterTest {
     public void testVariousColumnTypes() throws TupleMarshallerException {
         Random rnd = new Random();
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Tuple tuple = Tuple.create()
                 .set("valByteCol", (byte) 1)
@@ -403,7 +402,7 @@ public class MutableRowTupleAdapterTest {
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Row row = marshaller.marshal(tup1);
 
@@ -450,7 +449,7 @@ public class MutableRowTupleAdapterTest {
         Tuple tuple = Tuple.create(valTuple).set(keyTuple.columnName(0), keyTuple.value(0));
 
         // Check tuples backed with Row.
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Row row = marshaller.marshal(keyTuple, valTuple);
 
@@ -533,7 +532,7 @@ public class MutableRowTupleAdapterTest {
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Row row = marshaller.marshal(key1, val1);
 
@@ -564,7 +563,7 @@ public class MutableRowTupleAdapterTest {
                 .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 670_000_000))
                 .set("timestamp", Instant.ofEpochSecond(123, 450_000_000));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
 
         Row row = marshaller.marshal(tuple);
 
@@ -583,7 +582,7 @@ public class MutableRowTupleAdapterTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
 
         Tuple tuple1 = Tuple.create().set("key", 1)
                 .set("string", "abcef")
@@ -613,7 +612,7 @@ public class MutableRowTupleAdapterTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
 
         Tuple tuple1 = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123456.7"));
 
@@ -630,7 +629,7 @@ public class MutableRowTupleAdapterTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
 
         Tuple tuple = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.458"));
         Tuple expected = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.46")); // Rounded.
@@ -696,7 +695,7 @@ public class MutableRowTupleAdapterTest {
                     .set("id", 3L)
                     .set("name", "Shirt");
 
-            TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+            TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
             return TableRow.tuple(marshaller.marshal(original));
         } catch (TupleMarshallerException e) {

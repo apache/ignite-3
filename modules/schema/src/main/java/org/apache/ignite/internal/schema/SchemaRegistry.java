@@ -75,7 +75,8 @@ public interface SchemaRegistry extends ManuallyCloseable {
     int lastSchemaVersion();
 
     /**
-     * Resolve binary row against given schema.
+     * Resolve binary row against given schema ({@code desc}). The row schema version must be lower or equal to the version
+     * of {@code desc}. If the schema versions are not equal, the row will be upgraded to {@code desc}.
      *
      * @param row  Binary row.
      * @param desc Schema descriptor.
@@ -84,28 +85,35 @@ public interface SchemaRegistry extends ManuallyCloseable {
     Row resolve(BinaryRow row, SchemaDescriptor desc);
 
     /**
-     * Resolve row against the latest schema.
+     * Resolve row against a given schema. The row schema version must be lower or equal to the target version.
+     * If the schema versions are not equal, the row will be upgraded to the target schema.
      *
      * @param row Binary row.
+     * @param targetSchemaVersion Schema version to which the row must be resolved.
      * @return Schema-aware row.
      */
-    Row resolve(BinaryRow row);
+    Row resolve(BinaryRow row, int targetSchemaVersion);
 
     /**
-     * Resolves batch of binary rows against the latest schema.
+     * Resolves batch of binary rows against a given schema. Each row schema version must be lower or equal to the target version.
+     * If the schema versions are not equal, the row will be upgraded to the target schema.
      *
      * @param rows Binary rows.
-     * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code rows}.
+     * @param targetSchemaVersion Schema version to which the rows must be resolved.
+     * @return Schema-aware rows. Contains {@code null}s at the same positions as in {@code rows}.
      */
-    List<Row> resolve(Collection<BinaryRow> rows);
+    List<Row> resolve(Collection<BinaryRow> rows, int targetSchemaVersion);
 
     /**
-     * Resolves batch of binary rows, that only contain the key component, against the latest schema.
+     * Resolves batch of binary rows, that only contain the key component, against a given schema.
+     * Each row schema version must be lower or equal to the target version.
+     * If the schema versions are not equal, the row will be upgraded to the target schema.
      *
      * @param keyOnlyRows Binary rows that only contain the key component.
-     * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code keyOnlyRows}.
+     * @param targetSchemaVersion Schema version to which the rows must be resolved.
+     * @return Schema-aware rows. Contains {@code null}s at the same positions as in {@code keyOnlyRows}.
      */
-    List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows);
+    List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion);
 
     /**
      * Closes the registry freeing any resources it holds.

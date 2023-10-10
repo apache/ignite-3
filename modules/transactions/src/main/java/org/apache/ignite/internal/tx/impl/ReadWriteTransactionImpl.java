@@ -28,7 +28,6 @@ import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -55,25 +54,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
 
-    /** Finish future updater. */
-    @SuppressWarnings("rawtypes")
-    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, CompletableFuture> FINISH_FUT_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, CompletableFuture.class, "finishFut");
-
     /** Enlisted partitions: partition id -> (primary replica node, raft term). */
     private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
-
-    /** Enlisted operation futures in this transaction. */
-    private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
 
     /** The tracker is used to track an observable timestamp. */
     private final HybridTimestampTracker observableTsTracker;
 
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
-
-    /** The future used on repeated commit/rollback. */
-    private volatile CompletableFuture<Void> finishFut;
 
     /**
      * Constructs an explicit read-write transaction.
@@ -83,19 +71,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param id The id.
      */
     public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
-        this(txManager, observableTsTracker, id, false);
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param txManager The tx manager.
-     * @param observableTsTracker Observable timestamp tracker.
-     * @param id The id.
-     * @param implicit Whether the transaction will be implicit or not.
-     */
-    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id, boolean implicit) {
-        super(txManager, id, implicit);
+        super(txManager, id);
 
         this.observableTsTracker = observableTsTracker;
     }
@@ -127,77 +103,60 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        if (!FINISH_FUT_UPDATER.compareAndSet(this, null, new CompletableFuture<>())) {
-            return finishFut;
+        Map<TablePartitionId, Long> enlistedGroups = new LinkedHashMap<>();
+        CompletableFuture<Void> finishFuture;
+
+        if (!enlisted.isEmpty()) {
+            enlistedGroups = enlisted.entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Entry::getKey,
+                            entry -> entry.getValue().get2()
+                    ));
+
+            IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
+
+            ClusterNode recipientNode = nodeAndTerm.get1();
+            Long term = nodeAndTerm.get2();
+
+            LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
+                    recipientNode, term, commit, id(), enlistedGroups);
+
+            assert recipientNode != null;
+            assert term != null;
+
+            finishFuture = txManager.finish(
+                    observableTsTracker,
+                    commitPart,
+                    recipientNode,
+                    term,
+                    commit,
+                    enlistedGroups,
+                    id()
+            );
+        } else {
+            finishFuture = txManager.finish(
+                    observableTsTracker,
+                    null,
+                    null,
+                    null,
+                    commit,
+                    enlistedGroups,
+                    id()
+            );
         }
 
-        CompletableFuture<Void> mainFinishFut = CompletableFuture
-                .allOf(enlistedResults.toArray(new CompletableFuture[0]))
-                .thenCompose(
-                        ignored -> {
-                            Map<TablePartitionId, Long> enlistedGroups = new LinkedHashMap<>();
-
-                            if (!enlisted.isEmpty()) {
-                                enlistedGroups = enlisted.entrySet().stream()
-                                        .collect(Collectors.toMap(
-                                                Entry::getKey,
-                                                entry -> entry.getValue().get2()
-                                        ));
-
-                                IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
-
-                                ClusterNode recipientNode = nodeAndTerm.get1();
-                                Long term = nodeAndTerm.get2();
-
-                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
-                                        recipientNode, term, commit, id(), enlistedGroups);
-
-                                assert recipientNode != null;
-                                assert term != null;
-
-                                return txManager.finish(
-                                        observableTsTracker,
-                                        commitPart,
-                                        recipientNode,
-                                        term,
-                                        commit,
-                                        enlistedGroups,
-                                        id()
-                                );
-                            } else {
-                                return txManager.finish(
-                                        observableTsTracker,
-                                        null,
-                                        null,
-                                        null,
-                                        commit,
-                                        enlistedGroups,
-                                        id()
-                                );
-                            }
-                        }
-                ).exceptionally(
-                        e -> {
-                            if (e instanceof IgniteInternalException) {
-                                // Transaction is already rolled back. Just wrapping internal exception with public one.
-                                throw withCause(TransactionException::new, TX_PRIMARY_REPLICA_EXPIRED_ERR,
-                                        "Primary replica has expired, transaction will be rolled back", e);
-                            } else {
-                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
-                                throw withCause(TransactionException::new, TX_FINISH_ERR, e);
-                            }
-                        }
-                );
-
-        mainFinishFut.handle((res, e) -> finishFut.complete(null));
-
-        return mainFinishFut;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        enlistedResults.add(resultFuture);
+        return finishFuture.exceptionally(
+                e -> {
+                    if (e instanceof IgniteInternalException) {
+                        // Transaction is already rolled back. Just wrapping internal exception with public one.
+                        throw withCause(TransactionException::new, TX_PRIMARY_REPLICA_EXPIRED_ERR,
+                                "Primary replica has expired, transaction will be rolled back", e);
+                    } else {
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
+                        throw withCause(TransactionException::new, TX_FINISH_ERR, e);
+                    }
+                }
+        );
     }
 
     /** {@inheritDoc} */

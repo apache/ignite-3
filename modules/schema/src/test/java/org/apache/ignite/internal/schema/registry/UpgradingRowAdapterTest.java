@@ -169,7 +169,7 @@ public class UpgradingRowAdapterTest {
     }
 
     private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, BinaryRow binaryRow) {
-        Row row = schemaRegistry.resolve(binaryRow);
+        Row row = schemaRegistry.resolve(binaryRow, schemaRegistry.lastSchemaVersion());
 
         SchemaDescriptor schema = row.schema();
 

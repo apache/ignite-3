@@ -36,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,26 +48,23 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
  */
-public class KeyValueViewOperationsTest extends BaseIgniteAbstractTest {
+public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     private final Random rnd = new Random();
 
     @Test
@@ -620,11 +619,11 @@ public class KeyValueViewOperationsTest extends BaseIgniteAbstractTest {
      * Creates key-value view.
      */
     private KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> kvView() {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
         Mapper<TestObjectWithAllTypes> valMapper = Mapper.of(TestObjectWithAllTypes.class);
@@ -662,12 +661,12 @@ public class KeyValueViewOperationsTest extends BaseIgniteAbstractTest {
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 valCols
         );
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
+        DummyInternalTableImpl table = createInternalTable(schema);
 
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
@@ -680,6 +679,7 @@ public class KeyValueViewOperationsTest extends BaseIgniteAbstractTest {
         return new KeyValueViewImpl<>(
                 table,
                 new DummySchemaManagerImpl(schema),
+                schemaVersions,
                 keyMapper,
                 valMapper
         );
