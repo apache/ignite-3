@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.systemview;
+package org.apache.ignite.internal.systemview.api;
 
 import java.util.List;
-import java.util.function.Supplier;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.StringUtils;
 
 /**
@@ -53,9 +51,9 @@ public class NodeSystemView<T> extends SystemView<T> {
      * @param dataProvider Data provider.
      * @param nodeNameColumnAlias Node name column alias.
      */
-    NodeSystemView(String name,
+    private NodeSystemView(String name,
             List<SystemViewColumn<T, ?>> columns,
-            Supplier<AsyncCursor<T>> dataProvider,
+            Publisher<T> dataProvider,
             String nodeNameColumnAlias) {
         super(name, columns, dataProvider);
 
@@ -73,12 +71,6 @@ public class NodeSystemView<T> extends SystemView<T> {
      */
     public String nodeNameColumnAlias() {
         return nodeNameColumnAlias;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SystemViewType type() {
-        return SystemViewType.LOCAL;
     }
 
     /** {@inheritDoc} */
@@ -104,11 +96,12 @@ public class NodeSystemView<T> extends SystemView<T> {
         /**
          * Sets an alias for a node name column. Should only be set for node system views.
          *
-         * @param alias Node name column alias.
+         * @param alias Node name column alias. Must contain only latin letters, digits and underscore.
+         *      The first character must be a letter.
          * @return this.
          */
         public Builder<T> nodeNameColumnAlias(String alias) {
-            this.nodeNameColumnAlias = alias;
+            this.nodeNameColumnAlias = normalizeIdentifier(alias);
             return this;
         }
 

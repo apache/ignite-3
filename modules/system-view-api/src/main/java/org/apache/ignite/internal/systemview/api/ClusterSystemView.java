@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.systemview;
+package org.apache.ignite.internal.systemview.api;
 
 import java.util.List;
-import java.util.function.Supplier;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.AsyncCursor;
 
 /**
  * Cluster wide view definition.
@@ -49,17 +47,11 @@ public class ClusterSystemView<T> extends SystemView<T> {
      * @param columns List of columns.
      * @param dataProvider Data provider.
      */
-    ClusterSystemView(String name,
+    private ClusterSystemView(String name,
             List<SystemViewColumn<T, ?>> columns,
-            Supplier<AsyncCursor<T>> dataProvider) {
+            Publisher<T> dataProvider) {
 
         super(name, columns, dataProvider);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SystemViewType type() {
-        return SystemViewType.GLOBAL;
     }
 
     /** {@inheritDoc} */
