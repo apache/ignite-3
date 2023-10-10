@@ -118,10 +118,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
 
-        // TODO: IGNITE-20342 - Assert for SQL too.
-        if (!operation.sql()) {
-            assertThat(tx.state(), is(TxState.ABORTED));
-        }
+        assertThat(tx.state(), is(TxState.ABORTED));
     }
 
     private void alterTable(String tableName) {

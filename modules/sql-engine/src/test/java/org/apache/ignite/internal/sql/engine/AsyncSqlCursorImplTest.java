@@ -83,7 +83,7 @@ public class AsyncSqlCursorImplTest {
         CompletionException t = assertThrows(CompletionException.class, () -> cursor.requestNextAsync(1).join());
 
         CompletableFuture<Void> f = ((NoOpTransaction) txWrapper.unwrap()).rollbackFuture();
-        assertTrue(f.isDone(), "Implicit transaction should have been rolled back: " + f);
+        assertTrue(f.isDone(), "Transaction should have been rolled back: " + f);
 
         IgniteException igniteErr = assertInstanceOf(IgniteException.class, t.getCause());
         assertEquals(err.codeAsString(), igniteErr.codeAsString());
