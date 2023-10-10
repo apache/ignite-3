@@ -245,7 +245,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
      * @param env Test environment.
      */
     @ParameterizedTest
-    @MethodSource("parameters")
+    @MethodSource("readWriteParameters")
     public void testMixed(TestEnvironment env) {
         Table tab = env.table();
 
@@ -257,30 +257,42 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         KeyValueView<Tuple, Tuple> binView = tab.keyValueView();
 
         env.runInTransaction(
-                rwTx -> {
-                    recordView.upsert(rwTx, Tuple.create().set("id", 0).set("name", names[0]));
+                List.of(
+                        tx -> recordView.upsert(tx, Tuple.create().set("id", 0).set("name", names[0])),
+                        tx -> {
+                            assertThrowsSqlException(
+                                    CONSTRAINT_VIOLATION_ERR,
+                                    "PK unique constraint is violated",
+                                    () -> sql(tx, String.format(sqlInsert, 0, names[0])));
+                        },
 
-                    assertThrowsSqlException(
-                            CONSTRAINT_VIOLATION_ERR,
-                            "PK unique constraint is violated",
-                            () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
+                        rwTx -> {
+                            assertThrowsSqlException(
+                                    CONSTRAINT_VIOLATION_ERR,
+                                    "PK unique constraint is violated",
+                                    () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
+                        },
 
-                    kvView.put(rwTx, new KeyObject(1, names[1]), null);
+                        rwTx -> {
+                            assertThrowsSqlException(
+                                    CONSTRAINT_VIOLATION_ERR,
+                                    "PK unique constraint is violated",
+                                    () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
+                        },
 
-                    assertThrowsSqlException(
-                            CONSTRAINT_VIOLATION_ERR,
-                            "PK unique constraint is violated",
-                            () -> sql(rwTx, String.format(sqlInsert, 1, names[1])));
+                        rwTx -> kvView.put(rwTx, new KeyObject(1, names[1]), null),
 
-                    binView.put(rwTx, Tuple.create().set("id", 2).set("name", names[2]), Tuple.create());
+                        rwTx -> binView.put(rwTx, Tuple.create().set("id", 2).set("name", names[2]), Tuple.create()),
 
-                    assertThrowsSqlException(
-                            CONSTRAINT_VIOLATION_ERR,
-                            "PK unique constraint is violated",
-                            () -> sql(rwTx, String.format(sqlInsert, 2, names[2])));
+                        rwTx -> {
+                            assertThrowsSqlException(
+                                    CONSTRAINT_VIOLATION_ERR,
+                                    "PK unique constraint is violated",
+                                    () -> sql(rwTx, String.format(sqlInsert, 2, names[2])));
+                        },
 
-                    sql(rwTx, String.format(sqlInsert, 3, names[3]));
-                },
+                        rwTx -> sql(rwTx, String.format(sqlInsert, 3, names[3]))
+                ),
                 tx -> {
                     for (int i = 0; i < 4; i++) {
                         Tuple key = Tuple.create().set("id", i).set("name", names[i]);
@@ -300,6 +312,16 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
                     assertQuery(tx, "select count(*) from " + tab.name()).returns(4L).check();
                 }
         );
+    }
+
+    private static List<TestEnvironment> readWriteParameters() {
+        List<TestEnvironment> params = new ArrayList<>(ENGINES.length * 2);
+
+        for (String engine : ENGINES) {
+            params.add(new TestEnvironment(engine, false));
+        }
+
+        return params;
     }
 
     private static List<TestEnvironment> parameters() {
@@ -344,6 +366,16 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         private Table table() {
             return CLUSTER_NODES.get(0).tables().table(tableName(engine));
+        }
+
+        private void runInTransaction(List<Consumer<Transaction>> writeOps, Consumer<Transaction> readOp) {
+            IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
+
+            for (Consumer<Transaction> writeOp : writeOps) {
+                transactions.runInTransaction(writeOp, new TransactionOptions().readOnly(false));
+            }
+
+            transactions.runInTransaction(readOp, new TransactionOptions().readOnly(true));
         }
 
         private void runInTransaction(Consumer<Transaction> writeOp, Consumer<Transaction> readOp) {
