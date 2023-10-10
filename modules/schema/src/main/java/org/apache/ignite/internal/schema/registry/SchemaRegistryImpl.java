@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -58,6 +59,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     private final Supplier<CompletableFuture<Integer>> latestVersionStore;
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
+
+    private final InFlightFutures inFlightTableSchemaFutures = new InFlightFutures();
 
     /**
      * Constructor.
@@ -180,6 +183,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     @Override
     public void close() {
         versionTracker.close();
+
+        inFlightTableSchemaFutures.cancelInFlightFutures();
     }
 
     /**
@@ -313,6 +318,10 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return completedFuture(loadSchemaByVersion.apply(schemaVer));
         }
 
-        return versionTracker.waitFor(schemaVer).thenApply(unused -> schemaCached(schemaVer));
+        CompletableFuture<SchemaDescriptor> future = versionTracker.waitFor(schemaVer).thenApply(unused -> schemaCached(schemaVer));
+
+        inFlightTableSchemaFutures.registerFuture(future);
+
+        return future;
     }
 }

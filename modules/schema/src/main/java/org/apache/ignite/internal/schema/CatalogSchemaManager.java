@@ -56,6 +56,7 @@ import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -353,7 +354,8 @@ public class CatalogSchemaManager implements IgniteComponent {
 
             Map<Integer, SchemaRegistryImpl> regs = new HashMap<>(registries);
 
-            regs.remove(tableId);
+            SchemaRegistryImpl removedRegistry = regs.remove(tableId);
+            removedRegistry.close();
 
             return completedFuture(regs);
         }));
@@ -383,6 +385,9 @@ public class CatalogSchemaManager implements IgniteComponent {
         }
 
         busyLock.block();
+
+        //noinspection ConstantConditions
+        IgniteUtils.closeAllManually(registriesVv.latest().values());
     }
 
     /**
