@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.tx;
 
-import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableCollection;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -35,11 +35,14 @@ public class TxMeta implements TransactionMeta {
     private final TxState txState;
 
     /** The list of enlisted partitions. */
-    private final List<TablePartitionId> enlistedPartitions;
+    private final Collection<TablePartitionId> enlistedPartitions;
 
     /** Commit timestamp. */
     @Nullable
     private final HybridTimestamp commitTimestamp;
+
+    /** Whether the locks are released. */
+    private final boolean locksReleased;
 
     /**
      * The constructor.
@@ -48,10 +51,29 @@ public class TxMeta implements TransactionMeta {
      * @param enlistedPartitions The list of enlisted partitions.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, List<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
+    public TxMeta(TxState txState, Collection<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp
+    ) {
+        this(txState, enlistedPartitions, commitTimestamp, false);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param txState Tx state.
+     * @param enlistedPartitions The list of enlisted partitions.
+     * @param commitTimestamp Commit timestamp.
+     * @param locksReleased Whether the locks are released.
+     */
+    public TxMeta(
+            TxState txState,
+            Collection<TablePartitionId> enlistedPartitions,
+            @Nullable HybridTimestamp commitTimestamp,
+            boolean locksReleased
+    ) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
+        this.locksReleased = false;
     }
 
     @Override
@@ -59,13 +81,17 @@ public class TxMeta implements TransactionMeta {
         return txState;
     }
 
-    public List<TablePartitionId> enlistedPartitions() {
-        return unmodifiableList(enlistedPartitions);
+    public Collection<TablePartitionId> enlistedPartitions() {
+        return unmodifiableCollection(enlistedPartitions);
     }
 
     @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
+    }
+
+    public boolean locksReleased() {
+        return locksReleased;
     }
 
     @Override
@@ -87,7 +113,8 @@ public class TxMeta implements TransactionMeta {
 
         return txState == other.txState
                 && enlistedPartitions.equals(other.enlistedPartitions)
-                && Objects.equals(commitTimestamp, other.commitTimestamp);
+                && Objects.equals(commitTimestamp, other.commitTimestamp)
+                && locksReleased == other.locksReleased;
     }
 
     @Override
@@ -95,6 +122,7 @@ public class TxMeta implements TransactionMeta {
         int result = txState.hashCode();
         result = 31 * result + enlistedPartitions.hashCode();
         result = 31 * result + (commitTimestamp != null ? commitTimestamp.hashCode() : 0);
+        result = 31 * result + Boolean.hashCode(locksReleased);
         return result;
     }
 }

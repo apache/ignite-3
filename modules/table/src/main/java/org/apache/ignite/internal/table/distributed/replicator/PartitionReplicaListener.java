@@ -83,6 +83,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -152,6 +153,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TransactionAbandonedException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
@@ -341,35 +343,90 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         schemaCompatValidator = new SchemaCompatValidator(schemas, catalogService);
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
-            if (!localNode.name().equals(evt.leaseholder())) {
-                return completedFuture(false);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+    }
+
+    private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
+        if (!localNode.name().equals(evt.leaseholder())) {
+            return completedFuture(false);
+        }
+
+        List<CompletableFuture<?>> cleanupFutures = new ArrayList<>();
+
+        for (IgniteBiTuple<UUID, TxMeta> tx : txStateStorage.scan()) {
+            UUID txId = tx.getKey();
+            TxMeta txMeta = tx.getValue();
+
+            assert !txMeta.enlistedPartitions().isEmpty();
+
+            if (isFinalState(txMeta.txState()) && !txMeta.locksReleased()) {
+                CompletableFuture<?> cleanupFuture = txManager.executeCleanupAsync(() -> durableCleanup(txId, txMeta));
+
+                cleanupFutures.add(cleanupFuture);
             }
+        }
 
-            LOG.info("Primary replica expired [grp={}]", replicationGroupId);
+        return allOf(cleanupFutures.toArray(new CompletableFuture<?>[0])).thenApply(unused -> false);
+    }
 
-            ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
+    private CompletableFuture<?> durableCleanup(UUID txId, TxMeta txMeta) {
+        return cleanup(txId, txMeta)
+                .handle((v, e) -> {
+                    if (e == null) {
+                        return txManager.executeCleanupAsync(() -> markLocksReleased(
+                                txId,
+                                txMeta.enlistedPartitions(),
+                                txMeta.txState(),
+                                txMeta.commitTimestamp())
+                        );
+                    } else {
+                        LOG.warn("Failed to execute cleanup on commit partition primary replica switch [txId=" + txId + ']', e);
 
-            for (UUID txId : txCleanupReadyFutures.keySet()) {
-                txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-                    if (txOps == null || TxState.isFinalState(txOps.state)) {
-                        return null;
+                        return txManager.executeCleanupAsync(() -> durableCleanup(txId, txMeta));
                     }
-
-                    if (!txOps.futures.isEmpty()) {
-                        CompletableFuture<?>[] txFuts = txOps.futures.values().stream()
-                                .flatMap(Collection::stream)
-                                .toArray(CompletableFuture[]::new);
-
-                        futs.add(allOf(txFuts).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
-                    }
-
-                    return txOps;
                 });
-            }
+    }
 
-            return allOf(futs.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
-        });
+    private void markLocksReleased(
+            UUID txId,
+            Collection<TablePartitionId> enlistedPartitions,
+            TxState txState,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        TxMeta newTxMeta = new TxMeta(txState, enlistedPartitions, commitTimestamp, true);
+
+        txStateStorage.put(txId, newTxMeta);
+    }
+
+    private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
+        if (!localNode.name().equals(evt.leaseholder())) {
+            return completedFuture(false);
+        }
+
+        LOG.info("Primary replica expired [grp={}]", replicationGroupId);
+
+        ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
+
+        for (UUID txId : txCleanupReadyFutures.keySet()) {
+            txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+                if (txOps == null || isFinalState(txOps.state)) {
+                    return null;
+                }
+
+                if (!txOps.futures.isEmpty()) {
+                    CompletableFuture<?>[] txFuts = txOps.futures.values().stream()
+                            .flatMap(Collection::stream)
+                            .toArray(CompletableFuture[]::new);
+
+                    futs.add(allOf(txFuts).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
+                }
+
+                return txOps;
+            });
+        }
+
+        return allOf(futs.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
     }
 
     @Override
@@ -1225,9 +1282,34 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         CompletableFuture<?> changeStateFuture = finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId);
 
+        return cleanup(changeStateFuture, enlistedPartitions, commit, commitTimestamp, txId, ATTEMPTS_TO_CLEANUP_REPLICA)
+                .whenComplete((v, e) -> {
+                    if (e == null) {
+                        txManager.executeCleanupAsync(() -> markLocksReleased(
+                                txId,
+                                enlistedPartitions,
+                                commit ? COMMITED : ABORTED,
+                                commitTimestamp)
+                        );
+                    }
+                });
+    }
+
+    private CompletableFuture<Void> cleanup(UUID txId, TxMeta txMeta) {
+        return cleanup(completedFuture(null), txMeta.enlistedPartitions(), txMeta.txState() == COMMITED, txMeta.commitTimestamp(), txId, 1);
+    }
+
+    private CompletableFuture<Void> cleanup(
+            CompletableFuture<?> changeStateFuture,
+            Collection<TablePartitionId> enlistedPartitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId,
+            int attemptsToCleanupReplica
+    ) {
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
                 .map(partitionId -> changeStateFuture.thenCompose(ignored ->
-                        cleanupWithRetry(commit, commitTimestamp, txId, partitionId, ATTEMPTS_TO_CLEANUP_REPLICA)))
+                        cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attemptsToCleanupReplica)))
                 .toArray(size -> new CompletableFuture<?>[size]);
 
         return allOf(futures);
