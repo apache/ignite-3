@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,6 +39,7 @@ public interface UpdateAllCommand extends PartitionCommand {
 
     String txCoordinatorId();
 
+    // TODO: IGNITE-20609 row id in this map duplicates row id in rowsToUpdate.
     @Nullable Map<UUID, Long> lastCommitTimestampsLong();
 
     /**
@@ -49,13 +50,7 @@ public interface UpdateAllCommand extends PartitionCommand {
 
         Map<UUID, Long> uuidLongMap = lastCommitTimestampsLong();
         if (uuidLongMap != null) {
-            uuidLongMap.forEach((uuid, ts) -> {
-                HybridTimestamp timestamp = nullableHybridTimestamp(ts);
-
-                if (timestamp != null) {
-                    map.put(uuid, timestamp);
-                }
-            });
+            uuidLongMap.forEach((uuid, ts) -> map.put(uuid, hybridTimestamp(ts)));
         }
         return map;
     }

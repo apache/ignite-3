@@ -167,6 +167,7 @@ public class StorageUpdateHandler {
      * @param trackWriteIntent If {@code true} then write intent should be tracked.
      * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
+     * @param lastCommitTsMap A map(Row Id -> timestamp) of timestamps of the most recent commits to the affected rows.
      */
     public void handleUpdateAll(
             UUID txId,
@@ -260,11 +261,11 @@ public class StorageUpdateHandler {
                 // They should be regular entries, not write intents.
                 assert !committedItem.isWriteIntent() : "Cannot have more than one write intent per row";
 
-                assert !lastCommitTs.before(committedItem.commitTimestamp()) :
+                assert lastCommitTs.compareTo(committedItem.commitTimestamp()) >= 0 :
                         "Primary commit timestamp " + lastCommitTs + " is earlier than local commit timestamp "
                                 + committedItem.commitTimestamp();
 
-                if (lastCommitTs.after(committedItem.commitTimestamp())) {
+                if (lastCommitTs.compareTo(committedItem.commitTimestamp()) > 0) {
                     // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
                     // Action: commit this write intent.
                     performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
