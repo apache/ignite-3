@@ -123,23 +123,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         return schema(schemaCache.lastKey());
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable SchemaDescriptor schemaCached(int ver) {
+    private @Nullable SchemaDescriptor schemaCached(int ver) {
         return schemaCache.get(ver);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SchemaDescriptor waitLatestSchema() {
-        // TODO: remove blocking code https://issues.apache.org/jira/browse/IGNITE-17931
-        int lastVer0 = latestVersionStore.get().join();
-        Integer lastLocalVer = schemaCache.lastKey();
-
-        assert lastLocalVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastLocalVer
-            + ", consLastVer=" + lastVer0 + ']';
-
-        return schema(lastVer0);
     }
 
     /** {@inheritDoc} */

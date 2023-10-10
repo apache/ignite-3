@@ -25,7 +25,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy schema manager for tests.
@@ -59,18 +58,6 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         assert schema.version() == ver;
 
         return schema;
-    }
-
-    @Override
-    public @Nullable SchemaDescriptor schemaCached(int ver) {
-        assert schema.version() == ver;
-
-        return schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
-        return schema();
     }
 
     /** {@inheritDoc} */

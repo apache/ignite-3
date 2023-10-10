@@ -425,17 +425,6 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void waitLatestSchemaReturnsLatestSchema() {
-        create2TableVersions();
-
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
-
-        SchemaDescriptor schemaDescriptor = schemaRegistry.waitLatestSchema();
-
-        assertThat(schemaDescriptor.version(), is(2));
-    }
-
-    @Test
     void dropRegistryMakesItUnavailable() {
         createSomeTable();
 
