@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
