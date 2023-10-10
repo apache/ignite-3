@@ -40,31 +40,21 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** The transaction manager. */
     protected final TxManager txManager;
 
-    private final boolean implicit;
-
     /**
      * The constructor.
      *
      * @param txManager The tx manager.
      * @param id The id.
-     * @param implicit Whether the transaction will be implicit or not.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, boolean implicit) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id) {
         this.txManager = txManager;
         this.id = id;
-        this.implicit = implicit;
     }
 
     /** {@inheritDoc} */
     @Override
     public UUID id() {
         return id;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean implicit() {
-        return implicit;
     }
 
     /** {@inheritDoc} */

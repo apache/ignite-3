@@ -24,7 +24,13 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
+import org.apache.ignite.internal.schema.BitmaskNativeType;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.NumberNativeType;
+import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.systemview.NodeSystemView;
 import org.apache.ignite.internal.systemview.SystemView;
 import org.apache.ignite.internal.systemview.SystemViewColumn;
@@ -34,9 +40,7 @@ import org.apache.ignite.sql.ColumnType;
  * System views utils.
  */
 public class SystemViewUtils {
-    /** Default decimal precision. */
-    // TODO Remove after https://issues.apache.org/jira/browse/IGNITE-20513
-    private static final int DEFAULT_DECIMAL_PRECISION = 19;
+    private static final int NODE_NAME_FIELD_LENGTH = CatalogUtils.DEFAULT_VARLEN_LENGTH;
 
     /**
      * Converts {@link SystemViewColumn} to a {@link CreateSystemViewCommand catalog command} to create a system view.
@@ -49,7 +53,8 @@ public class SystemViewUtils {
                     ColumnParams.builder()
                             .name(((NodeSystemView<?>) view).nodeNameColumnAlias())
                             .type(ColumnType.STRING)
-                            .length(CatalogUtils.DEFAULT_VARLEN_LENGTH)
+                            .length(NODE_NAME_FIELD_LENGTH)
+                            .nullable(false)
                             .build()
             );
         }
@@ -66,13 +71,15 @@ public class SystemViewUtils {
     }
 
     private static ColumnParams systemViewColumnToColumnParams(SystemViewColumn<?, ?> column) {
-        NativeTypeSpec typeSpec = NativeTypeSpec.fromClass(column.type());
+        NativeType type = column.type();
+
+        NativeTypeSpec typeSpec = type.spec();
 
         Builder builder = ColumnParams.builder()
                 .name(column.name())
-                .type(typeSpec.asColumnType());
+                .type(typeSpec.asColumnType())
+                .nullable(true);
 
-        // TODO Don't use defaults after https://issues.apache.org/jira/browse/IGNITE-20513
         switch (typeSpec) {
             case INT8:
             case INT16:
@@ -85,23 +92,33 @@ public class SystemViewUtils {
             case BOOLEAN:
                 break;
             case NUMBER:
-                builder.precision(DEFAULT_DECIMAL_PRECISION);
+                assert type instanceof NumberNativeType : type.getClass().getCanonicalName();
+
+                builder.precision(((NumberNativeType) type).precision());
                 break;
             case DECIMAL:
-                builder.precision(DEFAULT_DECIMAL_PRECISION);
-                builder.scale(CatalogUtils.DEFAULT_SCALE);
+                assert type instanceof DecimalNativeType : type.getClass().getCanonicalName();
+
+                builder.precision(((DecimalNativeType) type).precision());
+                builder.scale(((DecimalNativeType) type).scale());
                 break;
             case STRING:
             case BYTES:
+                assert type instanceof VarlenNativeType : type.getClass().getCanonicalName();
+
+                builder.length(((VarlenNativeType) type).length());
+                break;
             case BITMASK:
-                builder.length(CatalogUtils.DEFAULT_VARLEN_LENGTH);
+                assert type instanceof BitmaskNativeType : type.getClass().getCanonicalName();
+
+                builder.length(((BitmaskNativeType) type).bits());
                 break;
             case TIME:
-                builder.precision(CatalogUtils.DEFAULT_TIME_PRECISION);
-                break;
             case DATETIME:
             case TIMESTAMP:
-                builder.precision(CatalogUtils.DEFAULT_TIMESTAMP_PRECISION);
+                assert type instanceof TemporalNativeType : type.getClass().getCanonicalName();
+
+                builder.precision(((TemporalNativeType) type).precision());
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported native type: " + typeSpec);

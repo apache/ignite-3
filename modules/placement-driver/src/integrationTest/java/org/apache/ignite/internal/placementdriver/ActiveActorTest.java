@@ -156,7 +156,6 @@ public class ActiveActorTest extends IgniteAbstractTest {
 
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
                 nodeName,
-                mock(Consumer.class),
                 msm,
                 GROUP_ID,
                 clusterService,

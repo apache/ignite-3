@@ -65,10 +65,6 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker tracker, boolean readOnly) {
-        return begin(tracker, readOnly, false);
-    }
-
-    private InternalTransaction begin(HybridTimestampTracker tracker, boolean readOnly, boolean implicit) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 
@@ -140,17 +136,7 @@ public class FakeTxManager implements TxManager {
             public HybridTimestamp startTimestamp() {
                 return timestamp;
             }
-
-            @Override
-            public boolean implicit() {
-                return implicit;
-            }
         };
-    }
-
-    @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return begin(timestampTracker, readOnly, true);
     }
 
     @Override

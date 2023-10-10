@@ -40,11 +40,9 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -135,8 +133,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     StorageUpdateHandler storageUpdateHandler,
                     Schemas schemas,
                     ClusterNode localNode,
-                    MvTableStorage mvTableStorage,
-                    IndexBuilder indexBuilder,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
                     PlacementDriver placementDriver
@@ -159,8 +155,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         storageUpdateHandler,
                         schemas,
                         localNode,
-                        mvTableStorage,
-                        indexBuilder,
                         schemaSyncService,
                         catalogService,
                         placementDriver

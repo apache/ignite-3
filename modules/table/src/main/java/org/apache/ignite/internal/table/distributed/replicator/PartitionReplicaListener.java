@@ -24,8 +24,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
@@ -61,7 +59,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -69,11 +66,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
-import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -104,13 +97,11 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -123,7 +114,6 @@ import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
@@ -240,30 +230,15 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Instance of the local node. */
     private final ClusterNode localNode;
 
-    /** Table storage. */
-    private final MvTableStorage mvTableStorage;
-
-    /** Index builder. */
-    private final IndexBuilder indexBuilder;
-
     private final SchemaSyncService schemaSyncService;
 
     private final CatalogService catalogService;
-
-    /** Listener for creating an index in catalog, {@code null} if the replica is not the leader. */
-    private final AtomicReference<EventListener<CreateIndexEventParameters>> createIndexListener = new AtomicReference<>();
-
-    /** Listener for dropping an index in catalog, {@code null} if the replica is not the leader. */
-    private final AtomicReference<EventListener<DropIndexEventParameters>> dropIndexListener = new AtomicReference<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
-
-    /** Flag indicates whether the current replica is the primary. */
-    private volatile boolean primary;
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
@@ -286,8 +261,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
-     * @param mvTableStorage Table storage.
-     * @param indexBuilder Index builder.
      * @param catalogService Catalog service.
      * @param placementDriver Placement driver.
      */
@@ -309,8 +282,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             StorageUpdateHandler storageUpdateHandler,
             Schemas schemas,
             ClusterNode localNode,
-            MvTableStorage mvTableStorage,
-            IndexBuilder indexBuilder,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver
@@ -329,8 +300,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.transactionStateResolver = transactionStateResolver;
         this.storageUpdateHandler = storageUpdateHandler;
         this.localNode = localNode;
-        this.mvTableStorage = mvTableStorage;
-        this.indexBuilder = indexBuilder;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.placementDriver = placementDriver;
@@ -352,7 +321,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             for (UUID txId : txCleanupReadyFutures.keySet()) {
                 txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-                    if (txOps == null || TxState.isFinalState(txOps.state)) {
+                    if (txOps == null || isFinalState(txOps.state)) {
                         return null;
                     }
 
@@ -2638,9 +2607,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
         } else if (request instanceof BuildIndexReplicaRequest) {
-            // TODO: IGNITE-20330 Possibly replaced by placementDriver#getPrimaryReplica and should also be added to the documentation
-            //  about PrimaryReplicaMissException
-            return placementDriver.awaitPrimaryReplica(replicationGroupId, now, 30, SECONDS)
+            return placementDriver.awaitPrimaryReplica(replicationGroupId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                     .thenCompose(replicaMeta -> {
                         if (isLocalPeer(replicaMeta.getLeaseholder())) {
                             return completedFuture(null);
@@ -3037,81 +3004,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
-    public void onBecomePrimary(ClusterNode clusterNode) {
-        inBusyLockNoException(() -> {
-            if (clusterNode.equals(localNode)) {
-                if (primary) {
-                    // Current replica has already become the primary, we do not need to do anything.
-                    return;
-                }
-
-                primary = true;
-
-                startBuildIndexes();
-            } else {
-                if (!primary) {
-                    // Current replica was not the primary replica, we do not need to do anything.
-                    return;
-                }
-
-                primary = false;
-
-                stopBuildIndexes();
-            }
-        });
-    }
-
-    @Override
     public void onShutdown() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
-
-        stopBuildIndexes();
-    }
-
-    private void registerIndexesListener() {
-        // TODO: IGNITE-19498 Might need to listen to something else
-        EventListener<CreateIndexEventParameters> createIndexListener = (parameters, exception) -> inBusyLockAsync(busyLock, () -> {
-            assert exception == null : parameters;
-
-            int tableId = parameters.indexDescriptor().tableId();
-
-            if (tableId() == tableId) {
-                CatalogTableDescriptor tableDescriptor = getTableDescriptor(tableId, parameters.catalogVersion());
-
-                startBuildIndex(StorageIndexDescriptor.create(tableDescriptor, parameters.indexDescriptor()));
-            }
-
-            return completedFuture(false);
-        });
-
-        EventListener<DropIndexEventParameters> dropIndexListener = (parameters, exception) -> inBusyLockAsync(busyLock, () -> {
-            assert exception == null : parameters;
-
-            if (tableId() == parameters.tableId()) {
-                indexBuilder.stopBuildIndex(tableId(), partId(), parameters.indexId());
-            }
-
-            return completedFuture(false);
-        });
-
-        boolean casResult = this.createIndexListener.compareAndSet(null, createIndexListener)
-                && this.dropIndexListener.compareAndSet(null, dropIndexListener);
-
-        assert casResult : replicationGroupId;
-
-        catalogService.listen(INDEX_CREATE, createIndexListener);
-        catalogService.listen(INDEX_DROP, dropIndexListener);
-    }
-
-    private void startBuildIndex(StorageIndexDescriptor indexDescriptor) {
-        // TODO: IGNITE-19112 We only need to create the index storage once
-        IndexStorage indexStorage = mvTableStorage.getOrCreateIndex(partId(), indexDescriptor);
-
-        indexBuilder.startBuildIndex(tableId(), partId(), indexDescriptor.id(), indexStorage, mvDataStorage, localNode);
     }
 
     private int partId() {
@@ -3124,53 +3022,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private boolean isLocalPeer(String nodeName) {
         return localNode.name().equals(nodeName);
-    }
-
-    private void inBusyLockNoException(Runnable runnable) {
-        if (!busyLock.enterBusy()) {
-            // This method does not throw a NodeStoppingException to avoid killing JRaft.
-            // It's expected that the code will be rewritten together with index creation redesign.
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-20330
-            return;
-        }
-
-        try {
-            runnable.run();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private void startBuildIndexes() {
-        registerIndexesListener();
-
-        // Let's try to build an index for the previously created indexes for the table.
-        int catalogVersion = catalogService.latestCatalogVersion();
-
-        for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
-            if (indexDescriptor.tableId() != tableId()) {
-                continue;
-            }
-
-            CatalogTableDescriptor tableDescriptor = getTableDescriptor(indexDescriptor.tableId(), catalogVersion);
-
-            startBuildIndex(StorageIndexDescriptor.create(tableDescriptor, indexDescriptor));
-        }
-    }
-
-    private void stopBuildIndexes() {
-        EventListener<CreateIndexEventParameters> createIndexListener = this.createIndexListener.getAndSet(null);
-        EventListener<DropIndexEventParameters> dropIndexListener = this.dropIndexListener.getAndSet(null);
-
-        if (createIndexListener != null) {
-            catalogService.removeListener(INDEX_CREATE, createIndexListener);
-        }
-
-        if (dropIndexListener != null) {
-            catalogService.removeListener(INDEX_DROP, dropIndexListener);
-        }
-
-        indexBuilder.stopBuildingIndexes(tableId(), partId());
     }
 
     /**
