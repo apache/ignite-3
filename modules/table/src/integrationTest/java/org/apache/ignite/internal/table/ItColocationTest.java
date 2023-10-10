@@ -53,7 +53,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -79,6 +78,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -111,6 +111,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     /** Keys count to check. */
     private static final int KEYS = 100;
+
+    private static final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
 
     /** Dummy internal table for tests. */
     private static InternalTable intTable;
@@ -240,8 +242,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 Mockito.mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                Mockito.mock(HybridClock.class),
-                new HybridTimestampTracker(),
+                new HybridClockImpl(),
+                observableTimestampTracker,
                 new TestPlacementDriver(clusterNode.name())
         );
     }
@@ -394,9 +396,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager());
+        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1));
 
-        marshaller = new TupleMarshallerImpl(schemaRegistry);
+        marshaller = new TupleMarshallerImpl(schema);
     }
 
     private Tuple createTuple(int k, NativeTypeSpec t0, NativeTypeSpec t1) {

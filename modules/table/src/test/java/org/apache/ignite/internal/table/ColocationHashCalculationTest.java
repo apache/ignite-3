@@ -39,7 +39,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -112,7 +111,7 @@ public class ColocationHashCalculationTest {
         Row r = generateRandomRow(rnd, schema);
         assertEquals(colocationHash(r), r.colocationHash());
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
         for (int i = 0; i < 10; ++i) {
             Column rndCol = schema.column(rnd.nextInt(schema.length()));
 
@@ -182,7 +181,7 @@ public class ColocationHashCalculationTest {
     }
 
     private static Row generateRandomRow(Random rnd, SchemaDescriptor schema) throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Tuple t = Tuple.create();
 

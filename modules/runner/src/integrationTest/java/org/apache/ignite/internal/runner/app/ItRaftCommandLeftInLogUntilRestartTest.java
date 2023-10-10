@@ -40,6 +40,8 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
@@ -174,7 +176,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         boolean isNode0Leader = node0.id().equals(leader.id());
 
-        BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshalKey(Tuple.create().set("id", 42));
+        BinaryRowEx key = marshalKey(table, Tuple.create().set("id", 42));
 
         if (isNode0Leader) {
             assertNull(table.internalTable().get(key, node1.clock().now(), node1.node()).get());
@@ -216,6 +218,13 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         checkAction.accept(ignite);
 
         clearData(ignite.tables().table(DEFAULT_TABLE_NAME));
+    }
+
+    private static Row marshalKey(TableImpl table, Tuple tuple) throws TupleMarshallerException {
+        SchemaRegistry schemaReg = table.schemaView();
+        var marshaller = new TupleMarshallerImpl(schemaReg.schema(schemaReg.lastSchemaVersion()));
+
+        return marshaller.marshalKey(tuple);
     }
 
     /**
@@ -293,7 +302,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 assertEquals(row[1], txTuple.value("NAME"));
                 assertEquals(row[2], txTuple.value("SALARY"));
 
-                BinaryRowEx testKey = new TupleMarshallerImpl(table.schemaView()).marshalKey(Tuple.create().set("ID", row[0]));
+                BinaryRowEx testKey = marshalKey(table, Tuple.create().set("ID", row[0]));
 
                 BinaryRow readOnlyBinaryRow = table.internalTable().get(testKey, ignite.clock().now(), ignite.node()).get();
 

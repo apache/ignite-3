@@ -87,21 +87,30 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public Row resolve(BinaryRow row) {
+    public Row resolve(BinaryRow row, int targetSchemaVersion) {
         assert row.schemaVersion() == schema.version() || row.schemaVersion() == 0;
+        assert targetSchemaVersion == row.schemaVersion();
 
         return Row.wrapBinaryRow(schema, row);
     }
 
     @Override
-    public List<Row> resolve(Collection<BinaryRow> rows) {
+    public List<Row> resolve(Collection<BinaryRow> rows, int targetSchemaVersion) {
+        for (BinaryRow row : rows) {
+            assert row == null || row.schemaVersion() == targetSchemaVersion;
+        }
+
         return rows.stream()
                 .map(row -> row == null ? null : Row.wrapBinaryRow(schema(row.schemaVersion()), row))
                 .collect(toList());
     }
 
     @Override
-    public List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows) {
+    public List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion) {
+        for (BinaryRow row : keyOnlyRows) {
+            assert row == null || row.schemaVersion() == targetSchemaVersion;
+        }
+
         return keyOnlyRows.stream()
                 .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schema(row.schemaVersion()), row))
                 .collect(toList());

@@ -19,6 +19,9 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -125,7 +128,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
      *     <li>Calling {@link KeyValueView#getNullable(Transaction, Object)} on an existing key
      *     must return {@link NullableValue} with no value.</li>
      *     <li>Calling {@link KeyValueView#contains(Transaction, Object)} must return {@code true} for an existing key
-     *     and {@code false} if the key doesn't exists.</li>
+     *     and {@code false} if the key doesn't exist.</li>
      * </ul>
      *
      * @param env Test environment.
@@ -141,8 +144,9 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         env.runInTransaction(
                 rwTx -> {
-                    assertThrows(IllegalArgumentException.class,
+                    IgniteException ex = assertThrows(IgniteException.class,
                             () -> tab.keyValueView(KeyObject.class, Integer.class).put(rwTx, key, 1));
+                    assertThat(ex.getCause(), is(instanceOf(IllegalArgumentException.class)));
 
                     kvView.put(rwTx, key, null);
 
