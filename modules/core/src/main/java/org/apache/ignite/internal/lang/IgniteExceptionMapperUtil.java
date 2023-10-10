@@ -83,8 +83,11 @@ public class IgniteExceptionMapperUtil {
      * @return Public exception.
      */
     public static Throwable mapToPublicException(Throwable origin) {
-        if (origin instanceof AssertionError) {
-            return new IgniteException(INTERNAL_ERR, origin);
+        if (origin instanceof Error) {
+            if (origin instanceof AssertionError) {
+                return new IgniteException(INTERNAL_ERR, origin);
+            }
+            return origin;
         }
 
         Throwable res;

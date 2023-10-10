@@ -46,7 +46,7 @@ class SqlExceptionMapperUtilTest {
         SqlException mappedSqlErr = (SqlException) mappedErr;
 
         assertThat("Mapped exception should have the same trace identifier.", mappedSqlErr.traceId(), is(internalSqlErr.traceId()));
-        assertThat("Mapped exception should have the same error code.", mappedSqlErr.code(), is(internalSqlErr.code()));
+        assertThat("Mapped exception shouldn't have the same error code.", mappedSqlErr.code(), is(INTERNAL_ERR));
     }
 
     /**
