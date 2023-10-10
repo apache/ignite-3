@@ -29,7 +29,6 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -47,9 +46,7 @@ import org.jetbrains.annotations.TestOnly;
  * Table view implementation for binary objects.
  */
 public class RecordBinaryViewImpl extends AbstractTableView implements RecordView<Tuple> {
-    private final SchemaRegistry schemaRegistry;
-
-    private volatile @Nullable TupleMarshaller cachedMarshaller;
+    private final TupleMarshallerCache marshallerCache;
 
     /**
      * Constructor.
@@ -61,7 +58,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public RecordBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaRegistry, SchemaVersions schemaVersions) {
         super(tbl, schemaVersions, schemaRegistry);
 
-        this.schemaRegistry = schemaRegistry;
+        marshallerCache = new TupleMarshallerCache(schemaRegistry);
     }
 
     /** {@inheritDoc} */
@@ -89,17 +86,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      */
     @TestOnly
     public TupleMarshaller marshaller(int schemaVersion) {
-        TupleMarshaller marshaller = cachedMarshaller;
-
-        if (marshaller != null && marshaller.schemaVersion() == schemaVersion) {
-            return marshaller;
-        }
-
-        marshaller = new TupleMarshallerImpl(schemaRegistry.schema(schemaVersion));
-
-        cachedMarshaller = marshaller;
-
-        return marshaller;
+        return marshallerCache.marshaller(schemaVersion);
     }
 
     @Override

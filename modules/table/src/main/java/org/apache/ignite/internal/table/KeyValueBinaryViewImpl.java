@@ -29,9 +29,7 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
@@ -53,9 +51,7 @@ import org.jetbrains.annotations.Nullable;
  * exists for the given key.
  */
 public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
-    private final SchemaRegistry schemaRegistry;
-
-    private volatile @Nullable TupleMarshaller cachedMarshaller;
+    private final TupleMarshallerCache marshallerCache;
 
     /**
      * The constructor.
@@ -67,7 +63,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg, SchemaVersions schemaVersions) {
         super(tbl, schemaVersions, schemaReg);
 
-        this.schemaRegistry = schemaReg;
+        marshallerCache = new TupleMarshallerCache(schemaReg);
     }
 
     /** {@inheritDoc} */
@@ -441,20 +437,6 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
-    private TupleMarshaller marshaller(int schemaVersion) {
-        TupleMarshaller marshaller = cachedMarshaller;
-
-        if (marshaller != null && marshaller.schemaVersion() == schemaVersion) {
-            return marshaller;
-        }
-
-        marshaller = new TupleMarshallerImpl(schemaRegistry.schema(schemaVersion));
-
-        cachedMarshaller = marshaller;
-
-        return marshaller;
-    }
-
     /**
      * Marshal key-value pair to a row.
      *
@@ -466,7 +448,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      */
     private Row marshal(Tuple key, @Nullable Tuple val, int schemaVersion) throws IgniteException {
         try {
-            return marshaller(schemaVersion).marshal(key, val);
+            return marshallerCache.marshaller(schemaVersion).marshal(key, val);
         } catch (TupleMarshallerException ex) {
             throw new MarshallerException(ex);
         }
