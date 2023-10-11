@@ -342,7 +342,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
-    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+    public synchronized CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
         if (request instanceof TxStateCommitPartitionRequest) {
             return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request).thenApply(
                     res -> new ReplicaResult(res, null));
