@@ -660,13 +660,13 @@ SqlNode SqlStartTransaction() :
     <START> { s = span(); }
     <TRANSACTION>
     [
-        <READ>
         (
-          <ONLY> {
+          LOOKAHEAD(2)
+          <READ> <ONLY> {
             mode = IgniteSqlStartTransactionMode.READ_ONLY;
           }
           |
-          <WRITE> {
+          <READ> <WRITE> {
             mode = IgniteSqlStartTransactionMode.READ_WRITE;
           }
         )
