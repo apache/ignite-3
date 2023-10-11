@@ -38,6 +38,7 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -87,7 +88,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     public SchemaDescriptor schemaNow(int version) {
         int actualVersion = versionOrLatestForZero(version);
 
-        SchemaDescriptor desc = schemaCache.get(actualVersion);
+        SchemaDescriptor desc = getFromCacheOrLoad(actualVersion);
 
         if (desc != null) {
             return desc;
@@ -98,6 +99,22 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         } else {
             throw failedToFindSchemaException(actualVersion);
         }
+    }
+
+    private @Nullable SchemaDescriptor getFromCacheOrLoad(int version) {
+        SchemaDescriptor desc = schemaCache.get(version);
+
+        if (desc != null) {
+            return desc;
+        }
+
+        desc = loadStoredSchemaByVersion(version);
+
+        if (desc != null) {
+            makeSchemaVersionAvailable(desc);
+        }
+
+        return desc;
     }
 
     private static SchemaRegistryException failedToFindSchemaException(int version) {
@@ -119,13 +136,13 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return failedFuture(new SchemaRegistryException("Unsupported schema version [version=" + version + "]"));
         }
 
-        SchemaDescriptor desc = schemaCache.get(version);
+        SchemaDescriptor desc = getFromCacheOrLoad(version);
 
         if (desc != null) {
             return completedFuture(desc);
         }
 
-        return tableSchema(version)
+        return tableSchemaAsync(version)
                 .whenComplete((loadedDesc, ex) -> {
                     if (ex == null) {
                         if (loadedDesc == null) {
@@ -304,9 +321,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         return unmodifiableMap(mappingCache);
     }
 
-    private CompletableFuture<SchemaDescriptor> tableSchema(int schemaVer) {
+    private CompletableFuture<SchemaDescriptor> tableSchemaAsync(int schemaVer) {
         if (schemaVer < lastKnownSchemaVersion()) {
-            return completedFuture(loadSchemaByVersion.apply(schemaVer));
+            return completedFuture(loadStoredSchemaByVersion(schemaVer));
         }
 
         CompletableFuture<SchemaDescriptor> future = versionTracker.waitFor(schemaVer)
@@ -315,5 +332,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         inFlightTableSchemaFutures.registerFuture(future);
 
         return future;
+    }
+
+    private @Nullable SchemaDescriptor loadStoredSchemaByVersion(int schemaVer) {
+        return loadSchemaByVersion.apply(schemaVer);
     }
 }

@@ -328,8 +328,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV1, schemaV2);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV1);
-        reg.onSchemaRegistered(schemaV2);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV2);
 
         assertEquals(2, reg.lastKnownSchemaVersion());
         assertSameSchema(schemaV2, reg.lastKnownSchema());
@@ -382,8 +381,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV2, schemaV3);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV2);
-        reg.onSchemaRegistered(schemaV3);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV3);
 
         assertEquals(3, reg.lastKnownSchemaVersion());
         assertSameSchema(schemaV3, reg.lastKnownSchema());
@@ -442,9 +440,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV2, schemaV3, schemaV4);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV2);
-        reg.onSchemaRegistered(schemaV3);
-        reg.onSchemaRegistered(schemaV4);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV4);
 
         assertEquals(4, reg.lastKnownSchemaVersion());
         assertSameSchema(schemaV4, reg.lastKnownSchema());
@@ -525,7 +521,7 @@ public class SchemaRegistryImplTest {
 
     @Test
     void schemaAsyncReturnsExpectedResults() {
-        Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV1, schemaV2);
+        Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV1);
 
         SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV1);
 
@@ -544,9 +540,7 @@ public class SchemaRegistryImplTest {
     void schemaAsyncReturnsExceptionForCompactedAwayVersion() {
         Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV1, schemaV2);
 
-        SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV1);
-
-        reg.onSchemaRegistered(schemaV2);
+        SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV2);
 
         history.remove(1);
         reg.onSchemaDropped(1);
