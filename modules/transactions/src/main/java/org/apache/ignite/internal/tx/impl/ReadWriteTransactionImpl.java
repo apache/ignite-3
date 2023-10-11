@@ -31,7 +31,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -146,7 +145,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
         return finishFuture.exceptionally(
                 e -> {
-                    if (e instanceof IgniteInternalException) {
+                    if (e instanceof PrimaryReplicaExpiredException) {
                         // Transaction is already rolled back. Just wrapping internal exception with public one.
                         throw withCause(TransactionException::new, TX_PRIMARY_REPLICA_EXPIRED_ERR,
                                 "Primary replica has expired, transaction will be rolled back", e);
