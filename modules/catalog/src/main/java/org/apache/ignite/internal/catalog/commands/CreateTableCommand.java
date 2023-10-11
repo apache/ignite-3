@@ -125,7 +125,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                 indexName,
                 tableId,
                 true,
-                primaryKeyColumns
+                primaryKeyColumns,
+                true
         );
 
         return List.of(

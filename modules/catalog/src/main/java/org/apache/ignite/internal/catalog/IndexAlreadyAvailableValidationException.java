@@ -17,13 +17,21 @@
 
 package org.apache.ignite.internal.catalog;
 
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+
 /**
- * This exception is thrown when index not found in the schema.
- *
- * <p>Example: This exception is used to properly handle IF EXISTS flag in ddl command handler.</p>
+ * This exception is thrown when an attempt is made to make the index available a second time
+ * ({@link CatalogIndexDescriptor#writeOnly() read-write} state).
  */
-public class IndexNotFoundValidationException extends CatalogValidationException {
-    public IndexNotFoundValidationException(String message) {
+public class IndexAlreadyAvailableValidationException extends CatalogValidationException {
+    private static final long serialVersionUID = 5482919822886169473L;
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     */
+    public IndexAlreadyAvailableValidationException(String message) {
         super(message);
     }
 }
