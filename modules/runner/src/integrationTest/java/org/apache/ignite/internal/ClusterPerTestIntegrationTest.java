@@ -68,7 +68,8 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "      },\n"
             + "    }\n"
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port:{} }, \n"
+            + "  rest.port: {}\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
@@ -82,7 +83,8 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "      failurePingInterval: 1000000000\n"
             + "    }\n"
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest.port: {}\n"
             + "}";
 
     protected Cluster cluster;
