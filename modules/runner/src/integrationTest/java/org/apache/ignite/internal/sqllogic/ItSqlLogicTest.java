@@ -63,6 +63,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -136,7 +137,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  *
  * @see <a href="https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki">Extended format documentation.</a>
  */
-//@Tag(value = "sqllogic")
+@Tag(value = "sqllogic")
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
