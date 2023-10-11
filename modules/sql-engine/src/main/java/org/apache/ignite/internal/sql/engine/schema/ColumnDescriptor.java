@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**

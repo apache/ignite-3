@@ -34,14 +34,14 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
@@ -62,11 +62,11 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
             new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.INT64, NativeTypes.INT32}, ImmutableIntList.of(1)),
             new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32}, ImmutableIntList.of(1)),
             new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.DATE, NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.time(), NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.datetime(), NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.timestamp(), NativeTypes.INT32}, ImmutableIntList.of(1)),
-            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.time(),
-                    NativeTypes.DATE, NativeTypes.datetime(), NativeTypes.INT32}, ImmutableIntList.of(1, 2, 3, 4))
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.time(0), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.timestamp(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.time(0),
+                    NativeTypes.DATE, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1, 2, 3, 4))
     };
 
     /** Search count. */

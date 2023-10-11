@@ -33,12 +33,12 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 
@@ -307,8 +307,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         new Column("zfloat".toUpperCase(), NativeTypes.FLOAT, true),
                         new Column("zdouble".toUpperCase(), NativeTypes.DOUBLE, true),
                         new Column("zdate".toUpperCase(), NativeTypes.DATE, true),
-                        new Column("ztime".toUpperCase(), NativeTypes.time(), true),
-                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(), true),
+                        new Column("ztime".toUpperCase(), NativeTypes.time(0), true),
+                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(6), true),
                         new Column("zstring".toUpperCase(), NativeTypes.STRING, true),
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),

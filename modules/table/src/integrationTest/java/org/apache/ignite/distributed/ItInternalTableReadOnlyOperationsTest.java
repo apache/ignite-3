@@ -48,7 +48,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -60,6 +59,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;

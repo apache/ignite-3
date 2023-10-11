@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIMESTAMP_PRECISION;
-
 import java.io.Serializable;
 import java.math.BigDecimal;
 import org.apache.calcite.rel.type.RelDataType;
@@ -66,7 +64,8 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         switch (typeName) {
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
-                return DEFAULT_TIMESTAMP_PRECISION;
+                // SQL`16 part 2 section 6.1 syntax rule 36
+                return 6;
             case FLOAT:
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-18556
                 // Fixes leastRestrictive(FLOAT, DOUBLE) != leastRestrictive(DOUBLE, FLOAT).

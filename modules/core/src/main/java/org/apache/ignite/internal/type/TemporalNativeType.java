@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.type;
 
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -72,7 +71,7 @@ public class TemporalNativeType extends NativeType {
     private TemporalNativeType(NativeTypeSpec typeSpec, int size, int precision) {
         super(typeSpec, size);
 
-        if (precision < 0 || precision > CatalogUtils.MAX_TIME_PRECISION) {
+        if (precision < 0 || precision > NativeTypes.MAX_TIME_PRECISION) {
             throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
         }
 

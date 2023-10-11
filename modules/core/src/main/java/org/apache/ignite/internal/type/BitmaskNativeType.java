@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.type;
 
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * A fixed-sized type representing a bitmask of <code>n</code> bits. The actual size of a bitmask will round up to the smallest number of
- * bytes required to store <code>n</code> bits.
+ * A fixed-sized type representing a bitmask of {@code n} bits. The actual size of a bitmask will round up to the smallest number of
+ * bytes required to store {@code n} bits.
  */
 public class BitmaskNativeType extends NativeType {
     private final int bits;
 
     /**
-     * Creates a bitmask type of size <code>bits</code>. In row will round up to the closest full byte.
+     * Creates a bitmask type of size {@code bits}. In row will round up to the closest full byte.
      *
      * @param bits The number of bits in the bitmask.
      */

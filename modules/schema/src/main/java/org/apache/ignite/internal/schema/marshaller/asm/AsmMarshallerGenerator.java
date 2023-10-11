@@ -53,7 +53,6 @@ import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
 

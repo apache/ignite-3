@@ -34,9 +34,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -163,11 +163,8 @@ public class RowSchemaTypesTest {
         UUID(NativeTypes.UUID, true),
 
         DATE(NativeTypes.DATE, true),
-        TIME(NativeTypes.time(), true),
         TIME_2(NativeTypes.time(2), false),
-        DATETIME(NativeTypes.datetime(), true),
         DATETIME_2(NativeTypes.datetime(2), false),
-        TIMESTAMP(NativeTypes.timestamp(), true),
         TIMESTAMP_2(NativeTypes.timestamp(2), false),
         BITMASK_8(NativeTypes.bitmaskOf(8), false),
         ;

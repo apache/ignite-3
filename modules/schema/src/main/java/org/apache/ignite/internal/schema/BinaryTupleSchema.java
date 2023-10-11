@@ -20,6 +20,9 @@ package org.apache.ignite.internal.schema;
 import java.math.BigDecimal;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
