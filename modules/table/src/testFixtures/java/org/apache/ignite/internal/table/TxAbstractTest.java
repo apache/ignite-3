@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -1769,7 +1770,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param rows Rows.
      * @param expected Expected values.
      */
-    private static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
+    protected static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
         assertThat(
                 rows.stream().map(tuple -> tuple == null ? null : tuple.doubleValue("balance")).collect(toList()),
                 contains(expected)
@@ -1970,12 +1971,20 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFinished(true);
+        testTransactionAlreadyFinished(true, (transaction, uuid) -> {
+            transaction.commit();
+
+            log.info("Committed transaction {}", uuid);
+        });
     }
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFinished(false);
+        testTransactionAlreadyFinished(false, (transaction, uuid) -> {
+            transaction.rollback();
+
+            log.info("Rolled back transaction {}", uuid);
+        });
     }
 
     @Test
@@ -2075,7 +2084,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      *
      * @param commit True when transaction is committed, false the transaction is rolled back.
      */
-    private void testTransactionAlreadyFinished(boolean commit) {
+    protected void testTransactionAlreadyFinished(boolean commit, BiConsumer<Transaction, UUID> finisher) {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
@@ -2091,15 +2100,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         validateBalance(res, 100., 200.);
 
-        if (commit) {
-            tx.commit();
-
-            log.info("Committed transaction {}", txId);
-        } else {
-            tx.rollback();
-
-            log.info("Rolled back transaction {}", txId);
-        }
+        finisher.accept(tx, txId);
 
         TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(1)));
         assertTrue(ex.getMessage().contains("Transaction is already finished."));

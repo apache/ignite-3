@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command for updating a batch of entries.
@@ -33,4 +38,20 @@ public interface UpdateAllCommand extends PartitionCommand {
     Map<UUID, BinaryRowMessage> rowsToUpdate();
 
     String txCoordinatorId();
+
+    // TODO: IGNITE-20609 row id in this map duplicates row id in rowsToUpdate.
+    @Nullable Map<UUID, Long> lastCommitTimestampsLong();
+
+    /**
+     * Returns the timestamps of the last committed entries for each row.
+     */
+    default Map<UUID, HybridTimestamp> lastCommitTimestamps() {
+        Map<UUID, HybridTimestamp> map = new HashMap<>();
+
+        Map<UUID, Long> uuidLongMap = lastCommitTimestampsLong();
+        if (uuidLongMap != null) {
+            uuidLongMap.forEach((uuid, ts) -> map.put(uuid, hybridTimestamp(ts)));
+        }
+        return map;
+    }
 }
