@@ -330,7 +330,7 @@ public class ClientTableCommon {
     public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
         var schemaId = unpacker.unpackInt();
 
-        return table.schemaView().schema(schemaId);
+        return table.schemaView().schemaNow(schemaId);
     }
 
     /**

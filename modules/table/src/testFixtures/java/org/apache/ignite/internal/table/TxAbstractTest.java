@@ -1332,7 +1332,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             @Override
             public void onNext(BinaryRow item) {
                 SchemaRegistry registry = accounts.schemaView();
-                Row row = registry.resolve(item, registry.schema(registry.lastKnownSchemaVersion()));
+                Row row = registry.resolve(item, registry.schemaNow(registry.lastKnownSchemaVersion()));
 
                 rows.add(TableRow.tuple(row));
             }
@@ -2041,7 +2041,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testBatchSinglePartitionGet() throws Exception {
         var accountRecordsView = accounts.recordView();
 
-        var marshaller = new TupleMarshallerImpl(accounts.schemaView().schema(accounts.schemaView().lastKnownSchemaVersion()));
+        var marshaller = new TupleMarshallerImpl(accounts.schemaView().schemaNow(accounts.schemaView().lastKnownSchemaVersion()));
 
         int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
 

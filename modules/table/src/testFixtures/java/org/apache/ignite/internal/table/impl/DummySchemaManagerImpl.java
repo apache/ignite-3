@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -52,12 +54,19 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaDescriptor schema(int ver) {
-        assert ver >= 0;
-
-        assert schema.version() == ver;
+    public SchemaDescriptor schemaNow(int version) {
+        assert version >= 0;
+        assert schema.version() == version;
 
         return schema;
+    }
+
+    @Override
+    public CompletableFuture<SchemaDescriptor> schemaAsync(int version) {
+        assert version >= 0;
+        assert schema.version() == version;
+
+        return completedFuture(schema);
     }
 
     /** {@inheritDoc} */
@@ -88,7 +97,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         }
 
         return rows.stream()
-                .map(row -> row == null ? null : Row.wrapBinaryRow(schema(row.schemaVersion()), row))
+                .map(row -> row == null ? null : Row.wrapBinaryRow(schemaNow(row.schemaVersion()), row))
                 .collect(toList());
     }
 
@@ -99,7 +108,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         }
 
         return keyOnlyRows.stream()
-                .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schema(row.schemaVersion()), row))
+                .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schemaNow(row.schemaVersion()), row))
                 .collect(toList());
     }
 

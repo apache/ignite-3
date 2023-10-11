@@ -63,7 +63,7 @@ public class ClientSchemasGetRequest {
 
                 for (var i = 0; i < cnt; i++) {
                     var schemaVer = in.unpackInt();
-                    var schema = table.schemaView().schema(schemaVer);
+                    var schema = table.schemaView().schemaNow(schemaVer);
                     writeSchema(out, schemaVer, schema);
                 }
             }

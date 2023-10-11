@@ -69,7 +69,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         return tableManager.tableAsync(tableId)
                 .thenApply((table) -> {
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
-                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(tableVersion);
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schemaNow(tableVersion);
                     TableRowConverterFactory converterFactory = requiredColumns -> new TableRowConverterImpl(
                             schemaRegistry, schemaDescriptor, tableDescriptor, requiredColumns
                     );

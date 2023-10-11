@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
@@ -279,7 +278,6 @@ public class CatalogSchemaManager implements IgniteComponent {
     private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
                 ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
-                () -> inBusyLock(busyLock, () -> latestSchemaVersionOrDefault(tableId)),
                 initialSchema
         );
     }
@@ -295,7 +293,7 @@ public class CatalogSchemaManager implements IgniteComponent {
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
         if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
-            return registry.schema(schemaVer);
+            return registry.schemaNow(schemaVer);
         } else {
             return null;
         }
@@ -388,17 +386,6 @@ public class CatalogSchemaManager implements IgniteComponent {
 
         //noinspection ConstantConditions
         IgniteUtils.closeAllManually(registriesVv.latest().values());
-    }
-
-    /**
-     * Gets the latest version of the table schema which is available in Metastore or the default (1) if nothing is available.
-     *
-     * @param tableId Table id.
-     * @return The latest schema version.
-     */
-    private CompletableFuture<Integer> latestSchemaVersionOrDefault(int tableId) {
-        return latestSchemaVersion(tableId)
-                .thenApply(versionOrNull -> requireNonNullElse(versionOrNull, CatalogTableDescriptor.INITIAL_TABLE_VERSION));
     }
 
     /**

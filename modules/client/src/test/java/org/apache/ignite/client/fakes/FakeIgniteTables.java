@@ -235,7 +235,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         FakeSchemaRegistry schemaReg = new FakeSchemaRegistry(history);
 
         ColumnsExtractor keyExtractor = row -> {
-            SchemaDescriptor schema = schemaReg.schema(row.schemaVersion());
+            SchemaDescriptor schema = schemaReg.schemaNow(row.schemaVersion());
 
             return BinaryRowConverter.keyExtractor(schema).extractColumns(row);
         };

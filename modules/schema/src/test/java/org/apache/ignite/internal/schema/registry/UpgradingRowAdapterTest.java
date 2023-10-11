@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.DATE;
@@ -149,7 +147,6 @@ public class UpgradingRowAdapterTest {
 
         var schemaRegistry = new SchemaRegistryImpl(
                 v -> v == 1 ? schema : schema2,
-                () -> completedFuture(INITIAL_TABLE_VERSION),
                 schema
         );
 
@@ -161,7 +158,6 @@ public class UpgradingRowAdapterTest {
 
         var schema2Registry = new SchemaRegistryImpl(
                 v -> v == 1 ? schema : schema2,
-                () -> completedFuture(schema2.version()),
                 schema2
         );
 

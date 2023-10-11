@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
@@ -45,13 +46,24 @@ public interface SchemaRegistry extends ManuallyCloseable {
     SchemaDescriptor schema();
 
     /**
-     * Gets schema descriptor for given version.
+     * Gets schema descriptor for given version or throws an exception if the given version is not available.
+     * If 0 is passed as a version, this returns the latest known version.
      *
-     * @param ver Schema version to get descriptor for.
-     * @return Schema descriptor of given version.
+     * <p>This method never blocks.
+     *
+     * @param version Schema version to get descriptor for (if 0, then the latest known version is requested).
+     * @return Schema descriptor of given version (or latest known version if version 0 is requested).
      * @throws SchemaRegistryException If no schema found for given version.
      */
-    SchemaDescriptor schema(int ver) throws SchemaRegistryException;
+    SchemaDescriptor schemaNow(int version) throws SchemaRegistryException;
+
+    /**
+     * Gets schema descriptor for given version asynchronously.
+     *
+     * @param version Schema version to get descriptor for (0 is not a valid argument).
+     * @return Future that will complete when a schema descriptor of given version becomes available.
+     */
+    CompletableFuture<SchemaDescriptor> schemaAsync(int version);
 
     /**
      * Returns last schema version known locally. It might be not the last schema version cluster-wide.
