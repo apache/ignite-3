@@ -739,17 +739,20 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20534")
+    @Test
     public void testLockIsNotReleasedAfterTxRollback() {
         IgniteSql sql = igniteSql();
 
         try (Session ses = sql.createSession()) {
-            execute(ses, "CREATE TABLE IF NOT EXISTS tst(id INTEGER PRIMARY KEY, val INTEGER)");
+            checkDdl(true, ses, "CREATE TABLE IF NOT EXISTS tst(id INTEGER PRIMARY KEY, val INTEGER)");
         }
 
         try (Session session = sql.createSession()) {
             Transaction tx = igniteTx().begin();
 
             assertThrows(RuntimeException.class, () -> execute(tx, session, "SELECT 1/0"));
+            tx.rollback();
+            session.execute(tx, "INSERT INTO tst VALUES (1, 1)");
         }
 
         try (Session session = sql.createSession()) {
