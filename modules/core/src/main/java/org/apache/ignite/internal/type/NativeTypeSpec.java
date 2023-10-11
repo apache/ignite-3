@@ -42,87 +42,87 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a single-byte signed value.
      */
-    INT8("int8", true),
+    INT8(true),
 
     /**
      * Native type representing a two-bytes signed value.
      */
-    INT16("int16", true),
+    INT16(true),
 
     /**
      * Native type representing a four-bytes signed value.
      */
-    INT32("int32", true),
+    INT32(true),
 
     /**
      * Native type representing an eight-bytes signed value.
      */
-    INT64("int64", true),
+    INT64(true),
 
     /**
      * Native type representing a four-bytes floating-point value.
      */
-    FLOAT("float", true),
+    FLOAT(true),
 
     /**
      * Native type representing an eight-bytes floating-point value.
      */
-    DOUBLE("double", true),
+    DOUBLE(true),
 
     /**
      * Native type representing a BigDecimal.
      */
-    DECIMAL("decimal", false),
+    DECIMAL(false),
 
     /**
      * Native type representing a UUID.
      */
-    UUID("uuid", true),
+    UUID(true),
 
     /**
      * Native type representing a string.
      */
-    STRING("string", false),
+    STRING(false),
 
     /**
      * Native type representing an arbitrary byte array.
      */
-    BYTES("blob", false),
+    BYTES(false),
 
     /**
      * Native type representing a bitmask.
      */
-    BITMASK("bitmask", true),
+    BITMASK(true),
 
     /**
      * Native type representing a BigInteger.
      */
-    NUMBER("number", false),
+    NUMBER(false),
 
     /**
      * Native type representing a timezone-free date.
      */
-    DATE("date", true),
+    DATE(true),
 
     /**
      * Native type representing a timezone-free time.
      */
-    TIME("time", true),
+    TIME(true),
 
     /**
      * Native type representing a timezone-free datetime.
      */
-    DATETIME("datetime", true),
+    DATETIME(true),
 
     /**
      * Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision.
      */
-    TIMESTAMP("timestamp", true),
+    TIMESTAMP(true),
 
     /**
      * Native type representing a boolean value.
      */
-    BOOLEAN("boolean", true);
+    BOOLEAN(true);
 
     /** Cached array with all enum values. */
     private static final NativeTypeSpec[] VALUES = values();
@@ -130,18 +130,12 @@ public enum NativeTypeSpec {
     /** Flag indicating whether this type specifies a fixed-length type. */
     private final boolean fixedSize;
 
-    /** Single-token type description. */
-    @SuppressWarnings("FieldCanBeLocal")
-    private final String desc;
-
     /**
      * Constructs a type with the given description and size.
      *
-     * @param desc      Type description.
      * @param fixedSize Flag indicating whether this type specifies a fixed-length type.
      */
-    NativeTypeSpec(String desc, boolean fixedSize) {
-        this.desc = desc;
+    NativeTypeSpec(boolean fixedSize) {
         this.fixedSize = fixedSize;
     }
 
