@@ -705,7 +705,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                         }
 
                                         throw ExceptionUtils.withCause(
-                                                IgniteInternalException::new,
+                                                t instanceof NodeLeftException ? NodeLeftException::new : IgniteInternalException::new,
                                                 INTERNAL_ERR,
                                                 format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
                                                         nodeName, fragment.fragmentId(), t.getMessage()), t

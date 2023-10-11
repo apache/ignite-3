@@ -562,9 +562,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         // Wait till the query fails due to nodes' unavailability.
         ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.closeAsync().get(10, TimeUnit.SECONDS));
-        assertThat(eex.getCause(), instanceOf(IgniteInternalException.class));
+        assertThat(eex.getCause(), instanceOf(NodeLeftException.class));
         assertThat(eex.getCause().getMessage(), containsString("cause=Node left the cluster"));
-        assertThat(((IgniteInternalException) eex.getCause()).code(), equalTo(NODE_LEFT_ERR));
+        assertThat(((NodeLeftException) eex.getCause()).code(), equalTo(NODE_LEFT_ERR));
 
         // Let the root fragment be executed.
         queryFailedLatch.countDown();

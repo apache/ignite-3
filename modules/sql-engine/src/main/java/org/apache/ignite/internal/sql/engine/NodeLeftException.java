@@ -19,9 +19,9 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 
-import java.util.concurrent.CompletionException;
-import org.apache.ignite.internal.util.ExceptionUtils;
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The exception is thrown when SQL engine can not process an operation because a node has a left cluster.
@@ -36,13 +36,11 @@ public class NodeLeftException extends IgniteException {
     }
 
     /**
-     * Constructor.
-     *
-     * @deprecated This constructor is used to prevent the message from being reformatted during a copy exception using
-     *         {@link ExceptionUtils#copyExceptionWithCause(CompletionException)}.
+     * Constructor is used to copy the original exception with an extended error description.
      */
-    @Deprecated
-    public NodeLeftException(int code, String message) {
-        super(code, message);
+    public NodeLeftException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
+
+        assert code == NODE_LEFT_ERR;
     }
 }
