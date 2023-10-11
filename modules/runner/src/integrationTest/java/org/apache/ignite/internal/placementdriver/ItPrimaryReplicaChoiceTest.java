@@ -39,6 +39,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -160,7 +161,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         InternalTransaction rwTx = (InternalTransaction) ignite.transactions().begin();
 
-        assertTrue(tbl.recordView().insert(rwTx, Tuple.create().set("key", Integer.valueOf(42)).set("val", "val 42")));
+        assertTrue(tbl.recordView().insert(rwTx, Tuple.create().set("key", 42).set("val", "val 42")));
 
         assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
 
@@ -196,7 +197,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @return Future which points to a new primary replica name.
      * @throws InterruptedException If failed.
      */
-    private String transferPrimary(TableImpl tbl, String preferablePrimary) throws InterruptedException {
+    private String transferPrimary(TableImpl tbl, @Nullable String preferablePrimary) throws InterruptedException {
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
@@ -211,7 +212,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         String primary = primaryReplicaFut.join().getLeaseholder();
 
         if (preferablePrimary != null && preferablePrimary.equals(primary)) {
-            CompletableFuture.completedFuture(primary);
+            return primary;
         }
 
         // Change leader for the replication group.
@@ -246,14 +247,10 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         log.info("Leader moved [from={}, to={}]", leader, newLeader);
 
-        // TODO: IGNITE-20484 There is no reason to wait if we can execute some operation while the primary replica is changing.
-        // Sleep need here to wait for update leader in all node through aware RAFT client.
-        Thread.sleep(500);
-
         // Leader changed.
 
         // Insert is needed to notify the placement driver about a leader for the group was changed.
-        tbl.recordView().upsert(null, Tuple.create().set("key", Integer.valueOf(1)).set("val", "val 1"));
+        tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
 
         AtomicReference<String> newLeaseholder = new AtomicReference<>();
 
@@ -272,9 +269,8 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
                 return true;
             } else {
-                // TODO: IGNITE-20484 The operation is commented out due to it might lead to NPE in log.
                 // Insert is needed to notify the placement driver about a leader for the group was changed.
-                // tbl.recordView().upsert(null, Tuple.create().set("key", Integer.valueOf(1)).set("val", "val 1"));
+                tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
 
                 return false;
             }
@@ -291,7 +287,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @param name Node name.
      * @return Ignite instance.
      */
-    IgniteImpl node(String name) {
+    private @Nullable IgniteImpl node(String name) {
         for (int i = 0; i < initialNodes(); i++) {
             if (node(i).name().equals(name)) {
                 return node(i);
