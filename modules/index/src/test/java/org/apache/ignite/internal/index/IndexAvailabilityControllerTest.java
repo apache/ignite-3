@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -92,7 +93,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         partitions = zoneDescriptor.partitions();
 
-        assertThat(partitions, greaterThan(1));
+        assertThat(partitions, greaterThan(4));
 
         TableTestUtils.createTable(
                 catalogManager,
@@ -117,16 +118,18 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         awaitActualMetastoreRevision();
 
-        assertThat(
-                metaStorageManager.get(ByteArray.fromString(startBuildIndexKey(indexId))).thenApply(Entry::value),
-                willBe(BYTE_EMPTY_ARRAY)
-        );
+        assertStartBuildIndexKeyExists(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
-            String keyStr = partitionBuildIndexKey(indexId, partitionId);
-
-            assertThat(keyStr, metaStorageManager.get(ByteArray.fromString(keyStr)).thenApply(Entry::value), willBe(BYTE_EMPTY_ARRAY));
+            assertPartitionBuildIndexKeyExists(indexId, partitionId);
         }
+    }
+
+    @Test
+    void testMetastoreKeysAfterIndexCreateForOnlyOnePartition() throws Exception {
+        changePartitionCountInCatalog(1);
+
+        testMetastoreKeysAfterIndexCreate();
     }
 
     @Test
@@ -135,24 +138,16 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        assertThat(metaStorageManager.remove(ByteArray.fromString(partitionBuildIndexKey(indexId, 0))), willCompleteSuccessfully());
+        finishBuildingIndexForPartition(indexId, 0);
 
         awaitActualMetastoreRevision();
 
-        assertThat(
-                metaStorageManager.get(ByteArray.fromString(startBuildIndexKey(indexId))).thenApply(Entry::value),
-                willBe(BYTE_EMPTY_ARRAY)
-        );
+        assertStartBuildIndexKeyExists(indexId);
 
-        assertThat(
-                metaStorageManager.get(ByteArray.fromString(partitionBuildIndexKey(indexId, 0))).thenApply(Entry::value),
-                willBe(nullValue())
-        );
+        assertPartitionBuildIndexKeyAbsent(indexId, 0);
 
         for (int partitionId = 1; partitionId < partitions; partitionId++) {
-            String keyStr = partitionBuildIndexKey(indexId, partitionId);
-
-            assertThat(keyStr, metaStorageManager.get(ByteArray.fromString(keyStr)).thenApply(Entry::value), willBe(BYTE_EMPTY_ARRAY));
+            assertPartitionBuildIndexKeyExists(indexId, partitionId);
         }
 
         // TODO: IGNITE-19276 проверить что индекс в каталоге !НЕ! поменял состоянеие
@@ -173,18 +168,98 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         awaitActualMetastoreRevision();
 
-        assertThat(
-                metaStorageManager.get(ByteArray.fromString(startBuildIndexKey(indexId))).thenApply(Entry::value),
-                willBe(nullValue())
-        );
+        assertStartBuildIndexKeyAbsent(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
-            String keyStr = partitionBuildIndexKey(indexId, partitionId);
-
-            assertThat(keyStr, metaStorageManager.get(ByteArray.fromString(keyStr)).thenApply(Entry::value), willBe(nullValue()));
+            assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
         }
 
         // TODO: IGNITE-19276 проверить что индекс в каталоге поменял состоянеие
+    }
+
+    @Test
+    void testMetastoreKeysAfterDropIndex() throws Exception {
+        createIndex(INDEX_NAME);
+
+        int indexId = indexId(INDEX_NAME);
+
+        dropIndex(INDEX_NAME);
+
+        awaitActualMetastoreRevision();
+
+        assertStartBuildIndexKeyAbsent(indexId);
+
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
+        }
+    }
+
+    @Test
+    void testMetastoreKeysAfterDropIndexForOnlyOnePartition() throws Exception {
+        changePartitionCountInCatalog(1);
+
+        testMetastoreKeysAfterDropIndex();
+    }
+
+    @Test
+    void testMetastoreKeysAfterFinishBuildingOnePartitionAndDropIndexAnd() throws Exception {
+        createIndex(INDEX_NAME);
+
+        int indexId = indexId(INDEX_NAME);
+
+        finishBuildingIndexForPartition(indexId, 0);
+
+        dropIndex(INDEX_NAME);
+
+        awaitActualMetastoreRevision();
+
+        assertStartBuildIndexKeyAbsent(indexId);
+
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
+        }
+    }
+
+    @Test
+    void testMetastoreKeysAfterDropIndexWithLastRemainingPartition() throws Exception {
+        createIndex(INDEX_NAME);
+
+        int indexId = indexId(INDEX_NAME);
+
+        for (int partitionId = 1; partitionId < partitions; partitionId++) {
+            finishBuildingIndexForPartition(indexId, partitionId);
+        }
+
+        dropIndex(INDEX_NAME);
+
+        awaitActualMetastoreRevision();
+
+        assertStartBuildIndexKeyAbsent(indexId);
+
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
+        }
+    }
+
+    @Test
+    void testMetastoreKeysAfterDropIndexWithTwoRemainingPartition() throws Exception {
+        createIndex(INDEX_NAME);
+
+        int indexId = indexId(INDEX_NAME);
+
+        for (int partitionId = 2; partitionId < partitions; partitionId++) {
+            finishBuildingIndexForPartition(indexId, partitionId);
+        }
+
+        dropIndex(INDEX_NAME);
+
+        awaitActualMetastoreRevision();
+
+        assertStartBuildIndexKeyAbsent(indexId);
+
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
+        }
     }
 
     private void awaitActualMetastoreRevision() throws Exception {
@@ -203,8 +278,68 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
     }
 
+    private void dropIndex(String indexName) {
+        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+    }
+
     private int indexId(String indexName) {
         return TableTestUtils.getIndexIdStrict(catalogManager, indexName, clock.nowLong());
+    }
+
+    private void changePartitionCountInCatalog(int newPartitions) {
+        assertThat(
+                catalogManager.alterZone(AlterZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).partitions(newPartitions).build()),
+                willCompleteSuccessfully()
+        );
+
+        partitions = newPartitions;
+    }
+
+    private void finishBuildingIndexForPartition(int indexId, int partitionId) {
+        assertThat(
+                metaStorageManager.remove(ByteArray.fromString(partitionBuildIndexKey(indexId, partitionId))),
+                willCompleteSuccessfully()
+        );
+    }
+
+    private void assertStartBuildIndexKeyExists(int indexId) {
+        String startBuildIndexKey = startBuildIndexKey(indexId);
+
+        assertThat(
+                startBuildIndexKey,
+                metaStorageManager.get(ByteArray.fromString(startBuildIndexKey)).thenApply(Entry::value),
+                willBe(BYTE_EMPTY_ARRAY)
+        );
+    }
+
+    private void assertStartBuildIndexKeyAbsent(int indexId) {
+        String startBuildIndexKey = startBuildIndexKey(indexId);
+
+        assertThat(
+                startBuildIndexKey,
+                metaStorageManager.get(ByteArray.fromString(startBuildIndexKey)).thenApply(Entry::value),
+                willBe(nullValue())
+        );
+    }
+
+    private void assertPartitionBuildIndexKeyExists(int indexId, int partitionId) {
+        String partitionBuildIndexKey = partitionBuildIndexKey(indexId, partitionId);
+
+        assertThat(
+                partitionBuildIndexKey,
+                metaStorageManager.get(ByteArray.fromString(partitionBuildIndexKey)).thenApply(Entry::value),
+                willBe(BYTE_EMPTY_ARRAY)
+        );
+    }
+
+    private void assertPartitionBuildIndexKeyAbsent(int indexId, int partitionId) {
+        String partitionBuildIndexKey = partitionBuildIndexKey(indexId, partitionId);
+
+        assertThat(
+                partitionBuildIndexKey,
+                metaStorageManager.get(ByteArray.fromString(partitionBuildIndexKey)).thenApply(Entry::value),
+                willBe(nullValue())
+        );
     }
 
     private static String startBuildIndexKey(int indexId) {

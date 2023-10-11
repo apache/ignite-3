@@ -52,6 +52,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -143,8 +144,20 @@ public class IndexAvailabilityController implements IgniteComponent {
 
     private CompletableFuture<?> onIndexDrop(DropIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            // TODO: IGNITE-19276 реализовать
-            throw new UnsupportedOperationException();
+            int indexId = parameters.indexId();
+
+            int partitions = getPartitionCountFromCatalog(indexId, parameters.catalogVersion() - 1);
+
+            ByteArray startBuildIndexKey = startBuildIndexKey(indexId);
+
+            return metaStorageManager.invoke(
+                    exists(startBuildIndexKey),
+                    concat(
+                            List.of(remove(startBuildIndexKey)),
+                            removePartitionBuildIndexOperations(indexId, partitions)
+                    ),
+                    List.of(noop())
+            );
         });
     }
 
@@ -157,20 +170,26 @@ public class IndexAvailabilityController implements IgniteComponent {
 
             Entry entry = event.entryEvent().newEntry();
 
-            String partitionBuildIndexKey = new String(entry.key(), UTF_8);
-
-            // We expect that when the index building for a specific partition is completed, the key will be deleted.
-            assert entry.tombstone() : partitionBuildIndexKey;
-
-            int indexId = parseIndexIdFromPartitionBuildIndexKey(partitionBuildIndexKey);
-
-            if (isRemainingPartitionBuildIndexKeys(indexId, entry.revision())) {
+            if (!entry.tombstone()) {
+                // In case an index was created when there was only one partition.
                 return completedFuture(null);
             }
 
+            String partitionBuildIndexKey = new String(entry.key(), UTF_8);
+
+            int indexId = parseIndexIdFromPartitionBuildIndexKey(partitionBuildIndexKey);
+
             ByteArray startBuildIndexKey = startBuildIndexKey(indexId);
 
+            long metastoreRevision = entry.revision();
+
+            if (isRemainingPartitionBuildIndexKeys(indexId, metastoreRevision)
+                    || isMetastoreKeyAbsent(startBuildIndexKey, metastoreRevision)) {
+                return completedFuture(null);
+            }
+
             // TODO: IGNITE-19276 перед этим нужно будет обновить каталог
+            // TODO: IGNITE-19276 есть вероятность что-то проебать на делете последней партиции
             return metaStorageManager.invoke(exists(startBuildIndexKey), remove(startBuildIndexKey), noop());
         });
     }
@@ -197,6 +216,10 @@ public class IndexAvailabilityController implements IgniteComponent {
         }
     }
 
+    private boolean isMetastoreKeyAbsent(ByteArray key, long metastoreRevision) {
+        return metaStorageManager.getLocally(key, metastoreRevision).tombstone();
+    }
+
     private static ByteArray startBuildIndexKey(int indexId) {
         return ByteArray.fromString(START_BUILD_INDEX_KEY_PREFIX + '.' + indexId);
     }
@@ -213,6 +236,13 @@ public class IndexAvailabilityController implements IgniteComponent {
         return IntStream.range(0, partitions)
                 .mapToObj(partitionId -> partitionBuildIndexKey(indexId, partitionId))
                 .map(key -> put(key, BYTE_EMPTY_ARRAY))
+                .collect(toList());
+    }
+
+    private static Collection<Operation> removePartitionBuildIndexOperations(int indexId, int partitions) {
+        return IntStream.range(0, partitions)
+                .mapToObj(partitionId -> partitionBuildIndexKey(indexId, partitionId))
+                .map(Operations::remove)
                 .collect(toList());
     }
 
