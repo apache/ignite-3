@@ -44,5 +44,6 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-core')))
 
     integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.opentelemetry.instrumentation.annotations
 }
 
