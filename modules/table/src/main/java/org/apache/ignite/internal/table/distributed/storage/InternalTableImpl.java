@@ -1619,8 +1619,15 @@ public class InternalTableImpl implements InternalTable {
                         }
                     }
 
-                    // Use Arrays#asList to avoid copying the array.
-                    return skipNull ? Arrays.stream(result).filter(r -> r != null).collect(Collectors.toList()) : Arrays.asList(result);
+                    ArrayList<BinaryRow> resultToReturn = new ArrayList<>();
+
+                    for (BinaryRow row : result) {
+                        if (!skipNull || row != null) {
+                            resultToReturn.add(row);
+                        }
+                    }
+
+                    return resultToReturn;
                 });
     }
 

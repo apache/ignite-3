@@ -399,9 +399,11 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.insertRowType(typeFactory)));
                     RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
 
-                    List<String> conflictRows = response.stream()
-                            .map(row -> handler.toString(rowConverter.toRow(ectx, row, rowFactory)))
-                            .collect(Collectors.toList());
+                    ArrayList<String> conflictRows = new ArrayList<>(response.size());
+
+                    for (BinaryRow row : response) {
+                        conflictRows.add(handler.toString(rowConverter.toRow(ectx, row, rowFactory)));
+                    }
 
                     throw conflictKeysException(conflictRows);
                 });
