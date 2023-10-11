@@ -70,6 +70,5 @@ public class ItNodeOnlyEndpointsFilterInitializedTest extends IntegrationTestBas
         assertDoesNotThrow(
                 () -> client.toBlocking().retrieve(HttpRequest.GET(path))
         );
-        System.out.println("ll");
     }
 }

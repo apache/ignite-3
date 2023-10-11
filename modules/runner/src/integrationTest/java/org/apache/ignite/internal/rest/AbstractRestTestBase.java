@@ -117,7 +117,7 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
                         + "  network: {\n"
                         + "    port: " + NETWORK_PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:"+NETWORK_PORTS[1]
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
                         + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
                         + "    }\n"
                         + "  },\n"
@@ -132,7 +132,7 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
                         + "  network: {\n"
                         + "    port: " + NETWORK_PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:"+NETWORK_PORTS[1]
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
                         + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
                         + "    }\n"
                         + "  },\n"
@@ -147,7 +147,7 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
                         + "  network: {\n"
                         + "    port: " + NETWORK_PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:"+NETWORK_PORTS[1]
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
                         + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
                         + "    }\n"
                         + "  },\n"
