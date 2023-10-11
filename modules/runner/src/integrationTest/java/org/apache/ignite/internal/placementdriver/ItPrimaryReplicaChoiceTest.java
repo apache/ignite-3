@@ -249,9 +249,6 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         // Leader changed.
 
-        // Insert is needed to notify the placement driver about a leader for the group was changed.
-        tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
-
         AtomicReference<String> newLeaseholder = new AtomicReference<>();
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
@@ -270,7 +267,11 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
                 return true;
             } else {
                 // Insert is needed to notify the placement driver about a leader for the group was changed.
-                tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
+                try {
+                    tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
+                } catch (Exception e) {
+                    log.error("Failed to perform insert", e);
+                }
 
                 return false;
             }
