@@ -17,19 +17,14 @@
 
 package org.apache.ignite.distributed;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -37,7 +32,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
@@ -47,18 +42,12 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -66,27 +55,31 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Test to Simulate missing cleanup action.
+ * Durable cleanup test with successful recovery after the failures.
  */
-public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistributedTestSingleNode {
-    /** A list of background cleanup futures. */
-    private final List<CompletableFuture<?>> cleanupFutures = new CopyOnWriteArrayList<>();
+public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingleNode {
 
-    /** A flag to drop async cleanup actions.  */
-    private volatile boolean ignoreAsyncCleanup;
+    private AtomicInteger defaultRetryCount;
 
     /**
      * The constructor.
      *
      * @param testInfo Test info.
      */
-    public ItTxDistributedTestSingleNodeNoCleanupMessage(TestInfo testInfo) {
+    public ItTxDistributedCleanupRecoveryTest(TestInfo testInfo) {
         super(testInfo);
+    }
+
+    private void setDefaultRetryCount(int count) {
+        defaultRetryCount = new AtomicInteger(count);
     }
 
     @BeforeEach
     @Override
     public void before() throws Exception {
+        // The value of 3 is less than the allowed number of cleanup retries.
+        setDefaultRetryCount(3);
+
         txTestCluster = new ItTxTestCluster(
                 testInfo,
                 raftConfiguration,
@@ -97,23 +90,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                 startClient(),
                 timestampTracker
         ) {
-            @Override
-            protected TxManagerImpl newTxManager(ReplicaService replicaSvc, HybridClock clock, TransactionIdGenerator generator,
-                    ClusterNode node) {
-                return new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, generator, node::id) {
-                    @Override
-                    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
-                        if (ignoreAsyncCleanup) {
-                            return completedFuture(null);
-                        }
-                        CompletableFuture<Void> cleanupFuture = super.executeCleanupAsync(runnable);
-
-                        cleanupFutures.add(cleanupFuture);
-
-                        return cleanupFuture;
-                    }
-                };
-            }
 
             @Override
             protected PartitionReplicaListener newReplicaListener(
@@ -161,15 +137,12 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-                        if (request instanceof TxCleanupReplicaRequest) {
+                        if (request instanceof TxCleanupReplicaRequest && defaultRetryCount.getAndDecrement() > 0) {
                             logger().info("Dropping cleanup request: {}", request);
 
-                            releaseTxLocks(
-                                    ((TxCleanupReplicaRequest) request).txId(),
-                                    txManager.lockManager()
-                            );
-
-                            return completedFuture(new ReplicaResult(null, null));
+                            return failedFuture(new ReplicationException(
+                                    REPLICA_COMMON_ERR,
+                                    "Test Tx Cleanup exception [replicaGroupId=" + request.groupId() + ']'));
                         }
                         return super.invoke(request, senderId);
                     }
@@ -187,79 +160,44 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         log.info("Tables have been started");
     }
 
+
+    @Test
+    @Override
+    public void testDeleteUpsertCommit() throws TransactionException {
+        // The value of 6 is higher than the default retry count.
+        // So we should give up retrying and crash.
+        setDefaultRetryCount(6);
+
+        assertThrows(TransactionException.class, () -> deleteUpsert().commit());
+    }
+
     @Disabled("IGNITE-20560")
     @Test
     @Override
     public void testTransactionAlreadyRolledback() {
-        super.testTransactionAlreadyRolledback();
+        // The value of 6 is higher than the default retry count.
+        // So we should give up retrying and crash.
+        setDefaultRetryCount(6);
+
+        testTransactionAlreadyFinished(false, (transaction, txId) -> {
+            assertThrows(TransactionException.class, transaction::rollback);
+
+            log.info("Rolled back transaction {}", txId);
+        });
     }
 
     @Disabled("IGNITE-20560")
     @Test
     @Override
     public void testTransactionAlreadyCommitted() {
-        super.testTransactionAlreadyCommitted();
-    }
+        // The value of 6 is higher than the default retry count.
+        // So we should give up retrying and crash.
+        setDefaultRetryCount(6);
 
-    @Disabled("IGNITE-20395")
-    @Test
-    @Override
-    public void testBalance() throws InterruptedException {
-        super.testBalance();
-    }
+        testTransactionAlreadyFinished(true, (transaction, txId) -> {
+            assertThrows(TransactionException.class, transaction::commit);
 
-    @Disabled("IGNITE-20395")
-    @Test
-    public void testTwoReadWriteTransactions() throws TransactionException {
-        Tuple key = makeKey(1);
-
-        assertFalse(accounts.recordView().delete(null, key));
-        assertNull(accounts.recordView().get(null, key));
-
-        // Disable background cleanup to avoid a race.
-        ignoreAsyncCleanup = true;
-
-        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
-        accounts.recordView().upsert(tx1, makeValue(1, 100.));
-        tx1.commit();
-
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
-        accounts.recordView().upsert(tx2, makeValue(1, 200.));
-        tx2.commit();
-
-        assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
-    }
-
-    @Test
-    public void testTwoReadWriteTransactionsWaitForCleanup() throws TransactionException {
-        Tuple key = makeKey(1);
-
-        assertFalse(accounts.recordView().delete(null, key));
-        assertNull(accounts.recordView().get(null, key));
-
-        // Start the first transaction. The values it changes will not be cleaned up.
-        InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
-
-        accounts.recordView().upsert(tx1, makeValue(1, 100.));
-
-        tx1.commit();
-
-        //Now start the seconds transaction and make sure write intent resolution is called  by adding a `get` operaiton.
-        InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
-
-        assertEquals(100., accounts.recordView().get(tx2, makeKey(1)).doubleValue("balance"));
-
-        // Now wait for the background task to finish.
-        cleanupFutures.forEach(completableFuture -> assertThat(completableFuture, willCompleteSuccessfully()));
-
-        accounts.recordView().upsert(tx2, makeValue(1, 200.));
-
-        tx2.commit();
-
-        assertEquals(200., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
-    }
-
-    private static void releaseTxLocks(UUID txId, LockManager lockManager) {
-        lockManager.locks(txId).forEachRemaining(lockManager::release);
+            log.info("Committed transaction {}", txId);
+        });
     }
 }

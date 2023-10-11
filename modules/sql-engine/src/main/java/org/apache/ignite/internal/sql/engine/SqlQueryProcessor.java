@@ -446,7 +446,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(session, txWrapper, ctx, plan));
                     }).whenComplete((res, ex) -> {
                         if (ex != null) {
-                            txWrapper.rollbackImplicit();
+                            txWrapper.rollback();
                         }
                     });
         });

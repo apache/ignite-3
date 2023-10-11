@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
@@ -44,5 +47,17 @@ public interface UpdateCommand extends PartitionCommand {
         BinaryRowMessage message = rowMessage();
 
         return message == null ? null : message.asBinaryRow();
+    }
+
+    /**
+     * Returns the timestamp of the last committed entry.
+     */
+    long lastCommitTimestampLong();
+
+    /**
+     * Returns the timestamp of the last committed entry.
+     */
+    default @Nullable HybridTimestamp lastCommitTimestamp() {
+        return nullableHybridTimestamp(lastCommitTimestampLong());
     }
 }

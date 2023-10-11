@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 import static org.mockito.Mockito.mock;
@@ -170,9 +171,13 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
+        addWrite(handler, rowUuid, row, null);
+    }
+
+    static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null);
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime);
     }
 
     static BinaryRow defaultRow() {
@@ -232,7 +237,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         USE_UPDATE {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null);
+                // TODO: perhaps need to pass last commit time as a param
+                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null);
             }
         },
         /** Uses updateAll api. */
@@ -252,7 +258,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                         partitionId,
                         true,
                         null,
-                        null
+                        null,
+                        emptyMap()
                 );
             }
         };
