@@ -85,7 +85,7 @@ public class SchemaRegistryImplTest {
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, schemaV1);
 
         assertEquals(INITIAL_TABLE_VERSION, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.schema());
+        assertNotNull(reg.lastKnownSchema());
 
         // Try to register schema with initial version.
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
@@ -124,20 +124,20 @@ public class SchemaRegistryImplTest {
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, schemaV1);
 
         assertEquals(INITIAL_TABLE_VERSION, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.schema());
+        assertNotNull(reg.lastKnownSchema());
 
         // Register schema with first version again.
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(1, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV1, reg.schema());
+        assertSameSchema(schemaV1, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
 
         // Register schema with next version.
         reg.onSchemaRegistered(schemaV2);
 
         assertEquals(2, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV2, reg.schema());
+        assertSameSchema(schemaV2, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
 
@@ -145,7 +145,7 @@ public class SchemaRegistryImplTest {
         assertThrows(SchemaRegistryException.class, () -> reg.onSchemaRegistered(schemaV4));
 
         assertEquals(2, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV2, reg.schema());
+        assertSameSchema(schemaV2, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
         try {
@@ -176,23 +176,23 @@ public class SchemaRegistryImplTest {
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(1, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV1, reg.schema());
+        assertSameSchema(schemaV1, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
 
         // Try to register same schema once again.
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(1, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV1, reg.schema());
+        assertSameSchema(schemaV1, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
 
         // Try to register another schema with same version and check nothing was registered.
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(wrongSchema));
 
         assertEquals(1, reg.lastKnownSchemaVersion());
-        assertEquals(1, reg.schema().version());
+        assertEquals(1, reg.lastKnownSchema().version());
 
-        assertSameSchema(schemaV1, reg.schema());
+        assertSameSchema(schemaV1, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
 
         // Register schema with next version.
@@ -200,7 +200,7 @@ public class SchemaRegistryImplTest {
 
         assertEquals(2, reg.lastKnownSchemaVersion());
 
-        assertSameSchema(schemaV2, reg.schema());
+        assertSameSchema(schemaV2, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
     }
@@ -235,14 +235,14 @@ public class SchemaRegistryImplTest {
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(1, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.schema());
+        assertNotNull(reg.lastKnownSchema());
         assertNotNull(reg.schemaNow(1));
 
         // Try to remove latest schema.
         assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(1));
 
         assertEquals(1, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.schema());
+        assertNotNull(reg.lastKnownSchema());
         assertNotNull(reg.schemaNow(1));
 
         // Register new schema with next version.
@@ -282,7 +282,7 @@ public class SchemaRegistryImplTest {
         reg.onSchemaDropped(1);
 
         assertEquals(4, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV4, reg.schema());
+        assertSameSchema(schemaV4, reg.lastKnownSchema());
         assertSameSchema(schemaV2, reg.schemaNow(2));
         assertSameSchema(schemaV3, reg.schemaNow(3));
         assertSameSchema(schemaV4, reg.schemaNow(4));
@@ -298,7 +298,7 @@ public class SchemaRegistryImplTest {
         assertThrows(SchemaRegistryException.class, () -> reg.schemaNow(1));
         assertThrows(SchemaRegistryException.class, () -> reg.schemaNow(2));
         assertThrows(SchemaRegistryException.class, () -> reg.schemaNow(3));
-        assertSameSchema(schemaV4, reg.schema());
+        assertSameSchema(schemaV4, reg.lastKnownSchema());
         assertSameSchema(schemaV4, reg.schemaNow(4));
 
         // Try to remove latest schema.
@@ -332,7 +332,7 @@ public class SchemaRegistryImplTest {
         reg.onSchemaRegistered(schemaV2);
 
         assertEquals(2, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV2, reg.schema());
+        assertSameSchema(schemaV2, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
 
@@ -340,7 +340,7 @@ public class SchemaRegistryImplTest {
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(2, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV2, reg.schema());
+        assertSameSchema(schemaV2, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
 
@@ -348,13 +348,13 @@ public class SchemaRegistryImplTest {
         assertThrows(SchemaRegistryException.class, () -> reg.onSchemaRegistered(schemaV4));
 
         assertEquals(2, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV2, reg.schema());
+        assertSameSchema(schemaV2, reg.lastKnownSchema());
 
         // Register schema with next version.
         reg.onSchemaRegistered(schemaV3);
 
         assertEquals(3, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV3, reg.schema());
+        assertSameSchema(schemaV3, reg.lastKnownSchema());
         assertSameSchema(schemaV1, reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
         assertSameSchema(schemaV3, reg.schemaNow(3));
@@ -386,7 +386,7 @@ public class SchemaRegistryImplTest {
         reg.onSchemaRegistered(schemaV3);
 
         assertEquals(3, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV3, reg.schema());
+        assertSameSchema(schemaV3, reg.lastKnownSchema());
         assertThrows(SchemaRegistryException.class, () -> reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
         assertSameSchema(schemaV3, reg.schemaNow(3));
@@ -395,19 +395,19 @@ public class SchemaRegistryImplTest {
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV2));
 
         assertEquals(3, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV3, reg.schema());
+        assertSameSchema(schemaV3, reg.lastKnownSchema());
 
         // Register schema with out-of-order version.
         assertThrows(SchemaRegistryException.class, () -> reg.onSchemaRegistered(schemaV5));
 
         assertEquals(3, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV3, reg.schema());
+        assertSameSchema(schemaV3, reg.lastKnownSchema());
 
         // Register schema with outdated version.
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(3, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV3, reg.schema());
+        assertSameSchema(schemaV3, reg.lastKnownSchema());
         assertThrows(SchemaRegistryException.class, () -> reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
         assertSameSchema(schemaV3, reg.schemaNow(3));
@@ -416,7 +416,7 @@ public class SchemaRegistryImplTest {
         reg.onSchemaRegistered(schemaV4);
 
         assertEquals(4, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV4, reg.schema());
+        assertSameSchema(schemaV4, reg.lastKnownSchema());
         assertSameSchema(schemaV2, reg.schemaNow(2));
         assertSameSchema(schemaV3, reg.schemaNow(3));
         assertSameSchema(schemaV4, reg.schemaNow(4));
@@ -447,7 +447,7 @@ public class SchemaRegistryImplTest {
         reg.onSchemaRegistered(schemaV4);
 
         assertEquals(4, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV4, reg.schema());
+        assertSameSchema(schemaV4, reg.lastKnownSchema());
         assertThrows(SchemaRegistryException.class, () -> reg.schemaNow(1));
         assertSameSchema(schemaV2, reg.schemaNow(2));
         assertSameSchema(schemaV3, reg.schemaNow(3));

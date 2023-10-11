@@ -154,7 +154,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
     private static Row marshalTuple(TableImpl table, Tuple tuple) throws TupleMarshallerException {
         SchemaRegistry schemaReg = table.schemaView();
-        var marshaller = new TupleMarshallerImpl(schemaReg.schemaNow(schemaReg.lastKnownSchemaVersion()));
+        var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 
         return marshaller.marshal(tuple);
     }

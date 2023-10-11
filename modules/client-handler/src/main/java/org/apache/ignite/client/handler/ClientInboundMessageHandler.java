@@ -109,6 +109,8 @@ import org.apache.ignite.internal.security.authentication.UsernamePasswordReques
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -179,6 +181,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Authentication manager. */
     private final AuthenticationManager authenticationManager;
 
+    private final SchemaVersions schemaVersions;
+
     /**
      * Constructor.
      *
@@ -244,6 +248,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
+
+        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
     }
 
     @Override
@@ -547,7 +553,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTablesGetRequest.process(out, igniteTables);
 
             case ClientOp.SCHEMAS_GET:
-                return ClientSchemasGetRequest.process(in, out, igniteTables);
+                return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
 
             case ClientOp.TABLE_GET:
                 return ClientTableGetRequest.process(in, out, igniteTables);

@@ -124,7 +124,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaDescriptor schema() {
+    public SchemaDescriptor lastKnownSchema() {
         return schemaNow(lastVer);
     }
 

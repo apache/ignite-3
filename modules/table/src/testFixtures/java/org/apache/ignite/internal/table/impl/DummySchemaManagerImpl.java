@@ -48,7 +48,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaDescriptor schema() {
+    public SchemaDescriptor lastKnownSchema() {
         return schema;
     }
 

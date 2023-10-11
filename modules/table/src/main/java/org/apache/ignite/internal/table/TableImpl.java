@@ -185,7 +185,9 @@ public class TableImpl implements Table {
         Objects.requireNonNull(key);
 
         try {
-            final Row keyRow = new TupleMarshallerImpl(schemaReg.schemaNow(schemaReg.lastKnownSchemaVersion())).marshalKey(key);
+            // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+            // columns never change (so they are the same for all schema versions of the table),
+            Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {
@@ -205,7 +207,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(keyMapper);
 
         BinaryRowEx keyRow;
-        var marshaller = new KvMarshallerImpl<>(schemaReg.schema(), keyMapper, keyMapper);
+        var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), keyMapper, keyMapper);
         try {
             keyRow = marshaller.marshal(key);
         } catch (MarshallerException e) {

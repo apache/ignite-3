@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -264,14 +265,12 @@ public class ClientTableCommon {
      * Reads a tuple.
      *
      * @param unpacker Unpacker.
-     * @param table    Table.
-     * @param keyOnly  Whether only key fields are expected.
-     * @return Tuple.
+     * @param table Table.
+     * @param keyOnly Whether only key fields are expected.
+     * @return Tuple future.
      */
-    public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
-        SchemaDescriptor schema = readSchema(unpacker, table);
-
-        return readTuple(unpacker, keyOnly, schema);
+    public static CompletableFuture<Tuple> readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
+        return readSchema(unpacker, table).thenApply(schema -> readTuple(unpacker, keyOnly, schema));
     }
 
     /**
@@ -303,34 +302,35 @@ public class ClientTableCommon {
      * Reads multiple tuples.
      *
      * @param unpacker Unpacker.
-     * @param table    Table.
-     * @param keyOnly  Whether only key fields are expected.
+     * @param table Table.
+     * @param keyOnly Whether only key fields are expected.
      * @return Tuples.
      */
-    public static ArrayList<Tuple> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
-        SchemaDescriptor schema = readSchema(unpacker, table);
+    public static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
+        return readSchema(unpacker, table).thenApply(schema -> {
+            var rowCnt = unpacker.unpackInt();
+            var res = new ArrayList<Tuple>(rowCnt);
 
-        var rowCnt = unpacker.unpackInt();
-        var res = new ArrayList<Tuple>(rowCnt);
+            for (int i = 0; i < rowCnt; i++) {
+                res.add(readTuple(unpacker, keyOnly, schema));
+            }
 
-        for (int i = 0; i < rowCnt; i++) {
-            res.add(readTuple(unpacker, keyOnly, schema));
-        }
-
-        return res;
+            return res;
+        });
     }
 
     /**
      * Reads schema.
      *
      * @param unpacker Unpacker.
-     * @param table    Table.
-     * @return Schema descriptor.
+     * @param table Table.
+     * @return Schema descriptor future.
      */
-    public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
+    public static CompletableFuture<SchemaDescriptor> readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
         var schemaId = unpacker.unpackInt();
 
-        return table.schemaView().schemaNow(schemaId);
+        // Use schemaAsync() as the schema version is coming from outside and we have no guarantees that this version is ready.
+        return table.schemaView().schemaAsync(schemaId);
     }
 
     /**

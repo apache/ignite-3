@@ -48,10 +48,10 @@ public class ClientTupleUpsertAllRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var tuples = readTuples(in, table, false);
-
-            return table.recordView().upsertAllAsync(tx, tuples)
-                    .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+            return readTuples(in, table, false).thenCompose(tuples -> {
+                return table.recordView().upsertAllAsync(tx, tuples)
+                        .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+            });
         });
     }
 }

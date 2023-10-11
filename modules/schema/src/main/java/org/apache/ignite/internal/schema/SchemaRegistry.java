@@ -39,11 +39,16 @@ import org.apache.ignite.internal.schema.row.Row;
  */
 public interface SchemaRegistry extends ManuallyCloseable {
     /**
-     * Gets schema descriptor for the latest version if initialized.
+     * Gets schema descriptor for the latest version known locally. It might be not the last schema version cluster-wide.
      *
-     * @return Schema descriptor if initialized, {@code null} otherwise.
+     * <p>No schema synchronization guarantees are provided (that is, one cannot assume that the returned
+     * schema version corresponds to the current moment from the point of view of other nodes).
+     *
+     * <p>This method never blocks.
+     *
+     * @return Schema descriptor.
      */
-    SchemaDescriptor schema();
+    SchemaDescriptor lastKnownSchema();
 
     /**
      * Gets schema descriptor for given version or throws an exception if the given version is not available.
@@ -69,7 +74,7 @@ public interface SchemaRegistry extends ManuallyCloseable {
      * Returns last schema version known locally. It might be not the last schema version cluster-wide.
      *
      * <p>No schema synchronization guarantees are provided (that is, one cannot assume that the returned
-     * schema version corresponds to the current moment).
+     * schema version corresponds to the current moment from the point of view of other nodes).
      *
      * <p>This method never blocks.
      */

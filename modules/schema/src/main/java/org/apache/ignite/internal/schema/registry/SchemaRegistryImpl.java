@@ -79,7 +79,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     @Override
-    public SchemaDescriptor schema() {
+    public SchemaDescriptor lastKnownSchema() {
         return schemaNow(lastKnownSchemaVersion());
     }
 

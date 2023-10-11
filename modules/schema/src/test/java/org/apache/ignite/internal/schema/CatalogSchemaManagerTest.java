@@ -360,7 +360,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
-        assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
         assertThat(schemaRegistry.schemaNow(1).version(), is(1));
     }
 
@@ -382,7 +382,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = future.join();
 
-        assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
         assertThat(schemaRegistry.schemaNow(1).version(), is(1));
     }
 
