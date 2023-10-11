@@ -65,7 +65,7 @@ public class MakeIndexAvailableCommand extends AbstractIndexCommand {
         CatalogIndexDescriptor index = indexOrThrow(schema, indexName);
 
         if (!index.writeOnly()) {
-            throw new IndexAlreadyAvailableValidationException(format("Index already available {}.{}", schemaName, indexName));
+            throw new IndexAlreadyAvailableValidationException(format("Index already available '{}.{}'", schemaName, indexName));
         }
 
         CatalogIndexDescriptor updatedIndex;
@@ -75,7 +75,7 @@ public class MakeIndexAvailableCommand extends AbstractIndexCommand {
         } else if (index instanceof CatalogSortedIndexDescriptor) {
             updatedIndex = createReadWriteIndex((CatalogSortedIndexDescriptor) index);
         } else {
-            throw new CatalogValidationException(format("Unsupported index type {}.{} {}", schemaName, indexName, index));
+            throw new CatalogValidationException(format("Unsupported index type '{}.{}' {}", schemaName, indexName, index));
         }
 
         return List.of(new MakeIndexAvailableEntry(schemaName, updatedIndex));
