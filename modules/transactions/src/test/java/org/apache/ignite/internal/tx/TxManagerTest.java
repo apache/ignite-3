@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -396,7 +397,12 @@ public class TxManagerTest extends IgniteAbstractTest {
     private void assertCommitThrowsTransactionExceptionWithPrimaryReplicaExpiredExceptionAsCause() {
         InternalTransaction committedTransaction = prepareTransaction();
         Throwable throwable = assertThrowsWithCause(committedTransaction::commit, PrimaryReplicaExpiredException.class);
+
         assertSame(TransactionException.class, throwable.getClass());
+        // short cast is useful for better error code readability
+        //noinspection NumericCastThatLosesPrecision
+        assertEquals((short)TX_PRIMARY_REPLICA_EXPIRED_ERR, (short) ((TransactionException)throwable).code());
+
         assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());
     }
 

@@ -306,9 +306,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             return verificationFuture.handle(
                     (unused, throwable) -> {
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-                        Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>();
-                        replicationGroupIds.addAll((Collection<ReplicationGroupId>) (Collection<?>) enlistedGroups.keySet());
+                        Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>(enlistedGroups.keySet());
 
                         boolean verifiedCommit = throwable == null && commit;
 
