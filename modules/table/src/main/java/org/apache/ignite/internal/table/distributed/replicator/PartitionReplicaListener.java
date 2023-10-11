@@ -375,6 +375,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         return waitForSchemas.thenCompose(unused -> processOperationRequest(request, isPrimary, senderId));
     }
 
+    /**
+     * Makes sure that we have schemas corresponding to the moment of tx start; this makes PK extraction safe WRT
+     * {@link org.apache.ignite.internal.schema.SchemaRegistry#schemaNow(int)}.
+     *
+     * @param request Request that's being processed.
+     */
     private CompletableFuture<Void> waitForSchemasBeforeReading(ReplicaRequest request) {
         // TODO: IGNITE-20106 - validate that input rows schema version matches the tx-bound schema version.
 
