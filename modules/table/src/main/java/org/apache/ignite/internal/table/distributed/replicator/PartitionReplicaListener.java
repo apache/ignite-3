@@ -449,6 +449,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<LeaderOrTxState> processTxStateCommitPartitionRequest(TxStateCommitPartitionRequest request) {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(primaryReplica -> {
+                    if (primaryReplica == null) {
+                        return failedFuture(new PrimaryReplicaMissException(localNode.name(), null));
+                    }
+
                     if (isLocalPeer(primaryReplica.getLeaseholder())) {
                         TransactionMeta txMeta = txManager.stateMeta(request.txId());
 
@@ -2623,6 +2627,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (expectedTerm != null) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplica -> {
+                                if (primaryReplica == null) {
+                                    return failedFuture(new PrimaryReplicaMissException(localNode.name(), null));
+                                }
+
                                 long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
 
                                 if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
