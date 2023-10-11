@@ -22,9 +22,12 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.events.AvailableIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 
 /** Describes making an index read-write. */
-public class MakeIndexAvailableEntry implements UpdateEntry {
+public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = -5686678143537999594L;
 
     private final String schemaName;
@@ -59,6 +62,16 @@ public class MakeIndexAvailableEntry implements UpdateEntry {
                         causalityToken
                 ), catalog.schemas())
         );
+    }
+
+    @Override
+    public CatalogEvent eventType() {
+        return CatalogEvent.INDEX_AVAILABLE;
+    }
+
+    @Override
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new AvailableIndexEventParameters(causalityToken, catalogVersion, descriptor.id());
     }
 
     /** Returns schema name. */

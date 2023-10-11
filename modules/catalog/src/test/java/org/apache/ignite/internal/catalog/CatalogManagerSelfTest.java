@@ -111,6 +111,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
+import org.apache.ignite.internal.catalog.events.AvailableIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
@@ -1893,6 +1894,43 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
         assertFalse(index.writeOnly());
+    }
+
+    @Test
+    void testAvailableIndexEvent() {
+        createSomeTable(TABLE_NAME);
+
+        assertThat(
+                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("key1"))),
+                willBe(nullValue())
+        );
+
+        int indexId = index(manager.latestCatalogVersion(), INDEX_NAME).id();
+
+        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
+            if (exception != null) {
+                fireEventFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    assertEquals(indexId, ((AvailableIndexEventParameters) parameters).indexId());
+
+                    fireEventFuture.complete(null);
+                } catch (Throwable t) {
+                    fireEventFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        assertThat(
+                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                willBe(nullValue())
+        );
+
+        assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     private CompletableFuture<Void> changeColumn(
