@@ -71,6 +71,8 @@ import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for SQL API.
@@ -673,30 +675,87 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         IntStream.range(0, ex.updateCounters().length).forEach(i -> assertEquals(1, ex.updateCounters()[i]));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20342")
-    @Test
-    public void runtimeErrorInTransaction() {
-        int size = 100;
-        sql("CREATE TABLE tst(id INT PRIMARY KEY, val INT)");
-        for (int i = 0; i < size; i++) {
-            sql("INSERT INTO tst VALUES (?,?)", i, i);
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "INSERT INTO tst VALUES (2, ?)",
+            "SELECT * FROM tst WHERE id = ? "
+    })
+    public void runtimeErrorInDmlCausesTransactionToFail(String query) {
+        sql("CREATE TABLE tst(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        sql("INSERT INTO tst VALUES (?,?)", 1, 1);
+
+        try (Session ses = igniteSql().createSession()) {
+            Transaction tx = igniteTx().begin();
+            String dmlQuery = "UPDATE tst SET val = val/(val - ?) + 1";
+
+            assertThrowsSqlException(
+                    Sql.RUNTIME_ERR,
+                    "/ by zero",
+                    () -> execute(tx, ses, dmlQuery, 1).affectedRows());
+
+            IgniteException err = assertThrows(IgniteException.class, () -> {
+                ResultSet<SqlRow> rs = executeForRead(ses, tx, query, 2);
+                if (rs.hasRowSet()) {
+                    assertTrue(rs.hasNext());
+                } else {
+                    assertTrue(rs.wasApplied());
+                }
+            });
+
+            assertEquals(Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, err.code(), err.toString());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "INSERT INTO tst VALUES (2, ?)",
+            "SELECT * FROM tst WHERE id = ? "
+    })
+    public void runtimeErrorInQueryCausesTransactionToFail(String query) {
+        sql("CREATE TABLE tst(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        sql("INSERT INTO tst VALUES (?,?)", 1, 1);
+
+        try (Session ses = igniteSql().createSession()) {
+            Transaction tx = igniteTx().begin();
+
+            assertThrowsSqlException(
+                    Sql.RUNTIME_ERR,
+                    "/ by zero",
+                    () -> execute(tx, ses, "SELECT val/? FROM tst WHERE id=?", 0, 1));
+
+            IgniteException err = assertThrows(IgniteException.class, () -> {
+                ResultSet<SqlRow> rs = executeForRead(ses, tx, query, 2);
+                if (rs.hasRowSet()) {
+                    assertTrue(rs.hasNext());
+                } else {
+                    assertTrue(rs.wasApplied());
+                }
+            });
+
+            assertEquals(Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, err.code(), err.toString());
+        }
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20534")
+    public void testLockIsNotReleasedAfterTxRollback() {
+        IgniteSql sql = igniteSql();
+
+        try (Session ses = sql.createSession()) {
+            execute(ses, "CREATE TABLE IF NOT EXISTS tst(id INTEGER PRIMARY KEY, val INTEGER)");
         }
 
-        Session ses = igniteSql().createSession();
-        Transaction tx = igniteTx().begin();
+        try (Session session = sql.createSession()) {
+            Transaction tx = igniteTx().begin();
 
-        try {
-            String sqlText = "UPDATE tst SET val = val/(val - ?) + " + size;
+            assertThrows(RuntimeException.class, () -> execute(tx, session, "SELECT 1/0"));
+        }
 
-            for (int i = 0; i < size; i++) {
-                int param = i;
-                assertThrowsSqlException(
-                        Sql.RUNTIME_ERR,
-                        "/ by zero",
-                        () -> execute(tx, ses, sqlText, param));
+        try (Session session = sql.createSession()) {
+            Transaction tx = igniteTx().begin(new TransactionOptions().readOnly(false));
 
-            }
-        } finally {
+            execute(tx, session, "INSERT INTO tst VALUES (1, 1)");
             tx.commit();
         }
     }
@@ -776,7 +835,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         return executeForRead(ses, null, query);
     }
 
-    protected abstract ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query);
+    protected abstract ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query, Object... args);
 
     protected <T extends IgniteException> T checkError(Class<T> expCls, Integer code, String msg, Session ses, String sql,
             Object... args) {

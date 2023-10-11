@@ -89,8 +89,8 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query) {
-        return new SyncResultSetAdapter(await(ses.executeAsync(tx, query)));
+    protected ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query, Object... args) {
+        return new SyncResultSetAdapter(await(ses.executeAsync(tx, query, args)));
     }
 
     @Override

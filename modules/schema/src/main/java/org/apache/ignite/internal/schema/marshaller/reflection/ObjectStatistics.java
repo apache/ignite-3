@@ -22,9 +22,9 @@ import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getVal
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
 
 /**
  * Object statistic.

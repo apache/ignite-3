@@ -152,6 +152,8 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
@@ -343,6 +345,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    private final SchemaVersions schemaVersions;
+
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
 
@@ -426,6 +430,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 topologyService::getById,
                 clusterService.messagingService()
         );
+
+        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -1253,7 +1259,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitions, clusterNodeResolver, txManager, tableStorage,
                 txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr);
+        var table = new TableImpl(internalTable, lockMgr, schemaVersions);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
         table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion));

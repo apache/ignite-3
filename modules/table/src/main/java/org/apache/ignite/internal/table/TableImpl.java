@@ -44,6 +44,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
@@ -63,6 +64,8 @@ public class TableImpl implements Table {
 
     private final LockManager lockManager;
 
+    private final SchemaVersions schemaVersions;
+
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
 
@@ -75,12 +78,14 @@ public class TableImpl implements Table {
     /**
      * Constructor.
      *
-     * @param tbl       The table.
+     * @param tbl The table.
      * @param lockManager Lock manager.
+     * @param schemaVersions Schema versions access.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager) {
+    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions) {
         this.tbl = tbl;
         this.lockManager = lockManager;
+        this.schemaVersions = schemaVersions;
     }
 
     /**
@@ -89,12 +94,13 @@ public class TableImpl implements Table {
      * @param tbl The table.
      * @param schemaReg Table schema registry.
      * @param lockManager Lock manager.
+     * @param schemaVersions Schema versions access.
      */
     @TestOnly
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager) {
-        this.tbl = tbl;
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions) {
+        this(tbl, lockManager, schemaVersions);
+
         this.schemaReg = schemaReg;
-        this.lockManager = lockManager;
     }
 
     /**
@@ -151,22 +157,22 @@ public class TableImpl implements Table {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg);
+        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, keyMapper, valMapper);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions);
     }
 
     /**
@@ -179,7 +185,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(key);
 
         try {
-            final Row keyRow = new TupleMarshallerImpl(schemaReg).marshalKey(key);
+            final Row keyRow = new TupleMarshallerImpl(schemaReg.schema(schemaReg.lastSchemaVersion())).marshalKey(key);
 
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {

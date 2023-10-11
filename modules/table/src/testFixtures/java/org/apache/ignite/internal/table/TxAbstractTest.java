@@ -50,11 +50,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
@@ -1329,7 +1331,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             @Override
             public void onNext(BinaryRow item) {
-                Row row = accounts.schemaView().resolve(item);
+                SchemaRegistry registry = accounts.schemaView();
+                Row row = registry.resolve(item, registry.schema(registry.lastSchemaVersion()));
 
                 rows.add(TableRow.tuple(row));
             }
@@ -1767,7 +1770,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param rows Rows.
      * @param expected Expected values.
      */
-    private static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
+    protected static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
         assertThat(
                 rows.stream().map(tuple -> tuple == null ? null : tuple.doubleValue("balance")).collect(toList()),
                 contains(expected)
@@ -1968,12 +1971,20 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFinished(true);
+        testTransactionAlreadyFinished(true, (transaction, uuid) -> {
+            transaction.commit();
+
+            log.info("Committed transaction {}", uuid);
+        });
     }
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFinished(false);
+        testTransactionAlreadyFinished(false, (transaction, uuid) -> {
+            transaction.rollback();
+
+            log.info("Rolled back transaction {}", uuid);
+        });
     }
 
     @Test
@@ -2030,7 +2041,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testBatchSinglePartitionGet() throws Exception {
         var accountRecordsView = accounts.recordView();
 
-        var marshaller = new TupleMarshallerImpl(accounts.schemaView());
+        var marshaller = new TupleMarshallerImpl(accounts.schemaView().schema(accounts.schemaView().lastSchemaVersion()));
 
         int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
 
@@ -2073,7 +2084,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      *
      * @param commit True when transaction is committed, false the transaction is rolled back.
      */
-    private void testTransactionAlreadyFinished(boolean commit) {
+    protected void testTransactionAlreadyFinished(boolean commit, BiConsumer<Transaction, UUID> finisher) {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
@@ -2089,15 +2100,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         validateBalance(res, 100., 200.);
 
-        if (commit) {
-            tx.commit();
-
-            log.info("Committed transaction {}", txId);
-        } else {
-            tx.rollback();
-
-            log.info("Rolled back transaction {}", txId);
-        }
+        finisher.accept(tx, txId);
 
         TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(1)));
         assertTrue(ex.getMessage().contains("Transaction is already finished."));

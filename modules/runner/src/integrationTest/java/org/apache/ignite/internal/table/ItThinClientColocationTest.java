@@ -32,16 +32,15 @@ import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -85,7 +84,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
 
         Table serverTable = CLUSTER_NODES.get(0).tables().table(tableName);
         RecordBinaryViewImpl serverView = (RecordBinaryViewImpl) serverTable.recordView();
-        TupleMarshallerImpl marsh = IgniteTestUtils.getFieldValue(serverView, "marsh");
+        TupleMarshaller marsh = serverView.marshaller(1);
 
         try (IgniteClient client = IgniteClient.builder().addresses("localhost").build()) {
             // Perform get to populate schema.
@@ -124,7 +123,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
         var colocationColumns = new String[]{columnName};
         var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
 
-        return new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        return new TupleMarshallerImpl(schema);
     }
 
     private static Stream<Arguments> nativeTypes() {

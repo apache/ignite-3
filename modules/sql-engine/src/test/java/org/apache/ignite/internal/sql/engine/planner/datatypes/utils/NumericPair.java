@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 
 /**
  * Enumerates possible numeric type pairs for test purposes.

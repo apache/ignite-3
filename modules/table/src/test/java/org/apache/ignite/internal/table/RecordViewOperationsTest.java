@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -46,25 +48,22 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
  */
-public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
+public class RecordViewOperationsTest extends TableKvOperationsTestBase {
 
     private final Random rnd = new Random();
 
@@ -292,11 +291,11 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
      * Creates RecordView.
      */
     private RecordViewImpl<TestObjectWithAllTypes> recordView() {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         Mapper<TestObjectWithAllTypes> recMapper = Mapper.of(TestObjectWithAllTypes.class);
 
@@ -318,9 +317,9 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column("doubleCol".toUpperCase(), DOUBLE, true),
 
                 new Column("dateCol".toUpperCase(), DATE, true),
-                new Column("timeCol".toUpperCase(), time(), true),
-                new Column("dateTimeCol".toUpperCase(), datetime(), true),
-                new Column("timestampCol".toUpperCase(), timestamp(), true),
+                new Column("timeCol".toUpperCase(), time(0), true),
+                new Column("dateTimeCol".toUpperCase(), datetime(6), true),
+                new Column("timestampCol".toUpperCase(), timestamp(6), true),
 
                 new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
                 new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
@@ -337,7 +336,7 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
                 valCols
         );
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
+        DummyInternalTableImpl table = createInternalTable(schema);
 
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
@@ -350,6 +349,7 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
         return new RecordViewImpl<>(
                 table,
                 new DummySchemaManagerImpl(schema),
+                schemaVersions,
                 recMapper
         );
     }

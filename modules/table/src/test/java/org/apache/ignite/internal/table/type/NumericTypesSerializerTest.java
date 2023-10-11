@@ -27,13 +27,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -118,7 +117,7 @@ public class NumericTypesSerializerTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         final Tuple tup = createTuple().set("key", rnd.nextLong()).set("number1", pair.getFirst()).set("number2", pair.getSecond());
 
@@ -135,7 +134,7 @@ public class NumericTypesSerializerTest {
                 new Column[]{new Column("number1", NativeTypes.numberOf(5), false)}
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         final Tuple badTup = createTuple().set("key", rnd.nextLong());
 
@@ -169,7 +168,7 @@ public class NumericTypesSerializerTest {
 
         final Tuple badTup = createTuple().set("key", rnd.nextLong());
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         assertThrowsWithCause(
                 () -> marshaller.marshal(badTup.set("decimalCol", new BigDecimal("123456789.0123"))),
@@ -206,7 +205,7 @@ public class NumericTypesSerializerTest {
         //representation of "0000" value.
         final Tuple tup = createTuple().set("key", rnd.nextLong()).set("decimalCol", new BigDecimal("0E+3"));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         final Row row = marshaller.marshal(tup);
 
@@ -231,7 +230,7 @@ public class NumericTypesSerializerTest {
                 .set("key", rnd.nextLong())
                 .set("decimalCol1", new BigDecimal(decimalStr));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         final Row row = marshaller.marshal(tup);
 
@@ -252,7 +251,7 @@ public class NumericTypesSerializerTest {
                 .set("key", rnd.nextLong())
                 .set("decimalCol", BigDecimal.valueOf(123, Integer.MAX_VALUE));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         final Row row = marshaller.marshal(tup);
 
@@ -273,7 +272,7 @@ public class NumericTypesSerializerTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         long randomKey = rnd.nextLong();
 

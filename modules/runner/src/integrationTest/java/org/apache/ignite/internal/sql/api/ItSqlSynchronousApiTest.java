@@ -34,8 +34,8 @@ import org.apache.ignite.tx.Transaction;
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     @Override
-    protected ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query) {
-        return ses.execute(tx, query);
+    protected ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query, Object... args) {
+        return ses.execute(tx, query, args);
     }
 
     @Override

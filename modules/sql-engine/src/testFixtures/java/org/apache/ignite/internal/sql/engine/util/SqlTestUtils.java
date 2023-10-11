@@ -87,7 +87,7 @@ public class SqlTestUtils {
             String expectedMessage,
             Executable executable) {
         T ex = assertThrows(expectedType, executable);
-        assertEquals(expectedCode, ex.code());
+        assertEquals(expectedCode, ex.code(), ex.toString());
 
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 

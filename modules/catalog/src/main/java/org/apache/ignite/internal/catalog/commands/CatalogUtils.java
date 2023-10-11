@@ -35,6 +35,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,7 +87,7 @@ public class CatalogUtils {
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 38
      */
-    public static final int MAX_TIME_PRECISION = 9;
+    public static final int MAX_TIME_PRECISION = NativeTypes.MAX_TIME_PRECISION;
 
     /**
      * Max DECIMAL precision is implementation-defined.
@@ -101,20 +102,6 @@ public class CatalogUtils {
      * <p>SQL`16 part 2 section 6.1 syntax rule 25
      */
     public static final int MAX_DECIMAL_SCALE = Short.MAX_VALUE;
-
-    /**
-     * Default TIMESTAMP type precision: microseconds.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 36
-     */
-    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
-
-    /**
-     * Default TIME type precision: seconds.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 36
-     */
-    public static final int DEFAULT_TIME_PRECISION = 0;
 
     /**
      * Default length is `1` if implicit.
