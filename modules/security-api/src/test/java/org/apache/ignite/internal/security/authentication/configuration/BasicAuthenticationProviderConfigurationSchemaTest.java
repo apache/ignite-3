@@ -29,12 +29,12 @@ import org.junit.jupiter.api.Test;
 class BasicAuthenticationProviderConfigurationSchemaTest {
     @Test
     public void usernameIsNotBlank() {
-        Field password = Arrays.stream(BasicAuthenticationProviderConfigurationSchema.class.getDeclaredFields())
+        Field username = Arrays.stream(BasicAuthenticationProviderConfigurationSchema.class.getDeclaredFields())
                 .filter(it -> it.getName().equals("username"))
                 .findFirst()
                 .orElseThrow();
 
-        assertTrue(password.isAnnotationPresent(NotBlank.class));
+        assertTrue(username.isAnnotationPresent(NotBlank.class));
     }
 
     @Test
