@@ -26,19 +26,23 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexAlreadyAvailableValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
- * Makes the index available for use, switches from the write-only to the read-write state in catalog.
+ * Makes the index available for read-write, switches from the write-only to the read-write state in catalog.
  *
  * @see CatalogIndexDescriptor#writeOnly()
+ * @see IndexNotFoundValidationException
+ * @see IndexAlreadyAvailableValidationException
  */
 public class MakeIndexAvailableCommand extends AbstractIndexCommand {
-    /** Returns builder to create a command to create a new sorted index. */
+    /** Returns builder to make an index available for read-write. */
     public static MakeIndexAvailableCommandBuilder builder() {
         return new Builder();
     }
@@ -74,7 +78,7 @@ public class MakeIndexAvailableCommand extends AbstractIndexCommand {
             throw new CatalogValidationException(format("Unsupported index type {}.{} {}", schemaName, indexName, index));
         }
 
-        return List.of();
+        return List.of(new MakeIndexAvailableEntry(schemaName, updatedIndex));
     }
 
     private static CatalogIndexDescriptor createReadWriteIndex(CatalogHashIndexDescriptor index) {
