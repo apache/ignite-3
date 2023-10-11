@@ -89,7 +89,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
             + "  clientConnector: { port: {} }\n"
             + "  rest: {\n"
             + "    port:{},\n"
-            + "    ssl: { port:{} }\n"
+            + "    ssl: { port: {} }\n"
             + "  }\n"
             + "}";
 

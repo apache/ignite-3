@@ -98,6 +98,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Base client port number. */
     private static final int BASE_CLIENT_PORT = 10800;
 
+    /** Base rest port number. */
+    protected static final int BASE_REST_PORT = 10300;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  \"network\": {\n"
@@ -106,7 +109,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "      \"netClusterNodes\": [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest.port: {}\n"
             + "}";
 
     /** Cluster nodes. */
@@ -149,7 +153,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         for (int i = 0; i < nodes(); i++) {
             String nodeName = testNodeName(testInfo, i);
 
-            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i);
+            String config = IgniteStringFormatter.format(
+                    NODE_BOOTSTRAP_CFG,
+                    BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i, BASE_REST_PORT + i
+            );
 
             futures.add(TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
         }
