@@ -90,7 +90,11 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      netClusterNodes: [ {}, \"localhost:3355\", \"localhost:3356\" ]\n"
                 + "    }\n"
                 + "  },\n"
-                + "  clientConnector: { port: {} }\n"
+                + "  clientConnector: { port: {} },\n"
+                + "  rest: {\n"
+                + "    port: {},\n"
+                + "    ssl.port: {}\n"
+                + "  }\n"
                 + "}";
 
         @BeforeAll
@@ -189,6 +193,10 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
                 + "      password: \"" + password + "\"\n"
                 + "    }\n"
+                + "  },\n"
+                + "  rest: {\n"
+                + "    port: {},\n"
+                + "    ssl.port: {}\n"
                 + "  }\n"
                 + "}";
 
@@ -405,6 +413,10 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      password: \"" + password + "\","
                 + "      path: \"" + escapeWindowsPath(trustStorePath) + "\""
                 + "      }\n"
+                + "  },\n"
+                + "  rest: {\n"
+                + "    port: {}, \n"
+                + "    ssl.port: {} \n"
                 + "  }\n"
                 + "}";
 
@@ -559,6 +571,10 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
                 + "      password: \"" + password + "\"\n"
                 + "    }\n"
+                + "  },\n"
+                + "  rest: {\n"
+                + "    port: {},\n"
+                + "    ssl.port: {}\n"
                 + "  }\n"
                 + "}";
     }
