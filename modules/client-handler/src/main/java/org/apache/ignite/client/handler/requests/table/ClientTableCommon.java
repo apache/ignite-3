@@ -267,7 +267,7 @@ public class ClientTableCommon {
      * @param unpacker Unpacker.
      * @param table Table.
      * @param keyOnly Whether only key fields are expected.
-     * @return Tuple future.
+     * @return Future that will be completed with a tuple.
      */
     public static CompletableFuture<Tuple> readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
         return readSchema(unpacker, table).thenApply(schema -> readTuple(unpacker, keyOnly, schema));
@@ -304,7 +304,7 @@ public class ClientTableCommon {
      * @param unpacker Unpacker.
      * @param table Table.
      * @param keyOnly Whether only key fields are expected.
-     * @return Tuples.
+     * @return Future that will be completed with tuples.
      */
     public static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
         return readSchema(unpacker, table).thenApply(schema -> {
