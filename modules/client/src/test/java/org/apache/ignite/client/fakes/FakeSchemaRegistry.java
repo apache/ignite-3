@@ -67,7 +67,6 @@ public class FakeSchemaRegistry implements SchemaRegistry {
         FakeSchemaRegistry.lastVer = lastVer;
     }
 
-    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor schemaNow(int version) {
         if (version == 0) {
@@ -122,25 +121,21 @@ public class FakeSchemaRegistry implements SchemaRegistry {
         return failedFuture(ex);
     }
 
-    /** {@inheritDoc} */
     @Override
     public SchemaDescriptor lastKnownSchema() {
         return schemaNow(lastVer);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int lastKnownSchemaVersion() {
         return lastVer;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
         return Row.wrapBinaryRow(desc, row);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, int targetSchemaVersion) {
         SchemaDescriptor targetSchema = schemaNow(targetSchemaVersion);
