@@ -37,9 +37,6 @@ import org.junit.jupiter.api.Timeout;
 public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
 
-    /** Base port number. */
-    private static final int BASE_PORT = 3344;
-
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
@@ -48,7 +45,8 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest.port: {}\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
