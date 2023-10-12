@@ -399,8 +399,8 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Creates or restores zone's state depending on the {@link ZoneState#topologyAugmentationMap()} existence in the Vault. We save
-     * {@link ZoneState#topologyAugmentationMap()} in the Vault every time we receive logical topology changes from the metastore.
+     * Creates or restores zone's state depending on the {@link ZoneState#topologyAugmentationMap()} existence in the Vault.
+     * We save {@link ZoneState#topologyAugmentationMap()} in the Vault every time we receive logical topology changes from the metastore.
      *
      * @param zone Zone descriptor.
      * @param causalityToken Causality token.
@@ -421,7 +421,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
-            return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes);
+            return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes)
+                    .thenRun(() -> causalityDataNodesEngine.onCreateOrRestoreZoneState(causalityToken, zone));
         } else {
             // Restart case, when topologyAugmentationMap has already been saved during a cluster work.
             ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap = fromBytes(topologyAugmentationMapFromVault.value());
@@ -1386,8 +1387,6 @@ public class DistributionZoneManager implements IgniteComponent {
             assert exception == null : parameters;
 
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
-
-            createOrRestoreZoneStateBusy(params.zoneDescriptor(), params.causalityToken());
 
             return createOrRestoreZoneStateBusy(params.zoneDescriptor(), params.causalityToken())
                     .thenCompose((ignored) -> completedFuture(false));
