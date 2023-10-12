@@ -29,9 +29,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 /**
- * Tests for other SQL statements.
+ * Tests for transaction control SQL statements.
  */
-public class SqlOtherStatementsTest {
+public class SqlTransactionControlParserTest {
 
     @ParameterizedTest
     @CsvSource({
