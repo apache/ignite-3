@@ -29,7 +29,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     private final List<CatalogIndexColumnDescriptor> columns;
 
     /**
-     * Constructs a sorted description in write-only state.
+     * Constructs a sorted index descriptor in write-only state.
      *
      * @param id Id of the index.
      * @param name Name of the index.
@@ -49,7 +49,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     }
 
     /**
-     * Constructs a sorted description.
+     * Constructs a sorted index descriptor.
      *
      * @param id Id of the index.
      * @param name Name of the index.
