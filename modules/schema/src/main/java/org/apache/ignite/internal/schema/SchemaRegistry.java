@@ -45,8 +45,6 @@ public interface SchemaRegistry extends ManuallyCloseable {
      * schema version corresponds to the current moment from the point of view of other nodes).
      *
      * <p>This method never blocks.
-     *
-     * @return Schema descriptor.
      */
     SchemaDescriptor lastKnownSchema();
 
