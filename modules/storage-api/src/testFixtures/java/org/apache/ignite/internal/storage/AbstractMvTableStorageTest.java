@@ -790,7 +790,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 SORTED_INDEX_NAME,
                 tableId,
                 false,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                false
         );
 
         CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
@@ -798,7 +799,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 HASH_INDEX_NAME,
                 tableId,
                 true,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                false
         );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);

@@ -17,31 +17,31 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.IndexAlreadyAvailableValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
-import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Tests to verify validation of {@link DropIndexCommand}.
- */
+/** Tests to verify validation of {@link MakeIndexAvailableCommand}. */
 @SuppressWarnings("ThrowableNotThrown")
-public class DropIndexCommandValidationTest extends AbstractCommandValidationTest {
+public class MakeIndexAvailableCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
-        DropIndexCommandBuilder builder = DropIndexCommand.builder();
+        MakeIndexAvailableCommandBuilder builder = MakeIndexAvailableCommand.builder();
 
-        builder.indexName("TEST")
-                .schemaName(name);
+        builder.indexName("TEST").schemaName(name);
 
         assertThrowsWithCause(
                 builder::build,
@@ -53,10 +53,9 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void indexNameMustNotBeNullOrBlank(String name) {
-        DropIndexCommandBuilder builder = DropIndexCommand.builder();
+        MakeIndexAvailableCommandBuilder builder = MakeIndexAvailableCommand.builder();
 
-        builder.schemaName("TEST")
-                .indexName(name);
+        builder.schemaName(SCHEMA_NAME).indexName(name);
 
         assertThrowsWithCause(
                 builder::build,
@@ -66,26 +65,10 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void exceptionIsThrownIfSchemaNotExists() {
-        Catalog catalog = emptyCatalog();
-
-        CatalogCommand command = DropIndexCommand.builder()
-                .schemaName(SCHEMA_NAME + "_UNK")
-                .indexName("TEST")
-                .build();
-
-        assertThrowsWithCause(
-                () -> command.get(catalog),
-                CatalogValidationException.class,
-                "Schema with name 'PUBLIC_UNK' not found"
-        );
-    }
-
-    @Test
     void exceptionIsThrownIfIndexWithGivenNameNotFound() {
         Catalog catalog = emptyCatalog();
 
-        CatalogCommand command = DropIndexCommand.builder()
+        CatalogCommand command = MakeIndexAvailableCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .indexName("TEST")
                 .build();
@@ -98,26 +81,26 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void exceptionIsThrownIfIndexIsPrimaryKey() {
-        ColumnParams columnParams = ColumnParams.builder().name("C").type(ColumnType.INT32).build();
+    void exceptionIsThrownIfIndexIsAlreadyAvailable() {
+        String indexName = "TEST";
+
         Catalog catalog = catalog(
-                CreateTableCommand.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .columns(List.of(columnParams))
-                        .primaryKeyColumns(List.of(columnParams.name()))
-                        .build()
+                new CatalogTableDescriptor[]{},
+                new CatalogIndexDescriptor[]{
+                        new CatalogHashIndexDescriptor(10, indexName, 1, false, List.of("c"), false)
+                },
+                new CatalogSystemViewDescriptor[]{}
         );
 
-        CatalogCommand command = DropIndexCommand.builder()
+        CatalogCommand command = MakeIndexAvailableCommand.builder()
                 .schemaName(SCHEMA_NAME)
-                .indexName(pkIndexName(TABLE_NAME))
+                .indexName(indexName)
                 .build();
 
         assertThrowsWithCause(
                 () -> command.get(catalog),
-                CatalogValidationException.class,
-                "Dropping primary key index is not allowed"
+                IndexAlreadyAvailableValidationException.class,
+                "Index is already available 'PUBLIC.TEST'"
         );
     }
 }

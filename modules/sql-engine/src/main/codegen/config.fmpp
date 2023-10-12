@@ -44,6 +44,9 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIntervalTypeNameSpec",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet",
@@ -290,7 +293,9 @@ data: {
     # Example: "SqlShowDatabases()", "SqlShowTables()".
     statementParserMethods: [
       "SqlAlterTable()",
-      "SqlAlterZone()"
+      "SqlAlterZone()",
+      "SqlStartTransaction()",
+      "SqlCommitTransaction()"
     ]
 
     # List of methods for parsing extensions to "CREATE [OR REPLACE]" calls.

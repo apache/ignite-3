@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * This exception is thrown when an index is not found in the schema.
- *
- * <p>Example: This exception is used to properly handle IF EXISTS flag in ddl command handler.</p>
+ * Start transaction mode.
  */
-public class IndexNotFoundValidationException extends CatalogValidationException {
-    public IndexNotFoundValidationException(String message) {
-        super(message);
-    }
+public enum IgniteSqlStartTransactionMode {
+    /** Read-only transaction. */
+    READ_ONLY,
+    /** Read-write transaction. */
+    READ_WRITE,
+    /** The user have omitted transaction mode, hence the type is set to {@link #READ_WRITE} implicitly. */
+    IMPLICIT_READ_WRITE,
 }
