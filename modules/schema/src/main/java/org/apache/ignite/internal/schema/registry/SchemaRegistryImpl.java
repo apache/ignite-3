@@ -29,7 +29,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.IntFunction;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -55,7 +54,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * Schema store. It's only safe to apply the function to version numbers for which there is guarantee that the schema was already saved
      * to the Metastore.
      */
-    private final IntFunction<SchemaDescriptor> loadSchemaByVersion;
+    private final SchemaDescriptorLoader schemaDescriptorLoader;
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
 
@@ -64,11 +63,11 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /**
      * Constructor.
      *
-     * @param loadSchemaByVersion Schema history.
+     * @param schemaDescriptorLoader Schema history.
      * @param initialSchema Initial schema.
      */
-    public SchemaRegistryImpl(IntFunction<SchemaDescriptor> loadSchemaByVersion, SchemaDescriptor initialSchema) {
-        this.loadSchemaByVersion = loadSchemaByVersion;
+    public SchemaRegistryImpl(SchemaDescriptorLoader schemaDescriptorLoader, SchemaDescriptor initialSchema) {
+        this.schemaDescriptorLoader = schemaDescriptorLoader;
 
         makeSchemaVersionAvailable(initialSchema);
     }
@@ -335,6 +334,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     private @Nullable SchemaDescriptor loadStoredSchemaByVersion(int schemaVer) {
-        return loadSchemaByVersion.apply(schemaVer);
+        return schemaDescriptorLoader.load(schemaVer);
     }
 }
