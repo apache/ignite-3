@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.Collection;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -57,11 +59,15 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
-/** No doc. */
-// TODO: IGNITE-19276 Документация, тесты и реализация
+/**
+ * No-doc.
+ */
+// TODO: IGNITE-20637 Recovery needs to be implemented
+// TODO: IGNITE-20637 Need integration with the IgniteImpl
 public class IndexAvailabilityController implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityController.class);
 
@@ -78,11 +84,11 @@ public class IndexAvailabilityController implements ManuallyCloseable {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Constructor. */
-    public IndexAvailabilityController(CatalogManager catalogManager, MetaStorageManager metaStorageManager) {
+    public IndexAvailabilityController(CatalogManager catalogManager, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
         this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;
 
-        addListeners();
+        addListeners(catalogManager, metaStorageManager, indexBuilder);
     }
 
     @Override
@@ -94,8 +100,8 @@ public class IndexAvailabilityController implements ManuallyCloseable {
         busyLock.block();
     }
 
-    private void addListeners() {
-        catalogManager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+    private void addListeners(CatalogService catalogService, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
+        catalogService.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
@@ -103,7 +109,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
             return onIndexCreate((CreateIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
-        catalogManager.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
+        catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
@@ -111,7 +117,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
             return onIndexDrop((DropIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
-        catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
+        catalogService.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
@@ -130,6 +136,8 @@ public class IndexAvailabilityController implements ManuallyCloseable {
                 LOG.error("Error on handle partition build index key", e);
             }
         });
+
+        indexBuilder.listen((indexId, tableId, partitionId) -> onIndexBuildForPartition(indexId, partitionId));
     }
 
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
@@ -216,6 +224,15 @@ public class IndexAvailabilityController implements ManuallyCloseable {
         });
     }
 
+    private void onIndexBuildForPartition(int indexId, int partitionId) {
+        inBusyLock(busyLock, () -> {
+            ByteArray partitionBuildIndexKey = partitionBuildIndexKey(indexId, partitionId);
+
+            // We don't need to wait for the operation to complete.
+            metaStorageManager.invoke(exists(partitionBuildIndexKey), remove(partitionBuildIndexKey), noop());
+        });
+    }
+
     private int getPartitionCountFromCatalog(int indexId, int catalogVersion) {
         CatalogIndexDescriptor indexDescriptor = getIndexDescriptorStrict(indexId, catalogVersion);
 
@@ -285,7 +302,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
     }
 
     private static CatalogCommand buildMakeIndexAvailableCommand(CatalogIndexDescriptor indexDescriptor) {
-        // TODO: IGNITE-19276 туду на тикет что мы сможем схему достать из каталожной сущности
+        // TODO: IGNITE-20636 Use only indexId
         return MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexDescriptor.name()).build();
     }
 }
