@@ -27,45 +27,35 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
  */
-public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
-
+public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void insert() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
@@ -94,7 +84,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
@@ -123,7 +113,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple newTuple = Tuple.create().set("id", 1L).set("val", 22L);
@@ -149,7 +139,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         tbl.upsert(null, Tuple.create().set("id", 1L).set("val", 11L));
 
@@ -174,7 +164,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         final Tuple keyTuple = Tuple.create().set("id", 1L);
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
@@ -222,7 +212,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         final Tuple keyTuple = Tuple.create().set("id", 1L);
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
@@ -252,7 +242,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         final Tuple tuple = Tuple.create().set("id", 1L).set("val", 11L);
         final Tuple tuple2 = Tuple.create().set("id", 1L).set("val", 22L);
@@ -287,7 +277,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         final Tuple keyTuple0 = new TestTupleBuilder().set("id", 0).set("id1", 0);
         final Tuple keyTuple1 = new TestTupleBuilder().set("id1", 0);
@@ -319,7 +309,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         final Tuple keyTuple0 = Tuple.create().set("id", 0L);
         final Tuple keyTuple1 = Tuple.create().set("id", 1L);
@@ -343,7 +333,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
         Tuple rec3 = Tuple.create().set("id", 3L).set("val", 33L);
@@ -369,7 +359,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
         Tuple rec3 = Tuple.create().set("id", 3L).set("val", 33L);
@@ -411,7 +401,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple rec = Tuple.create().set("id", 1L).set("val", 11L);
         Tuple recReplace = Tuple.create().set("id", 1L).set("val", 12L);
@@ -438,7 +428,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         int val = 0;
 
@@ -463,7 +453,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple tuple = Tuple.create().set("id", 1L).set("val", 1);
 
@@ -484,7 +474,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11);
         Tuple tuple2 = Tuple.create().set("id", 2L).set("val", 22);
@@ -537,7 +527,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11);
         Tuple tuple2 = Tuple.create().set("id", 2L).set("val", 22);
@@ -591,7 +581,7 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11L);
 
@@ -668,17 +658,6 @@ public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
                 Assertions.assertEquals(val1, val2, "Equality check failed: colIdx=" + col.schemaIndex());
             }
         }
-    }
-
-    private TableImpl createTableImpl(SchemaDescriptor schema) {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
-
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
-
-        return new TableImpl(table, new DummySchemaManagerImpl(schema), new HeapLockManager());
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

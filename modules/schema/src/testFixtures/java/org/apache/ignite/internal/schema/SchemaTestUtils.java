@@ -37,6 +37,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.BitmaskNativeType;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.TemporalNativeType;
 
 /**
  * Test utility class.
@@ -62,9 +68,9 @@ public final class SchemaTestUtils {
             NativeTypes.numberOf(20),
             NativeTypes.decimalOf(25, 5),
             NativeTypes.bitmaskOf(22),
-            NativeTypes.time(),
-            NativeTypes.datetime(),
-            NativeTypes.timestamp(),
+            NativeTypes.time(0),
+            NativeTypes.datetime(6),
+            NativeTypes.timestamp(6),
             NativeTypes.BYTES,
             NativeTypes.STRING);
 
@@ -172,11 +178,11 @@ public final class SchemaTestUtils {
             case DATE:
                 return NativeTypes.DATE;
             case TIME:
-                return NativeTypes.time();
+                return NativeTypes.time(0);
             case DATETIME:
-                return NativeTypes.datetime();
+                return NativeTypes.datetime(6);
             case TIMESTAMP:
-                return NativeTypes.timestamp();
+                return NativeTypes.timestamp(6);
             case NUMBER:
                 return NativeTypes.numberOf(10);
             case STRING:

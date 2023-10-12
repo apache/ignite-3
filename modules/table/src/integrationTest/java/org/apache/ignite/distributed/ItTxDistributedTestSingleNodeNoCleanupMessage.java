@@ -187,35 +187,28 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         log.info("Tables have been started");
     }
 
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
+    @Disabled("IGNITE-20560")
     @Test
     @Override
     public void testTransactionAlreadyRolledback() {
         super.testTransactionAlreadyRolledback();
     }
 
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
+    @Disabled("IGNITE-20560")
     @Test
     @Override
     public void testTransactionAlreadyCommitted() {
         super.testTransactionAlreadyCommitted();
     }
 
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
+    @Disabled("IGNITE-20395")
     @Test
     @Override
     public void testBalance() throws InterruptedException {
         super.testBalance();
     }
 
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
-    @Test
-    @Override
-    public void testDelete() throws TransactionException {
-        super.testDelete();
-    }
-
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
+    @Disabled("IGNITE-20395")
     @Test
     public void testTwoReadWriteTransactions() throws TransactionException {
         Tuple key = makeKey(1);

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec.row;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
 
 /**
  * Row schema used by execution engine.

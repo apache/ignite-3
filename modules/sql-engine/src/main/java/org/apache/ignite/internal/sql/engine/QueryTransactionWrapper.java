@@ -49,11 +49,9 @@ public class QueryTransactionWrapper {
     }
 
     /**
-     * Rolls back an implicit transaction, if one has been started.
+     * Rolls back a transaction.
      */
-    void rollbackImplicit() {
-        if (implicit) {
-            transaction.rollback();
-        }
+    void rollback() {
+        transaction.rollback();
     }
 }

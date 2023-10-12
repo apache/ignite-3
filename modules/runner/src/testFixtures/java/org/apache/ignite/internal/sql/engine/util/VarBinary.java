@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes;
 
 /**
  * A wrapper for {@link NativeTypes#BYTES} that implements {@link Comparable} interface.

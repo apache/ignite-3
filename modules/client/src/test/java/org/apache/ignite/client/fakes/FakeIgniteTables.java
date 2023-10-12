@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -26,15 +28,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 
@@ -121,7 +125,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        return CompletableFuture.completedFuture(tables());
+        return completedFuture(tables());
     }
 
     /** {@inheritDoc} */
@@ -143,13 +147,13 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        return CompletableFuture.completedFuture(table(name));
+        return completedFuture(table(name));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<TableImpl> tableAsync(int id) {
-        return CompletableFuture.completedFuture(tablesById.get(id));
+        return completedFuture(tablesById.get(id));
     }
 
     /** {@inheritDoc} */
@@ -161,13 +165,13 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<TableImpl> tableImplAsync(String name) {
-        return CompletableFuture.completedFuture(tableImpl(name));
+        return completedFuture(tableImpl(name));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
-        return CompletableFuture.completedFuture(partitionAssignments);
+        return completedFuture(partitionAssignments);
     }
 
     /** {@inheritDoc} */
@@ -239,7 +243,18 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         return new TableImpl(
                 new FakeInternalTable(name, id, keyExtractor),
                 schemaReg,
-                new HeapLockManager()
+                new HeapLockManager(),
+                new SchemaVersions() {
+                    @Override
+                    public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
+                        return completedFuture(schemaReg.lastSchemaVersion());
+                    }
+
+                    @Override
+                    public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
+                        return completedFuture(schemaReg.lastSchemaVersion());
+                    }
+                }
         );
     }
 
@@ -292,8 +307,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         new Column("zfloat".toUpperCase(), NativeTypes.FLOAT, true),
                         new Column("zdouble".toUpperCase(), NativeTypes.DOUBLE, true),
                         new Column("zdate".toUpperCase(), NativeTypes.DATE, true),
-                        new Column("ztime".toUpperCase(), NativeTypes.time(), true),
-                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(), true),
+                        new Column("ztime".toUpperCase(), NativeTypes.time(0), true),
+                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(6), true),
                         new Column("zstring".toUpperCase(), NativeTypes.STRING, true),
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),

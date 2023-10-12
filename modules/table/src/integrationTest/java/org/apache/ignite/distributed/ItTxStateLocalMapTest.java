@@ -34,7 +34,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -81,7 +81,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         this.testInfo = testInfo;
     }
 
-    protected static SchemaDescriptor TABLE_SCHEMA = new SchemaDescriptor(
+    protected static final SchemaDescriptor TABLE_SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("col1".toUpperCase(), NativeTypes.INT64, false)},
             new Column[]{new Column("col2".toUpperCase(), NativeTypes.INT32, false)}
