@@ -631,11 +631,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         int intRes;
 
         try (Session session1 = ignite1.sql().createSession(); Session session2 = ignite2.sql().createSession()) {
+            createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
+
             session1.execute(null, "CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
 
-            waitForIndex(List.of(ignite1, ignite2), "idx1");
-
-            createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
+            waitForIndexToBecomeAvailable(List.of(ignite1, ignite2), "idx1");
 
             ResultSet<SqlRow> plan = session1.execute(null, "EXPLAIN PLAN FOR " + sql);
 
@@ -737,7 +737,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @Test
-    public void nodeWithDataTest() throws InterruptedException {
+    public void nodeWithDataTest() {
         IgniteImpl ignite = startNode(0);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 1);
@@ -753,7 +753,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @ParameterizedTest
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     @ValueSource(booleans = {true, false})
     public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(2);
@@ -875,7 +874,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
     }
@@ -884,7 +882,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
     }
@@ -894,7 +891,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      *
      * @param directOrder When the parameter is true, nodes restart in direct order, otherwise they restart in reverse order.
      */
-    private void twoNodesRestart(boolean directOrder) throws InterruptedException {
+    private void twoNodesRestart(boolean directOrder) {
         List<IgniteImpl> nodes = startNodes(2);
 
         createTableWithData(nodes, TABLE_NAME, 2);
@@ -952,7 +949,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20137")
-    public void testOneNodeRestartWithGap() throws InterruptedException {
+    public void testOneNodeRestartWithGap() {
         IgniteImpl ignite = startNode(0);
 
         startNode(1);
@@ -1005,7 +1002,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
     @Test
-    public void testRestartDiffConfig() throws InterruptedException {
+    public void testRestartDiffConfig() {
         List<IgniteImpl> ignites = startNodes(2);
 
         createTableWithData(ignites, TABLE_NAME, 2);
@@ -1033,7 +1030,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    public void testCfgGapWithoutData() throws InterruptedException {
+    public void testCfgGapWithoutData() {
         List<IgniteImpl> nodes = startNodes(3);
 
         createTableWithData(nodes, TABLE_NAME, nodes.size());
@@ -1114,8 +1111,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
-    public void testCfgGap() throws InterruptedException {
+    public void testCfgGap() {
         List<IgniteImpl> nodes = startNodes(4);
 
         createTableWithData(nodes, "t1", nodes.size());
@@ -1230,13 +1226,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
     }
 
-    private void waitForIndex(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
-        // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the PK index.
+    private void waitForIndexToBecomeAvailable(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .map(nodeImpl -> nodeImpl.catalogManager().index(indexName.toUpperCase(), nodeImpl.clock().nowLong()))
-                        .allMatch(Objects::nonNull),
+                        .allMatch(indexDescriptor -> indexDescriptor != null && !indexDescriptor.writeOnly()),
                 TIMEOUT_MILLIS
         ));
     }
