@@ -431,7 +431,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
-            validateParsedStatement(context, result, params);
+            validateParsedStatement(context, result, outerTx, params);
 
             QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
 
@@ -559,10 +559,17 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static void validateParsedStatement(
             QueryContext context,
             ParsedResult parsedResult,
+            @Nullable InternalTransaction outerTx,
             Object[] params
     ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
+
+        if (outerTx != null && parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+            String message = "Transaction control statements can not used in explicit transactions";
+
+            throw new SqlException(STMT_VALIDATION_ERR, message);
+        }
 
         if (!allowedTypes.contains(queryType)) {
             String message = format("Invalid SQL statement type. Expected {} but got {}", allowedTypes, queryType);
