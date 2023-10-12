@@ -30,6 +30,5 @@ public interface SchemaDescriptorLoader {
      *
      * @param schemaVersion Version of the schema to load.
      */
-    @Nullable
-    SchemaDescriptor load(int schemaVersion);
+    @Nullable SchemaDescriptor load(int schemaVersion);
 }
