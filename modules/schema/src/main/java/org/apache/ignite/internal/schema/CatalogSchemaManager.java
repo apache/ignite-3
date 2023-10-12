@@ -293,7 +293,7 @@ public class CatalogSchemaManager implements IgniteComponent {
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
         if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
-            return registry.schemaNow(schemaVer);
+            return registry.schema(schemaVer);
         } else {
             return null;
         }

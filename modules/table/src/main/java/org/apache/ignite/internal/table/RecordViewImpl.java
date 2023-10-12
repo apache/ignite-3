@@ -349,7 +349,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         // TODO: Cache marshaller for schema version or upgrade row?
 
-        SchemaDescriptor schema = rowConverter.registry().schemaNow(schemaVersion);
+        SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
 
         marsh = marshallerFactory.apply(schema);
         this.marsh = marsh;

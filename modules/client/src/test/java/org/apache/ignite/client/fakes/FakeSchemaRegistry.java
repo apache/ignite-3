@@ -68,7 +68,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     }
 
     @Override
-    public SchemaDescriptor schemaNow(int version) {
+    public SchemaDescriptor schema(int version) {
         if (version == 0) {
             // Use last version (any version may be used) for 0 version, that mean row doens't contain value.
             version = lastVer;
@@ -123,7 +123,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
 
     @Override
     public SchemaDescriptor lastKnownSchema() {
-        return schemaNow(lastVer);
+        return schema(lastVer);
     }
 
     @Override
@@ -138,7 +138,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
 
     @Override
     public Row resolve(BinaryRow row, int targetSchemaVersion) {
-        SchemaDescriptor targetSchema = schemaNow(targetSchemaVersion);
+        SchemaDescriptor targetSchema = schema(targetSchemaVersion);
 
         throwIfNoSuchSchema(targetSchema, targetSchemaVersion);
 
@@ -156,7 +156,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     }
 
     private List<Row> resolveCollectionInternal(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion, boolean keyOnly) {
-        SchemaDescriptor targetSchema = schemaNow(targetSchemaVersion);
+        SchemaDescriptor targetSchema = schema(targetSchemaVersion);
 
         throwIfNoSuchSchema(targetSchema, targetSchemaVersion);
 
@@ -176,7 +176,7 @@ public class FakeSchemaRegistry implements SchemaRegistry {
             return keyOnly ? Row.wrapKeyOnlyBinaryRow(targetSchema, binaryRow) : Row.wrapBinaryRow(targetSchema, binaryRow);
         }
 
-        SchemaDescriptor rowSchema = schemaNow(binaryRow.schemaVersion());
+        SchemaDescriptor rowSchema = schema(binaryRow.schemaVersion());
 
         ColumnMapper mapping = resolveMapping(targetSchema, rowSchema);
 
@@ -199,10 +199,10 @@ public class FakeSchemaRegistry implements SchemaRegistry {
             return targetSchema.columnMapping();
         }
 
-        ColumnMapper mapping = schemaNow(rowSchema.version() + 1).columnMapping();
+        ColumnMapper mapping = schema(rowSchema.version() + 1).columnMapping();
 
         for (int i = rowSchema.version() + 2; i <= targetSchema.version(); i++) {
-            mapping = ColumnMapping.mergeMapping(mapping, schemaNow(i));
+            mapping = ColumnMapping.mergeMapping(mapping, schema(i));
         }
 
         return mapping;

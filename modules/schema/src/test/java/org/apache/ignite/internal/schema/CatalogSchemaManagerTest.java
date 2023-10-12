@@ -361,7 +361,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
         assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
-        assertThat(schemaRegistry.schemaNow(1).version(), is(1));
+        assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
     @Test
@@ -383,7 +383,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
         SchemaRegistry schemaRegistry = future.join();
 
         assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
-        assertThat(schemaRegistry.schemaNow(1).version(), is(1));
+        assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
     @Test
@@ -395,10 +395,10 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = future.join();
 
-        SchemaDescriptor schemaDescriptor1 = schemaRegistry.schemaNow(1);
+        SchemaDescriptor schemaDescriptor1 = schemaRegistry.schema(1);
         assertThat(schemaDescriptor1.version(), is(1));
 
-        SchemaDescriptor schemaDescriptor2 = schemaRegistry.schemaNow(2);
+        SchemaDescriptor schemaDescriptor2 = schemaRegistry.schema(2);
         assertThat(schemaDescriptor2.version(), is(2));
     }
 
@@ -497,7 +497,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         int prevSchemaVersionNotYetTouched = 1;
 
-        SchemaDescriptor schemaDescriptor = schemaRegistry.schemaNow(prevSchemaVersionNotYetTouched);
+        SchemaDescriptor schemaDescriptor = schemaRegistry.schema(prevSchemaVersionNotYetTouched);
         assertThat(schemaDescriptor.version(), is(prevSchemaVersionNotYetTouched));
     }
 }

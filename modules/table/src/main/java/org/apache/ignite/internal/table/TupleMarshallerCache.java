@@ -46,7 +46,7 @@ class TupleMarshallerCache {
             return marshaller;
         }
 
-        marshaller = new TupleMarshallerImpl(schemaRegistry.schemaNow(schemaVersion));
+        marshaller = new TupleMarshallerImpl(schemaRegistry.schema(schemaVersion));
 
         cachedMarshaller = marshaller;
 

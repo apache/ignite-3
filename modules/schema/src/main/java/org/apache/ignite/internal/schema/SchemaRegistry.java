@@ -58,7 +58,7 @@ public interface SchemaRegistry extends ManuallyCloseable {
      * @return Schema descriptor of given version (or latest known version if version 0 is requested).
      * @throws SchemaRegistryException If no schema found for given version.
      */
-    SchemaDescriptor schemaNow(int version) throws SchemaRegistryException;
+    SchemaDescriptor schema(int version) throws SchemaRegistryException;
 
     /**
      * Gets schema descriptor for given version asynchronously.

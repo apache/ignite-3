@@ -133,7 +133,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
-            when(schemaRegistry.schemaNow(tableVersion)).thenReturn(schemaDescriptor);
+            when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
             when(descriptor.iterator()).thenReturn(emptyIterator());
 
             return registry.getTable(tableId, tableVersion, descriptor);

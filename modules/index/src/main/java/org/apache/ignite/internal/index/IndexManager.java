@@ -266,7 +266,7 @@ public class IndexManager implements IgniteComponent {
 
         /** Creates converter for given version of the schema. */
         private VersionedConverter createConverter(int schemaVersion) {
-            SchemaDescriptor descriptor = registry.schemaNow(schemaVersion);
+            SchemaDescriptor descriptor = registry.schema(schemaVersion);
 
             int[] indexedColumns = resolveColumnIndexes(descriptor);
 

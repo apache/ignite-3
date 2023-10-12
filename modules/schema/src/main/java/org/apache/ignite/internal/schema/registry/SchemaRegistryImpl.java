@@ -80,11 +80,11 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     @Override
     public SchemaDescriptor lastKnownSchema() {
-        return schemaNow(lastKnownSchemaVersion());
+        return schema(lastKnownSchemaVersion());
     }
 
     @Override
-    public SchemaDescriptor schemaNow(int version) {
+    public SchemaDescriptor schema(int version) {
         int actualVersion = versionOrLatestForZero(version);
 
         SchemaDescriptor desc = getFromCacheOrLoad(actualVersion);
@@ -160,7 +160,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     @Override
     public Row resolve(BinaryRow row, int targetSchemaVersion) {
-        SchemaDescriptor targetSchema = schemaNow(targetSchemaVersion);
+        SchemaDescriptor targetSchema = schema(targetSchemaVersion);
 
         throwIfNoSuchSchema(targetSchema, targetSchemaVersion);
 
@@ -209,7 +209,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return keyOnly ? Row.wrapKeyOnlyBinaryRow(targetSchema, binaryRow) : Row.wrapBinaryRow(targetSchema, binaryRow);
         }
 
-        SchemaDescriptor rowSchema = schemaNow(binaryRow.schemaVersion());
+        SchemaDescriptor rowSchema = schema(binaryRow.schemaVersion());
 
         ColumnMapper mapping = resolveMapping(targetSchema, rowSchema);
 
@@ -225,7 +225,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     private List<Row> resolveInternal(Collection<BinaryRow> binaryRows, int targetSchemaVersion, boolean keyOnly) {
-        SchemaDescriptor targetSchema = schemaNow(targetSchemaVersion);
+        SchemaDescriptor targetSchema = schema(targetSchemaVersion);
 
         throwIfNoSuchSchema(targetSchema, targetSchemaVersion);
 
@@ -260,10 +260,10 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return mapping;
         }
 
-        mapping = schemaNow(rowSchema.version() + 1).columnMapping();
+        mapping = schema(rowSchema.version() + 1).columnMapping();
 
         for (int i = rowSchema.version() + 2; i <= curSchema.version(); i++) {
-            mapping = ColumnMapping.mergeMapping(mapping, schemaNow(i));
+            mapping = ColumnMapping.mergeMapping(mapping, schema(i));
         }
 
         mappingCache.putIfAbsent(mappingKey, mapping);

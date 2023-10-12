@@ -455,7 +455,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         SchemaRegistry registry = rowConverter.registry();
 
-        marsh = marshallerFactory.apply(registry.schemaNow(schemaVersion));
+        marsh = marshallerFactory.apply(registry.schema(schemaVersion));
         this.marsh = marsh;
 
         return marsh;

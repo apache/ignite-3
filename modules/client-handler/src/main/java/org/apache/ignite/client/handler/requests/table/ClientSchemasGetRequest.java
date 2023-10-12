@@ -55,7 +55,7 @@ public class ClientSchemasGetRequest {
 
                 return schemaVersions.schemaVersionAtNow(table.tableId())
                         .thenAccept(version -> {
-                            SchemaDescriptor schema = table.schemaView().schemaNow(version);
+                            SchemaDescriptor schema = table.schemaView().schema(version);
 
                             writeSchema(out, schema.version(), schema);
                         });

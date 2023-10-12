@@ -377,7 +377,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /**
      * Makes sure that we have schemas corresponding to the moment of tx start; this makes PK extraction safe WRT
-     * {@link org.apache.ignite.internal.schema.SchemaRegistry#schemaNow(int)}.
+     * {@link org.apache.ignite.internal.schema.SchemaRegistry#schema(int)}.
      *
      * @param request Request that's being processed.
      */

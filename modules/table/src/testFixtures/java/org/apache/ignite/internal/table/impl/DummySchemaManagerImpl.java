@@ -54,7 +54,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaDescriptor schemaNow(int version) {
+    public SchemaDescriptor schema(int version) {
         assert version >= 0;
         assert schema.version() == version;
 
@@ -97,7 +97,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         }
 
         return rows.stream()
-                .map(row -> row == null ? null : Row.wrapBinaryRow(schemaNow(row.schemaVersion()), row))
+                .map(row -> row == null ? null : Row.wrapBinaryRow(schema(row.schemaVersion()), row))
                 .collect(toList());
     }
 
@@ -108,7 +108,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
         }
 
         return keyOnlyRows.stream()
-                .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schemaNow(row.schemaVersion()), row))
+                .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schema(row.schemaVersion()), row))
                 .collect(toList());
     }
 
