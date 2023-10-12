@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.configuration.validation;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -24,11 +24,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to validate authentication providers configuration.
- *
- * <p>Activate AuthProvidersValidatorImpl in configuration engine for {@link AuthenticationConfigurationSchema#providers}.
+ * Signifies that current {@code String} configuration values can not be blank.
  */
 @Target(FIELD)
 @Retention(RUNTIME)
-public @interface AuthenticationProvidersValidator {
+public @interface NotBlank {
 }

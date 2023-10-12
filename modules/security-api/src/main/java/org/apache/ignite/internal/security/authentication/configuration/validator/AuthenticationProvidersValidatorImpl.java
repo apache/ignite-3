@@ -15,29 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.security.authentication.configuration.validator;
 
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 
 /**
- * Authentication schema configuration validator implementation.
+ * Implementation of {@link AuthenticationProvidersValidator}.
  */
-public class AuthenticationConfigurationValidatorImpl implements Validator<AuthenticationConfigurationValidator, AuthenticationView> {
-
-    public static final AuthenticationConfigurationValidatorImpl INSTANCE = new AuthenticationConfigurationValidatorImpl();
+public class AuthenticationProvidersValidatorImpl implements
+        Validator<AuthenticationProvidersValidator, NamedListView<? extends AuthenticationProviderView>> {
+    public static final AuthenticationProvidersValidatorImpl INSTANCE = new AuthenticationProvidersValidatorImpl();
 
     @Override
-    public void validate(AuthenticationConfigurationValidator annotation, ValidationContext<AuthenticationView> ctx) {
-        AuthenticationView view = ctx.getNewValue();
+    public void validate(
+            AuthenticationProvidersValidator annotation,
+            ValidationContext<NamedListView<? extends AuthenticationProviderView>> ctx
+    ) {
+        boolean enabled = ctx.getNewRoot(SecurityConfiguration.KEY).authentication().enabled();
+        NamedListView<? extends AuthenticationProviderView> view = ctx.getNewValue();
 
-        if (view == null) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Auth config must not be null"));
-            return;
-        }
-
-        if (view.enabled() && view.providers().size() == 0) {
+        if (enabled && view.size() == 0) {
             ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Providers must be present, if auth is enabled"));
         }
     }

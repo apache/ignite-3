@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.security;
+package org.apache.ignite.internal.security.configuration;
 
-import org.apache.ignite.lang.ErrorGroups.Authentication;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfigurationSchema;
 
-/**
- * The general authentication exception.
- */
-public class AuthenticationException extends IgniteException {
-    /**
-     * Creates a new authentication exception.
-     *
-     * @param message Detailed message.
-     */
-    public AuthenticationException(String message) {
-        super(Authentication.COMMON_AUTHENTICATION_ERR, message);
-    }
+/** Configuration schema for cluster REST endpoint subtree. */
+@ConfigurationRoot(rootName = "security", type = ConfigurationType.DISTRIBUTED)
+public class SecurityConfigurationSchema {
+    @ConfigValue
+    public AuthenticationConfigurationSchema authentication;
 }

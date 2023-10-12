@@ -15,24 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+/**
+ * This package contains security configuration classes.
+ */
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.lang.reflect.Field;
-import java.util.Arrays;
-import org.apache.ignite.configuration.annotation.Secret;
-import org.junit.jupiter.api.Test;
-
-class BasicAuthenticationProviderConfigurationSchemaTest {
-
-    @Test
-    public void passwordIsSecret() {
-        Field password = Arrays.stream(BasicAuthenticationProviderConfigurationSchema.class.getDeclaredFields())
-                .filter(it -> it.getName().equals("password"))
-                .findFirst()
-                .orElseThrow();
-
-        assertTrue(password.isAnnotationPresent(Secret.class));
-    }
-}
+package org.apache.ignite.internal.security.configuration;

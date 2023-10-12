@@ -15,35 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
-
-import static org.apache.ignite.lang.ErrorGroups.Client.AUTHENTICATION_ERR;
-
-import org.apache.ignite.lang.IgniteException;
+package org.apache.ignite.internal.security.authentication;
 
 /**
- * Indicates invalid credentials.
+ * Represents a request to authenticate.
+ *
+ * @param <T> The type of the identity
+ * @param <S> The type of the secret
  */
-public class IgniteClientAuthenticationException extends IgniteException {
-    /** Serial version uid. */
-    private static final long serialVersionUID = 0L;
+public interface AuthenticationRequest<T, S> {
+    /**
+     * Returns the token in the request.
+     */
+    T getIdentity();
 
     /**
-     * Constructor.
-     *
-     * @param msg the detail message.
+     * Returns the secret in the request.
      */
-    public IgniteClientAuthenticationException(String msg) {
-        this(msg, null);
-    }
-
-    /**
-     * Constructs a new exception with the specified detail message and cause.
-     *
-     * @param msg   the detail message.
-     * @param cause the cause.
-     */
-    public IgniteClientAuthenticationException(String msg, Throwable cause) {
-        super(AUTHENTICATION_ERR, msg, cause);
-    }
+    S getSecret();
 }

@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.security.authentication.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidator;
 
 /**
  * Configuration schema for authentication endpoint subtree.
@@ -27,7 +28,6 @@ import org.apache.ignite.configuration.annotation.Value;
 @SuppressWarnings("PMD.UnusedPrivateField")
 @Config
 public class AuthenticationConfigurationSchema {
-
     /** Enabled. */
     @Value(hasDefault = true)
     public final boolean enabled = false;
@@ -36,5 +36,4 @@ public class AuthenticationConfigurationSchema {
     @NamedConfigValue
     @AuthenticationProvidersValidator
     public AuthenticationProviderConfigurationSchema providers;
-
 }

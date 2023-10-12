@@ -17,17 +17,26 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.security.AuthenticationException;
-
 /**
- * General interface for all authenticators.
+ * Represents a request to authenticate using a username and a password.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface Authenticator {
+public class UsernamePasswordRequest implements AuthenticationRequest<String, String> {
+    private final String username;
 
-    /**
-     * Authenticates a user with the given request.
-     * If a successful authentication is returned, the object must be an instance of {@link UserDetails}.
-     */
-    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) throws AuthenticationException;
+    private final String password;
+
+    public UsernamePasswordRequest(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    @Override
+    public String getIdentity() {
+        return username;
+    }
+
+    @Override
+    public String getSecret() {
+        return password;
+    }
 }

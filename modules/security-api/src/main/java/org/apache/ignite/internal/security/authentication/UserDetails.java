@@ -17,36 +17,17 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
- * Represents a request to authenticate using a username and a password.
+ * Represents the user details.
  */
-public class UsernamePasswordRequest implements AuthenticationRequest<String, String> {
-
+public class UserDetails {
     private final String username;
 
-    private final String password;
-
-    public UsernamePasswordRequest() {
-        username = null;
-        password = null;
-    }
-
-    public UsernamePasswordRequest(String username, String password) {
+    public UserDetails(String username) {
         this.username = username;
-        this.password = password;
     }
 
-    @Nullable
-    @Override
-    public String getIdentity() {
+    public String username() {
         return username;
-    }
-
-    @Nullable
-    @Override
-    public String getSecret() {
-        return password;
     }
 }

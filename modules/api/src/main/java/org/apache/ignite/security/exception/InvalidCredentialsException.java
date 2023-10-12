@@ -15,13 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication;
+package org.apache.ignite.security.exception;
 
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.internal.configuration.AuthenticationView;
+
+import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
+
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Authentication manager.
+ * Exception thrown when authentication fails due to invalid credentials.
  */
-public interface AuthenticationManager extends Authenticator, ConfigurationListener<AuthenticationView> {
+public class InvalidCredentialsException extends IgniteException {
+    /**
+     * Creates a new authentication exception.
+     *
+     * @param message Detailed message.
+     */
+    public InvalidCredentialsException(String message) {
+        super(INVALID_CREDENTIALS_ERR, message);
+    }
 }

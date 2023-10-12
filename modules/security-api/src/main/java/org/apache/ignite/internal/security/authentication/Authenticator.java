@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.security;
+package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 
 /**
- * Throws when unknown authentication type is provided.
+ * General interface for all authenticators.
  */
-public class UnknownAuthenticationTypeException extends IgniteException {
+public interface Authenticator {
     /**
-     * Creates a new instance of {@code UnknownAuthenticationTypeException}.
+     * Authenticates a user with the given request. Returns the user details if the authentication was successful. Throws an exception
+     * otherwise.
      *
-     * @param message Detailed message.
+     * @param authenticationRequest The authentication request.
+     * @return The user details.
+     * @throws InvalidCredentialsException If the authentication failed.
+     * @throws UnsupportedAuthenticationTypeException If the authentication type is not supported.
      */
-    public UnknownAuthenticationTypeException(String message) {
-        super(Common.ILLEGAL_ARGUMENT_ERR, message);
-    }
+    UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest);
 }

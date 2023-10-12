@@ -15,8 +15,18 @@
  * limitations under the License.
  */
 
-/**
- * This package contains security configuration classes.
- */
+package org.apache.ignite.internal.security.authentication.configuration.validator;
 
-package org.apache.ignite.internal.configuration;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+/**
+ * Annotation to validate authentication providers.
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface AuthenticationProvidersValidator {
+}

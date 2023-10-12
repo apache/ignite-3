@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.security.authentication;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
 
 /**
- * Annotation to validate whole authentication configuration.
+ * Authentication manager.
  */
-@Target(FIELD)
-@Retention(RUNTIME)
-public @interface AuthenticationConfigurationValidator {
+public interface AuthenticationManager extends Authenticator, ConfigurationListener<AuthenticationView> {
 }
