@@ -142,6 +142,7 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TransactionAbandonedException;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -369,6 +370,34 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
+        CompletableFuture<Void> waitForSchemas = waitForSchemasBeforeReading(request);
+
+        return waitForSchemas.thenCompose(unused -> processOperationRequest(request, isPrimary, senderId));
+    }
+
+    /**
+     * Makes sure that we have schemas corresponding to the moment of tx start; this makes PK extraction safe WRT
+     * {@link org.apache.ignite.internal.schema.SchemaRegistry#schema(int)}.
+     *
+     * @param request Request that's being processed.
+     */
+    private CompletableFuture<Void> waitForSchemasBeforeReading(ReplicaRequest request) {
+        // TODO: IGNITE-20106 - validate that input rows schema version matches the tx-bound schema version.
+
+        HybridTimestamp tsToWaitForSchemas;
+
+        if (request instanceof ReadWriteReplicaRequest) {
+            tsToWaitForSchemas = TransactionIds.beginTimestamp(((ReadWriteReplicaRequest) request).transactionId());
+        } else if (request instanceof ReadOnlyReplicaRequest) {
+            tsToWaitForSchemas = ((ReadOnlyReplicaRequest) request).readTimestamp();
+        } else {
+            tsToWaitForSchemas = null;
+        }
+
+        return tsToWaitForSchemas == null ? completedFuture(null) : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchemas);
+    }
+
+    private CompletableFuture<?> processOperationRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -2386,6 +2415,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
+    /**
+     * Extracts a binary tuple corresponding to a part of the row comprised of PK columns.
+     *
+     * <p>This method must ONLY be invoked when we're sure that a schema version equal to {@code row.schemaVersion()}
+     * is already available on this node (see {@link SchemaSyncService}).
+     *
+     * @param row Row for which to do extraction.
+     */
     private BinaryTuple extractPk(BinaryRow row) {
         return pkIndexStorage.get().indexRowResolver().extractColumns(row);
     }

@@ -30,7 +30,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -69,8 +68,7 @@ public class NonHistoricSchemas implements Schemas {
 
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
-        SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
+        SchemaDescriptor schemaDescriptor = schemaManager.schemaRegistry(tableId).lastKnownSchema();
 
         List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
                 .map(colName -> {

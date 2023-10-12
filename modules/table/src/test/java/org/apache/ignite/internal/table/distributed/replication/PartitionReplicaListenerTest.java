@@ -48,7 +48,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -190,7 +189,6 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
@@ -349,9 +347,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private Function<PartitionCommand, CompletableFuture<?>> raftClientFutureClosure = defaultMockRaftFutureClosure;
 
     private static final AtomicInteger nextMonotonicInt = new AtomicInteger(1);
-
-    @Captor
-    private ArgumentCaptor<HybridTimestamp> timestampCaptor;
 
     @Captor
     private ArgumentCaptor<Command> commandCaptor;
@@ -1761,15 +1756,15 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(catalogService.activeCatalogVersion(anyLong())).thenReturn(42);
 
         UUID targetTxId = newTxId();
+        HybridTimestamp beginTs = TransactionIds.beginTimestamp(targetTxId);
 
         CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
 
         assertThat(future, willCompleteSuccessfully());
 
-        // Make sure metadata completeness is awaited for.
-        InOrder inOrder = inOrder(schemaSyncService, catalogService);
-        inOrder.verify(schemaSyncService).waitForMetadataCompleteness(timestampCaptor.capture());
-        inOrder.verify(catalogService).activeCatalogVersion(timestampCaptor.getValue().longValue());
+        // Make sure metadata completeness is awaited for (at operation timestamp, that is, later than beginTs).
+        //noinspection ConstantConditions
+        verify(schemaSyncService).waitForMetadataCompleteness(gt(beginTs));
 
         // Make sure catalog required version is filled in the executed update command.
         verify(mockRaftClient, atLeast(1)).run(commandCaptor.capture());
