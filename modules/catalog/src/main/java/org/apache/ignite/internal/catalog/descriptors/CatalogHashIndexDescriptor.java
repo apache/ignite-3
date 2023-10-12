@@ -28,6 +28,20 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
     private final List<String> columns;
 
     /**
+     * Constructs a hash index descriptor in write-only state.
+     *
+     * @param id Id of the index.
+     * @param name Name of the index.
+     * @param tableId Id of the table index belongs to.
+     * @param unique Unique flag.
+     * @param columns A list of indexed columns. Must not contains duplicates.
+     * @throws IllegalArgumentException If columns list contains duplicates.
+     */
+    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
+        this(id, name, tableId, unique, columns, true);
+    }
+
+    /**
      * Constructs a hash index descriptor.
      *
      * @param id Id of the index.

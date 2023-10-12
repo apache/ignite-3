@@ -111,7 +111,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
-import org.apache.ignite.internal.catalog.events.AvailableIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
@@ -121,6 +120,7 @@ import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -1914,7 +1914,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 fireEventFuture.completeExceptionally(exception);
             } else {
                 try {
-                    assertEquals(indexId, ((AvailableIndexEventParameters) parameters).indexId());
+                    assertEquals(indexId, ((MakeIndexAvailableEventParameters) parameters).indexId());
 
                     fireEventFuture.complete(null);
                 } catch (Throwable t) {

@@ -29,6 +29,26 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     private final List<CatalogIndexColumnDescriptor> columns;
 
     /**
+     * Constructs a sorted description in write-only state.
+     *
+     * @param id Id of the index.
+     * @param name Name of the index.
+     * @param tableId Id of the table index belongs to.
+     * @param unique Unique flag.
+     * @param columns A list of columns descriptors.
+     * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
+     */
+    public CatalogSortedIndexDescriptor(
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            List<CatalogIndexColumnDescriptor> columns
+    ) {
+        this(id, name, tableId, unique, columns, true);
+    }
+
+    /**
      * Constructs a sorted description.
      *
      * @param id Id of the index.

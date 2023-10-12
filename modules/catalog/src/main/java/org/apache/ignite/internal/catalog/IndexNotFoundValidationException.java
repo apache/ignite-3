@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 /**
- * This exception is thrown when index not found in the schema.
+ * This exception is thrown when an index is not found in the schema.
  *
  * <p>Example: This exception is used to properly handle IF EXISTS flag in ddl command handler.</p>
  */

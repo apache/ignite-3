@@ -20,13 +20,14 @@ package org.apache.ignite.internal.catalog.storage;
 import java.util.Arrays;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.events.AvailableIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 
-/** Describes making an index read-write. */
+/** Entry for {@link MakeIndexAvailableCommand}. */
 public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = -5686678143537999594L;
 
@@ -71,7 +72,7 @@ public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new AvailableIndexEventParameters(causalityToken, catalogVersion, descriptor.id());
+        return new MakeIndexAvailableEventParameters(causalityToken, catalogVersion, descriptor.id());
     }
 
     /** Returns schema name. */

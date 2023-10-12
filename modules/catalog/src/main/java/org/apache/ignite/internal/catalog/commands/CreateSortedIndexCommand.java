@@ -71,7 +71,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, indexColumnDescriptors, true
+                indexId, indexName, tableId, unique, indexColumnDescriptors
         );
     }
 

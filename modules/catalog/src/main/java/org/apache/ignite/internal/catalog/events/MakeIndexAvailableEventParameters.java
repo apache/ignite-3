@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.events;
 
 /** {@link CatalogEvent#INDEX_AVAILABLE} event parameters. */
-public class AvailableIndexEventParameters extends CatalogEventParameters {
+public class MakeIndexAvailableEventParameters extends CatalogEventParameters {
     private final int indexId;
 
     /**
@@ -28,7 +28,7 @@ public class AvailableIndexEventParameters extends CatalogEventParameters {
      * @param catalogVersion Catalog version.
      * @param indexId Index ID.
      */
-    public AvailableIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
+    public MakeIndexAvailableEventParameters(long causalityToken, int catalogVersion, int indexId) {
         super(causalityToken, catalogVersion);
 
         this.indexId = indexId;

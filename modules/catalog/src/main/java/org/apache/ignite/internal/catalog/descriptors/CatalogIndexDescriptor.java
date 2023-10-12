@@ -31,7 +31,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Unique constraint flag. */
     private final boolean unique;
 
-    /** Write only flag. {@code True} when index is building, {@code false} when the index is built. */
+    /** Write only flag. {@code True} when the index is being built, {@code false} when it is built. */
     private final boolean writeOnly;
 
     CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, boolean writeOnly) {
@@ -51,7 +51,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return unique;
     }
 
-    /** Returns the state of the index, {@code true} when index is building, {@code false} when the index is built. */
+    /** Returns the state of the index, {@code true} when the index is being built, {@code false} when it is built. */
     public boolean writeOnly() {
         return writeOnly;
     }

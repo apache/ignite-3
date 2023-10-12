@@ -81,7 +81,7 @@ public class MakeIndexAvailableCommandValidationTest extends AbstractCommandVali
     }
 
     @Test
-    void exceptionIsThrownIfIndexAlreadyAvailable() {
+    void exceptionIsThrownIfIndexIsAlreadyAvailable() {
         String indexName = "TEST";
 
         Catalog catalog = catalog(
@@ -100,7 +100,7 @@ public class MakeIndexAvailableCommandValidationTest extends AbstractCommandVali
         assertThrowsWithCause(
                 () -> command.get(catalog),
                 IndexAlreadyAvailableValidationException.class,
-                "Index already available 'PUBLIC.TEST'"
+                "Index is already available 'PUBLIC.TEST'"
         );
     }
 }
