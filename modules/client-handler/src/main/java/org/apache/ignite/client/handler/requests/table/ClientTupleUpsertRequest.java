@@ -48,9 +48,9 @@ public class ClientTupleUpsertRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var tuple = readTuple(in, table, false);
-
-            return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastSchemaVersion()));
+            return readTuple(in, table, false).thenCompose(tuple -> {
+                return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+            });
         });
     }
 }

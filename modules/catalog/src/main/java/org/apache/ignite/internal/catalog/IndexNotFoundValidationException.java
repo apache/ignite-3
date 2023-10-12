@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.catalog;
 
 /**
- * This exception is thrown when index that going to be deleted not found in the schema.
+ * This exception is thrown when an index is not found in the schema.
  *
- * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
+ * <p>Example: This exception is used to properly handle IF EXISTS flag in ddl command handler.</p>
  */
 public class IndexNotFoundValidationException extends CatalogValidationException {
     public IndexNotFoundValidationException(String message) {

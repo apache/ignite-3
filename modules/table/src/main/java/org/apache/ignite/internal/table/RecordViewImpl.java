@@ -506,7 +506,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         var partitioner = new PojoStreamerPartitionAwarenessProvider<>(
                 rowConverter.registry(),
                 tbl.partitions(),
-                marshaller(rowConverter.registry().lastSchemaVersion())
+                marshaller(rowConverter.registry().lastKnownSchemaVersion())
         );
 
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> {
