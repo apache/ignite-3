@@ -90,6 +90,7 @@ class IndexBuildTask {
         this.busyLock = busyLock;
         this.batchSize = batchSize;
         this.node = node;
+        // We do not intentionally make a copy of the list, we want to see changes in the passed list.
         this.listeners = listeners;
     }
 
@@ -153,7 +154,7 @@ class IndexBuildTask {
                             LOG.info("Index build completed: [{}]", createCommonIndexInfo());
 
                             for (IndexBuildCompletionListener listener : listeners) {
-                                listener.apply(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
+                                listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
                             }
 
                             return completedFuture(null);

@@ -52,12 +52,15 @@ import org.apache.ignite.network.ClusterNode;
  * <ul>
  *     <li>If the index has not yet been built ({@link IndexStorage#getNextRowIdToBuild()} {@code != null}) or is not in the process of
  *     being built, then an asynchronous task is added to build it.</li>
- *     <li>Index building task generates batches of {@link RowId} (by using {@link IndexStorage#getNextRowIdToBuild()}) and sends this batch
- *     to the primary replica (only the primary replica is expected to start building the index) so that the corresponding replication group
- *     builds indexes for the transferred batch.</li>
+ *     <li>Index building task generates batches of {@link RowId} (by using {@link IndexStorage#getNextRowIdToBuild()}) and sends these
+ *     batch to the primary replica (only the primary replica is expected to start building the index) so that the corresponding replication
+ *     group builds indexes for the transferred batch.</li>
  *     <li>Subsequent batches will be sent only after the current batch has been processed and until
  *     {@link IndexStorage#getNextRowIdToBuild()} {@code != null}.</li>
  * </ul>
+ *
+ * <p>Notes: It is expected that only the primary replica will run tasks to build the index, and if the replica loses primacy, it will stop
+ * the task to build the index, and this will be done by an external component.</p>
  */
 public class IndexBuilder implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuilder.class);

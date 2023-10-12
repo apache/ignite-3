@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
-/** Index build completion listener. */
+/** Index build completion listener, , will be called when a distributed build of an index for a specific partition completes. */
+@FunctionalInterface
 public interface IndexBuildCompletionListener {
     /** Handles the index build completion event. */
-    void apply(int indexId, int tableId, int partitionId);
+    void onBuildCompletion(int indexId, int tableId, int partitionId);
 }

@@ -40,7 +40,6 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link IndexBuilder} testing. */
@@ -53,12 +52,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final ReplicaService replicaService = mock(ReplicaService.class, invocation -> completedFuture(null));
 
-    private IndexBuilder indexBuilder;
-
-    @BeforeEach
-    void setUp() {
-        indexBuilder = new IndexBuilder("test", 1, replicaService);
-    }
+    private final IndexBuilder indexBuilder = new IndexBuilder("test", 1, replicaService);
 
     @AfterEach
     void tearDown() {
@@ -104,7 +98,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
         assertThat(awaitSecondInvokeForReplicaService, willCompleteSuccessfully());
 
-        assertFalse(listenCompletionIndexBuildingFuture.newIncompleteFuture().isDone());
+        assertFalse(listenCompletionIndexBuildingFuture.isDone());
 
         secondInvokeReplicaServiceFuture.complete(null);
 
