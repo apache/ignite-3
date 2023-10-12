@@ -51,6 +51,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -574,9 +575,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             verificationFutures[++cnt] = placementDriver.getPrimaryReplica(groupId, commitTimestamp)
                     .thenAccept(currentPrimaryReplica -> {
-                        if (currentPrimaryReplica == null
-                                || !expectedEnlistmentConsistencyToken.equals(currentPrimaryReplica.getStartTime().longValue())
-                                || commitTimestamp.after(currentPrimaryReplica.getExpirationTime())
+                        if (currentPrimaryReplica == null ||
+                                !expectedEnlistmentConsistencyToken.equals(currentPrimaryReplica.getStartTime().longValue())
                         ) {
                             throw new PrimaryReplicaExpiredException(
                                     groupId,
@@ -584,6 +584,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     commitTimestamp,
                                     currentPrimaryReplica
                             );
+                        } else {
+                            assert commitTimestamp.compareTo(currentPrimaryReplica.getExpirationTime()) <= 0 :
+                                    IgniteStringFormatter.format(
+                                            "Commit timestamp is greater than primary replica expiration timestamp:"
+                                                    + " [groupId = {}, commit timestamp = {}, primary replica expiration timestamp = {}]",
+                                            groupId, commitTimestamp, currentPrimaryReplica.getExpirationTime());
+
                         }
                     });
         }

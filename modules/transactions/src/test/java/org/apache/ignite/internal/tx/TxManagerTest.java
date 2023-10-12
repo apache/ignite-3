@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -363,10 +364,20 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testFinishExpiredWithExpiredPrimary() {
         // Primary with expirationTimestamp less than commitTimestamp is returned.
+        // It's impossible from the point of view of getPrimaryReplica to return expired lease,
+        // given test checks that an assertion exception will be thrown and wrapped with proper transaction public one.
         when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(
                 new TestReplicaMetaImpl("local", hybridTimestamp(1), hybridTimestamp(10))));
 
-        assertCommitThrowsTransactionExceptionWithPrimaryReplicaExpiredExceptionAsCause();
+        InternalTransaction committedTransaction = prepareTransaction();
+        Throwable throwable = assertThrowsWithCause(committedTransaction::commit, AssertionError.class);
+
+        assertSame(TransactionException.class, throwable.getClass());
+        // short cast is useful for better error code readability
+        //noinspection NumericCastThatLosesPrecision
+        assertEquals((short) TX_COMMIT_ERR, (short) ((TransactionException) throwable).code());
+
+        assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());
 
         assertRollbackSucceeds();
     }
