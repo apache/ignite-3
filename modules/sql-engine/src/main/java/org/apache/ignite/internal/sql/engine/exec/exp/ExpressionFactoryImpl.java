@@ -92,11 +92,6 @@ import org.jetbrains.annotations.Nullable;
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private static final int CACHE_SIZE = 1024;
 
-    // We use enums for placeholders because enum serialization/deserialization guarantees to preserve object's identity.
-    private enum Placeholder {
-        UNSPECIFIED_VALUE
-    }
-
     private static final ConcurrentMap<String, Scalar> SCALAR_CACHE = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
             .<String, Scalar>build()
@@ -764,16 +759,16 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private @Nullable RowT upperRow;
 
         /** Cached skip range flag. */
-        private Boolean skip;
+        private @Nullable Boolean skip;
 
         /** Row factory. */
         private final RowFactory<RowT> factory;
 
         /** Unspecified nodes positions for lower bound. */
-        private ImmutableBitSet unspecifiedLower;
+        private final ImmutableBitSet unspecifiedLower;
 
         /** Unspecified nodes positions for upper bound. */
-        private ImmutableBitSet unspecifiedUpper;
+        private final ImmutableBitSet unspecifiedUpper;
 
         private RangeConditionImpl(
                 List<RexNode> lower,
