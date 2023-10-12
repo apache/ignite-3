@@ -15,15 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.events;
 
-/**
- * This exception is thrown when an index is not found in the schema.
- *
- * <p>Example: This exception is used to properly handle IF EXISTS flag in ddl command handler.</p>
- */
-public class IndexNotFoundValidationException extends CatalogValidationException {
-    public IndexNotFoundValidationException(String message) {
-        super(message);
+/** {@link CatalogEvent#INDEX_AVAILABLE} event parameters. */
+public class MakeIndexAvailableEventParameters extends CatalogEventParameters {
+    private final int indexId;
+
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
+     * @param indexId Index ID.
+     */
+    public MakeIndexAvailableEventParameters(long causalityToken, int catalogVersion, int indexId) {
+        super(causalityToken, catalogVersion);
+
+        this.indexId = indexId;
+    }
+
+    /** Returns index ID. */
+    public int indexId() {
+        return indexId;
     }
 }

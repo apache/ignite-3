@@ -15,15 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.commands;
 
-/**
- * This exception is thrown when an index is not found in the schema.
- *
- * <p>Example: This exception is used to properly handle IF EXISTS flag in ddl command handler.</p>
- */
-public class IndexNotFoundValidationException extends CatalogValidationException {
-    public IndexNotFoundValidationException(String message) {
-        super(message);
-    }
+/** Builder for {@link MakeIndexAvailableCommand}. */
+public interface MakeIndexAvailableCommandBuilder extends AbstractIndexCommandBuilder<MakeIndexAvailableCommandBuilder> {
 }
