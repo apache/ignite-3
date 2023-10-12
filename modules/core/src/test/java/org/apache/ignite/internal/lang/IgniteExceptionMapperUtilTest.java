@@ -203,12 +203,5 @@ public class IgniteExceptionMapperUtilTest {
         public CustomNoMappingException() {
             super(INTERNAL_ERR, "Test internal exception [err=no mapping]");
         }
-
-        /**
-         * Creates a new instance of CustomNoMappingException with given code.
-         */
-        public CustomNoMappingException(int code) {
-            super(code, "Test internal exception [err=no mapping]");
-        }
     }
 }

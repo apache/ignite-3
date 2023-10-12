@@ -69,13 +69,6 @@ class SqlExceptionMapperUtilTest {
         private static final long serialVersionUID = 0L;
 
         /**
-         * Creates a new instance of CustomNoMappingException.
-         */
-        public CustomNoMappingException() {
-            super(INTERNAL_ERR, "Test internal exception [err=no mapping]");
-        }
-
-        /**
          * Creates a new instance of CustomNoMappingException with given code.
          */
         public CustomNoMappingException(int code) {

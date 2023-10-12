@@ -115,7 +115,6 @@ public class IgniteExceptionMapperUtil {
 
         // There are no exception mappings for the given exception. This case should be considered as internal error.
         return new IgniteException(INTERNAL_ERR, origin);
-
     }
 
     /**
