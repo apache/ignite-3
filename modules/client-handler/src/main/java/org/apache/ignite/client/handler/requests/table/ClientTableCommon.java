@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VAL
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -327,6 +328,7 @@ public class ClientTableCommon {
      * @param table    Table.
      * @return Schema descriptor.
      */
+    @WithSpan
     public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
         var schemaId = unpacker.unpackInt();
 
@@ -344,6 +346,7 @@ public class ClientTableCommon {
      *                             <li>the node is stopping.</li>
      *                         </ul>
      */
+    @WithSpan
     public static CompletableFuture<TableImpl> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
         int tableId = unpacker.unpackInt();
 
@@ -369,6 +372,7 @@ public class ClientTableCommon {
      * @param resources Resource registry.
      * @return Transaction, if present, or null.
      */
+    @WithSpan
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in, ClientMessagePacker out, ClientResourceRegistry resources) {
         if (in.tryUnpackNil()) {

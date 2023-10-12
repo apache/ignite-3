@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Comparator;
 import java.util.List;
@@ -157,13 +158,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new NamedThreadFactory("tx-async-cleanup", LOG));
     }
 
-    @WithSpan
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker) {
         return begin(timestampTracker, false);
     }
 
-    @WithSpan
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
         return beginTx(timestampTracker, readOnly, false);
@@ -174,7 +173,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return beginTx(timestampTracker, readOnly, true);
     }
 
-    private InternalTransaction beginTx(HybridTimestampTracker timestampTracker, boolean readOnly, boolean implicit) {
+    @WithSpan
+    private InternalTransaction beginTx(
+            @SpanAttribute("timestampTracker") HybridTimestampTracker timestampTracker,
+            @SpanAttribute("readOnly") boolean readOnly,
+            @SpanAttribute("implicit") boolean implicit
+    ) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));

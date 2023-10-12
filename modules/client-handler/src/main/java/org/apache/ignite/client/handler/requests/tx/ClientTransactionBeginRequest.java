@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
@@ -43,6 +44,7 @@ public class ClientTransactionBeginRequest {
      * @param metrics      Metrics.
      * @return Future.
      */
+    @WithSpan
     public static @Nullable CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,

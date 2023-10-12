@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -86,8 +88,9 @@ public class HeapLockManager implements LockManager {
                 : null;
     }
 
+    @WithSpan
     @Override
-    public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+    public CompletableFuture<Lock> acquire(@SpanAttribute("id") UUID txId, LockKey lockKey, @SpanAttribute("mode") LockMode lockMode) {
         while (true) {
             LockState state = lockState(lockKey);
 
@@ -103,8 +106,9 @@ public class HeapLockManager implements LockManager {
         }
     }
 
+    @WithSpan
     @Override
-    public void release(Lock lock) {
+    public void release(@SpanAttribute("id") Lock lock) {
         LockState state = lockState(lock.lockKey());
 
         if (state.tryRelease(lock.txId())) {
@@ -112,8 +116,9 @@ public class HeapLockManager implements LockManager {
         }
     }
 
+    @WithSpan
     @Override
-    public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
+    public void release(@SpanAttribute("id") UUID txId, LockKey lockKey, @SpanAttribute("mode") LockMode lockMode) {
         LockState state = lockState(lockKey);
 
         if (state.tryRelease(txId, lockMode)) {

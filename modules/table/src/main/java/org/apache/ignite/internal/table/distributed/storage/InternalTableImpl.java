@@ -32,6 +32,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRI
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
+import io.opentelemetry.context.Context;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
@@ -504,6 +505,7 @@ public class InternalTableImpl implements InternalTable {
      * @param noWriteChecker Used to handle operations producing no updates.
      * @return The future.
      */
+    @WithSpan
     private <R> CompletableFuture<R> trackingInvoke(
             InternalTransaction tx,
             int partId,
@@ -1665,6 +1667,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @return The enlist future (then will a leader become known).
      */
+    @WithSpan
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
         tx.assignCommitPartition(tablePartitionId);
@@ -1678,7 +1681,7 @@ public class InternalTableImpl implements InternalTable {
                 SECONDS
         );
 
-        return primaryReplicaFuture.handle((primaryReplica, e) -> {
+        return primaryReplicaFuture.handle(Context.current().wrapFunction((primaryReplica, e) -> {
             if (e != null) {
                 throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
                         + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
@@ -1694,7 +1697,7 @@ public class InternalTableImpl implements InternalTable {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
             return tx.enlist(partGroupId, new IgniteBiTuple<>(node, primaryReplica.getStartTime().longValue()));
-        });
+        }));
     }
 
     /**

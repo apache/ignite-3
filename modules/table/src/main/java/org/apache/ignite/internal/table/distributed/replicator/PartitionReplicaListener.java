@@ -1453,6 +1453,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
+    @WithSpan
     private void releaseTxLocks(UUID txId) {
         lockManager.locks(txId).forEachRemaining(lockManager::release);
     }
@@ -1466,6 +1467,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param <T> A type of the value returned by action.
      * @return A future object representing the result of the given action.
      */
+    @WithSpan
     private <T> CompletableFuture<T> resolveRowByPk(
             BinaryTuple pk,
             UUID txId,
@@ -1529,6 +1531,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param op Operation closure.
      * @return A future object representing the result of the given operation.
      */
+    @WithSpan
     private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
         if (full) {
             return op.get().whenComplete((v, th) -> {
@@ -1593,6 +1596,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param ts A timestamp regarding which we need to resolve the given row.
      * @return Result of the given action.
      */
+    @WithSpan
     private CompletableFuture<BinaryRow> resolveRowByPkForReadOnly(BinaryTuple pk, HybridTimestamp ts) {
         // Indexes store values associated with different versions of one entry.
         // It's possible to have multiple entries for a particular search key
@@ -2035,6 +2039,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cmd Update command.
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
+    @WithSpan
     private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(UpdateCommand cmd) {
         if (!cmd.full()) {
             CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
@@ -2163,6 +2168,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Read only single entry request.
      * @return Result future.
      */
+    @WithSpan
     private CompletableFuture<BinaryRow> processReadOnlyDirectSingleEntryAction(ReadOnlyDirectSingleRowReplicaRequest request) {
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
         HybridTimestamp readTimestamp = hybridClock.now();
@@ -2182,6 +2188,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Listener response.
      */
+    @WithSpan
     private CompletableFuture<ReplicaResult> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
         BinaryRow searchRow = request.binaryRow();
@@ -2411,6 +2418,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction id.
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
+    @WithSpan
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForUpdate(BinaryRow binaryRow, RowId rowId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX)
                 .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.X))
@@ -2425,6 +2433,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId Transaction id.
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
+    @WithSpan
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow binaryRow, RowId rowId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
                 .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
@@ -2729,6 +2738,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param rowId Id of a row that we want to clean up.
      * @param meta Resolved transaction state.
      */
+    @WithSpan
     private void scheduleTransactionRowAsyncCleanup(UUID txId, RowId rowId, TransactionMeta meta) {
         TxState txState = meta.txState();
 
@@ -2875,6 +2885,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future that will complete with the constructed {@link UpdateCommand} object.
      */
+    @WithSpan
     private CompletableFuture<UpdateCommand> validateAtTimestampAndBuildUpdateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,

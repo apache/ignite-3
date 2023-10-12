@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -137,6 +138,7 @@ public class TransactionStateResolver {
      * @param timestamp Timestamp.
      * @return Future with the transaction state meta as a result.
      */
+    @WithSpan
     public CompletableFuture<TransactionMeta> resolveTxState(
             UUID txId,
             ReplicationGroupId commitGrpId,
@@ -172,6 +174,7 @@ public class TransactionStateResolver {
      * @param timestamp Timestamp to pass to target node.
      * @param txMetaFuture Tx meta future to complete with the result.
      */
+    @WithSpan
     private void resolveDistributiveTxState(
             UUID txId,
             @Nullable TxStateMeta localMeta,

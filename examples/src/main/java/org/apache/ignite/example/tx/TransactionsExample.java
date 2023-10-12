@@ -75,23 +75,7 @@ public class TransactionsExample {
                             + "lastName      VARCHAR,"
                             + "balance       DOUBLE)"
             );
-
-            stmt.executeUpdate(
-                    "INSERT INTO accounts(accountNumber, firstName, lastName, balance) values (1, '1', '1', 1.0),\n"
-                        + " (1026, '1', '1', 1.0)"
-            );
-        } finally {
-            System.out.println("\nDropping the table...");
-
-            try (
-                    Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                    Statement stmt = conn.createStatement()
-            ) {
-                stmt.executeUpdate("DROP TABLE accounts");
-            }
         }
-
-        System.exit(0);
 
         //--------------------------------------------------------------------------------------
         //
@@ -102,7 +86,7 @@ public class TransactionsExample {
         System.out.println("\nConnecting to server...");
 
         try (IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:10801")
+                .addresses("127.0.0.1:10800")
                 .build()
         ) {
             //--------------------------------------------------------------------------------------
