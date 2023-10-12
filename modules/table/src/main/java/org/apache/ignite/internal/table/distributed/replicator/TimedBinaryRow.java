@@ -15,29 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.table.distributed.replicator;
 
-import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * A wrapper interface for non-comparable {@link NativeTypes native types} that implements {@link Comparable}.
- *
- * @param <T> a native type wrapper.
+ * Row with time.
  */
-public interface NativeTypeWrapper<T extends NativeTypeWrapper<T>> extends Comparable<T> {
+class TimedBinaryRow {
 
-    /** Returns a value of a native type. */
-    Object get();
+    private final @Nullable BinaryRow binaryRow;
 
-    /**
-     * If the given value is an instance of a native type wrapper, this method returns a value of a native type.
-     * Otherwise it returns an input value.
-     */
-    static Object unwrap(Object value) {
-        if (value instanceof NativeTypeWrapper) {
-            return ((NativeTypeWrapper<?>) value).get();
-        } else {
-            return value;
-        }
+    private final @Nullable HybridTimestamp commitTimestamp;
+
+    TimedBinaryRow(@Nullable BinaryRow binaryRow, @Nullable HybridTimestamp commitTimestamp) {
+        this.binaryRow = binaryRow;
+        this.commitTimestamp = commitTimestamp;
+    }
+
+    TimedBinaryRow(@Nullable BinaryRow binaryRow) {
+        this(binaryRow, null);
+    }
+
+    public @Nullable BinaryRow binaryRow() {
+        return binaryRow;
+    }
+
+    public @Nullable HybridTimestamp commitTimestamp() {
+        return commitTimestamp;
     }
 }

@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.type;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.UUID;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -103,26 +103,19 @@ public class NativeTypeTest {
     public void validateTemporalTypesLength() {
         assertEquals(3, DATE.sizeInBytes());
 
-        assertEquals(4, time().sizeInBytes());
         assertEquals(4, time(0).sizeInBytes());
         assertEquals(4, time(3).sizeInBytes());
         assertEquals(6, time(4).sizeInBytes());
         assertEquals(6, time(9).sizeInBytes());
 
-        assertEquals(9, datetime().sizeInBytes());
         assertEquals(7, datetime(0).sizeInBytes());
         assertEquals(7, datetime(3).sizeInBytes());
         assertEquals(9, datetime(4).sizeInBytes());
         assertEquals(9, datetime(9).sizeInBytes());
 
-        assertEquals(12, timestamp().sizeInBytes());
         assertEquals(8, timestamp(0).sizeInBytes());
         assertEquals(12, timestamp(1).sizeInBytes());
         assertEquals(12, timestamp(9).sizeInBytes());
-
-        assertEquals(0, datetime().compareTo(datetime(6)));
-        assertEquals(0, time().compareTo(time(0)));
-        assertEquals(0, timestamp().compareTo(timestamp(6)));
     }
 
     /**

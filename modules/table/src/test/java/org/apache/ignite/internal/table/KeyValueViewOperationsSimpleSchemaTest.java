@@ -33,13 +33,13 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.table.KeyValueView;
@@ -482,11 +482,12 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
                 NativeTypes.numberOf(20),
                 NativeTypes.decimalOf(25, 5),
                 NativeTypes.bitmaskOf(22),
-                NativeTypes.time(),
-                NativeTypes.datetime(),
-                NativeTypes.timestamp(),
+                NativeTypes.time(0),
+                NativeTypes.datetime(6),
+                NativeTypes.timestamp(6),
                 NativeTypes.BYTES,
-                NativeTypes.STRING);
+                NativeTypes.STRING
+        );
 
         // Validate all types are tested.
         assertEquals(Set.of(NativeTypeSpec.values()),
@@ -497,7 +498,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
 
             assertFalse(type.mismatch(NativeTypes.fromObject(val)));
 
-            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(NativeTypes.fromObject(val),
+            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(type,
                     (Class<Object>) val.getClass(), true);
 
             kvView.put(null, key, val);

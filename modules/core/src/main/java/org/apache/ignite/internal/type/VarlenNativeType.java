@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.type;
 
 import org.apache.ignite.internal.tostring.S;
 
@@ -32,7 +32,7 @@ public class VarlenNativeType extends NativeType {
      * @param typeSpec Type spec.
      * @param len Type length.
      */
-    protected VarlenNativeType(NativeTypeSpec typeSpec, int len) {
+    VarlenNativeType(NativeTypeSpec typeSpec, int len) {
         super(typeSpec);
 
         this.len = len;
