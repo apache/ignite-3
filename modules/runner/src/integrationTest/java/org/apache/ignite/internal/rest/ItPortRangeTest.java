@@ -94,8 +94,8 @@ public class ItPortRangeTest extends IgniteIntegrationTest {
                             .workDir(workDir)
                             .name(testNodeName(testInfo, id))
                             .networkPort(3344 + id)
-                            .httpPort(10300)
-                            .httpsPort(10400)
+                            .httpPort(10300 + id)
+                            .httpsPort(10400 + id)
                             .sslEnabled(sslEnabled)
                             .dualProtocol(dualProtocol)
                             .build();

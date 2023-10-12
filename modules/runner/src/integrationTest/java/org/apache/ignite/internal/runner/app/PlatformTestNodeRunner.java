@@ -120,7 +120,8 @@ public class PlatformTestNodeRunner {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10300\n"
                     + "}",
 
             NODE_NAME2, "{\n"
@@ -131,7 +132,8 @@ public class PlatformTestNodeRunner {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10301\n"
                     + "}",
 
             NODE_NAME3, "{\n"
@@ -152,7 +154,8 @@ public class PlatformTestNodeRunner {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10303\n"
                     + "}",
 
             NODE_NAME4, "{\n"
@@ -178,7 +181,8 @@ public class PlatformTestNodeRunner {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10304\n"
                     + "}"
     );
 
