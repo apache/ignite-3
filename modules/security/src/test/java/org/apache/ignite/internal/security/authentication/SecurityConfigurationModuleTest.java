@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.configuration;
+package org.apache.ignite.internal.security.authentication;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,8 +25,10 @@ import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderConfigurationSchema;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidatorImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 class SecurityConfigurationModuleTest {
@@ -39,7 +41,7 @@ class SecurityConfigurationModuleTest {
 
     @Test
     void hasConfigurationRoots() {
-        assertThat(module.rootKeys(), contains(SecurityConfiguration.KEY));
+        assertThat(module.rootKeys(), Matchers.contains(SecurityConfiguration.KEY));
     }
 
     @Test

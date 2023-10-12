@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication;
+package org.apache.ignite.internal.security.authentication.basic;
 
+import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
+import org.apache.ignite.internal.security.authentication.Authenticator;
+import org.apache.ignite.internal.security.authentication.UserDetails;
+import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 
 /** Implementation of basic authenticator. */
-class BasicAuthenticator implements Authenticator {
+public class BasicAuthenticator implements Authenticator {
     private final String username;
 
     private final String password;
 
-    BasicAuthenticator(String username, String password) {
+    public BasicAuthenticator(String username, String password) {
         this.username = username;
         this.password = password;
     }

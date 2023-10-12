@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.configuration;
+package org.apache.ignite.internal.security.authentication.basic;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,7 +23,7 @@ import java.lang.reflect.Field;
 import java.util.Arrays;
 import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.validation.NotBlank;
-import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderConfigurationSchema;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.junit.jupiter.api.Test;
 
 class BasicAuthenticationProviderConfigurationSchemaTest {

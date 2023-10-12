@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.configuration;
+package org.apache.ignite.internal.security.authentication;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
@@ -25,8 +25,9 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.security.authentication.configuration.BasicAuthenticationProviderConfigurationSchema;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidatorImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 
 /**
  * {@link ConfigurationModule} for cluster configuration provided by ignite-rest.

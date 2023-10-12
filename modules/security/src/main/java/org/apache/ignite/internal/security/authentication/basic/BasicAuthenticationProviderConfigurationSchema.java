@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication.configuration;
+package org.apache.ignite.internal.security.authentication.basic;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.NotBlank;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema;
 
 /** Basic authentication configuration. */
 @PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)

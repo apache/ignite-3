@@ -15,11 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication;
+package org.apache.ignite.internal.security.authentication.basic;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.internal.security.authentication.AnonymousRequest;
+import org.apache.ignite.internal.security.authentication.UserDetails;
+import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticator;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.junit.jupiter.api.Test;
