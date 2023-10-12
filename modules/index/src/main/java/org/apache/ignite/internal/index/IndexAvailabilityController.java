@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -36,17 +37,20 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -58,14 +62,14 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** No doc. */
 // TODO: IGNITE-19276 Документация, тесты и реализация
-public class IndexAvailabilityController implements IgniteComponent {
+public class IndexAvailabilityController implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityController.class);
 
     private static final String START_BUILD_INDEX_KEY_PREFIX = "startBuildIndex";
 
     private static final String PARTITION_BUILD_INDEX_KEY_PREFIX = "partitionBuildIndex";
 
-    private final CatalogService catalogService;
+    private final CatalogManager catalogManager;
 
     private final MetaStorageManager metaStorageManager;
 
@@ -74,18 +78,15 @@ public class IndexAvailabilityController implements IgniteComponent {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Constructor. */
-    public IndexAvailabilityController(CatalogService catalogService, MetaStorageManager metaStorageManager) {
-        this.catalogService = catalogService;
+    public IndexAvailabilityController(CatalogManager catalogManager, MetaStorageManager metaStorageManager) {
+        this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;
-    }
 
-    @Override
-    public void start() {
         addListeners();
     }
 
     @Override
-    public void stop() throws Exception {
+    public void close() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -94,7 +95,7 @@ public class IndexAvailabilityController implements IgniteComponent {
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+        catalogManager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
@@ -102,12 +103,20 @@ public class IndexAvailabilityController implements IgniteComponent {
             return onIndexCreate((CreateIndexEventParameters) parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
+        catalogManager.listen(CatalogEvent.INDEX_DROP, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
 
             return onIndexDrop((DropIndexEventParameters) parameters).thenApply(unused -> false);
+        });
+
+        catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
+            if (exception != null) {
+                return failedFuture(exception);
+            }
+
+            return onIndexAvailable((MakeIndexAvailableEventParameters) parameters).thenApply(unused -> false);
         });
 
         metaStorageManager.registerPrefixWatch(ByteArray.fromString(PARTITION_BUILD_INDEX_KEY_PREFIX), new WatchListener() {
@@ -161,6 +170,14 @@ public class IndexAvailabilityController implements IgniteComponent {
         });
     }
 
+    private CompletableFuture<?> onIndexAvailable(MakeIndexAvailableEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            ByteArray startBuildIndexKey = startBuildIndexKey(parameters.indexId());
+
+            return metaStorageManager.invoke(exists(startBuildIndexKey), remove(startBuildIndexKey), noop());
+        });
+    }
+
     private CompletableFuture<?> onUpdatePartitionBuildIndexKey(WatchEvent event) {
         return inBusyLockAsync(busyLock, () -> {
             if (!event.single()) {
@@ -188,26 +205,37 @@ public class IndexAvailabilityController implements IgniteComponent {
                 return completedFuture(null);
             }
 
-            // TODO: IGNITE-19276 перед этим нужно будет обновить каталог
-            // TODO: IGNITE-19276 есть вероятность что-то проебать на делете последней партиции
-            return metaStorageManager.invoke(exists(startBuildIndexKey), remove(startBuildIndexKey), noop());
+            // We can use the latest version of the catalog since we are on the metastore thread.
+            CatalogIndexDescriptor indexDescriptor = getIndexDescriptorStrict(indexId, catalogManager.latestCatalogVersion());
+
+            // We will not wait for the command to be executed, since we will then find ourselves in a dead lock since we will not be able
+            // to free the metastore thread.
+            catalogManager.execute(buildMakeIndexAvailableCommand(indexDescriptor));
+
+            return completedFuture(null);
         });
     }
 
     private int getPartitionCountFromCatalog(int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
+        CatalogIndexDescriptor indexDescriptor = getIndexDescriptorStrict(indexId, catalogVersion);
 
-        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
-
-        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
+        CatalogTableDescriptor tableDescriptor = catalogManager.table(indexDescriptor.tableId(), catalogVersion);
 
         assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + catalogVersion;
 
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), catalogVersion);
 
         assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
 
         return zoneDescriptor.partitions();
+    }
+
+    private CatalogIndexDescriptor getIndexDescriptorStrict(int indexId, int catalogVersion) {
+        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexId, catalogVersion);
+
+        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
+
+        return indexDescriptor;
     }
 
     private boolean isRemainingPartitionBuildIndexKeys(int indexId, long metastoreRevision) {
@@ -254,5 +282,10 @@ public class IndexAvailabilityController implements IgniteComponent {
         int indexIdToIndex = key.indexOf('.', indexIdFromIndex);
 
         return Integer.parseInt(key.substring(indexIdFromIndex, indexIdToIndex));
+    }
+
+    private static CatalogCommand buildMakeIndexAvailableCommand(CatalogIndexDescriptor indexDescriptor) {
+        // TODO: IGNITE-19276 туду на тикет что мы сможем схему достать из каталожной сущности
+        return MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexDescriptor.name()).build();
     }
 }

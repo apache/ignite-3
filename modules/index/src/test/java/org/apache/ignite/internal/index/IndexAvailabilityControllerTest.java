@@ -27,6 +27,7 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -61,6 +63,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     private static final String COLUMN_NAME = "test-column";
 
     private static final String INDEX_NAME = "test-index";
+
     private final HybridClock clock = new HybridClockImpl();
 
     private int partitions;
@@ -83,7 +86,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager);
 
-        Stream.of(vaultManager, metaStorageManager, catalogManager, indexAvailabilityController).forEach(IgniteComponent::start);
+        Stream.of(vaultManager, metaStorageManager, catalogManager).forEach(IgniteComponent::start);
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
@@ -107,7 +110,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.stopAll(indexAvailabilityController, catalogManager, metaStorageManager, vaultManager);
+        IgniteUtils.closeAll(
+                indexAvailabilityController == null ? null : indexAvailabilityController::close,
+                catalogManager == null ? null : catalogManager::stop,
+                metaStorageManager == null ? null : metaStorageManager::stop,
+                vaultManager == null ? null : vaultManager::stop
+        );
     }
 
     @Test
@@ -150,7 +158,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             assertPartitionBuildIndexKeyExists(indexId, partitionId);
         }
 
-        // TODO: IGNITE-19276 проверить что индекс в каталоге !НЕ! поменял состоянеие
+        assertTrue(indexDescriptor(INDEX_NAME).writeOnly());
     }
 
     @Test
@@ -174,7 +182,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
         }
 
-        // TODO: IGNITE-19276 проверить что индекс в каталоге поменял состоянеие
+        assertFalse(indexDescriptor(INDEX_NAME).writeOnly());
     }
 
     @Test
@@ -202,7 +210,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testMetastoreKeysAfterFinishBuildingOnePartitionAndDropIndexAnd() throws Exception {
+    void testMetastoreKeysAfterFinishBuildingOnePartitionAndDropIndex() throws Exception {
         createIndex(INDEX_NAME);
 
         int indexId = indexId(INDEX_NAME);
@@ -284,6 +292,10 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private int indexId(String indexName) {
         return TableTestUtils.getIndexIdStrict(catalogManager, indexName, clock.nowLong());
+    }
+
+    private CatalogIndexDescriptor indexDescriptor(String indexName) {
+        return TableTestUtils.getIndexStrict(catalogManager, indexName, clock.nowLong());
     }
 
     private void changePartitionCountInCatalog(int newPartitions) {
