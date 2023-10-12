@@ -208,7 +208,7 @@ public class CatalogSchemaManager implements IgniteComponent {
     private SchemaDescriptor loadSchemaDescriptor(int tblId, int ver) {
         Entry entry = metastorageMgr.getLocally(schemaWithVerHistKey(tblId, ver), Long.MAX_VALUE);
 
-        assert entry != null : "Table " + tblId + ", version " + ver;
+        assert !entry.tombstone() : "Table " + tblId + ", version " + ver;
 
         byte[] value = entry.value();
 
