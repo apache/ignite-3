@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.security.authentication;
 
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
 import org.jetbrains.annotations.Nullable;
 
 /** Stub of {@link ConfigurationNotificationEvent} for tests. */

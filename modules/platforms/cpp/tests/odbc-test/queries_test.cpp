@@ -66,9 +66,6 @@ struct queries_test : public odbc_suite {
         if (!SQL_SUCCEEDED(ret))
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
         ret = SQLFetch(m_statement);
 
         if (!SQL_SUCCEEDED(ret))
@@ -1182,4 +1179,26 @@ TEST_F(queries_test, close_after_empty_update) {
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+}
+
+TEST_F(queries_test, max_min_select) {
+    odbc_connect(get_basic_connection_string());
+
+    auto ret = exec_query("DROP TABLE IF EXISTS PUBLIC.MIN_MAX_SELECT");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = exec_query("CREATE TABLE PUBLIC.MIN_MAX_SELECT(ID INT PRIMARY KEY, CAPACITY INT NOT NULL)");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = exec_query("INSERT INTO PUBLIC.MIN_MAX_SELECT(ID, CAPACITY) VALUES(1, 1)");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = exec_query("SELECT MIN(CAPACITY), MAX(CAPACITY) FROM PUBLIC.MIN_MAX_SELECT");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = SQLFetch(m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = SQLFreeStmt(m_statement, SQL_CLOSE);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 }

@@ -21,24 +21,29 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.configuration.AuthenticationChange;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.AuthenticationView;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationChange;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.security.AuthenticationException;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 
 @ExtendWith(ConfigurationExtension.class)
 class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
-
     private final AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
 
     @InjectConfiguration
@@ -65,6 +70,10 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         UsernamePasswordRequest validCredentials = new UsernamePasswordRequest("admin", "password");
 
         assertEquals("admin", manager.authenticate(validCredentials).username());
+
+        // and failed authentication with invalid credentials
+        assertThrows(InvalidCredentialsException.class,
+                () -> manager.authenticate(new UsernamePasswordRequest("admin", "invalid-password")));
     }
 
     @Test
@@ -79,7 +88,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // authentication is still disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest();
+        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
 
         assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
     }
@@ -120,7 +129,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // authentication is disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest();
+        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
 
         assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
     }
@@ -158,7 +167,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         // then
         // authentication is disabled
-        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest();
+        UsernamePasswordRequest emptyCredentials = new UsernamePasswordRequest("", "");
 
         assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
     }
@@ -198,13 +207,40 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         manager.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, adminNewPasswordAuthView)).join();
 
-        assertThrows(AuthenticationException.class, () -> manager.authenticate(adminPasswordCredentials));
+        assertThrows(InvalidCredentialsException.class, () -> manager.authenticate(adminPasswordCredentials));
 
         // then
         // successful authentication with the new password
         UsernamePasswordRequest adminNewPasswordCredentials = new UsernamePasswordRequest("admin", "new-password");
 
         assertEquals("admin", manager.authenticate(adminNewPasswordCredentials).username());
+    }
+
+    @Test
+    public void exceptionsDuringAuthentication() {
+        UsernamePasswordRequest credentials = new UsernamePasswordRequest("admin", "password");
+
+        Authenticator authenticator1 = mock(Authenticator.class);
+        doThrow(new InvalidCredentialsException("Invalid credentials")).when(authenticator1).authenticate(credentials);
+
+        Authenticator authenticator2 = mock(Authenticator.class);
+        doThrow(new UnsupportedAuthenticationTypeException("Unsupported type")).when(authenticator2).authenticate(credentials);
+
+        Authenticator authenticator3 = mock(Authenticator.class);
+        doThrow(new RuntimeException("Test exception")).when(authenticator3).authenticate(credentials);
+
+        Authenticator authenticator4 = mock(Authenticator.class);
+        doReturn(new UserDetails("admin")).when(authenticator4).authenticate(credentials);
+
+        manager.authEnabled(true);
+        manager.authenticators(List.of(authenticator1, authenticator2, authenticator3, authenticator4));
+
+        assertEquals("admin", manager.authenticate(credentials).username());
+
+        verify(authenticator1).authenticate(credentials);
+        verify(authenticator2).authenticate(credentials);
+        verify(authenticator3).authenticate(credentials);
+        verify(authenticator4).authenticate(credentials);
     }
 
     private static AuthenticationConfiguration mutateConfiguration(AuthenticationConfiguration configuration,
