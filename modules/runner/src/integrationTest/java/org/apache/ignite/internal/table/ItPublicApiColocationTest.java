@@ -202,7 +202,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             @Override
             public void onNext(BinaryRow item) {
                 SchemaRegistry registry = tbl.schemaView();
-                res.add(TableRow.tuple(registry.resolve(item, registry.lastSchemaVersion())));
+                res.add(TableRow.tuple(registry.resolve(item, registry.lastKnownSchemaVersion())));
             }
 
             @Override

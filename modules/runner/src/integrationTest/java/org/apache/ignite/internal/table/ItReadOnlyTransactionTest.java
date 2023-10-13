@@ -91,7 +91,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             Ignite ignite = CLUSTER_NODES.get(i);
 
             InternalTable internalTable = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
-            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().schema();
+            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().lastKnownSchema();
             HybridClock clock = ((IgniteImpl) ignite).clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
@@ -141,7 +141,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             Ignite ignite = CLUSTER_NODES.get(i);
 
             InternalTable internalTable = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
-            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().schema();
+            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().lastKnownSchema();
             HybridClock clock = ((IgniteImpl) ignite).clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();

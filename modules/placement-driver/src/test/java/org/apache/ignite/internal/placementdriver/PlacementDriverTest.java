@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
@@ -26,11 +27,13 @@ import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEve
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -372,6 +375,39 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertEquals(LEASEHOLDER_1, retrievedPrimaryReplicaTimeLtLeaseExpiration.get().getLeaseholder());
         assertEquals(LEASE_FROM_1_TO_15_000.getStartTime(), retrievedPrimaryReplicaTimeLtLeaseExpiration.get().getStartTime());
         assertEquals(LEASE_FROM_1_TO_15_000.getExpirationTime(), retrievedPrimaryReplicaTimeLtLeaseExpiration.get().getExpirationTime());
+    }
+
+    /**
+     * Test steps.
+     * <ol>
+     *     <li>Await primary replica for time 10.</li>
+     *     <li>Publish primary replica for an interval [1, 15].</li>
+     *     <li>Assert that primary await future will succeed fast.</li>
+     *     <li>Assert that retrieved primary replica for timestamp less than primaryReplica.expirationTimestamp - CLOCK_SKEW
+     *     will return null./li>
+     * </ol>
+     */
+    @Test
+    public void testGetPrimaryReplicaWithLessThanClockSkewDiff() {
+        // Await primary replica for time 10.
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+                AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
+        assertFalse(primaryReplicaFuture.isDone());
+
+        // Publish primary replica for an interval [1, 15].
+        publishLease(LEASE_FROM_1_TO_15_000);
+
+        // Assert that primary await future will succeed fast.
+        assertThat(primaryReplicaFuture, willSucceedFast());
+
+        // Assert that retrieved primary replica for timestamp less than primaryReplica.expirationTimestamp - CLOCK_SKEW will return null.
+        assertThat(
+                placementDriver.getPrimaryReplica(
+                        GROUP_1,
+                        LEASE_FROM_1_TO_15_000.getExpirationTime().addPhysicalTime(-CLOCK_SKEW).addPhysicalTime(1L)
+                ),
+                willBe(nullValue())
+        );
     }
 
     @Test

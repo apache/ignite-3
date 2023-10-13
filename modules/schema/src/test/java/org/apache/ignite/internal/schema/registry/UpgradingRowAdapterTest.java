@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.DATE;
@@ -148,8 +146,7 @@ public class UpgradingRowAdapterTest {
         BinaryRow row = serializeValuesToRow(schema, values);
 
         var schemaRegistry = new SchemaRegistryImpl(
-                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
-                () -> completedFuture(INITIAL_TABLE_VERSION),
+                v -> v == 1 ? schema : schema2,
                 schema
         );
 
@@ -160,8 +157,7 @@ public class UpgradingRowAdapterTest {
         values.add(addedColumnIndex, null);
 
         var schema2Registry = new SchemaRegistryImpl(
-                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
-                () -> completedFuture(schema2.version()),
+                v -> v == 1 ? schema : schema2,
                 schema2
         );
 
@@ -169,7 +165,7 @@ public class UpgradingRowAdapterTest {
     }
 
     private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, BinaryRow binaryRow) {
-        Row row = schemaRegistry.resolve(binaryRow, schemaRegistry.lastSchemaVersion());
+        Row row = schemaRegistry.resolve(binaryRow, schemaRegistry.lastKnownSchemaVersion());
 
         SchemaDescriptor schema = row.schema();
 

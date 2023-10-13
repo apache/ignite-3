@@ -235,22 +235,20 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        HybridTimestamp timestampWithClockSkew = timestamp.addPhysicalTime(CLOCK_SKEW);
-
         return inBusyLockAsync(busyLock, () -> {
             Lease lease = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-            if (lease.isAccepted() && lease.getExpirationTime().after(timestampWithClockSkew)) {
+            if (lease.isAccepted() && lease.getExpirationTime().after(timestamp)) {
                 return completedFuture(lease);
             }
 
             return msManager
                     .clusterTime()
-                    .waitFor(timestampWithClockSkew)
+                    .waitFor(timestamp.addPhysicalTime(CLOCK_SKEW))
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
                         Lease lease0 = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-                        if (lease0.isAccepted() && lease0.getExpirationTime().after(timestampWithClockSkew)) {
+                        if (lease0.isAccepted() && lease0.getExpirationTime().after(timestamp)) {
                             return lease0;
                         } else {
                             return null;

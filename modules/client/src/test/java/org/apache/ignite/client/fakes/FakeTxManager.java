@@ -19,7 +19,6 @@ package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -170,7 +169,7 @@ public class FakeTxManager implements TxManager {
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
         return null;

@@ -36,9 +36,9 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     /**
      * Check add a new column to table schema.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17931")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20628")
     @Test
-    public void testDropColumn() throws Exception {
+    public void testDropColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -82,7 +82,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check drop column from table schema.
      */
     @Test
-    public void testAddNewColumn() throws Exception {
+    public void testAddNewColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -125,7 +125,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20315")
-    public void testRenameColumn() throws Exception {
+    public void testRenameColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -175,9 +175,9 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     /**
      * Check merge table schema changes.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17931")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20628")
     @Test
-    public void testMergeChangesAddDropAdd() throws Exception {
+    public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -258,8 +258,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733") // get hangs on registry.waitLatestSchema() after column update.
-    public void testMergeChangesColumnDefault() throws Exception {
+    public void testMergeChangesColumnDefault() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -304,7 +303,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check an operation failed if an unknown column found.
      */
     @Test
-    public void testInsertRowOfDifferentSchema() throws Exception {
+    public void testInsertRowOfDifferentSchema() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
