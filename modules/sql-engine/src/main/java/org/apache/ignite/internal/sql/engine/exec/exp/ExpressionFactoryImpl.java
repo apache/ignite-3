@@ -897,6 +897,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         /** Skip this range. */
         public boolean skip() {
+            if (unspecifiedLower && unspecifiedUpper) {
+                return true;
+            }
+
             if (skip == null) {
                 // Precalculate skip flag.
                 lower();
@@ -907,7 +911,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 }
             }
 
-            return skip || (unspecifiedLower && unspecifiedUpper);
+            return skip;
         }
     }
 

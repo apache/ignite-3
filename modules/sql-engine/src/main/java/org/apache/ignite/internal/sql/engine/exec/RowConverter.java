@@ -30,7 +30,6 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 
-
 /**
  * Helper class provides method to convert binary tuple to rows and vice-versa.
  */
