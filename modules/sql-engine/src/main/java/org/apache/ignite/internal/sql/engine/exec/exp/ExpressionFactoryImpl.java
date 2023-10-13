@@ -783,6 +783,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Unspecified upper bound. */
         private boolean unspecifiedUpper = false;
 
+        /** Cached skip range flag. */
+        private @Nullable Boolean skip;
+
         private RangeConditionImpl(
                 List<RexNode> lower,
                 List<RexNode> upper,
@@ -821,13 +824,21 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         /** {@inheritDoc} */
         @Override
-        public RowT lower() {
+        public @Nullable RowT lower() {
+            if (unspecifiedLower) {
+                return null;
+            }
+
             return lowerRow != null ? lowerRow : getRow(lowerBound);
         }
 
         /** {@inheritDoc} */
         @Override
-        public RowT upper() {
+        public @Nullable RowT upper() {
+            if (unspecifiedUpper) {
+                return null;
+            }
+
             return upperRow != null ? upperRow : getRow(upperBound);
         }
 
@@ -865,6 +876,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             for (int i = 0; i < hnd.columnCount(res); i++) {
                 Object fldVal = hnd.get(i, res);
 
+                if (fldVal == null) {
+                    skip = Boolean.TRUE;
+                }
+
                 if (fldVal == ctx.nullBound()) {
                     hnd.set(i, res, null);
                 }
@@ -877,11 +892,22 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         void clearCache() {
             lowerRow = null;
             upperRow = null;
+            skip = null;
         }
 
         /** Skip this range. */
         public boolean skip() {
-            return unspecifiedLower && unspecifiedUpper;
+            if (skip == null) {
+                // Precalculate skip flag.
+                lower();
+                upper();
+
+                if (skip == null) {
+                    skip = Boolean.FALSE;
+                }
+            }
+
+            return skip || (unspecifiedLower && unspecifiedUpper);
         }
     }
 

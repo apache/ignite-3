@@ -912,6 +912,11 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
                 .check();
     }
 
+    @Override
+    protected int nodes() {
+        return 1;
+    }
+
     @Test
     public void testNullsInCorrNestedLoopJoinSearchRow() {
         try {

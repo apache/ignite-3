@@ -68,6 +68,8 @@ public final class RowConverter {
         int indexedColumnsCount = binarySchema.elementCount();
         int prefixColumnsCount = handler.columnCount(searchRow);
 
+        assert binarySchema.elementCount() >= prefixColumnsCount : "Invalid range condition";
+
         BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(prefixColumnsCount, indexedColumnsCount);
 
         return new BinaryTuplePrefix(indexedColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, searchRow));
