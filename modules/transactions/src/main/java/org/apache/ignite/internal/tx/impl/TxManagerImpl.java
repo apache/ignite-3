@@ -575,8 +575,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             verificationFutures[++cnt] = placementDriver.getPrimaryReplica(groupId, commitTimestamp)
                     .thenAccept(currentPrimaryReplica -> {
-                        if (currentPrimaryReplica == null ||
-                                !expectedEnlistmentConsistencyToken.equals(currentPrimaryReplica.getStartTime().longValue())
+                        if (currentPrimaryReplica == null
+                                || !expectedEnlistmentConsistencyToken.equals(currentPrimaryReplica.getStartTime().longValue())
                         ) {
                             throw new PrimaryReplicaExpiredException(
                                     groupId,
