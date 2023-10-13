@@ -666,7 +666,6 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
-                securityConfiguration,
                 clock,
                 schemaSyncService,
                 catalogManager

@@ -33,7 +33,7 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-core')
     implementation project(':ignite-schema')
-    implementation project(':ignite-security-api')
+    implementation project(':ignite-security')
     implementation project(':ignite-metrics')
     implementation project(':ignite-transactions')
     implementation project(':ignite-catalog')
@@ -48,9 +48,12 @@ dependencies {
     implementation libs.auto.service.annotations
 
     testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-security')
     testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
+    testImplementation libs.awaitility
 
     integrationTestImplementation project(':ignite-core')
     integrationTestImplementation project(':ignite-api')

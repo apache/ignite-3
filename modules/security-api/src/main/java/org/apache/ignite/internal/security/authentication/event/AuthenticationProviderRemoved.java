@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication;
-
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.configuration.SecurityView;
+package org.apache.ignite.internal.security.authentication.event;
 
 /**
- * Authentication manager.
+ * Event that is fired when authentication provider is removed.
  */
-public interface AuthenticationManager extends Authenticator, ConfigurationListener<SecurityView> {
-    /**
-     * Listen to authentication events.
-     *
-     * @param listener Listener.
-     */
-    void listen(AuthenticationListener listener);
+public class AuthenticationProviderRemoved implements AuthenticationEvent {
+    private final String name;
 
-    /**
-     * Stop listen to authentication events.
-     *
-     * @param listener Listener.
-     */
-    void stopListen(AuthenticationListener listener);
+    public AuthenticationProviderRemoved(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public EventType type() {
+        return EventType.AUTHENTICATION_PROVIDER_REMOVED;
+    }
+
+    public String name() {
+        return name;
+    }
 }
