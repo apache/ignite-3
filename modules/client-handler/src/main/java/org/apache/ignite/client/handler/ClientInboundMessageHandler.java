@@ -719,6 +719,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ctx.close();
     }
 
+    @Override
+    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<SecurityView> ctx) {
+        if (clientContext != null && channelHandlerContext != null) {
+            channelHandlerContext.close();
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
     private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
         int mapSize = unpacker.unpackInt();
@@ -763,13 +771,5 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
 
         return clock.now().longValue();
-    }
-
-    @Override
-    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<SecurityView> ctx) {
-        if (clientContext != null && channelHandlerContext != null) {
-            channelHandlerContext.close();
-        }
-        return CompletableFuture.completedFuture(null);
     }
 }
