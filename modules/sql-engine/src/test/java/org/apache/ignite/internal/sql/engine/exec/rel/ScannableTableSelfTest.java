@@ -85,6 +85,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -350,6 +351,70 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         assertEquals("Invalid range condition", err.getMessage());
 
         verifyNoInteractions(internalTable);
+    }
+
+    /**
+     * Index scan - index bound includes some of columns.
+     */
+    @ParameterizedTest
+    @MethodSource("transactions")
+    public void testIndexScanPartialCondition(NoOpTransaction tx) {
+        // 4 column input table.
+        TestInput input = new TestInput(4);
+        // 3 column index.
+        input.indexColumns.set(0);
+        input.indexColumns.set(1);
+        input.indexColumns.set(2);
+        input.addRow(binaryRow, 1, 2, 3, 4);
+
+        Tester tester = new Tester(input);
+
+        int partitionId = 1;
+        long term = 2;
+        int indexId = 3;
+        TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
+        condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
+
+        ArgumentCaptor<BinaryTuplePrefix> prefix = ArgumentCaptor.forClass(BinaryTuplePrefix.class);
+
+        ResultCollector collector = tester.indexScan(partitionId, term, tx, indexId, condition);
+
+        if (tx.isReadOnly()) {
+            HybridTimestamp timestamp = tx.readTimestamp();
+            ClusterNode clusterNode = tx.clusterNode();
+
+            verify(internalTable).scan(
+                    eq(partitionId),
+                    eq(timestamp),
+                    eq(clusterNode),
+                    eq(indexId),
+                    prefix.capture(),
+                    nullable(BinaryTuplePrefix.class),
+                    anyInt(),
+                    eq(tester.requiredFields)
+            );
+        } else {
+            PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
+
+            verify(internalTable).scan(
+                    eq(partitionId),
+                    eq(tx.id()),
+                    eq(primaryReplica),
+                    eq(indexId),
+                    prefix.capture(),
+                    nullable(BinaryTuplePrefix.class),
+                    anyInt(),
+                    eq(tester.requiredFields)
+            );
+        }
+
+        input.sendRows();
+        input.done();
+
+        collector.expectCompleted();
+
+        BinaryTuplePrefix lowerBound = prefix.getValue();
+        assertEquals(2, lowerBound.elementCount());
     }
 
     /**
