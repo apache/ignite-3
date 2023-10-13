@@ -59,13 +59,6 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
         return 3;
     }
 
-    /** {@inheritDoc} */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20116")
-    @Override
-    public void testBalance() throws InterruptedException {
-        super.testBalance();
-    }
-
     @Override
     @AfterEach
     public void after() throws Exception {
