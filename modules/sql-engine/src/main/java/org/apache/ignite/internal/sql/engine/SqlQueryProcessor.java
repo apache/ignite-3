@@ -565,10 +565,16 @@ public class SqlQueryProcessor implements QueryProcessor {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
 
-        if (outerTx != null && parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
-            String message = "Transaction control statements can not used in explicit transactions";
+        if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+            if (outerTx != null) {
+                String message = "Transaction control statements can not used in explicit transactions";
 
-            throw new SqlException(STMT_VALIDATION_ERR, message);
+                throw new SqlException(STMT_VALIDATION_ERR, message);
+            } else {
+                String message = "Transaction control statement can not be executed as an independent statement";
+
+                throw new SqlException(STMT_VALIDATION_ERR, message);
+            }
         }
 
         if (!allowedTypes.contains(queryType)) {

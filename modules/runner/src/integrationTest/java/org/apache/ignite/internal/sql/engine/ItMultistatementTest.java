@@ -25,6 +25,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -55,6 +56,28 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
                     STMT_VALIDATION_ERR,
                     "Transaction control statements can not used in explicit transactions",
                     () -> session.execute(tx, stmtSql));
+        }
+    }
+
+    /**
+     * Transaction control statements can not be used in single statement methods.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "START TRANSACTION",
+            "START TRANSACTION READ WRITE",
+            "START TRANSACTION READ ONLY",
+            "COMMIT",
+    })
+    public void testTxControlStatementsAreNotAllowdWithExplicitTransactions(String stmtSql) {
+        Ignite ignite = CLUSTER_NODES.get(0);
+        IgniteSql igniteSql = ignite.sql();
+
+        try (Session session = igniteSql.createSession()) {
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Transaction control statement can not be executed as an independent statement",
+                    () -> session.execute(null, stmtSql));
         }
     }
 }
