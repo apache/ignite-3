@@ -345,6 +345,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     }
                                 });
                     })
+                    .thenCompose(Function.identity())
                     // verification future is added in order to share proper exception with the client
                     .thenCompose(r -> verificationFuture);
         };
