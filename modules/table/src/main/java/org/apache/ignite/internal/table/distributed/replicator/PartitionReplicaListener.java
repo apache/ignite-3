@@ -345,7 +345,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     @Override
-    public synchronized CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
         if (request instanceof TxStateCommitPartitionRequest) {
             return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request).thenApply(
                     res -> new ReplicaResult(res, null));
@@ -1778,8 +1778,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
-                    return validateAtTimestampAndBuildUpdateAllCommand(request, rowIdsToDelete, lastCommitTimes, txCoordinatorId)
-                            .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
+                    return validateAtTimestampAndBuildUpdateAllCommand(request.transactionId())
+                            .thenCompose(catalogVersion -> applyUpdateAllCommand(
+                                    catalogVersion,
+                                    rowIdsToDelete,
+                                    lastCommitTimes,
+                                    request.commitPartitionId(),
+                                    request.transactionId(),
+                                    request.full(),
+                                    txCoordinatorId,
+                                    request.skipDelayedAck())
+                            )
                             .thenApply(res -> new ReplicaResult(result, res));
                 });
             }
@@ -1836,8 +1845,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return allOf(insertLockFuts)
                             .thenCompose(ignored ->
                                     // We are inserting completely new rows - no need to cleanup anything in this case, hence empty times.
-                                    validateAtTimestampAndBuildUpdateAllCommand(request, convertedMap, emptyMap(), txCoordinatorId))
-                            .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
+                                    validateAtTimestampAndBuildUpdateAllCommand(request.transactionId()))
+                            .thenCompose(catalogVersion -> applyUpdateAllCommand(
+                                    catalogVersion,
+                                    convertedMap,
+                                    emptyMap(),
+                                    request.commitPartitionId(),
+                                    request.transactionId(),
+                                    request.full(),
+                                    txCoordinatorId,
+                                    request.skipDelayedAck())
+                            )
                             .thenApply(res -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> insertLockFut : insertLockFuts) {
@@ -1886,8 +1904,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(null, null));
                     }
 
-                    return validateAtTimestampAndBuildUpdateAllCommand(request, rowsToUpdate, lastCommitTimes, txCoordinatorId)
-                            .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
+                    return validateAtTimestampAndBuildUpdateAllCommand(request.transactionId())
+                            .thenCompose(catalogVersion -> applyUpdateAllCommand(
+                                    catalogVersion,
+                                    rowsToUpdate,
+                                    lastCommitTimes,
+                                    request.commitPartitionId(),
+                                    request.transactionId(),
+                                    request.full(),
+                                    txCoordinatorId,
+                                    request.skipDelayedAck())
+                            )
                             .thenApply(res -> {
                                 // Release short term locks.
                                 for (CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> rowIdFut : rowIdFuts) {
@@ -1991,8 +2018,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
-                    return validateAtTimestampAndBuildUpdateAllCommand(request, rowIdsToDelete, lastCommitTimes, txCoordinatorId)
-                            .thenCompose(cmd -> applyUpdateAllCommand(cmd, request.skipDelayedAck()))
+                    return validateAtTimestampAndBuildUpdateAllCommand(request.transactionId())
+                            .thenCompose(catalogVersion -> applyUpdateAllCommand(
+                                    catalogVersion,
+                                    rowIdsToDelete,
+                                    lastCommitTimes,
+                                    request.commitPartitionId(),
+                                    request.transactionId(),
+                                    request.full(),
+                                    txCoordinatorId,
+                                    request.skipDelayedAck())
+                            )
                             .thenApply(res -> new ReplicaResult(result, res));
                 });
             }
@@ -2037,13 +2073,33 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
+    // TODO: sanpwc javadoc
     /**
      * Executes an Update command.
      *
-     * @param cmd Update command.
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(UpdateCommand cmd) {
+    private synchronized CompletableFuture<CompletableFuture<?>> applyUpdateCommand(
+            int catalogVersion,
+            TablePartitionId tablePartId,
+            UUID rowUuid,
+            @Nullable BinaryRow row,
+            @Nullable HybridTimestamp lastCommitTimestamp,
+            UUID txId,
+            boolean full,
+            String txCoordinatorId
+    ) {
+        UpdateCommand cmd = updateCommand(
+                tablePartId,
+                rowUuid,
+                row,
+                lastCommitTimestamp,
+                txId,
+                full,
+                txCoordinatorId,
+                hybridClock.nowLong(),
+                catalogVersion
+        );
         if (!cmd.full()) {
             CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
                 // This check guaranties the result will never be lost. Currently always null.
@@ -2096,13 +2152,44 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
+    // TODO: sanpwc last commit timestamps param and skipDelayedAck should be added along with @Nullable where necessary.
     /**
      * Executes an UpdateAll command.
      *
-     * @param cmd UpdateAll command.
+     * @param catalogVersion Verified catalog version.
+     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
+     * @param commitPartitionId Partition ID that these rows belong to.
+     * @param transactionId Transaction ID.
+     * @param full {@code true} if this is a single-command transaction.
+     * @param txCoordinatorId Transaction coordinator id.
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(UpdateAllCommand cmd, boolean skipDelayedAck) {
+    private synchronized CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
+            int catalogVersion,
+            Map<UUID, BinaryRowMessage> rowsToUpdate,
+            Map<UUID, HybridTimestamp> lastCommitTimes,
+            TablePartitionIdMessage commitPartitionId,
+            UUID transactionId,
+            boolean full,
+            String txCoordinatorId,
+            boolean skipDelayedAck
+    ) {
+        UpdateAllCommand cmd = MSG_FACTORY.updateAllCommand()
+                .tablePartitionId(commitPartitionId)
+                .rowsToUpdate(rowsToUpdate)
+                .txId(transactionId)
+                .safeTimeLong(hybridClock.nowLong())
+                .full(full)
+                .txCoordinatorId(txCoordinatorId)
+                .requiredCatalogVersion(catalogVersion)
+                .lastCommitTimestampsLong(
+                        // Also make sure lastCommitTimes contains only those entries that match rowsToUpdate.
+                        lastCommitTimes.entrySet().stream()
+                                .filter(entry -> rowsToUpdate.containsKey(entry.getKey()))
+                                .collect(toMap(Entry::getKey, entry -> entry.getValue().longValue()))
+                )
+                .build();
+
         if (!cmd.full()) {
             if (skipDelayedAck) {
                 storageUpdateHandler.handleUpdateAll(
@@ -2215,14 +2302,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     return completedFuture(new ReplicaResult(false, request.full() ? null : completedFuture(null)));
                                 }
 
-                                return validateAtTimestampAndBuildUpdateCommand(
-                                        request,
-                                        validatedRowId.uuid(),
-                                        null,
-                                        lastCommitTime,
-                                        txCoordinatorId
-                                )
-                                        .thenCompose(this::applyUpdateCommand)
+                                return validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                                        .thenCompose(catalogVersion -> applyUpdateCommand(
+                                                catalogVersion,
+                                                request.commitPartitionId().asTablePartitionId(),
+                                                validatedRowId.uuid(),
+                                                null,
+                                                lastCommitTime,
+                                                request.transactionId(),
+                                                request.full(),
+                                                txCoordinatorId
+                                        ))
                                         .thenApply(res -> new ReplicaResult(true, res));
                             });
                 });
@@ -2236,10 +2326,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                     RowId rowId0 = new RowId(partId(), UUID.randomUUID());
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId0.uuid(), searchRow,
-                                    lastCommitTime, txCoordinatorId
-                            )
-                                    .thenCompose(this::applyUpdateCommand)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                                    .thenCompose(catalogVersion -> applyUpdateCommand(
+                                            catalogVersion,
+                                            request.commitPartitionId().asTablePartitionId(),
+                                            rowId0.uuid(),
+                                            searchRow,
+                                            lastCommitTime,
+                                            request.transactionId(),
+                                            request.full(),
+                                            txCoordinatorId
+                                    ))
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
                                 // Release short term locks.
@@ -2260,10 +2357,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId0.uuid(), searchRow,
-                                    lastCommitTime, txCoordinatorId
-                            )
-                                    .thenCompose(this::applyUpdateCommand)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                                    .thenCompose(catalogVersion -> applyUpdateCommand(
+                                            catalogVersion,
+                                            request.commitPartitionId().asTablePartitionId(),
+                                            rowId0.uuid(),
+                                            searchRow,
+                                            lastCommitTime,
+                                            request.transactionId(),
+                                            request.full(),
+                                            txCoordinatorId
+                                    ))
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
                                 // Release short term locks.
@@ -2284,10 +2388,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId0.uuid(), searchRow,
-                                    lastCommitTime, txCoordinatorId
-                            )
-                                    .thenCompose(this::applyUpdateCommand)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                                    .thenCompose(catalogVersion -> applyUpdateCommand(
+                                            catalogVersion,
+                                            request.commitPartitionId().asTablePartitionId(),
+                                            rowId0.uuid(),
+                                            searchRow,
+                                            lastCommitTime,
+                                            request.transactionId(),
+                                            request.full(),
+                                            txCoordinatorId
+                                    ))
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
                                 // Release short term locks.
@@ -2304,10 +2415,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId.uuid(), searchRow,
-                                    lastCommitTime, txCoordinatorId
-                            )
-                                    .thenCompose(this::applyUpdateCommand)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                                    .thenCompose(catalogVersion -> applyUpdateCommand(
+                                            catalogVersion,
+                                            request.commitPartitionId().asTablePartitionId(),
+                                            rowId.uuid(),
+                                            searchRow,
+                                            lastCommitTime,
+                                            request.transactionId(),
+                                            request.full(),
+                                            txCoordinatorId
+                                    ))
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
                                 // Release short term locks.
@@ -2324,10 +2442,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId.uuid(), searchRow,
-                                    lastCommitTime, txCoordinatorId
-                            )
-                                    .thenCompose(this::applyUpdateCommand)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                                    .thenCompose(catalogVersion -> applyUpdateCommand(
+                                            catalogVersion,
+                                            request.commitPartitionId().asTablePartitionId(),
+                                            rowId.uuid(),
+                                            searchRow,
+                                            lastCommitTime,
+                                            request.transactionId(),
+                                            request.full(),
+                                            txCoordinatorId
+                                    ))
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
                                 // Release short term locks.
@@ -2379,13 +2504,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(rowLock ->
-                                    validateAtTimestampAndBuildUpdateCommand(
-                                            request,
-                                            rowId.uuid(),
-                                            null,
-                                            lastCommitTime,
-                                            txCoordinatorId))
-                            .thenCompose(this::applyUpdateCommand)
+                                    validateAtTimestampAndBuildUpdateCommand(request.transactionId()))
+                            .thenCompose(catalogVersion -> applyUpdateCommand(
+                                    catalogVersion,
+                                    request.commitPartitionId().asTablePartitionId(),
+                                    rowId.uuid(),
+                                    null,
+                                    lastCommitTime,
+                                    request.transactionId(),
+                                    request.full(),
+                                    txCoordinatorId
+                            ))
                             .thenApply(res -> new ReplicaResult(true, res));
                 });
             }
@@ -2397,14 +2526,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(ignored ->
-                                    validateAtTimestampAndBuildUpdateCommand(
-                                            request,
-                                            rowId.uuid(),
-                                            null,
-                                            lastCommitTime,
-                                            txCoordinatorId)
-                            )
-                            .thenCompose(this::applyUpdateCommand)
+                                    validateAtTimestampAndBuildUpdateCommand(request.transactionId()))
+                            .thenCompose(catalogVersion -> applyUpdateCommand(
+                                    catalogVersion,
+                                    request.commitPartitionId().asTablePartitionId(),
+                                    rowId.uuid(),
+                                    null,
+                                    lastCommitTime,
+                                    request.transactionId(),
+                                    request.full(),
+                                    txCoordinatorId
+                            ))
                             .thenApply(res -> new ReplicaResult(row, res));
                 });
             }
@@ -2593,10 +2725,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return completedFuture(new ReplicaResult(false, null));
                             }
 
-                            return validateAtTimestampAndBuildUpdateCommand(commitPartitionId.asTablePartitionId(),
-                                    rowIdLock.get1().uuid(), newRow, lastCommitTime, txId, request.full(), txCoordinatorId
-                            )
-                                    .thenCompose(this::applyUpdateCommand)
+                            return validateAtTimestampAndBuildUpdateCommand(txId)
+                                    .thenCompose(catalogVersion -> applyUpdateCommand(
+                                            catalogVersion,
+                                            request.commitPartitionId().asTablePartitionId(),
+                                            rowIdLock.get1().uuid(),
+                                            newRow,
+                                            lastCommitTime,
+                                            request.transactionId(),
+                                            request.full(),
+                                            txCoordinatorId
+                                    ))
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock))
                                     .thenApply(tuple -> {
                                         // Release short term locks.
@@ -2861,100 +3000,25 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
+    // TODO: sanpwc proper return value.
     /**
      * Chooses operation timestamp, makes validations that require it and constructs an {@link UpdateCommand} object.
      *
-     * @param request Request that is being processed.
-     * @param rowUuid Row UUID.
-     * @param row Row.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @return Future that will complete with the constructed {@link UpdateCommand} object.
-     */
-    private CompletableFuture<UpdateCommand> validateAtTimestampAndBuildUpdateCommand(
-            ReadWriteSingleRowReplicaRequest request,
-            UUID rowUuid,
-            @Nullable BinaryRow row,
-            @Nullable HybridTimestamp lastCommitTimestamp,
-            String txCoordinatorId
-    ) {
-        return validateAtTimestampAndBuildUpdateCommand(
-                request.commitPartitionId().asTablePartitionId(),
-                rowUuid,
-                row,
-                lastCommitTimestamp,
-                request.transactionId(),
-                request.full(),
-                txCoordinatorId
-        );
-    }
-
-    /**
-     * Chooses operation timestamp, makes validations that require it and constructs an {@link UpdateCommand} object.
-     *
-     * @param request Request that is being processed.
-     * @param rowUuid Row UUID.
-     * @param row Row.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @return Future that will complete with the constructed {@link UpdateCommand} object.
-     */
-    private CompletableFuture<UpdateCommand> validateAtTimestampAndBuildUpdateCommand(
-            ReadWriteSingleRowPkReplicaRequest request,
-            UUID rowUuid,
-            @Nullable BinaryRow row,
-            @Nullable HybridTimestamp lastCommitTimestamp,
-            String txCoordinatorId
-    ) {
-        return validateAtTimestampAndBuildUpdateCommand(
-                request.commitPartitionId().asTablePartitionId(),
-                rowUuid,
-                row,
-                lastCommitTimestamp,
-                request.transactionId(),
-                request.full(),
-                txCoordinatorId
-        );
-    }
-
-    /**
-     * Chooses operation timestamp, makes validations that require it and constructs an {@link UpdateCommand} object.
-     *
-     * @param tablePartId {@link TablePartitionId} object.
-     * @param rowUuid Row UUID.
-     * @param row Row.
      * @param txId Transaction ID.
-     * @param full {@code True} if this is a full transaction.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @return Future that will complete with the constructed {@link UpdateCommand} object.
+     * @return Future that will complete with
      */
-    private CompletableFuture<UpdateCommand> validateAtTimestampAndBuildUpdateCommand(
-            TablePartitionId tablePartId,
-            UUID rowUuid,
-            @Nullable BinaryRow row,
-            @Nullable HybridTimestamp lastCommitTimestamp,
-            UUID txId,
-            boolean full,
-            String txCoordinatorId
-    ) {
+    private CompletableFuture<Integer> validateAtTimestampAndBuildUpdateCommand(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return reliableCatalogVersionFor(operationTimestamp)
                 .thenApply(catalogVersion -> {
                     failIfSchemaChangedSinceTxStart(txId, operationTimestamp);
 
-                    return updateCommand(
-                            tablePartId,
-                            rowUuid,
-                            row,
-                            lastCommitTimestamp,
-                            txId,
-                            full,
-                            txCoordinatorId,
-                            operationTimestamp,
-                            catalogVersion
-                    );
+                    return catalogVersion;
                 });
     }
 
+    // TODO: extract updateAllCommand in a similar way
     private static UpdateCommand updateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
@@ -2963,7 +3027,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             boolean full,
             String txCoordinatorId,
-            HybridTimestamp operationTimestamp,
+            long safeTimestampLong,
             int catalogVersion
     ) {
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
@@ -2971,7 +3035,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .rowUuid(rowUuid)
                 .txId(txId)
                 .full(full)
-                .safeTimeLong(operationTimestamp.longValue())
+                .safeTimeLong(safeTimestampLong)
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion);
 
@@ -3001,92 +3065,19 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Chooses operation timestamp, makes validations that require it and constructs an {@link UpdateCommand} object.
+     * Chooses operation timestamp, makes validations that require it and returns corresponding catalog version.
      *
-     * @param request Request that is being processed.
-     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @return Future that will complete with the constructed {@link UpdateAllCommand} object.
-     */
-    private CompletableFuture<UpdateAllCommand> validateAtTimestampAndBuildUpdateAllCommand(
-            ReadWriteMultiRowReplicaRequest request,
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
-            Map<UUID, HybridTimestamp> lastCommitTimes,
-            String txCoordinatorId
-    ) {
-        return validateAtTimestampAndBuildUpdateAllCommand(
-                rowsToUpdate,
-                lastCommitTimes,
-                request.commitPartitionId(),
-                request.transactionId(),
-                request.full(),
-                txCoordinatorId
-        );
-    }
-
-    /**
-     * Chooses operation timestamp, makes validations that require it and constructs an {@link UpdateCommand} object.
-     *
-     * @param request Request that is being processed.
-     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @return Future that will complete with the constructed {@link UpdateAllCommand} object.
-     */
-    private CompletableFuture<UpdateAllCommand> validateAtTimestampAndBuildUpdateAllCommand(
-            ReadWriteMultiRowPkReplicaRequest request,
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
-            Map<UUID, HybridTimestamp> lastCommitTimes,
-            String txCoordinatorId
-    ) {
-        return validateAtTimestampAndBuildUpdateAllCommand(
-                rowsToUpdate,
-                lastCommitTimes,
-                request.commitPartitionId(),
-                request.transactionId(),
-                request.full(),
-                txCoordinatorId
-        );
-    }
-
-    /**
-     * Chooses operation timestamp, makes validations that require it and constructs an {@link UpdateCommand} object.
-     *
-     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
-     * @param commitPartitionId Partition ID that these rows belong to.
      * @param transactionId Transaction ID.
-     * @param full {@code true} if this is a single-command transaction.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @return Future that will complete with the constructed {@link UpdateAllCommand} object.
+     * @return Future that will complete with validated catalog version.
      */
-    private CompletableFuture<UpdateAllCommand> validateAtTimestampAndBuildUpdateAllCommand(
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
-            Map<UUID, HybridTimestamp> lastCommitTimes,
-            TablePartitionIdMessage commitPartitionId,
-            UUID transactionId,
-            boolean full,
-            String txCoordinatorId
-    ) {
+    private CompletableFuture<Integer> validateAtTimestampAndBuildUpdateAllCommand(UUID transactionId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return reliableCatalogVersionFor(operationTimestamp)
                 .thenApply(catalogVersion -> {
                     failIfSchemaChangedSinceTxStart(transactionId, operationTimestamp);
 
-                    return MSG_FACTORY.updateAllCommand()
-                            .tablePartitionId(commitPartitionId)
-                            .rowsToUpdate(rowsToUpdate)
-                            .txId(transactionId)
-                            .safeTimeLong(operationTimestamp.longValue())
-                            .full(full)
-                            .txCoordinatorId(txCoordinatorId)
-                            .requiredCatalogVersion(catalogVersion)
-                            .lastCommitTimestampsLong(
-                                    // Also make sure lastCommitTimes contains only those entries that match rowsToUpdate.
-                                    lastCommitTimes.entrySet().stream()
-                                            .filter(entry -> rowsToUpdate.containsKey(entry.getKey()))
-                                            .collect(toMap(Entry::getKey, entry -> entry.getValue().longValue()))
-                            )
-                            .build();
+                    return catalogVersion;
                 });
     }
 
