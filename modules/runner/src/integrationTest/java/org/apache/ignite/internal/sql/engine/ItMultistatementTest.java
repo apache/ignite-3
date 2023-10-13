@@ -91,7 +91,7 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
         STMT_SYNC,
         ;
 
-        public void execute(IgniteSql sql, Session session, String stmtSql, @Nullable Transaction tx) {
+        void execute(IgniteSql sql, Session session, String stmtSql, @Nullable Transaction tx) {
             switch (this) {
                 case ASYNC:
                     session.executeAsync(tx, stmtSql).join();
