@@ -28,6 +28,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 /**
  * Service that provides an ability to await and retrieve primary replicas for replication groups.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-20646 Consider using CLOCK_SKEW unaware await/getPrimaryReplica()
 public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> {
     /**
      * Returns a future for the primary replica for the specified replication group whose expiration time (the right border of the
