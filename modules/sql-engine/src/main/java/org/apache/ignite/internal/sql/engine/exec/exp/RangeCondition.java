@@ -29,12 +29,6 @@ public interface RangeCondition<RowT> {
     /** Upper search row. */
     RowT upper();
 
-    /** Return {@code true} if lower bound cannot be applied, {@code false} otherwise. */
-    boolean unspecifiedLower();
-
-    /** Return {@code true} if upper bound cannot be applied, {@code false} otherwise. */
-    boolean unspecifiedUpper();
-
     /** Inclusive search by lower row. */
     boolean lowerInclude();
 

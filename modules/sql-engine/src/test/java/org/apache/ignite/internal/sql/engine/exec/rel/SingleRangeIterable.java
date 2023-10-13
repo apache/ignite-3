@@ -65,16 +65,6 @@ final class SingleRangeIterable<T> implements RangeIterable<T> {
             }
 
             @Override
-            public boolean unspecifiedLower() {
-                return false;
-            }
-
-            @Override
-            public boolean unspecifiedUpper() {
-                return false;
-            }
-
-            @Override
             public boolean lowerInclude() {
                 return lowerInclusive;
             }

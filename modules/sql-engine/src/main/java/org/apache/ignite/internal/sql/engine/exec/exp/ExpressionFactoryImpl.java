@@ -83,7 +83,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -774,14 +773,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Upper row. */
         private @Nullable RowT upperRow;
 
-        /** Row factory. */
-        private final RowFactory<RowT> factory;
+        /** Lower bound row factory. */
+        private final RowFactory<RowT> factoryLower;
 
-        /** Unspecified lower bound. */
-        private boolean unspecifiedLower = false;
-
-        /** Unspecified upper bound. */
-        private boolean unspecifiedUpper = false;
+        /** Upper bound row factory. */
+        private final RowFactory<RowT> factoryUpper;
 
         /** Cached skip range flag. */
         private @Nullable Boolean skip;
@@ -795,61 +791,46 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RowFactory<RowT> factory,
                 boolean containNulls
         ) {
-            if (containNulls) {
-                if (!lower.isEmpty() && CollectionUtils.first(lower) == null) {
-                    unspecifiedLower = true;
-                } else {
-                    Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), lower, rowType);
-                    lower = res.getKey();
-                    rowType = res.getValue();
-                }
+            RelDataType rowTypeLower;
+            RelDataType rowTypeUpper;
 
-                if (!upper.isEmpty() && CollectionUtils.first(upper) == null) {
-                    unspecifiedUpper = true;
-                } else {
-                    Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), upper, rowType);
-                    upper = res.getKey();
-                    rowType = res.getValue();
-                }
+            if (containNulls) {
+                Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), lower, rowType);
+                lower = res.getKey();
+                rowTypeLower = res.getValue();
+
+                res = shrinkBounds(ctx.getTypeFactory(), upper, rowType);
+                upper = res.getKey();
+                rowTypeUpper = res.getValue();
+            } else {
+                rowTypeLower = rowType;
+                rowTypeUpper = rowType;
             }
 
-            this.lowerBound = unspecifiedLower ? null : scalar(lower, rowType);
-            this.upperBound = unspecifiedUpper ? null : scalar(upper, rowType);
+            this.lowerBound = scalar(lower, rowTypeLower);
+            this.upperBound = scalar(upper, rowTypeUpper);
             this.lowerInclude = lowerInclude;
             this.upperInclude = upperInclude;
 
-            this.factory = ((unspecifiedLower && unspecifiedUpper) || !containNulls) ? factory
-                    : ctx.rowHandler().factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType)));
+            factoryLower = containNulls
+                    ? ctx.rowHandler().factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowTypeLower)))
+                    : factory;
+
+            factoryUpper = containNulls
+                    ? ctx.rowHandler().factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowTypeUpper)))
+                    : factory;
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT lower() {
-            if (unspecifiedLower) {
-                return null;
-            }
-
-            return lowerRow != null ? lowerRow : getRow(lowerBound);
+            return lowerRow != null ? lowerRow : getRow(lowerBound, true);
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT upper() {
-            if (unspecifiedUpper) {
-                return null;
-            }
-
-            return upperRow != null ? upperRow : getRow(upperBound);
-        }
-
-        @Override
-        public boolean unspecifiedLower() {
-            return unspecifiedLower;
-        }
-
-        @Override
-        public boolean unspecifiedUpper() {
-            return unspecifiedUpper;
+            return upperRow != null ? upperRow : getRow(upperBound, false);
         }
 
         /** {@inheritDoc} */
@@ -865,8 +846,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Compute row. */
-        private RowT getRow(SingleScalar scalar) {
-            RowT res = factory.create();
+        private RowT getRow(SingleScalar scalar, boolean lower) {
+            RowT res = lower ? factoryLower.create() : factoryUpper.create();
             scalar.execute(ctx, null, res);
 
             RowHandler<RowT> hnd = ctx.rowHandler();
@@ -897,10 +878,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         /** Skip this range. */
         public boolean skip() {
-            if (unspecifiedLower && unspecifiedUpper) {
-                return true;
-            }
-
             if (skip == null) {
                 // Precalculate skip flag.
                 lower();

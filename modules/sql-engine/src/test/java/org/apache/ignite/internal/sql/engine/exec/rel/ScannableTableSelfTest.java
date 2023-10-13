@@ -841,16 +841,6 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     }
 
                     @Override
-                    public boolean unspecifiedLower() {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean unspecifiedUpper() {
-                        return false;
-                    }
-
-                    @Override
                     public boolean lowerInclude() {
                         return lowerBoundType == Bound.INCLUSIVE;
                     }
