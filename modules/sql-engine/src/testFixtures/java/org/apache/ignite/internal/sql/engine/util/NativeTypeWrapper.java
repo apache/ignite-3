@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes;
 
 /**
  * A wrapper interface for non-comparable {@link NativeTypes native types} that implements {@link Comparable}.

@@ -91,6 +91,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-table')))
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core

@@ -33,7 +33,7 @@ public enum PrimaryReplicaEvent implements Event {
      * <p>Notes:</p>
      * <ul>
      *     <li>This event will fire strictly after the completion of the future from {@link PlacementDriver#awaitPrimaryReplica}.</li>
-     *     <li>This event will fire when on node recovery and will indicate the primary replica at the time the node was stopped.</li>
+     *     <li>This event will fire in the metastore thread.</li>
      *     <li>If a lease prolongation occurs, this event will not fire.</li>
      *     <li>When working from a primary replica, it is recommended to check whether it has become outdated using
      *     {@link ReplicaMeta#getExpirationTime()}.</li>

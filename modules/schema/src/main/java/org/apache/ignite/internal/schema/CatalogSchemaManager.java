@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
@@ -52,11 +51,13 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -159,9 +160,6 @@ public class CatalogSchemaManager implements IgniteComponent {
 
             SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(tableDescriptor);
 
-            // This is intentionally a blocking call to enforce catalog listener execution order. Unfortunately it is not possible
-            // to execute this method asynchronously, because the schema descriptor is needed to fire the CREATE event as a synchronous part
-            // of the catalog listener.
             try {
                 setColumnMapping(newSchema, tableId);
             } catch (InterruptedException e) {
@@ -197,30 +195,31 @@ public class CatalogSchemaManager implements IgniteComponent {
         SchemaDescriptor prevSchema = searchSchemaByVersion(tableId, prevVersion);
 
         if (prevSchema == null) {
-            // This is intentionally a blocking call, because this method is used in a synchronous part of the configuration listener.
-            // See the call site for more details.
-            prevSchema = loadSchemaDescriptor(tableId, prevVersion).get();
+            prevSchema = loadSchemaDescriptor(tableId, prevVersion);
         }
 
         schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
     }
 
     /**
-     * Loads the table schema descriptor by version from Metastore.
+     * Loads the table schema descriptor by version from local Metastore storage.
+     * If called with a schema version for which the schema is not yet saved to the Metastore, an exception
+     * will be thrown.
      *
      * @param tblId Table id.
-     * @param ver Schema version.
-     * @return Schema representation if schema found, {@code null} otherwise.
+     * @param ver Schema version (must not be higher than the latest version saved to the  Metastore).
+     * @return Schema representation.
      */
-    private CompletableFuture<SchemaDescriptor> loadSchemaDescriptor(int tblId, int ver) {
-        return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))
-                .thenApply(entry -> {
-                    byte[] value = entry.value();
+    private SchemaDescriptor loadSchemaDescriptor(int tblId, int ver) {
+        Entry entry = metastorageMgr.getLocally(schemaWithVerHistKey(tblId, ver), Long.MAX_VALUE);
 
-                    assert value != null;
+        assert !entry.tombstone() : "Table " + tblId + ", version " + ver;
 
-                    return SchemaSerializerImpl.INSTANCE.deserialize(value);
-                });
+        byte[] value = entry.value();
+
+        assert value != null;
+
+        return SchemaSerializerImpl.INSTANCE.deserialize(value);
     }
 
     /**
@@ -286,7 +285,6 @@ public class CatalogSchemaManager implements IgniteComponent {
     private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
                 ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
-                () -> inBusyLock(busyLock, () -> latestSchemaVersionOrDefault(tableId)),
                 initialSchema
         );
     }
@@ -301,7 +299,7 @@ public class CatalogSchemaManager implements IgniteComponent {
     private @Nullable SchemaDescriptor searchSchemaByVersion(int tblId, int schemaVer) {
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
-        if (registry != null && schemaVer <= registry.lastSchemaVersion()) {
+        if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
             return registry.schema(schemaVer);
         } else {
             return null;
@@ -361,7 +359,8 @@ public class CatalogSchemaManager implements IgniteComponent {
 
             Map<Integer, SchemaRegistryImpl> regs = new HashMap<>(registries);
 
-            regs.remove(tableId);
+            SchemaRegistryImpl removedRegistry = regs.remove(tableId);
+            removedRegistry.close();
 
             return completedFuture(regs);
         }));
@@ -391,17 +390,9 @@ public class CatalogSchemaManager implements IgniteComponent {
         }
 
         busyLock.block();
-    }
 
-    /**
-     * Gets the latest version of the table schema which is available in Metastore or the default (1) if nothing is available.
-     *
-     * @param tableId Table id.
-     * @return The latest schema version.
-     */
-    private CompletableFuture<Integer> latestSchemaVersionOrDefault(int tableId) {
-        return latestSchemaVersion(tableId)
-                .thenApply(versionOrNull -> requireNonNullElse(versionOrNull, CatalogTableDescriptor.INITIAL_TABLE_VERSION));
+        //noinspection ConstantConditions
+        IgniteUtils.closeAllManually(registriesVv.latest().values());
     }
 
     /**

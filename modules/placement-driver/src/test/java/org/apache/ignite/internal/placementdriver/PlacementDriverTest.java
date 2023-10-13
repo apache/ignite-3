@@ -133,7 +133,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         assertThat(recoveryFinishedFuture, willCompleteSuccessfully());
 
-        placementDriver.startTrackAsync(recoveryFinishedFuture.join());
+        placementDriver.startTrack(recoveryFinishedFuture.join());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
     }
@@ -406,27 +406,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertThat(parameters.causalityToken(), greaterThanOrEqualTo(publishLeaseRelease));
 
         checkReplicaBecomePrimaryEventParameters(LEASE_FROM_15_000_TO_30_000, parameters);
-    }
-
-    @Test
-    void testListenReplicaBecomePrimaryEventOnStartPlacementDriver() {
-        long newRecoveryRevision = publishLease(LEASE_FROM_1_TO_5_000);
-
-        placementDriver.stopTrack();
-
-        placementDriver = createPlacementDriver();
-
-        CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenAnyReplicaBecomePrimaryEvent();
-
-        placementDriver.startTrackAsync(newRecoveryRevision);
-
-        assertThat(eventParametersFuture, willCompleteSuccessfully());
-
-        PrimaryReplicaEventParameters parameters = eventParametersFuture.join();
-
-        assertThat(parameters.causalityToken(), equalTo(newRecoveryRevision));
-
-        checkReplicaBecomePrimaryEventParameters(LEASE_FROM_1_TO_5_000, parameters);
     }
 
     @Test

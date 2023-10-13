@@ -60,7 +60,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker tracker) {
-        return begin(tracker, true);
+        return begin(tracker, false);
     }
 
     @Override
@@ -124,7 +124,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public boolean isReadOnly() {
-                return false;
+                return readOnly;
             }
 
             @Override
@@ -136,17 +136,7 @@ public class FakeTxManager implements TxManager {
             public HybridTimestamp startTimestamp() {
                 return timestamp;
             }
-
-            @Override
-            public boolean implicit() {
-                return false;
-            }
         };
-    }
-
-    @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        throw new UnsupportedOperationException("Not expected to be called here");
     }
 
     @Override

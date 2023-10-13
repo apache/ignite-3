@@ -94,12 +94,6 @@ public interface InternalTransaction extends Transaction {
     HybridTimestamp startTimestamp();
 
     /**
-     * Returns whether this transaction is implicit (i.e. started by the system automatically when the user
-     * provided no transaction for an operation) or not.
-     */
-    boolean implicit();
-
-    /**
      * Finishes a read-only transaction with a specific execution timestamp.
      *
      * @param commit Commit flag. The flag is ignored for read-only transactions.

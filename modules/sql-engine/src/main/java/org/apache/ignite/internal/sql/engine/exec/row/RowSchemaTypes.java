@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
@@ -50,10 +50,7 @@ public final class RowSchemaTypes {
                 NativeTypes.STRING,
                 NativeTypes.BYTES,
                 NativeTypes.DATE,
-                NativeTypes.UUID,
-                NativeTypes.time(),
-                NativeTypes.timestamp(),
-                NativeTypes.datetime()
+                NativeTypes.UUID
         );
 
         INTERNED_TYPES = nativeTypeList.stream().map(t -> {

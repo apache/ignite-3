@@ -235,7 +235,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(
                         initProblem.detail(),
                         containsString("Validation did not pass for keys: "
-                                + "[security.authentication, Providers must be present, if auth is enabled]")
+                                + "[security.authentication.providers, Providers must be present, if auth is enabled]")
                 )
         );
 

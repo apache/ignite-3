@@ -73,7 +73,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         Context context = Context.current();
         return dataCursor.requestNextAsync(rows).handle(context.wrapFunction((batch, t) -> {
             if (t != null) {
-                txWrapper.rollbackImplicit();
+                // Always rollback a transaction in case of an error.
+                txWrapper.rollback();
 
                 throw new CompletionException(wrapIfNecessary(t));
             }

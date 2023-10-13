@@ -95,6 +95,7 @@ import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -181,6 +182,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Clock. */
     private final HybridClock clock;
 
+    private final SchemaSyncService schemaSyncService;
+
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
@@ -201,6 +204,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
+            SchemaSyncService schemaSyncService,
             CatalogManager catalogManager,
             MetricManager metricManager,
             SystemViewManager systemViewManager
@@ -213,6 +217,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
+        this.schemaSyncService = schemaSyncService;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
@@ -447,12 +452,13 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                                 .logger(LOG)
                                 .cancel(queryCancel)
-                                .parameters(params).build();
+                                .parameters(params)
+                                .build();
 
                         return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(session, txWrapper, ctx, plan));
                     }).whenComplete((res, ex) -> {
                         if (ex != null) {
-                            txWrapper.rollbackImplicit();
+                            txWrapper.rollback();
                         }
                     });
         });
@@ -471,14 +477,15 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, HybridTimestamp timestamp) {
         try {
-            // TODO IGNITE-18733: wait for actual metadata for TX.
-            SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
+            return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(unused -> {
+                SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
 
-            if (schema == null) {
-                return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
-            }
+                if (schema == null) {
+                    throw new SchemaNotFoundException(schemaName);
+                }
 
-            return CompletableFuture.completedFuture(schema);
+                return schema;
+            });
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
         }

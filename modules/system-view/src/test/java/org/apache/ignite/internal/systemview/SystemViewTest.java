@@ -27,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.systemview.NodeSystemView.Builder;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -46,16 +48,16 @@ public class SystemViewTest {
 
         ClusterSystemView<Dummy> view = SystemViews.<Dummy>clusterViewBuilder()
                 .name("view")
-                .addColumn("c1", int.class, (d) -> 0)
-                .addColumn("c2", Long.class, (d) -> 1L)
+                .addColumn("c1", NativeTypes.INT32, (d) -> 0)
+                .addColumn("c2", NativeTypes.INT64, (d) -> 1L)
                 .dataProvider(dataProvider)
                 .build();
 
         assertEquals("view", view.name(), "name");
         assertEquals(2, view.columns().size(), "columns");
 
-        expectColumn(view.columns().get(0), "c1", int.class);
-        expectColumn(view.columns().get(1), "c2", Long.class);
+        expectColumn(view.columns().get(0), "c1", NativeTypes.INT32);
+        expectColumn(view.columns().get(1), "c2", NativeTypes.INT64);
 
         assertSame(dataProvider, view.dataProvider(), "data provider");
     }
@@ -67,8 +69,8 @@ public class SystemViewTest {
 
         NodeSystemView<Dummy> view = SystemViews.<Dummy>nodeViewBuilder()
                 .name("view")
-                .addColumn("c1", int.class, (d) -> 0)
-                .addColumn("c2", Long.class, (d) -> 1L)
+                .addColumn("c1", NativeTypes.INT32, (d) -> 0)
+                .addColumn("c2", NativeTypes.INT64, (d) -> 1L)
                 .nodeNameColumnAlias("node_name")
                 .dataProvider(dataProvider)
                 .build();
@@ -76,8 +78,8 @@ public class SystemViewTest {
         assertEquals("view", view.name(), "name");
         assertEquals(2, view.columns().size(), "columns");
 
-        expectColumn(view.columns().get(0), "c1", int.class);
-        expectColumn(view.columns().get(1), "c2", Long.class);
+        expectColumn(view.columns().get(0), "c1", NativeTypes.INT32);
+        expectColumn(view.columns().get(1), "c2", NativeTypes.INT64);
 
         assertSame(dataProvider, view.dataProvider(), "data provider");
         assertEquals("node_name", view.nodeNameColumnAlias(), "node name column alias");
@@ -89,7 +91,7 @@ public class SystemViewTest {
         expectThrows(IllegalArgumentException.class, () -> {
             SystemViews.<Dummy>nodeViewBuilder()
                     .name("name")
-                    .addColumn("c1", int.class, (d) -> 0)
+                    .addColumn("c1", NativeTypes.INT32, (d) -> 0)
                     .dataProvider(dataProvider())
                     .build();
         }, "Node name column alias can not be null or blank");
@@ -137,7 +139,7 @@ public class SystemViewTest {
             expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name(name)
-                        .addColumn("c1", int.class, (d) -> 0)
+                        .addColumn("c1", NativeTypes.INT32, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
             }, "Name can not be null or blank");
@@ -148,7 +150,7 @@ public class SystemViewTest {
         public void rejectViewWithUnspecifiedName() {
             expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
-                        .addColumn("c1", int.class, (d) -> 0)
+                        .addColumn("c1", NativeTypes.INT32, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
             }, "Name can not be null or blank");
@@ -171,9 +173,9 @@ public class SystemViewTest {
             expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
-                        .addColumn("c1", int.class, (d) -> 0)
-                        .addColumn("c2", long.class, (d) -> 1L)
-                        .addColumn("c1", String.class, (d) -> "3")
+                        .addColumn("c1", NativeTypes.INT32, (d) -> 0)
+                        .addColumn("c2", NativeTypes.INT64, (d) -> 1L)
+                        .addColumn("c1", NativeTypes.stringOf(16), (d) -> "3")
                         .dataProvider(dataProvider())
                         .build();
             }, "Column names must be unique. Duplicates: [c1]");
@@ -186,7 +188,7 @@ public class SystemViewTest {
             expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
-                        .addColumn(name, int.class, (d) -> 0)
+                        .addColumn(name, NativeTypes.INT32, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
             }, "Column name can not be null or blank");
@@ -210,7 +212,7 @@ public class SystemViewTest {
             expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
-                        .addColumn("c1", int.class, null)
+                        .addColumn("c1", NativeTypes.INT32, null)
                         .dataProvider(dataProvider())
                         .build();
             }, "Column value can not be null");
@@ -222,7 +224,7 @@ public class SystemViewTest {
             expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
-                        .addColumn("c1", int.class, (d) -> 0)
+                        .addColumn("c1", NativeTypes.INT32, (d) -> 0)
                         .build();
             }, "DataProvider can not be null");
         }
@@ -233,7 +235,7 @@ public class SystemViewTest {
             expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
-                        .addColumn("c1", int.class, (d) -> 0)
+                        .addColumn("c1", NativeTypes.INT32, (d) -> 0)
                         .dataProvider(null)
                         .build();
             }, "DataProvider can not be null");
@@ -244,7 +246,7 @@ public class SystemViewTest {
         }
     }
 
-    private static void expectColumn(SystemViewColumn<?, ?> col, String name, Class<?> type) {
+    private static void expectColumn(SystemViewColumn<?, ?> col, String name, NativeType type) {
         assertEquals(name, col.name(), "name");
         assertSame(type, col.type(), "type");
         assertNotNull(col.value(), "value");

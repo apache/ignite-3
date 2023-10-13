@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import java.util.List;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ClusterBuilder;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.type.NativeTypes;
 
 /**
  * Provides utility methods to register tables described by the TPC-H benchmark in a {@link ClusterBuilder}.
@@ -114,7 +114,7 @@ public final class TpchSchema {
                 .addColumn("O_CUSTKEY", NativeTypes.INT64)
                 .addColumn("O_ORDERSTATUS", NativeTypes.stringOf(1))
                 .addColumn("O_TOTALPRICE", NativeTypes.decimalOf(15, 2))
-                .addColumn("O_ORDERDATE", NativeTypes.datetime())
+                .addColumn("O_ORDERDATE", NativeTypes.datetime(6))
                 .addColumn("O_ORDERPRIORITY", NativeTypes.stringOf(15))
                 .addColumn("O_CLERK", NativeTypes.stringOf(15))
                 .addColumn("O_SHIPPRIORITY", NativeTypes.INT32)
@@ -134,9 +134,9 @@ public final class TpchSchema {
                 .addColumn("L_TAX", NativeTypes.decimalOf(15, 2))
                 .addColumn("L_RETURNFLAG", NativeTypes.stringOf(1))
                 .addColumn("L_LINESTATUS", NativeTypes.stringOf(1))
-                .addColumn("L_SHIPDATE", NativeTypes.datetime())
-                .addColumn("L_COMMITDATE", NativeTypes.datetime())
-                .addColumn("L_RECEIPTDATE", NativeTypes.datetime())
+                .addColumn("L_SHIPDATE", NativeTypes.datetime(6))
+                .addColumn("L_COMMITDATE", NativeTypes.datetime(6))
+                .addColumn("L_RECEIPTDATE", NativeTypes.datetime(6))
                 .addColumn("L_SHIPINSTRUCT", NativeTypes.stringOf(25))
                 .addColumn("L_SHIPMODE", NativeTypes.stringOf(10))
                 .addColumn("L_COMMENT", NativeTypes.stringOf(44))

@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -33,30 +32,24 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
  */
-public class KeyValueViewOperationsSimpleSchemaTest extends BaseIgniteAbstractTest {
+public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTestBase {
     /**
      * Creates table view.
      *
@@ -489,11 +482,12 @@ public class KeyValueViewOperationsSimpleSchemaTest extends BaseIgniteAbstractTe
                 NativeTypes.numberOf(20),
                 NativeTypes.decimalOf(25, 5),
                 NativeTypes.bitmaskOf(22),
-                NativeTypes.time(),
-                NativeTypes.datetime(),
-                NativeTypes.timestamp(),
+                NativeTypes.time(0),
+                NativeTypes.datetime(6),
+                NativeTypes.timestamp(6),
                 NativeTypes.BYTES,
-                NativeTypes.STRING);
+                NativeTypes.STRING
+        );
 
         // Validate all types are tested.
         assertEquals(Set.of(NativeTypeSpec.values()),
@@ -504,7 +498,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends BaseIgniteAbstractTe
 
             assertFalse(type.mismatch(NativeTypes.fromObject(val)));
 
-            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(NativeTypes.fromObject(val),
+            KeyValueViewImpl<Long, Object> kvView = kvViewForValueType(type,
                     (Class<Object>) val.getClass(), true);
 
             kvView.put(null, key, val);
@@ -686,7 +680,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends BaseIgniteAbstractTe
         Mapper<T> valMapper = Mapper.of(valueClass, "val");
 
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{new Column("VAL", type, nullable)}
         );
@@ -696,20 +690,9 @@ public class KeyValueViewOperationsSimpleSchemaTest extends BaseIgniteAbstractTe
         return new KeyValueViewImpl<>(
                 table.internalTable(),
                 new DummySchemaManagerImpl(schema),
+                new ConstantSchemaVersions(1),
                 keyMapper,
                 valMapper
         );
-    }
-
-    private TableImpl createTable(SchemaDescriptor schema) {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
-                .thenReturn(DummyInternalTableImpl.ADDR);
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
-
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
-
-        return new TableImpl(table, new DummySchemaManagerImpl(schema), new HeapLockManager());
     }
 }

@@ -50,12 +50,11 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -239,7 +238,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         return (SystemView<T>) SystemViews.nodeViewBuilder()
                 .nodeNameColumnAlias("NODE")
                 .name(name)
-                .addColumn("c1", (Class<T>) Commons.nativeTypeToClass(type), (Function<Object, T>) Function.identity())
+                .addColumn("c1", type, (Function<Object, T>) Function.identity())
                 .dataProvider(() -> new AsyncCursor<>() {
                     @Override
                     public CompletableFuture<BatchedResult<Object>> requestNextAsync(int rows) {

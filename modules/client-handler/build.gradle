@@ -33,7 +33,7 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-core')
     implementation project(':ignite-schema')
-    implementation project(':ignite-security')
+    implementation project(':ignite-security-api')
     implementation project(':ignite-metrics')
     implementation project(':ignite-transactions')
     implementation project(':ignite-catalog')
