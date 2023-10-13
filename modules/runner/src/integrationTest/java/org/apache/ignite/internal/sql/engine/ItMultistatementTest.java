@@ -19,14 +19,26 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -58,17 +70,62 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
      * Transaction control statements can not be used in single statement methods.
      */
     @ParameterizedTest
-    @MethodSource("txControlStatements")
-    public void testTxControlStatementsAreNotAllowedWithSingleStatementMethods(String stmtSql) {
+    @MethodSource("args")
+    public void testTxControlStatementsAreNotAllowedWithSingleStatementMethods(String stmtSql, ExecMethod execMethod) {
         Ignite ignite = CLUSTER_NODES.get(0);
         IgniteSql igniteSql = ignite.sql();
 
         try (Session session = igniteSql.createSession()) {
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    "Transaction control statement can not be executed as an independent statement",
-                    () -> session.execute(null, stmtSql));
+            RuntimeException t = assertThrows(RuntimeException.class, () -> execMethod.execute(igniteSql, session, stmtSql, null));
+
+            SqlException sqlException;
+            if (t instanceof CompletionException) {
+                sqlException = assertInstanceOf(SqlException.class, t.getCause());
+            } else {
+                sqlException = assertInstanceOf(SqlException.class, t);
+            }
+
+            String message = "Transaction control statement can not be executed as an independent statement";
+            assertThat(sqlException.getMessage(), containsString(message));
         }
+    }
+
+    public enum ExecMethod {
+        ASYNC,
+        SYNC,
+
+        STMT_ASYNC,
+        STMT_SYNC,
+        ;
+
+        public void execute(IgniteSql sql, Session session, String stmtSql, @Nullable Transaction tx) {
+            switch (this) {
+                case ASYNC:
+                    session.executeAsync(tx, stmtSql).join();
+                    break;
+                case SYNC:
+                    session.execute(tx, stmtSql).next();
+                    break;
+                case STMT_ASYNC: {
+                    Statement s = sql.createStatement(stmtSql);
+                    session.executeAsync(tx, s).join();
+                }
+                    break;
+                case STMT_SYNC: {
+                    Statement s = sql.createStatement(stmtSql);
+                    session.execute(tx, s).next();
+                }
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + this);
+            }
+        }
+    }
+
+    private static Stream<Arguments> args() {
+        return txControlStatements().flatMap(s -> {
+           return Arrays.stream(ExecMethod.values()).map(m -> Arguments.of(s, m));
+        });
     }
 
     private static Stream<String> txControlStatements() {
