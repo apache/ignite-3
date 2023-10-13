@@ -555,8 +555,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         return metricManager;
     }
 
-
-
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
             QueryContext context,
