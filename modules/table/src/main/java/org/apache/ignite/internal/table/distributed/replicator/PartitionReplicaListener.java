@@ -1183,23 +1183,21 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request, String txCoordinatorId) {
-        List<TablePartitionId> aggregatedGroupIds = request.groups().values().stream()
-                .flatMap(List::stream)
-                .map(IgniteBiTuple::get1)
-                .collect(toList());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
+        Collection<TablePartitionId> enlistedGroups = (Collection<TablePartitionId>) (Collection<?>) request.groups();
 
         UUID txId = request.txId();
 
         if (request.commit()) {
             HybridTimestamp commitTimestamp = request.commitTimestamp();
 
-            return schemaCompatValidator.validateForward(txId, aggregatedGroupIds, commitTimestamp)
+            return schemaCompatValidator.validateForward(txId, enlistedGroups, commitTimestamp)
                     .thenCompose(validationResult ->
-                            finishAndCleanup(aggregatedGroupIds, validationResult.isSuccessful(), commitTimestamp, txId, txCoordinatorId)
+                            finishAndCleanup(enlistedGroups, validationResult.isSuccessful(), commitTimestamp, txId, txCoordinatorId)
                                     .thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult)));
         } else {
             // Aborting.
-            return finishAndCleanup(aggregatedGroupIds, false, null, txId, txCoordinatorId);
+            return finishAndCleanup(enlistedGroups, false, null, txId, txCoordinatorId);
         }
     }
 

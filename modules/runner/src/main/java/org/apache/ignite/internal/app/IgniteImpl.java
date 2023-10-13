@@ -389,15 +389,6 @@ public class IgniteImpl implements Ignite {
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), clock);
 
-        // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
-        txManager = new TxManagerImpl(
-                replicaSvc,
-                lockMgr,
-                clock,
-                new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
-                () -> clusterSvc.topologyService().localMember().id()
-        );
-
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
 
@@ -542,6 +533,16 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 vaultMgr,
                 catalogManager
+        );
+
+        // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
+        txManager = new TxManagerImpl(
+                replicaSvc,
+                lockMgr,
+                clock,
+                new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
+                () -> clusterSvc.topologyService().localMember().id(),
+                placementDriverMgr.placementDriver()
         );
 
         distributedTblMgr = new TableManager(

@@ -86,7 +86,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
@@ -1411,7 +1410,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                 .groupId(grpId)
                 .txId(txId)
-                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .groups(Set.of(grpId))
                 .commit(false)
                 .term(1L)
                 .build();
@@ -1475,7 +1474,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         TxFinishReplicaRequest commitRequest = TX_MESSAGES_FACTORY.txFinishReplicaRequest()
                 .groupId(grpId)
                 .txId(txId)
-                .groups(Map.of(localNode, List.of(new IgniteBiTuple<>(grpId, 1L))))
+                .groups(Set.of(grpId))
                 .commit(true)
                 .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
                 .term(1L)
