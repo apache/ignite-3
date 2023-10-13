@@ -82,6 +82,7 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    /** Sql session method to use. */
     public enum ExecMethod {
         ASYNC,
         SYNC,
