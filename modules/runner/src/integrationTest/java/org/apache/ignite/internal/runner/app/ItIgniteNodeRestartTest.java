@@ -84,7 +84,6 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -1241,7 +1240,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             MakeIndexAvailableEventParameters availableEvent = (MakeIndexAvailableEventParameters) event;
 
-            CatalogIndexDescriptor index = node.catalogManager().index(availableEvent.indexId(), HybridTimestamp.MAX_VALUE.longValue());
+            CatalogIndexDescriptor index = node.catalogManager().index(availableEvent.indexId(), event.catalogVersion());
 
             assertNotNull(index, "Cannot find an index by ID=" + availableEvent.indexId());
 
