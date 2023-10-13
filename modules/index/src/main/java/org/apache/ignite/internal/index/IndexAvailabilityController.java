@@ -59,12 +59,31 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildCompletionListener;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * No-doc.
+ * Component is responsible for ensuring that the index, upon completion of the distributed index building for all partitions, becomes
+ * available for read-write.
+ *
+ * <p>An approximate algorithm for making an index available for read-write:</p>
+ * <ul>
+ *     <li>On {@link CatalogEvent#INDEX_CREATE}, keys are created in the metastore: {@code startBuildIndex.<indexId>} and
+ *     {@code partitionBuildIndex.<indexId>.<partitionId_0>}...{@code partitionBuildIndex.<indexId>.<partitionId_N>}.</li>
+ *     <li>Then it is expected that the distributed index building event will be triggered for all partitions via
+ *     {@link IndexBuildCompletionListener} (from {@link IndexBuilder#listen}); as a result of each of these events, the corresponding key
+ *     {@code partitionBuildIndex.<indexId>.<partitionId>} will be deleted from metastore.</li>
+ *     <li>When all the {@code partitionBuildIndex.<indexId>.<partitionId>} keys in the metastore are deleted,
+ *     {@link MakeIndexAvailableCommand} will be executed for the corresponding index.</li>
+ *     <li>At {@link CatalogEvent#INDEX_AVAILABLE}, key {@code startBuildIndex.<indexId>} in the metastore will be deleted.</li>
+ * </ul>
+ *
+ * <p>Notes: At {@link CatalogEvent#INDEX_DROP}, the keys in the metastore are deleted: {@code startBuildIndex.<indexId>} and
+ * {@code partitionBuildIndex.<indexId>.<partitionId_0>}...{@code partitionBuildIndex.<indexId>.<partitionId_N>}.</p>
+ *
+ * @see CatalogIndexDescriptor#writeOnly()
  */
 // TODO: IGNITE-20637 Recovery needs to be implemented
 // TODO: IGNITE-20637 Need integration with the IgniteImpl
