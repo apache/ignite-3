@@ -45,26 +45,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
 
     /**
-     * Transaction control statements can not be used in explicit transactions.
-     */
-    @ParameterizedTest
-    @MethodSource("txControlCalls")
-    public void testTxControlStatementsAreNotAllowdWithExplicitTransactions(String stmtSql, ExecMethod execMethod) {
-        Ignite ignite = CLUSTER_NODES.get(0);
-        IgniteTransactions transactions = ignite.transactions();
-        IgniteSql igniteSql = ignite.sql();
-
-        Transaction tx = transactions.begin();
-
-        try (Session session = igniteSql.createSession()) {
-            RuntimeException t = assertThrows(RuntimeException.class, () -> execMethod.execute(igniteSql, session, stmtSql, tx));
-
-            String message = "Transaction control statements can not used in explicit transactions";
-            checkError(message, t);
-        }
-    }
-
-    /**
      * Transaction control statements can not be used in single statement methods.
      */
     @ParameterizedTest

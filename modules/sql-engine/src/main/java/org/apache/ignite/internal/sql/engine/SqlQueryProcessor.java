@@ -431,7 +431,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
-            validateParsedStatement(context, result, outerTx, params);
+            validateParsedStatement(context, result, params);
 
             QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
 
@@ -555,26 +555,21 @@ public class SqlQueryProcessor implements QueryProcessor {
         return metricManager;
     }
 
+
+
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
             QueryContext context,
             ParsedResult parsedResult,
-            @Nullable InternalTransaction outerTx,
             Object[] params
     ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
 
         if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
-            if (outerTx != null) {
-                String message = "Transaction control statements can not used in explicit transactions";
+            String message = "Transaction control statement can not be executed as an independent statement";
 
-                throw new SqlException(STMT_VALIDATION_ERR, message);
-            } else {
-                String message = "Transaction control statement can not be executed as an independent statement";
-
-                throw new SqlException(STMT_VALIDATION_ERR, message);
-            }
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
         if (!allowedTypes.contains(queryType)) {
