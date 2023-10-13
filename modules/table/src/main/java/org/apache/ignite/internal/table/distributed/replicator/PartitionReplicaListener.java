@@ -2109,19 +2109,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return cmd.txId();
             });
 
-            storageUpdateHandler.handleUpdate(
-                    cmd.txId(),
-                    cmd.rowUuid(),
-                    cmd.tablePartitionId().asTablePartitionId(),
-                    cmd.row(),
-                    true,
-                    null,
-                    null,
-                    cmd.lastCommitTimestamp());
-
             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
             synchronized (safeTime) {
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                    storageUpdateHandler.handleUpdate(
+                            cmd.txId(),
+                            cmd.rowUuid(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.row(),
+                            true,
+                            null,
+                            null,
+                            cmd.lastCommitTimestamp());
+
+                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                }
             }
 
             return completedFuture(fut);
@@ -2192,18 +2194,20 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (!cmd.full()) {
             if (skipDelayedAck) {
-                storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
-                        cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        true,
-                        null,
-                        null,
-                        cmd.lastCommitTimestamps());
-
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
                 synchronized (safeTime) {
-                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                        storageUpdateHandler.handleUpdateAll(
+                                cmd.txId(),
+                                cmd.rowsToUpdate(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                true,
+                                null,
+                                null,
+                                cmd.lastCommitTimestamps());
+
+                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    }
                 }
 
                 return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
@@ -2219,16 +2223,18 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
                 synchronized (safeTime) {
-                    storageUpdateHandler.handleUpdateAll(
-                            cmd.txId(),
-                            cmd.rowsToUpdate(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            true,
-                            null,
-                            null,
-                            cmd.lastCommitTimestamps());
+                    if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                        storageUpdateHandler.handleUpdateAll(
+                                cmd.txId(),
+                                cmd.rowsToUpdate(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                true,
+                                null,
+                                null,
+                                cmd.lastCommitTimestamps());
 
-                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    }
                 }
 
                 return completedFuture(fut);
