@@ -53,7 +53,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -842,13 +841,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     }
 
                     @Override
-                    public ImmutableBitSet unspecifiedLower() {
-                        return ImmutableBitSet.of();
+                    public boolean unspecifiedLower() {
+                        return false;
                     }
 
                     @Override
-                    public ImmutableBitSet unspecifiedUpper() {
-                        return ImmutableBitSet.of();
+                    public boolean unspecifiedUpper() {
+                        return false;
                     }
 
                     @Override

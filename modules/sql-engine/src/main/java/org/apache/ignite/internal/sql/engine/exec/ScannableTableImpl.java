@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_O
 import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -106,8 +105,8 @@ public class ScannableTableImpl implements ScannableTable {
             lower = null;
             upper = null;
         } else {
-            lower = toBinaryTuplePrefix(ctx, indexRowSchema, cond.lower(), cond.unspecifiedLower(), rowFactory);
-            upper = toBinaryTuplePrefix(ctx, indexRowSchema, cond.upper(), cond.unspecifiedUpper(), rowFactory);
+            lower = cond.unspecifiedLower() ? null : toBinaryTuplePrefix(ctx, indexRowSchema, cond.lower(), rowFactory);
+            upper = cond.unspecifiedUpper() ? null : toBinaryTuplePrefix(ctx, indexRowSchema, cond.upper(), rowFactory);
 
             flags |= (cond.lowerInclude()) ? GREATER_OR_EQUAL : 0;
             flags |= (cond.upperInclude()) ? LESS_OR_EQUAL : 0;
@@ -184,21 +183,20 @@ public class ScannableTableImpl implements ScannableTable {
         return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
 
-    private <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(
+    private static <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(
             ExecutionContext<RowT> ctx,
             BinaryTupleSchema indexRowSchema,
             @Nullable RowT condition,
-            ImmutableBitSet unspecified,
             RowFactory<RowT> factory
     ) {
         if (condition == null) {
             return null;
         }
 
-        return RowConverter.toBinaryTuplePrefix(ctx, indexRowSchema, factory, condition, unspecified);
+        return RowConverter.toBinaryTuplePrefix(ctx, indexRowSchema, factory, condition);
     }
 
-    private <RowT> @Nullable BinaryTuple toBinaryTuple(ExecutionContext<RowT> ctx, BinaryTupleSchema indexRowSchema,
+    private static <RowT> @Nullable BinaryTuple toBinaryTuple(ExecutionContext<RowT> ctx, BinaryTupleSchema indexRowSchema,
             @Nullable RowT condition, RowFactory<RowT> factory) {
         if (condition == null) {
             return null;

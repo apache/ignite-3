@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -56,30 +55,22 @@ public final class RowConverter {
      * @param factory Row handler factory.
      * @param searchRow Search row.
      * @param <RowT> Row type.
-     * @param unspecified Positions of unspecified nodes, i.e. nodes instantiated with {@code null}
      * @return Binary tuple.
      */
     static <RowT> BinaryTuplePrefix toBinaryTuplePrefix(
             ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             RowHandler.RowFactory<RowT> factory,
-            RowT searchRow,
-            ImmutableBitSet unspecified
+            RowT searchRow
     ) {
         RowHandler<RowT> handler = factory.handler();
 
         int indexedColumnsCount = binarySchema.elementCount();
         int prefixColumnsCount = handler.columnCount(searchRow);
 
-        assert prefixColumnsCount == indexedColumnsCount : "Invalid range condition";
+        BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(prefixColumnsCount, indexedColumnsCount);
 
-        int pos = unspecified.nextSetBit(0);
-
-        int rowColumnsCount = pos == -1 ? prefixColumnsCount : pos;
-
-        BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(rowColumnsCount, indexedColumnsCount);
-
-        return new BinaryTuplePrefix(indexedColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, searchRow, rowColumnsCount));
+        return new BinaryTuplePrefix(indexedColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, searchRow));
     }
 
     /**
@@ -106,17 +97,18 @@ public final class RowConverter {
 
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount);
 
-        return new BinaryTuple(rowColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, searchRow, rowColumnsCount));
+        return new BinaryTuple(rowColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, searchRow));
     }
 
     private static <RowT> ByteBuffer toByteBuffer(
             BinaryTupleSchema binarySchema,
             RowHandler<RowT> handler,
             BinaryTupleBuilder tupleBuilder,
-            RowT searchRow,
-            int colCount
+            RowT searchRow
     ) {
-        for (int i = 0; i < colCount; i++) {
+        int columnsCount = handler.columnCount(searchRow);
+
+        for (int i = 0; i < columnsCount; i++) {
             Object val = handler.get(i, searchRow);
 
             Element element = binarySchema.element(i);

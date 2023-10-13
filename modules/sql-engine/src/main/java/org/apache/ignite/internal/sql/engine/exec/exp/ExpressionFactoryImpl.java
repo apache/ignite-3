@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -81,6 +83,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -333,6 +336,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 Arrays.asList(new RexNode[rowType.getFieldCount()]),
                 Arrays.asList(new RexNode[rowType.getFieldCount()]),
                 true,
+                true,
                 true
         );
 
@@ -361,7 +365,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             List<RexNode> curLower,
             List<RexNode> curUpper,
             boolean lowerInclude,
-            boolean upperInclude
+            boolean upperInclude,
+            boolean containNull
     ) {
         if ((fieldIdx >= searchBounds.size())
                 || (!lowerInclude && !upperInclude)
@@ -372,7 +377,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     rowType,
                     lowerInclude,
                     upperInclude,
-                    rowFactory
+                    rowFactory,
+                    containNull
             ));
 
             return;
@@ -406,10 +412,16 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
             if (lowerInclude) {
                 curLower.set(fieldIdx, fieldLowerBound);
+                if (fieldLowerBound == null) {
+                    containNull = true;
+                }
             }
 
             if (upperInclude) {
                 curUpper.set(fieldIdx, fieldUpperBound);
+                if (fieldLowerBound == null) {
+                    containNull = true;
+                }
             }
 
             expandBounds(
@@ -421,7 +433,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     curLower,
                     curUpper,
                     lowerInclude && fieldLowerInclude,
-                    upperInclude && fieldUpperInclude
+                    upperInclude && fieldUpperInclude,
+                    containNull
             );
         }
 
@@ -478,6 +491,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
             if (node != null) {
                 programBuilder.addProject(node, null);
+            } else {
+                assert false : "unexpected nullable node";
             }
         }
 
@@ -721,22 +736,23 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private static ImmutableBitSet processUnspecifiedNodes(List<RexNode> nodes) {
-        if (nodes == null) {
-            return ImmutableBitSet.of();
-        }
-
-        ImmutableBitSet.Builder bs = ImmutableBitSet.builder();
-
-        for (int i = 0; i < nodes.size(); i++) {
-            RexNode node = nodes.get(i);
-
-            if (node == null) {
-                bs.set(i);
+    private static Map.Entry<List<RexNode>, RelDataType> shrinkBounds(IgniteTypeFactory factory, List<RexNode> bound, RelDataType rowType) {
+        ArrayList<RexNode> lowerInit = new ArrayList<>(bound);
+        ImmutableList.Builder<RexNode> lowerBuilder = ImmutableList.builder();
+        ImmutableList.Builder<RelDataType> typesBuilder = ImmutableList.builder();
+        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
+        int i = 0;
+        for (RexNode node : lowerInit) {
+            if (node != null) {
+                typesBuilder.add(types.get(i));
+                lowerBuilder.add(node);
             }
+            ++i;
         }
+        bound = lowerBuilder.build();
+        rowType = TypeUtils.createRowType(factory, typesBuilder.build());
 
-        return bs.build();
+        return Map.entry(bound, rowType);
     }
 
     private class RangeConditionImpl implements RangeCondition<RowT> {
@@ -758,17 +774,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Upper row. */
         private @Nullable RowT upperRow;
 
-        /** Cached skip range flag. */
-        private @Nullable Boolean skip;
-
         /** Row factory. */
         private final RowFactory<RowT> factory;
 
-        /** Unspecified nodes positions for lower bound. */
-        private final ImmutableBitSet unspecifiedLower;
+        /** Unspecified lower bound. */
+        private boolean unspecifiedLower = false;
 
-        /** Unspecified nodes positions for upper bound. */
-        private final ImmutableBitSet unspecifiedUpper;
+        /** Unspecified upper bound. */
+        private boolean unspecifiedUpper = false;
 
         private RangeConditionImpl(
                 List<RexNode> lower,
@@ -776,37 +789,55 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RelDataType rowType,
                 boolean lowerInclude,
                 boolean upperInclude,
-                RowFactory<RowT> factory
+                RowFactory<RowT> factory,
+                boolean containNulls
         ) {
-            this.lowerBound = scalar(lower, rowType);
-            this.upperBound = scalar(upper, rowType);
+            if (containNulls) {
+                if (!lower.isEmpty() && CollectionUtils.first(lower) == null) {
+                    unspecifiedLower = true;
+                } else {
+                    Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), lower, rowType);
+                    lower = res.getKey();
+                    rowType = res.getValue();
+                }
+
+                if (!upper.isEmpty() && CollectionUtils.first(upper) == null) {
+                    unspecifiedUpper = true;
+                } else {
+                    Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), upper, rowType);
+                    upper = res.getKey();
+                    rowType = res.getValue();
+                }
+            }
+
+            this.lowerBound = unspecifiedLower ? null : scalar(lower, rowType);
+            this.upperBound = unspecifiedUpper ? null : scalar(upper, rowType);
             this.lowerInclude = lowerInclude;
             this.upperInclude = upperInclude;
-            this.factory = factory;
 
-            unspecifiedLower = processUnspecifiedNodes(lower);
-            unspecifiedUpper = processUnspecifiedNodes(upper);
+            this.factory = ((unspecifiedLower && unspecifiedUpper) || !containNulls) ? factory
+                    : ctx.rowHandler().factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType)));
         }
 
         /** {@inheritDoc} */
         @Override
         public RowT lower() {
-            return lowerRow != null ? lowerRow : getRow(lowerBound, true);
+            return lowerRow != null ? lowerRow : getRow(lowerBound);
         }
 
         /** {@inheritDoc} */
         @Override
         public RowT upper() {
-            return upperRow != null ? upperRow : getRow(upperBound, false);
+            return upperRow != null ? upperRow : getRow(upperBound);
         }
 
         @Override
-        public ImmutableBitSet unspecifiedLower() {
+        public boolean unspecifiedLower() {
             return unspecifiedLower;
         }
 
         @Override
-        public ImmutableBitSet unspecifiedUpper() {
+        public boolean unspecifiedUpper() {
             return unspecifiedUpper;
         }
 
@@ -823,7 +854,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Compute row. */
-        private RowT getRow(SingleScalar scalar, boolean lower) {
+        private RowT getRow(SingleScalar scalar) {
             RowT res = factory.create();
             scalar.execute(ctx, null, res);
 
@@ -833,12 +864,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             // There is special placeholder for searchable NULLs, make this replacement here too.
             for (int i = 0; i < hnd.columnCount(res); i++) {
                 Object fldVal = hnd.get(i, res);
-
-                if (fldVal == null) {
-                    if (lower ? !unspecifiedLower().get(i) : !unspecifiedUpper().get(i)) {
-                        skip = Boolean.TRUE;
-                    }
-                }
 
                 if (fldVal == ctx.nullBound()) {
                     hnd.set(i, res, null);
@@ -850,23 +875,13 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         /** Clear cached rows. */
         void clearCache() {
-            lowerRow = upperRow = null;
-            skip = null;
+            lowerRow = null;
+            upperRow = null;
         }
 
         /** Skip this range. */
         public boolean skip() {
-            if (skip == null) {
-                // Precalculate skip flag.
-                lower();
-                upper();
-
-                if (skip == null) {
-                    skip = Boolean.FALSE;
-                }
-            }
-
-            return skip;
+            return unspecifiedLower && unspecifiedUpper;
         }
     }
 
