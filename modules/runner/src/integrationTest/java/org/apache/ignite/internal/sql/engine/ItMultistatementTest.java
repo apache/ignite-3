@@ -20,14 +20,14 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for multi-statements.
@@ -38,12 +38,7 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
      * Transaction control statements can not be used in explicit transactions.
      */
     @ParameterizedTest
-    @ValueSource(strings = {
-            "START TRANSACTION",
-            "START TRANSACTION READ WRITE",
-            "START TRANSACTION READ ONLY",
-            "COMMIT",
-    })
+    @MethodSource("txControlStatements")
     public void testTxControlStatementsAreNotAllowdWithExplicitTransactions(String stmtSql) {
         Ignite ignite = CLUSTER_NODES.get(0);
         IgniteTransactions transactions = ignite.transactions();
@@ -63,13 +58,8 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
      * Transaction control statements can not be used in single statement methods.
      */
     @ParameterizedTest
-    @ValueSource(strings = {
-            "START TRANSACTION",
-            "START TRANSACTION READ WRITE",
-            "START TRANSACTION READ ONLY",
-            "COMMIT",
-    })
-    public void testTxControlStatementsAreNotAllowdWithExplicitTransactions(String stmtSql) {
+    @MethodSource("txControlStatements")
+    public void testTxControlStatementsAreNotAllowedWithSingleStatementMethods(String stmtSql) {
         Ignite ignite = CLUSTER_NODES.get(0);
         IgniteSql igniteSql = ignite.sql();
 
@@ -79,5 +69,14 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
                     "Transaction control statement can not be executed as an independent statement",
                     () -> session.execute(null, stmtSql));
         }
+    }
+
+    private static Stream<String> txControlStatements() {
+        return Stream.of(
+                "START TRANSACTION",
+                "START TRANSACTION READ WRITE",
+                "START TRANSACTION READ ONLY",
+                "COMMIT"
+        );
     }
 }
