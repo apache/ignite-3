@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 
@@ -27,10 +28,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -45,13 +44,10 @@ public class ScannableTableImpl implements ScannableTable {
 
     private final TableRowConverterFactory converterFactory;
 
-    private final TableDescriptor tableDescriptor;
-
     /** Constructor. */
-    public ScannableTableImpl(InternalTable internalTable, TableRowConverterFactory converterFactory, TableDescriptor tableDescriptor) {
+    public ScannableTableImpl(InternalTable internalTable, TableRowConverterFactory converterFactory) {
         this.internalTable = internalTable;
         this.converterFactory = converterFactory;
-        this.tableDescriptor = tableDescriptor;
     }
 
     /** {@inheritDoc} */
@@ -90,9 +86,8 @@ public class ScannableTableImpl implements ScannableTable {
             @Nullable RangeCondition<RowT> cond,
             @Nullable BitSet requiredColumns
     ) {
-
-        BinaryTupleSchema indexRowSchema = RowConverter.createIndexRowSchema(columns, tableDescriptor);
         TxAttributes txAttributes = ctx.txAttributes();
+        RowHandler<RowT> handler = rowFactory.handler();
 
         Publisher<BinaryRow> pub;
         BinaryTuplePrefix lower;
@@ -105,17 +100,21 @@ public class ScannableTableImpl implements ScannableTable {
             lower = null;
             upper = null;
         } else {
-            lower = toBinaryTuplePrefix(ctx, indexRowSchema, cond.lower(), rowFactory);
-            upper = toBinaryTuplePrefix(ctx, indexRowSchema, cond.upper(), rowFactory);
+            lower = toBinaryTuplePrefix(columns.size(), handler, cond.lower());
+            upper = toBinaryTuplePrefix(columns.size(), handler, cond.upper());
 
             flags |= (cond.lowerInclude()) ? GREATER_OR_EQUAL : 0;
             flags |= (cond.upperInclude()) ? LESS_OR_EQUAL : 0;
         }
 
         if (txAttributes.readOnly()) {
+            HybridTimestamp readTime = txAttributes.time();
+
+            assert readTime != null;
+
             pub = internalTable.scan(
                     partWithTerm.partId(),
-                    txAttributes.time(),
+                    readTime,
                     ctx.localNode(),
                     indexId,
                     lower,
@@ -148,24 +147,31 @@ public class ScannableTableImpl implements ScannableTable {
             PartitionWithTerm partWithTerm,
             RowFactory<RowT> rowFactory,
             int indexId,
-            List<String> columns, RowT key,
+            List<String> columns,
+            RowT key,
             @Nullable BitSet requiredColumns
     ) {
-
-        BinaryTupleSchema indexRowSchema = RowConverter.createIndexRowSchema(columns, tableDescriptor);
         TxAttributes txAttributes = ctx.txAttributes();
+        RowHandler<RowT> handler = rowFactory.handler();
         Publisher<BinaryRow> pub;
 
-        BinaryTuple keyTuple = toBinaryTuple(ctx, indexRowSchema, key, rowFactory);
+        BinaryTuple keyTuple = handler.toBinaryTuple(key);
+
+        assert keyTuple.elementCount() == columns.size()
+                : format("Key should contain exactly {} fields, but was {}", columns.size(), handler.toString(key));
 
         if (txAttributes.readOnly()) {
+            HybridTimestamp readTime = txAttributes.time();
+
+            assert readTime != null;
+
             pub = internalTable.lookup(
                     partWithTerm.partId(),
-                    txAttributes.time(),
+                    readTime,
                     ctx.localNode(),
                     indexId,
                     keyTuple,
-                    requiredColumns
+                    null
             );
         } else {
             pub = internalTable.lookup(
@@ -174,7 +180,7 @@ public class ScannableTableImpl implements ScannableTable {
                     new PrimaryReplica(ctx.localNode(), partWithTerm.term()),
                     indexId,
                     keyTuple,
-                    requiredColumns
+                    null
             );
         }
 
@@ -184,25 +190,16 @@ public class ScannableTableImpl implements ScannableTable {
     }
 
     private static <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(
-            ExecutionContext<RowT> ctx,
-            BinaryTupleSchema indexRowSchema,
-            @Nullable RowT condition,
-            RowFactory<RowT> factory
+            int searchBoundSize,
+            RowHandler<RowT> handler,
+            @Nullable RowT prefix
     ) {
-        if (condition == null) {
+        if (prefix == null) {
             return null;
         }
 
-        return RowConverter.toBinaryTuplePrefix(ctx, indexRowSchema, factory, condition);
+        assert searchBoundSize >= handler.columnCount(prefix) : "Invalid range condition";
+
+        return BinaryTuplePrefix.fromBinaryTuple(searchBoundSize, handler.toBinaryTuple(prefix));
     }
-
-    private static <RowT> @Nullable BinaryTuple toBinaryTuple(ExecutionContext<RowT> ctx, BinaryTupleSchema indexRowSchema,
-            @Nullable RowT condition, RowFactory<RowT> factory) {
-        if (condition == null) {
-            return null;
-        }
-
-        return RowConverter.toBinaryTuple(ctx, indexRowSchema, factory, condition);
-    }
-
 }

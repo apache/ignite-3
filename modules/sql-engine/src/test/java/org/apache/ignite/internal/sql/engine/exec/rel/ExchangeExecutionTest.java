@@ -49,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ClusterServiceFactory;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.PredicateMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -495,8 +497,13 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ExchangeService exchangeService = exchangeServices.computeIfAbsent(localNode.name(), name ->
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
+        RowSchema schema = RowSchema.builder()
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.INT32)
+                .build();
+
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowFactory(),
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowHandler().factory(schema),
                 SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 

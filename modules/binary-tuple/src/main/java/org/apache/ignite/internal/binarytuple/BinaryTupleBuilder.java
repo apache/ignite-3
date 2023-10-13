@@ -82,11 +82,24 @@ public class BinaryTupleBuilder {
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
     public BinaryTupleBuilder(int numElements, int totalValueSize) {
+        this(numElements, totalValueSize, true);
+    }
+
+    /**
+     * Creates a builder.
+     *
+     * @param numElements Number of tuple elements.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     * @param exactEstimate Whether the total size is exact estimate or approximate. The
+     *      difference here is with exact estimate allocation will be optimal, while with
+     *      approximate estimate some excess allocation is possible.
+     */
+    public BinaryTupleBuilder(int numElements, int totalValueSize, boolean exactEstimate) {
         this.numElements = numElements;
 
         entryBase = BinaryTupleCommon.HEADER_SIZE;
 
-        if (totalValueSize < 0) {
+        if (totalValueSize < 0 || !exactEstimate) {
             entrySize = Integer.BYTES;
         } else {
             entrySize = BinaryTupleCommon.flagsToEntrySize(BinaryTupleCommon.valueSizeToFlags(totalValueSize));

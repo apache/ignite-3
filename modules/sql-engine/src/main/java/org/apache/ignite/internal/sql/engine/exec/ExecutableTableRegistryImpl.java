@@ -75,7 +75,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     );
 
                     InternalTable internalTable = table.internalTable();
-                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory, tableDescriptor);
+                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory);
 
                     UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
                             replicaService, clock, converterFactory.create(null), schemaDescriptor);
