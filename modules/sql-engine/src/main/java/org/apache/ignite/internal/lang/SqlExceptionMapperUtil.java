@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPub
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteCheckedException;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.SqlException;
 
@@ -37,9 +35,8 @@ public class SqlExceptionMapperUtil {
      * <p>The rules of mapping are the following:</p>
      * <ul>
      *     <li>any instance of {@link Error} is returned as is, except {@link AssertionError}
-     *     that will always be mapped to {@link IgniteException} with the {@link Common#INTERNAL_ERR} error code.</li>
-     *     <li>any instance of {@link IgniteException} or {@link IgniteCheckedException} is returned as is.</li>
-     *     <li>any other instance of {@link TraceableException} is wrapped into {@link SqlException}
+     *     that will always be mapped to {@link SqlException} with the {@link Common#INTERNAL_ERR} error code.</li>
+     *     <li>any instance of {@link TraceableException} is wrapped into {@link SqlException}
      *         with the original {@link TraceableException#traceId() traceUd} and {@link TraceableException#code() code}.</li>
      *     <li>if there are no any mappers that can do a mapping from the given error to a public exception,
      *     then {@link SqlException} with the {@link Common#INTERNAL_ERR} error code is returned.</li>
@@ -55,9 +52,6 @@ public class SqlExceptionMapperUtil {
         }
         if (e instanceof SqlException) {
             return e;
-        }
-        if (e instanceof IgniteException && ((IgniteException) e).code() == INTERNAL_ERR) {
-            return new SqlException(((IgniteException) e).traceId(), INTERNAL_ERR, e.getCause());
         }
 
         if (e instanceof TraceableException) {
