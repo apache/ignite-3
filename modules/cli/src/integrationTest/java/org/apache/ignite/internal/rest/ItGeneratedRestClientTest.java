@@ -284,15 +284,15 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void updateNodeConfigurationWithInvalidParam() throws JsonProcessingException {
+    void updateClusterConfigurationWithInvalidParam() throws JsonProcessingException {
         ApiException thrown = assertThrows(
                 ApiException.class,
-                () -> clusterConfigurationApi.updateClusterConfiguration("security.authentication.enabled=true")
+                () -> clusterConfigurationApi.updateClusterConfiguration("security.enabled=true")
         );
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(400));
-        assertThat(problem.getInvalidParams(), nullValue());
+        assertThat(problem.getInvalidParams(), hasSize(1));
     }
 
     @Test
