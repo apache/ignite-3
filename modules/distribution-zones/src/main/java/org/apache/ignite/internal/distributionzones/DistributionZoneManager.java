@@ -151,17 +151,17 @@ public class DistributionZoneManager implements IgniteComponent {
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
         public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-            updateLogicalTopologyInMetaStorage(newTopology, false);
+            updateLogicalTopologyInMetaStorage(newTopology);
         }
 
         @Override
         public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-            updateLogicalTopologyInMetaStorage(newTopology, false);
+            updateLogicalTopologyInMetaStorage(newTopology);
         }
 
         @Override
         public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-            updateLogicalTopologyInMetaStorage(newTopology, true);
+            updateLogicalTopologyInMetaStorage(newTopology);
         }
     };
 
@@ -610,10 +610,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * in meta storage.
      *
      * @param newTopology Logical topology snapshot.
-     * @param topologyLeap Flag that indicates whether this updates was trigger by
-     *                     {@link LogicalTopologyEventListener#onTopologyLeap(LogicalTopologySnapshot)} or not.
      */
-    private void updateLogicalTopologyInMetaStorage(LogicalTopologySnapshot newTopology, boolean topologyLeap) {
+    private void updateLogicalTopologyInMetaStorage(LogicalTopologySnapshot newTopology) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -627,12 +625,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 // Very first start of the cluster, so we just initialize zonesLogicalTopologyVersionKey
                 updateCondition = notExists(zonesLogicalTopologyVersionKey());
             } else {
-                if (topologyLeap) {
-                    updateCondition = value(zonesLogicalTopologyVersionKey()).lt(longToBytes(newTopology.version()));
-                } else {
-                    // This condition may be stronger, as far as we receive topology events one by one.
-                    updateCondition = value(zonesLogicalTopologyVersionKey()).eq(longToBytes(newTopology.version() - 1));
-                }
+                updateCondition = value(zonesLogicalTopologyVersionKey()).lt(longToBytes(newTopology.version()));
             }
 
             Iif iff = iif(
