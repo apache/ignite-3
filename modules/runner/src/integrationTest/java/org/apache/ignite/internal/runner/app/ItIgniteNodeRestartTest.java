@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -59,6 +60,9 @@ import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
@@ -80,6 +84,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -1227,12 +1232,30 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private void waitForIndexToBecomeAvailable(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
-        assertTrue(waitForCondition(
-                () -> nodes.stream()
-                        .map(nodeImpl -> nodeImpl.catalogManager().index(indexName.toUpperCase(), nodeImpl.clock().nowLong()))
-                        .allMatch(indexDescriptor -> indexDescriptor != null && !indexDescriptor.writeOnly()),
-                TIMEOUT_MILLIS
-        ));
+        CountDownLatch latch = new CountDownLatch(nodes.size());
+
+        nodes.forEach(node -> node.catalogManager().listen(CatalogEvent.INDEX_AVAILABLE, (event, ex) -> {
+            if (ex != null) {
+                return failedFuture(ex);
+            }
+
+            MakeIndexAvailableEventParameters availableEvent = (MakeIndexAvailableEventParameters) event;
+
+            CatalogIndexDescriptor index = node.catalogManager().index(availableEvent.indexId(), HybridTimestamp.MAX_VALUE.longValue());
+
+            assertNotNull(index, "Cannot find an index by ID=" + availableEvent.indexId());
+
+            if (index.name().equalsIgnoreCase(indexName)) {
+                // That's our index.
+                latch.countDown();
+
+                return completedFuture(true);
+            }
+
+            return completedFuture(false);
+        }));
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
     }
 
     /**
