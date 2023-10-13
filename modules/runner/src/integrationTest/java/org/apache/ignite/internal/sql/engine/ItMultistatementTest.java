@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
@@ -33,7 +33,6 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -50,8 +49,8 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
      * Transaction control statements can not be used in explicit transactions.
      */
     @ParameterizedTest
-    @MethodSource("txControlStatements")
-    public void testTxControlStatementsAreNotAllowdWithExplicitTransactions(String stmtSql) {
+    @MethodSource("txControlCalls")
+    public void testTxControlStatementsAreNotAllowdWithExplicitTransactions(String stmtSql, ExecMethod execMethod) {
         Ignite ignite = CLUSTER_NODES.get(0);
         IgniteTransactions transactions = ignite.transactions();
         IgniteSql igniteSql = ignite.sql();
@@ -59,10 +58,10 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
         Transaction tx = transactions.begin();
 
         try (Session session = igniteSql.createSession()) {
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    "Transaction control statements can not used in explicit transactions",
-                    () -> session.execute(tx, stmtSql));
+            RuntimeException t = assertThrows(RuntimeException.class, () -> execMethod.execute(igniteSql, session, stmtSql, tx));
+
+            String message = "Transaction control statements can not used in explicit transactions";
+            checkError(message, t);
         }
     }
 
@@ -70,7 +69,7 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
      * Transaction control statements can not be used in single statement methods.
      */
     @ParameterizedTest
-    @MethodSource("args")
+    @MethodSource("txControlCalls")
     public void testTxControlStatementsAreNotAllowedWithSingleStatementMethods(String stmtSql, ExecMethod execMethod) {
         Ignite ignite = CLUSTER_NODES.get(0);
         IgniteSql igniteSql = ignite.sql();
@@ -78,15 +77,8 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
         try (Session session = igniteSql.createSession()) {
             RuntimeException t = assertThrows(RuntimeException.class, () -> execMethod.execute(igniteSql, session, stmtSql, null));
 
-            SqlException sqlException;
-            if (t instanceof CompletionException) {
-                sqlException = assertInstanceOf(SqlException.class, t.getCause());
-            } else {
-                sqlException = assertInstanceOf(SqlException.class, t);
-            }
-
             String message = "Transaction control statement can not be executed as an independent statement";
-            assertThat(sqlException.getMessage(), containsString(message));
+            checkError(message, t);
         }
     }
 
@@ -122,10 +114,8 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    private static Stream<Arguments> args() {
-        return txControlStatements().flatMap(s -> {
-           return Arrays.stream(ExecMethod.values()).map(m -> Arguments.of(s, m));
-        });
+    private static Stream<Arguments> txControlCalls() {
+        return txControlStatements().flatMap(s -> Arrays.stream(ExecMethod.values()).map(m -> Arguments.of(s, m)));
     }
 
     private static Stream<String> txControlStatements() {
@@ -135,5 +125,17 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
                 "START TRANSACTION READ ONLY",
                 "COMMIT"
         );
+    }
+
+    private static void checkError(String message, RuntimeException err) {
+        SqlException sqlException;
+        if (err instanceof CompletionException) {
+            sqlException = assertInstanceOf(SqlException.class, err.getCause());
+        } else {
+            sqlException = assertInstanceOf(SqlException.class, err);
+        }
+
+        assertEquals(STMT_VALIDATION_ERR, sqlException.code());
+        assertThat(sqlException.getMessage(), containsString(message));
     }
 }
