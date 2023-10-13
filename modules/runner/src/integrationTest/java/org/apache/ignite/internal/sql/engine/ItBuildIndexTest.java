@@ -19,12 +19,15 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,6 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
@@ -177,8 +181,23 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         ));
     }
 
-    private static void createIndex(String indexName) {
+    private static void createIndex(String indexName) throws Exception {
         sql(IgniteStringFormatter.format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME));
+
+        waitForIndex(indexName);
+    }
+
+    /**
+     * Waits for all nodes in the cluster to have the given index in the Catalog.
+     *
+     * @param indexName Name of an index to wait for.
+     */
+    private static void waitForIndex(String indexName) throws InterruptedException {
+        assertFalse(nullOrEmpty(CLUSTER_NODES));
+        assertTrue(waitForCondition(
+                () -> CLUSTER_NODES.stream().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
+                10_000)
+        );
     }
 
     private static RaftGroupService getRaftClient(Ignite node, int partitionId) {
