@@ -450,7 +450,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) throws Exception {
         Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
 
-        // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
         for (Ignite clusterNode : CLUSTER_NODES) {
             TableImpl tableImpl = getTableImpl(clusterNode, tableName);
 
