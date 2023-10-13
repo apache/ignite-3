@@ -51,7 +51,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests for the REST port range configuration. */
-public class ItPortRangeTest extends IgniteIntegrationTest {
+public class ItRestPortsTestTest extends IgniteIntegrationTest {
 
     /** Trust store path. */
     private static final String trustStorePath = "ssl/truststore.jks";
