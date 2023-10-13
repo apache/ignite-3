@@ -54,7 +54,7 @@ column_meta_vector read_meta(protocol::reader &reader) {
 
         if (!origin_present) {
             columns.emplace_back("", "", std::move(name), typ, precision, scale, nullable);
-            break;
+            continue;
         }
 
         assert(fields_cnt >= 9); // Expect at least three more fields.
