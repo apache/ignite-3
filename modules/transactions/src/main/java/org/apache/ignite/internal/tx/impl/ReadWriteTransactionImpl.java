@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import java.util.LinkedHashMap;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -96,10 +96,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        Map<TablePartitionId, Long> enlistedGroups = new LinkedHashMap<>();
-
         if (!enlisted.isEmpty()) {
-            enlistedGroups = enlisted.entrySet().stream()
+            Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
                     .collect(Collectors.toMap(
                             Entry::getKey,
                             entry -> entry.getValue().get2()
@@ -132,7 +130,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                     null,
                     null,
                     commit,
-                    enlistedGroups,
+                    Collections.emptyMap(),
                     id()
             );
         }
