@@ -2179,14 +2179,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             boolean skipDelayedAck
     ) {
         UpdateAllCommand cmd = updateAllCommand(
-            rowsToUpdate,
-            lastCommitTimes,
-            commitPartitionId,
-            transactionId,
-            hybridClock.now(),
-            full,
-            txCoordinatorId,
-            catalogVersion
+                rowsToUpdate,
+                lastCommitTimes,
+                commitPartitionId,
+                transactionId,
+                hybridClock.now(),
+                full,
+                txCoordinatorId,
+                catalogVersion
         );
 
         if (!cmd.full()) {
