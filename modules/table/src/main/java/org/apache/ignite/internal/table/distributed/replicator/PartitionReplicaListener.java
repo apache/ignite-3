@@ -722,7 +722,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(null);
         }
 
-        return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build());
+        synchronized (this) {
+            return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build());
+        }
     }
 
     /**
@@ -1299,26 +1301,27 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp currentTimestamp = hybridClock.now();
 
         return reliableCatalogVersionFor(currentTimestamp)
-                .thenApply(catalogVersion -> {
-                    FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
-                            .txId(txId)
-                            .commit(commit)
-                            .safeTimeLong(currentTimestamp.longValue())
-                            .txCoordinatorId(txCoordinatorId)
-                            .requiredCatalogVersion(catalogVersion)
-                            .tablePartitionIds(
-                                    aggregatedGroupIds.stream()
-                                            .map(PartitionReplicaListener::tablePartitionId)
-                                            .collect(toList())
-                            );
+                .thenCompose(catalogVersion -> {
+                    synchronized (this) {
+                        FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
+                                .txId(txId)
+                                .commit(commit)
+                                .safeTimeLong(hybridClock.nowLong())
+                                .txCoordinatorId(txCoordinatorId)
+                                .requiredCatalogVersion(catalogVersion)
+                                .tablePartitionIds(
+                                        aggregatedGroupIds.stream()
+                                                .map(PartitionReplicaListener::tablePartitionId)
+                                                .collect(toList())
+                                );
 
-                    if (commit) {
-                        finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());
+                        if (commit) {
+                            finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());
+                        }
+
+                        return raftClient.run(finishTxCmdBldr.build());
                     }
-
-                    return finishTxCmdBldr.build();
                 })
-                .thenCompose(raftClient::run)
                 .whenComplete((o, throwable) -> {
                     TxState txState = commit ? COMMITED : ABORTED;
 
@@ -1390,23 +1393,25 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return reliableCatalogVersionFor(hybridTimestamp(commandTimestamp))
                     .thenCompose(catalogVersion -> {
-                        TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
-                                .txId(request.txId())
-                                .commit(request.commit())
-                                .commitTimestampLong(request.commitTimestampLong())
-                                .safeTimeLong(commandTimestamp)
-                                .txCoordinatorId(getTxCoordinatorId(request.txId()))
-                                .requiredCatalogVersion(catalogVersion)
-                                .build();
+                        synchronized (this) {
+                            TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
+                                    .txId(request.txId())
+                                    .commit(request.commit())
+                                    .commitTimestampLong(request.commitTimestampLong())
+                                    .safeTimeLong(hybridClock.nowLong())
+                                    .txCoordinatorId(getTxCoordinatorId(request.txId()))
+                                    .requiredCatalogVersion(catalogVersion)
+                                    .build();
 
-                        storageUpdateHandler.handleTransactionCleanup(request.txId(), request.commit(), request.commitTimestamp());
+                            storageUpdateHandler.handleTransactionCleanup(request.txId(), request.commit(), request.commitTimestamp());
 
-                        raftClient.run(txCleanupCmd)
-                                .exceptionally(e -> {
-                                    LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
+                            raftClient.run(txCleanupCmd)
+                                    .exceptionally(e -> {
+                                        LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
 
-                                    return completedFuture(null);
-                                });
+                                        return completedFuture(null);
+                                    });
+                        }
 
                         return allOffFuturesExceptionIgnored(txReadFutures, request)
                                 .thenRun(() -> releaseTxLocks(request.txId()));
