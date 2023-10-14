@@ -2115,19 +2115,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return cmd.txId();
             });
 
-            storageUpdateHandler.handleUpdate(
-                    cmd.txId(),
-                    cmd.rowUuid(),
-                    cmd.tablePartitionId().asTablePartitionId(),
-                    cmd.row(),
-                    true,
-                    null,
-                    null,
-                    cmd.lastCommitTimestamp());
-
             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
             synchronized (safeTime) {
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                    storageUpdateHandler.handleUpdate(
+                            cmd.txId(),
+                            cmd.rowUuid(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.row(),
+                            true,
+                            null,
+                            null,
+                            cmd.lastCommitTimestamp());
+
+                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                }
             }
 
             return completedFuture(fut);
@@ -2136,22 +2138,20 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // This check guaranties the result will never be lost. Currently always null.
                 assert res == null : "Replication result is lost";
 
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
                 // Try to avoid double write if an entry is already replicated.
-                synchronized (safeTime) {
-                    if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                        storageUpdateHandler.handleUpdate(
-                                cmd.txId(),
-                                cmd.rowUuid(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                cmd.row(),
-                                false,
-                                null,
-                                cmd.safeTime(),
-                                cmd.lastCommitTimestamp());
-
-                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                    }
-                }
+                // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
+                // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
+                // just because there's only one operation in 1PC.
+                storageUpdateHandler.handleUpdate(
+                        cmd.txId(),
+                        cmd.rowUuid(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.row(),
+                        false,
+                        null,
+                        cmd.safeTime(),
+                        cmd.lastCommitTimestamp());
 
                 return null;
             });
@@ -2186,18 +2186,20 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (!cmd.full()) {
             if (skipDelayedAck) {
-                storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
-                        cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        true,
-                        null,
-                        null,
-                        cmd.lastCommitTimestamps());
-
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
                 synchronized (safeTime) {
-                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                        storageUpdateHandler.handleUpdateAll(
+                                cmd.txId(),
+                                cmd.rowsToUpdate(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                true,
+                                null,
+                                null,
+                                cmd.lastCommitTimestamps());
+
+                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    }
                 }
 
                 return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
@@ -2213,16 +2215,18 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
                 synchronized (safeTime) {
-                    storageUpdateHandler.handleUpdateAll(
-                            cmd.txId(),
-                            cmd.rowsToUpdate(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            true,
-                            null,
-                            null,
-                            cmd.lastCommitTimestamps());
+                    if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                        storageUpdateHandler.handleUpdateAll(
+                                cmd.txId(),
+                                cmd.rowsToUpdate(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                true,
+                                null,
+                                null,
+                                cmd.lastCommitTimestamps());
 
-                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    }
                 }
 
                 return completedFuture(fut);
@@ -2231,20 +2235,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
                 assert res == null : "Replication result is lost";
 
-                synchronized (safeTime) {
-                    if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                        storageUpdateHandler.handleUpdateAll(
-                                cmd.txId(),
-                                cmd.rowsToUpdate(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                false,
-                                null,
-                                cmd.safeTime(),
-                                cmd.lastCommitTimestamps());
-
-                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                    }
-                }
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+                // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
+                // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
+                // just because there's only one operation in 1PC.
+                storageUpdateHandler.handleUpdateAll(
+                        cmd.txId(),
+                        cmd.rowsToUpdate(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        false,
+                        null,
+                        cmd.safeTime(),
+                        cmd.lastCommitTimestamps());
 
                 return null;
             });
