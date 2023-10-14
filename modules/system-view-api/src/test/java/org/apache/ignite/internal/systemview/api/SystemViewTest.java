@@ -134,6 +134,40 @@ public class SystemViewTest {
         );
     }
 
+    @Test
+    public void rejectNodeViewIfColumnDuplicatesNodeNameAlias() {
+        assertThrowsWithCause(
+                () -> {
+                    SystemViews.<Dummy>nodeViewBuilder()
+                            .name("dummy")
+                            .nodeNameColumnAlias("c1")
+                            .addColumn("c1", NativeTypes.INT32, (d) -> 0)
+                            .addColumn("c2", NativeTypes.INT64, (d) -> 1L)
+                            .dataProvider(dataProvider())
+                            .build();
+                },
+                IllegalArgumentException.class,
+                "Node name column alias must distinct from column names"
+        );
+    }
+
+    @Test
+    public void rejectNodeViewIfNodeNameAliasDuplicatesColumn() {
+        assertThrowsWithCause(
+                () -> {
+                    SystemViews.<Dummy>nodeViewBuilder()
+                            .name("dummy")
+                            .addColumn("c1", NativeTypes.INT32, (d) -> 0)
+                            .addColumn("c2", NativeTypes.INT64, (d) -> 1L)
+                            .nodeNameColumnAlias("c1")
+                            .dataProvider(dataProvider())
+                            .build();
+                },
+                IllegalArgumentException.class,
+                "Node name column alias must distinct from column names"
+        );
+    }
+
     /**
      * Tests for {@link NodeSystemView.Builder}.
      */
@@ -231,7 +265,7 @@ public class SystemViewTest {
             );
         }
 
-        /** Reject a view without columns. */
+        /** Reject a view with duplicate column names. */
         @Test
         public void rejectViewWithDuplicateColumns() {
             assertThrowsWithCause(
@@ -265,7 +299,7 @@ public class SystemViewTest {
             );
         }
 
-        /** Reject a view with {@code null} column name. */
+        /** Reject a view with invalid column name. */
         @ParameterizedTest
         @MethodSource("org.apache.ignite.internal.systemview.api.SystemViewTest#illegalCharsNames")
         public void rejectViewWithIllegalColumnName(String name) {
@@ -329,7 +363,7 @@ public class SystemViewTest {
 
         /** Reject a view with {@code null} data provider. */
         @Test
-        public void rejectViewWithoutNullDataProvider() {
+        public void rejectViewWithNullDataProvider() {
             assertThrowsWithCause(
                     () -> {
                         newBuilder()

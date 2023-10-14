@@ -99,7 +99,7 @@ public class IterableToPublisherAdapter<T> implements Publisher<T> {
         @Override
         public void request(long n) {
             if (n <= 0) {
-                notifyError(new IllegalArgumentException("N should be positive: n"));
+                notifyError(new IllegalArgumentException("N should be positive:" + n));
 
                 return;
             }

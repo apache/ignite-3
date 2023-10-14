@@ -61,6 +61,10 @@ public class NodeSystemView<T> extends SystemView<T> {
             throw new IllegalArgumentException("Node name column alias can not be null or blank");
         }
 
+        if (columns.stream().anyMatch(c -> nodeNameColumnAlias.equals(c.name()))) {
+            throw new IllegalArgumentException("Node name column alias must distinct from column names");
+        }
+
         this.nodeNameColumnAlias = nodeNameColumnAlias;
     }
 

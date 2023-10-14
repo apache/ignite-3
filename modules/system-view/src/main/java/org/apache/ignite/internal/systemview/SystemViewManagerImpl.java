@@ -248,11 +248,11 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     private static class ScannableView<T> {
-        private final BinaryTupleSchema schema;
         private final Publisher<InternalTuple> publisher;
 
         private ScannableView(String localNodeName, SystemView<T> view) {
-            this.schema = tupleSchemaForView(view);
+            BinaryTupleSchema schema = tupleSchemaForView(view);
+
             this.publisher = new TransformingPublisher<>(view.dataProvider(), object -> {
                 BinaryTupleBuilder builder = new BinaryTupleBuilder(schema.elementCount());
 
