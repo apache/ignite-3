@@ -17,22 +17,17 @@
 
 package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.Name;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.ExceptKeys;
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 
 /**
  * Root configuration for {@link RocksDbStorageEngine}.
  */
-@ConfigurationRoot(rootName = "rocksDb", type = LOCAL)
-public class RocksDbStorageEngineConfigurationSchema {
+@PolymorphicConfigInstance("rocksDb")
+public class RocksDbStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
     /** Name of the default data region. */
     public static final String DEFAULT_DATA_REGION_NAME = "default";
 
@@ -40,14 +35,4 @@ public class RocksDbStorageEngineConfigurationSchema {
     @Range(min = 0)
     @Value(hasDefault = true)
     public int flushDelayMillis = 100;
-
-    /** Default data region. */
-    @Name(DEFAULT_DATA_REGION_NAME)
-    @ConfigValue
-    public RocksDbDataRegionConfigurationSchema defaultRegion;
-
-    /** Other data regions. */
-    @ExceptKeys(DEFAULT_DATA_REGION_NAME)
-    @NamedConfigValue
-    public RocksDbDataRegionConfigurationSchema regions;
 }

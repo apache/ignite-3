@@ -44,7 +44,7 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(VolatilePageMemoryStorageEngineConfiguration.KEY, PersistentPageMemoryStorageEngineConfiguration.KEY);
+        return List.of();
     }
 
     /** {@inheritDoc} */

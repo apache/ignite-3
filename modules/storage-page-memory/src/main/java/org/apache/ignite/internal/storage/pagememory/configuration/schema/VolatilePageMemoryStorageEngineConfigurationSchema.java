@@ -24,22 +24,25 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ExceptKeys;
+import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.PowerOfTwo;
+import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 
 /**
  * Root configuration for {@link VolatilePageMemoryStorageEngine}.
  */
-@ConfigurationRoot(rootName = ENGINE_NAME, type = LOCAL)
-public class VolatilePageMemoryStorageEngineConfigurationSchema extends BasePageMemoryStorageEngineConfigurationSchema {
-    /** Default data region. */
-    @Name(DEFAULT_DATA_REGION_NAME)
-    @ConfigValue
-    public VolatilePageMemoryDataRegionConfigurationSchema defaultRegion;
-
-    /** Other data regions. */
-    @ExceptKeys(DEFAULT_DATA_REGION_NAME)
-    @NamedConfigValue
-    public VolatilePageMemoryDataRegionConfigurationSchema regions;
+@PolymorphicConfigInstance("aimem")
+public class VolatilePageMemoryStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
+    /** Page size in bytes. */
+    @Immutable
+    @PowerOfTwo
+    @Range(min = 1024, max = 16 * 1024)
+    @Value(hasDefault = true)
+    public int pageSize = 16 * 1024;
 }

@@ -23,19 +23,20 @@ import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.PowerOfTwo;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.storage.configurations.StorageEngineConfigurationSchema;
 
 /**
  * Basic configuration schema for {@link PageMemory} based storage engines.
  */
-@AbstractConfiguration
-public class BasePageMemoryStorageEngineConfigurationSchema {
+//@AbstractConfiguration
+public class BasePageMemoryStorageEngineConfigurationSchema extends StorageEngineConfigurationSchema {
     /** Name of the default data region. */
     public static final String DEFAULT_DATA_REGION_NAME = "default";
-
-    /** Page size in bytes. */
-    @Immutable
-    @PowerOfTwo
-    @Range(min = 1024, max = 16 * 1024)
-    @Value(hasDefault = true)
-    public int pageSize = 16 * 1024;
+//
+//    /** Page size in bytes. */
+//    @Immutable
+//    @PowerOfTwo
+//    @Range(min = 1024, max = 16 * 1024)
+//    @Value(hasDefault = true)
+//    public int pageSize = 16 * 1024;
 }

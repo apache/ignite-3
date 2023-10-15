@@ -172,7 +172,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             } else {
                 var persistentTableStorage = (PersistentPageMemoryTableStorage) tableStorage;
 
-                PersistentPageMemoryStorageEngineView engineCfg = persistentTableStorage.engine().configuration().value();
+                PersistentPageMemoryStorageEngineView engineCfg = (PersistentPageMemoryStorageEngineView) persistentTableStorage.engine().configuration().value();
 
                 int checkpointDelayMillis = engineCfg.checkpoint().checkpointDelayMillis();
                 scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");

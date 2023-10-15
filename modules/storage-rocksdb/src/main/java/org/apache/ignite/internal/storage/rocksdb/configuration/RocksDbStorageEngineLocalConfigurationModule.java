@@ -42,7 +42,7 @@ public class RocksDbStorageEngineLocalConfigurationModule implements Configurati
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(RocksDbStorageEngineConfiguration.KEY);
+        return List.of();
     }
 
     /** {@inheritDoc} */
