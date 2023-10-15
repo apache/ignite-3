@@ -36,6 +36,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -103,13 +104,16 @@ public class IgnitionImpl implements Ignition {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop(String nodeName) {
         readyForInitNodes.remove(nodeName);
 
         nodes.computeIfPresent(nodeName, (name, node) -> {
-            node.stop();
+            try {
+                node.stop();
+            } catch (Exception e) {
+                throw new IgniteException(Common.NODE_STOPPING_ERR, e);
+            }
 
             return null;
         });

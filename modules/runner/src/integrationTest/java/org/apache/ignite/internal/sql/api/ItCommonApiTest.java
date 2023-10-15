@@ -151,6 +151,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
     /** Check transaction change status with erroneous statements. */
     @Test
+    // TODO should be removed after https://issues.apache.org/jira/browse/IGNITE-20534  is fixed.
     public void testTxStateChangedOnErroneousOp() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
@@ -168,9 +169,9 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(1, txManager.pending());
+        assertEquals(0, txManager.pending());
         InternalTransaction tx0 = (InternalTransaction) tx;
-        assertEquals(TxState.PENDING, tx0.state());
+        assertEquals(TxState.ABORTED, tx0.state());
 
         tx.rollback();
         assertEquals(0, txManager.pending());

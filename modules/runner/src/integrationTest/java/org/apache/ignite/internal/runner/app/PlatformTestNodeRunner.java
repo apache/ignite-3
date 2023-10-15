@@ -63,18 +63,17 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
@@ -654,7 +653,7 @@ public class PlatformTestNodeRunner {
             var colocationColumns = Arrays.stream(columns).map(Column::name).toArray(String[]::new);
             var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
 
-            var marsh = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+            var marsh = new TupleMarshallerImpl(schema);
 
             try {
                 Row row = marsh.marshal(tuple);
@@ -680,7 +679,7 @@ public class PlatformTestNodeRunner {
             @SuppressWarnings("resource")
             Table table = context.ignite().tables().table(tableName);
             RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
-            TupleMarshallerImpl marsh = IgniteTestUtils.getFieldValue(view, "marsh");
+            TupleMarshaller marsh = view.marshaller(1);
 
             try {
                 return marsh.marshal(key).colocationHash();

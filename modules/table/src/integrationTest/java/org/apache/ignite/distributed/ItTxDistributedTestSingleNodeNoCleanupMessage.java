@@ -40,11 +40,9 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -100,9 +98,21 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                 timestampTracker
         ) {
             @Override
-            protected TxManagerImpl newTxManager(ReplicaService replicaSvc, HybridClock clock, TransactionIdGenerator generator,
-                    ClusterNode node) {
-                return new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, generator, node::id) {
+            protected TxManagerImpl newTxManager(
+                    ReplicaService replicaSvc,
+                    HybridClock clock,
+                    TransactionIdGenerator generator,
+                    ClusterNode node,
+                    PlacementDriver placementDriver
+            ) {
+                return new TxManagerImpl(
+                        replicaSvc,
+                        new HeapLockManager(),
+                        clock,
+                        generator,
+                        node::id,
+                        placementDriver
+                ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
                         if (ignoreAsyncCleanup) {
@@ -135,8 +145,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     StorageUpdateHandler storageUpdateHandler,
                     Schemas schemas,
                     ClusterNode localNode,
-                    MvTableStorage mvTableStorage,
-                    IndexBuilder indexBuilder,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
                     PlacementDriver placementDriver
@@ -159,8 +167,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         storageUpdateHandler,
                         schemas,
                         localNode,
-                        mvTableStorage,
-                        indexBuilder,
                         schemaSyncService,
                         catalogService,
                         placementDriver
@@ -193,35 +199,28 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         log.info("Tables have been started");
     }
 
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
+    @Disabled("IGNITE-20560")
     @Test
     @Override
     public void testTransactionAlreadyRolledback() {
         super.testTransactionAlreadyRolledback();
     }
 
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
+    @Disabled("IGNITE-20560")
     @Test
     @Override
     public void testTransactionAlreadyCommitted() {
         super.testTransactionAlreadyCommitted();
     }
 
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
+    @Disabled("IGNITE-20395")
     @Test
     @Override
     public void testBalance() throws InterruptedException {
         super.testBalance();
     }
 
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
-    @Test
-    @Override
-    public void testDelete() throws TransactionException {
-        super.testDelete();
-    }
-
-    @Disabled("IGNITE-20395, IGNITE-20445, IGNITE-20446")
+    @Disabled("IGNITE-20395")
     @Test
     public void testTwoReadWriteTransactions() throws TransactionException {
         Tuple key = makeKey(1);

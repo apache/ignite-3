@@ -86,10 +86,6 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         wrapper.commitImplicit();
         assertFalse(externalTx.commitFuture().isDone());
 
-        wrapper = wrapTxOrStartImplicit(SqlQueryType.QUERY, transactions, externalTx);
-        wrapper.rollbackImplicit();
-        assertFalse(externalTx.commitFuture().isDone());
-
         verifyNoInteractions(transactions);
     }
 
@@ -109,7 +105,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         QueryTransactionWrapper wrapper = prepareImplicitTx();
         NoOpTransaction tx = (NoOpTransaction) wrapper.unwrap();
 
-        wrapper.rollbackImplicit();
+        wrapper.rollback();
 
         assertThat(tx.rollbackFuture().isDone(), equalTo(true));
         assertThat(tx.commitFuture().isDone(), equalTo(false));

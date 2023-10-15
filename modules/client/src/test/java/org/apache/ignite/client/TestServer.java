@@ -19,8 +19,11 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOError;
@@ -41,8 +44,8 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.client.ClientClusterNode;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -54,6 +57,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -224,10 +228,22 @@ public class TestServer implements AutoCloseable {
                         authenticationConfigToApply,
                         clock,
                         new AlwaysSyncedSchemaSyncService(),
-                        mock(CatalogService.class)
+                        mockCatalogService()
                 );
 
         module.start();
+    }
+
+    /**
+     * Creates a minimal mock-based {@link CatalogService}.
+     */
+    public static CatalogService mockCatalogService() {
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.tableVersion()).thenReturn(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
+
+        CatalogService catalogService = mock(CatalogService.class);
+        when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        return catalogService;
     }
 
     /**

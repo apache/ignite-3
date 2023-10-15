@@ -20,8 +20,8 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**

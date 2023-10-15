@@ -22,16 +22,14 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
-/**
- * Sorted index descriptor.
- */
+/** Sorted index descriptor. */
 public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     private static final long serialVersionUID = 2085714310150728611L;
 
     private final List<CatalogIndexColumnDescriptor> columns;
 
     /**
-     * Constructs a sorted description.
+     * Constructs a sorted index descriptor in write-only state.
      *
      * @param id Id of the index.
      * @param name Name of the index.
@@ -40,23 +38,45 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param columns A list of columns descriptors.
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
-    public CatalogSortedIndexDescriptor(int id, String name, int tableId, boolean unique, List<CatalogIndexColumnDescriptor> columns) {
-        super(id, name, tableId, unique);
+    public CatalogSortedIndexDescriptor(
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            List<CatalogIndexColumnDescriptor> columns
+    ) {
+        this(id, name, tableId, unique, columns, true);
+    }
+
+    /**
+     * Constructs a sorted index descriptor.
+     *
+     * @param id Id of the index.
+     * @param name Name of the index.
+     * @param tableId Id of the table index belongs to.
+     * @param unique Unique flag.
+     * @param columns A list of columns descriptors.
+     * @param writeOnly State of the index, {@code true} when index is building, {@code false} when the index is built.
+     * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
+     */
+    public CatalogSortedIndexDescriptor(
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            List<CatalogIndexColumnDescriptor> columns,
+            boolean writeOnly
+    ) {
+        super(id, name, tableId, unique, writeOnly);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }
 
+    /** Returns indexed columns. */
     public List<CatalogIndexColumnDescriptor> columns() {
         return columns;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean hasColumn(String columnName) {
-        return columns.stream().map(CatalogIndexColumnDescriptor::name).anyMatch(columnName::equals);
-    }
-
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

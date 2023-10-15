@@ -17,27 +17,28 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.Collections.emptyIterator;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -124,15 +125,16 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
         }
 
         CompletableFuture<ExecutableTable> getTable(int tableId) {
-            TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager());
             int schemaVersion = 1;
             int tableVersion = 10;
+
+            TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(tableVersion));
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
-            when(descriptor.iterator()).thenReturn(Collections.emptyIterator());
+            when(descriptor.iterator()).thenReturn(emptyIterator());
 
             return registry.getTable(tableId, tableVersion, descriptor);
         }

@@ -26,6 +26,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.StringUtils;
 
@@ -170,7 +171,7 @@ public abstract class SystemView<T> {
          * @param <C> Type of a column value.
          * @return this.
          */
-        public <C> BuilderT addColumn(String name, Class<C> type, Function<T, C> value) {
+        public <C> BuilderT addColumn(String name, NativeType type, Function<T, C> value) {
             columns.add(new SystemViewColumn<>(name, type, value));
             return (BuilderT) this;
         }

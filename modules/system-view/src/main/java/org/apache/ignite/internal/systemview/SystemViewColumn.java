@@ -19,6 +19,7 @@ package org.apache.ignite.internal.systemview;
 
 import java.util.function.Function;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.StringUtils;
 
 /**
@@ -34,7 +35,7 @@ public class SystemViewColumn<T, C> {
 
     private final Function<T, C> value;
 
-    private final Class<C> type;
+    private final NativeType type;
 
     /**
      * Constructor.
@@ -43,7 +44,7 @@ public class SystemViewColumn<T, C> {
      * @param type Type.
      * @param value Value, a function that extracts value of this columns a system view record.
      */
-    SystemViewColumn(String name, Class<C> type, Function<T, C> value) {
+    SystemViewColumn(String name, NativeType type, Function<T, C> value) {
         if (StringUtils.nullOrBlank(name)) {
             throw new IllegalArgumentException("Column name can not be null or blank");
         }
@@ -73,7 +74,7 @@ public class SystemViewColumn<T, C> {
      *
      * @return Column value type.
      */
-    public Class<C> type() {
+    public NativeType type() {
         return type;
     }
 

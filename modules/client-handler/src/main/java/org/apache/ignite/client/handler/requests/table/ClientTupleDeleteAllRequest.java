@@ -50,10 +50,10 @@ public class ClientTupleDeleteAllRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var tuples = readTuples(in, table, true);
-
-            return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples ->
-                    writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView()));
+            return readTuples(in, table, true).thenCompose(tuples -> {
+                return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples ->
+                        writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView()));
+            });
         });
     }
 }

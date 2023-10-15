@@ -38,7 +38,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check add a new column to table schema.
      */
     @Test
-    public void testDropColumn() throws Exception {
+    public void testDropColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -75,7 +75,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check drop column from table schema.
      */
     @Test
-    public void testAddNewColumn() throws Exception {
+    public void testAddNewColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -112,7 +112,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20315")
-    void testRenameColumn() throws Exception {
+    void testRenameColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -155,7 +155,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19486")
     @Test
-    void testRenameThenAddColumnWithSameName() throws Exception {
+    void testRenameThenAddColumnWithSameName() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -195,7 +195,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
-    public void testMergeChangesAddDropAdd() throws Exception {
+    public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -265,8 +265,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check merge column default value changes.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733") // get hangs on registry.waitLatestSchema() after column update.
-    public void testMergeChangesColumnDefault() throws Exception {
+    public void testMergeChangesColumnDefault() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -311,7 +310,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check operation failed if unknown column found.
      */
     @Test
-    public void testStrictSchemaInsertRowOfNewSchema() throws Exception {
+    public void testStrictSchemaInsertRowOfNewSchema() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);

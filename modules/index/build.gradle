@@ -31,6 +31,7 @@ dependencies {
     implementation project(':ignite-network-api')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-metastorage-api')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
@@ -38,6 +39,8 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation project(':ignite-placement-driver')
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core

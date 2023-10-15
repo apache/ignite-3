@@ -69,6 +69,6 @@ public class TestPlacementDriver implements PlacementDriver {
 
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 }

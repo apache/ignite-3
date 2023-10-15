@@ -43,7 +43,7 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
 
     @Override
     public Integer partition(T item) {
-        var colocationHash = colocationHash(schemaReg.schema(), item);
+        var colocationHash = colocationHash(schemaReg.lastKnownSchema(), item);
         return IgniteUtils.safeAbs(colocationHash) % partitions;
     }
 

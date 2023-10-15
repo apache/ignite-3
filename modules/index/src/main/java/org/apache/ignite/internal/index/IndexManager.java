@@ -35,7 +35,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -80,8 +80,8 @@ public class IndexManager implements IgniteComponent {
     /** Table manager. */
     private final TableManager tableManager;
 
-    /** Catalog manager. */
-    private final CatalogManager catalogManager;
+    /** Catalog service. */
+    private final CatalogService catalogService;
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -103,18 +103,18 @@ public class IndexManager implements IgniteComponent {
      *
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
-     * @param catalogManager Catalog manager.
+     * @param catalogService Catalog manager.
      */
     public IndexManager(
             CatalogSchemaManager schemaManager,
             TableManager tableManager,
-            CatalogManager catalogManager,
+            CatalogService catalogService,
             MetaStorageManager metaStorageManager,
             Consumer<LongFunction<CompletableFuture<?>>> registry
     ) {
         this.schemaManager = schemaManager;
         this.tableManager = tableManager;
-        this.catalogManager = catalogManager;
+        this.catalogService = catalogService;
         this.metaStorageManager = metaStorageManager;
 
         startVv = new IncrementalVersionedValue<>(registry);
@@ -127,7 +127,7 @@ public class IndexManager implements IgniteComponent {
 
         startIndexes();
 
-        catalogManager.listen(INDEX_CREATE, (parameters, exception) -> {
+        catalogService.listen(INDEX_CREATE, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
@@ -135,7 +135,7 @@ public class IndexManager implements IgniteComponent {
             return onIndexCreate((CreateIndexEventParameters) parameters);
         });
 
-        catalogManager.listen(INDEX_DROP, (parameters, exception) -> {
+        catalogService.listen(INDEX_DROP, (parameters, exception) -> {
             if (exception != null) {
                 return failedFuture(exception);
             }
@@ -209,7 +209,7 @@ public class IndexManager implements IgniteComponent {
             long causalityToken = parameters.causalityToken();
             int catalogVersion = parameters.catalogVersion();
 
-            CatalogTableDescriptor table = catalogManager.table(tableId, catalogVersion);
+            CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
 
             assert table != null : "tableId=" + tableId + ", indexId=" + indexId;
 
@@ -266,15 +266,7 @@ public class IndexManager implements IgniteComponent {
 
         /** Creates converter for given version of the schema. */
         private VersionedConverter createConverter(int schemaVersion) {
-            SchemaDescriptor descriptor = registry.schema();
-
-            if (descriptor.version() < schemaVersion) {
-                registry.waitLatestSchema();
-            }
-
-            if (descriptor.version() != schemaVersion) {
-                descriptor = registry.schema(schemaVersion);
-            }
+            SchemaDescriptor descriptor = registry.schema(schemaVersion);
 
             int[] indexedColumns = resolveColumnIndexes(descriptor);
 
@@ -322,15 +314,15 @@ public class IndexManager implements IgniteComponent {
 
         assert recoveryFinishedFuture.isDone();
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        int catalogVersion = catalogService.latestCatalogVersion();
         long causalityToken = recoveryFinishedFuture.join();
 
         List<CompletableFuture<?>> startIndexFutures = new ArrayList<>();
 
-        for (CatalogIndexDescriptor index : catalogManager.indexes(catalogVersion)) {
+        for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion)) {
             int tableId = index.tableId();
 
-            CatalogTableDescriptor table = catalogManager.table(tableId, catalogVersion);
+            CatalogTableDescriptor table = catalogService.table(tableId, catalogVersion);
 
             assert table != null : "tableId=" + tableId + ", indexId=" + index.id();
 
