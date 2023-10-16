@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -27,6 +28,10 @@ import org.apache.ignite.configuration.annotation.Value;
 public class TestSubConfigurationSchema {
     @Value(hasDefault = true)
     public String testString;
+
+    @Secret
+    @Value(hasDefault = true)
+    public String testSecret;
 
     @Value(hasDefault = true)
     public int testInt;

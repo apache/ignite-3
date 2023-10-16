@@ -47,6 +47,7 @@ public class TestConfigurationModule implements ConfigurationModule {
     public void patchConfigurationWithDefaults(SuperRootChange rootChange) {
         rootChange.changeRoot(TestConfiguration.KEY)
                 .changeTestSubConfiguration()
+                .changeTestSecret("secret")
                 .changeTestInt(42);
     }
 }
