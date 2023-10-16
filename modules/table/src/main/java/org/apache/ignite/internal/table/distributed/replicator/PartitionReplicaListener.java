@@ -248,7 +248,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /**
      * Mutex for command processing linearization.
-     * Some actions like update or updateAll requires strict ordering within their application to storage on all nodes in replication group.
+     * Some actions like update or updateAll require strict ordering within their application to storage on all nodes in replication group.
      * Given ordering should match corresponding command's safeTime.
      */
     private final Object commandProcessingLinearizationMutex = new Object();
