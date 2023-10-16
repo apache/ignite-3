@@ -3046,7 +3046,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Chooses operation timestamp and makes schema related validations.
+     * Chooses operation timestamp and makes schema related validations. The operation timestamp is only used for validation, it is NOT sent as safeTime timestamp.
      *
      * @param txId Transaction ID.
      * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
