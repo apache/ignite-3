@@ -280,7 +280,7 @@ public:
      *
      * @return Number of rows affected by the statement.
      */
-    std::int64_t affected_rows();
+    [[nodiscard]] std::int64_t affected_rows();
 
     /**
      * Set rows fetched buffer pointer.

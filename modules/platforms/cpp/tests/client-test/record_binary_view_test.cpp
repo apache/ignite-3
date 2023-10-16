@@ -21,8 +21,8 @@
 #include "ignite/client/ignite_client.h"
 #include "ignite/client/ignite_client_configuration.h"
 
-#include <gtest/gtest.h>
 #include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
 
 #include <chrono>
 
@@ -135,8 +135,8 @@ TEST_F(record_binary_view_test, upsert_tuple_with_extra_columns_throws) {
             try {
                 tuple_view.upsert(nullptr, val_tuple);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::MatchesRegex(
-                    "Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
+                EXPECT_THAT(e.what_str(),
+                    testing::MatchesRegex("Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
                 throw;
             }
         },

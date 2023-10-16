@@ -18,26 +18,33 @@
 #pragma once
 
 #include "ignite/odbc/query/query.h"
+#include "ignite/odbc/sql_connection.h"
 
 namespace ignite {
 
 /**
- * Type info query.
+ * Foreign keys query.
  */
-class type_info_query : public query {
+class foreign_keys_query : public query {
 public:
     /**
      * Constructor.
      *
      * @param diag Diagnostics collector.
-     * @param sql_type SQL type.
+     * @param primary_catalog Primary key catalog name.
+     * @param primary_schema Primary key schema name.
+     * @param primary_table Primary key table name.
+     * @param foreign_catalog Foreign key catalog name.
+     * @param foreign_schema Foreign key schema name.
+     * @param foreign_table Foreign key table name.
      */
-    type_info_query(diagnosable_adapter &diag, std::int16_t sql_type);
+    foreign_keys_query(diagnosable_adapter &diag, std::string primary_catalog, std::string primary_schema,
+        std::string primary_table, std::string foreign_catalog, std::string foreign_schema, std::string foreign_table);
 
     /**
      * Destructor.
      */
-    ~type_info_query() override = default;
+    ~foreign_keys_query() override = default;
 
     /**
      * Execute query.
@@ -81,7 +88,7 @@ public:
      *
      * @return True if data is available.
      */
-    bool is_data_available() const override { return m_cursor != m_types.end(); }
+    bool is_data_available() const override { return false; }
 
     /**
      * Get number of rows affected by the statement.
@@ -98,20 +105,29 @@ public:
     sql_result next_result_set() override { return sql_result::AI_NO_DATA; }
 
 private:
-    /** Columns metadata. */
-    column_meta_vector m_columns_meta;
+    /** Primary key catalog name. */
+    std::string m_primary_catalog;
 
-    /** Executed flag. */
+    /** Primary key schema name. */
+    std::string m_primary_schema;
+
+    /** Primary key table name. */
+    std::string m_primary_table;
+
+    /** Foreign key catalog name. */
+    std::string m_foreign_catalog;
+
+    /** Foreign key schema name. */
+    std::string m_foreign_schema;
+
+    /** Foreign key table name. */
+    std::string m_foreign_table;
+
+    /** Query executed. */
     bool m_executed{false};
 
-    /** Fetched flag. */
-    bool m_fetched{false};
-
-    /** Requested types. */
-    std::vector<ignite_type> m_types;
-
-    /** Query cursor. */
-    std::vector<ignite_type>::const_iterator m_cursor{m_types.end()};
+    /** Columns metadata. */
+    column_meta_vector m_columns_meta;
 };
 
 } // namespace ignite
