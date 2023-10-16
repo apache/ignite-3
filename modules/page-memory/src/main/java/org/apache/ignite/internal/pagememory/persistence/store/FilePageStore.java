@@ -261,12 +261,12 @@ public class FilePageStore implements PageStore {
      *
      * <p>Thread safe.
      *
-     * @param deltaFilPathFunction Function to get the path to the delta file page store, the argument is the index of the delta file.
+     * @param deltaFilePathFunction Function to get the path to the delta file page store, the argument is the index of the delta file.
      * @param pageIndexesSupplier Page indexes supplier that will only be called if the current thread creates a delta file page store.
      * @return Future that will be completed when the new delta file page store is created.
      */
     public CompletableFuture<DeltaFilePageStoreIo> getOrCreateNewDeltaFile(
-            IntFunction<Path> deltaFilPathFunction,
+            IntFunction<Path> deltaFilePathFunction,
             Supplier<int[]> pageIndexesSupplier
     ) {
         CompletableFuture<DeltaFilePageStoreIo> future = this.newDeltaFilePageStoreIoFuture;
@@ -280,14 +280,14 @@ public class FilePageStore implements PageStore {
             return newDeltaFilePageStoreIoFuture;
         }
 
-        DeltaFilePageStoreIo newDeltaFilePageStoreIo = addNewDeltaFilePageStoreIoToHead(pageIndexesSupplier.get(), deltaFilPathFunction);
+        DeltaFilePageStoreIo newDeltaFilePageStoreIo = addNewDeltaFilePageStoreIoToHead(pageIndexesSupplier.get(), deltaFilePathFunction);
 
         future.complete(newDeltaFilePageStoreIo);
 
         return future;
     }
 
-    private DeltaFilePageStoreIo addNewDeltaFilePageStoreIoToHead(int[] pageIndexes, IntFunction<Path> deltaFilPathFunction) {
+    private DeltaFilePageStoreIo addNewDeltaFilePageStoreIoToHead(int[] pageIndexes, IntFunction<Path> deltaFilePathFunction) {
         List<DeltaFilePageStoreIo> previousValue;
         List<DeltaFilePageStoreIo> newValue;
 
@@ -307,7 +307,7 @@ public class FilePageStore implements PageStore {
 
             newDeltaFilePageStoreIo = new DeltaFilePageStoreIo(
                     filePageStoreIo.ioFactory,
-                    deltaFilPathFunction.apply(nextIndex),
+                    deltaFilePathFunction.apply(nextIndex),
                     header
             );
 
