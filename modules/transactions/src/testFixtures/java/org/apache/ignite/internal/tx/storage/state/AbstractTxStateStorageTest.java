@@ -97,7 +97,7 @@ public abstract class AbstractTxStateStorageTest {
         for (int i = 0; i < 100; i++) {
             TxMeta txMeta = storage.get(txIds.get(i));
             TxMeta txMetaExpected = new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
-            assertTxMetaEquals(txMetaExpected, txMeta);
+            assertEquals(txMetaExpected, txMeta);
         }
 
         for (int i = 0; i < 100; i++) {
@@ -113,7 +113,7 @@ public abstract class AbstractTxStateStorageTest {
             } else {
                 TxMeta txMeta = storage.get(txIds.get(i));
                 TxMeta txMetaExpected = new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
-                assertTxMetaEquals(txMetaExpected, txMeta);
+                assertEquals(txMetaExpected, txMeta);
             }
         }
     }
@@ -155,7 +155,7 @@ public abstract class AbstractTxStateStorageTest {
         TxMeta txMetaNullTimestamp0 = new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), null);
         assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp0, 3, 2));
 
-        assertTxMetaEquals(storage.get(txId), txMeta1);
+        assertEquals(storage.get(txId), txMeta1);
 
         assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
         // Checking idempotency.
@@ -165,7 +165,7 @@ public abstract class AbstractTxStateStorageTest {
         TxMeta txMetaNullTimestamp2 = new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), null);
         assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3, 2));
 
-        assertTxMetaEquals(storage.get(txId), txMeta2);
+        assertEquals(storage.get(txId), txMeta2);
     }
 
     @Test
@@ -194,7 +194,7 @@ public abstract class AbstractTxStateStorageTest {
                 assertNotNull(txMeta);
                 assertNotNull(txData);
                 assertNotNull(txData.getValue());
-                assertTxMetaEquals(txMeta, txData.getValue());
+                assertEquals(txMeta, txData.getValue());
             }
 
             assertTrue(txs.isEmpty());
@@ -472,12 +472,6 @@ public abstract class AbstractTxStateStorageTest {
                 txId,
                 new TxMeta(TxState.COMMITED, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId))
         );
-    }
-
-    private static void assertTxMetaEquals(TxMeta txMeta0, TxMeta txMeta1) {
-        assertEquals(txMeta0.txState(), txMeta1.txState());
-        assertEquals(txMeta0.commitTimestamp(), txMeta1.commitTimestamp());
-        assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
     }
 
     private static void assertThrowsIgniteInternalException(int expFullErrorCode, Executable executable) {
