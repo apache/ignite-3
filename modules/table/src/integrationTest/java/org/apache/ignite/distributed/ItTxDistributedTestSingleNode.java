@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -178,14 +178,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     /** {@inheritDoc} */
     @Override
-    protected TxManager txManager(Table t) {
-        var clients = txTestCluster.raftClients.get(t.name());
+    protected TxManager txManager(TableImpl t) {
 
-        Peer leader = clients.get(0).leader();
+        CompletableFuture<ReplicaMeta> primaryReplica = txTestCluster.placementDriver.getPrimaryReplica(
+                new TablePartitionId(t.tableId(), 0),
+                txTestCluster.clocks.get(txTestCluster.localNodeName).now());
 
-        assertNotNull(leader);
-
-        TxManager manager = txTestCluster.txManagers.get(leader.consistentId());
+        TxManager manager = txTestCluster.txManagers.get(primaryReplica.join().getLeaseholder());
 
         assertNotNull(manager);
 
