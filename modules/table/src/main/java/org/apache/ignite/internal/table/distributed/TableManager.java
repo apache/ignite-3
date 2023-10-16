@@ -2126,6 +2126,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param evt Event.
      */
     protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
+        LOG.info("KKK handleChangeStableAssignment");
         if (evt.entryEvents().stream().allMatch(e -> e.oldEntry().value() == null)) {
             // It's the initial write to table stable assignments on table create event.
             return completedFuture(null);
@@ -2157,6 +2158,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId), stableAssignmentsWatchEvent.revision())
                 .thenComposeAsync(pendingAssignmentsEntry -> {
+                    CompletableFuture<Void> fut = completedFuture(null);
+
+                    try {
+                        LOG.info("Updating raft group {} with the assignments {}",
+                                tablePartitionId, stableAssignments);
+                        fut = raftMgr.startRaftGroupService(
+                                tablePartitionId,
+                                configurationFromAssignments(stableAssignments),
+                                raftGroupServiceFactory)
+                                .thenAccept(raftGroupService -> {
+                                    try {
+                                        ((InternalTableImpl) table(tableId).internalTable())
+                                                .updateInternalTableRaftGroupService(
+                                                        tablePartitionId.partitionId(),
+                                                        raftGroupService
+                                                );
+                                    } catch (NodeStoppingException e) {
+                                        // No-op
+                                    }
+                                });
+                    } catch (NodeStoppingException e) {
+                        // No-op
+                    }
                     byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
 
                     Set<Assignment> pendingAssignments = pendingAssignmentsFromMetaStorage == null
@@ -2169,9 +2193,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
 
                     if (shouldStopLocalServices) {
-                        return stopAndDestroyPartition(tablePartitionId, evt.revision());
+                        return allOf(
+                                fut,
+                                stopAndDestroyPartition(tablePartitionId, evt.revision()));
                     } else {
-                        return completedFuture(null);
+                        return fut;
                     }
                 }, ioExecutor);
     }

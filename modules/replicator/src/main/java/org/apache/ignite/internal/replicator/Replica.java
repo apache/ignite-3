@@ -291,6 +291,6 @@ public class Replica {
      */
     public CompletableFuture<Void> shutdown() {
         listener.onShutdown();
-        return raftClient.unsubscribeLeader();
+        return raftClient.unsubscribeLeader().exceptionally(th -> null);
     }
 }
