@@ -28,6 +28,9 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests for recovery of the rebalance procedure.
+ */
 public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
