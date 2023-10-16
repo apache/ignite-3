@@ -248,7 +248,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /**
      * Mutex for command processing linearization.
-     * Some actions like update or updateAll requires strict ordering within their application to storage on all nodes in replication group.
+     * Some actions like update or updateAll require strict ordering within their application to storage on all nodes in replication group.
      * Given ordering should match corresponding command's safeTime.
      */
     private final Object commandProcessingLinearizationMutex = new Object();
@@ -3084,7 +3084,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Chooses operation timestamp and makes schema related validations.
+     * Chooses operation timestamp and makes schema related validations. The operation timestamp is only used for validation, it is NOT sent as safeTime timestamp.
      *
      * @param txId Transaction ID.
      * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
