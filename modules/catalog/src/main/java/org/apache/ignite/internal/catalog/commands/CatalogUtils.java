@@ -29,8 +29,10 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -362,5 +364,23 @@ public class CatalogUtils {
      */
     public static String pkIndexName(String tableName) {
         return tableName + "_PK";
+    }
+
+    /**
+     * Returns index with given name.
+     *
+     * @param schema Schema to look up index in.
+     * @param name Name of the index of interest.
+     * @return Table with given name.
+     * @throws IndexNotFoundValidationException If index with given name is not exists.
+     */
+    static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+        CatalogIndexDescriptor index = schema.index(name);
+
+        if (index == null) {
+            throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return index;
     }
 }

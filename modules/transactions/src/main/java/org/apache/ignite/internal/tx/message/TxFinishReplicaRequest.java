@@ -19,15 +19,12 @@ package org.apache.ignite.internal.tx.message;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
-import java.util.List;
-import java.util.Map;
+import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
@@ -75,7 +72,7 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      * @return Enlisted partition groups aggregated by expected primary replica nodes.
      */
     @Marshallable
-    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups();
+    Collection<ReplicationGroupId> groups();
 
     /**
      * Gets a raft term.

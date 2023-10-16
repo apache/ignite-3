@@ -53,7 +53,7 @@ public class DummySchemas implements Schemas {
 
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
-        SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
+        SchemaDescriptor schemaDescriptor = schemaRegistry.lastKnownSchema();
 
         List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
                 .map(colName -> {

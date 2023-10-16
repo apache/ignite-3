@@ -20,9 +20,11 @@ package org.apache.ignite.internal.table.distributed.index;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
@@ -43,12 +46,26 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Class for managing the building of table indexes.
+ * Component that is responsible for building an index for a specific partition.
+ *
+ * <p>Approximate index building algorithm:</p>
+ * <ul>
+ *     <li>If the index has not yet been built ({@link IndexStorage#getNextRowIdToBuild()} {@code != null}) or is not in the process of
+ *     being built, then an asynchronous task is added to build it.</li>
+ *     <li>Index building task generates batches of {@link RowId} (by using {@link IndexStorage#getNextRowIdToBuild()}) and sends these
+ *     batch to the primary replica (only the primary replica is expected to start building the index) so that the corresponding replication
+ *     group builds indexes for the transferred batch.</li>
+ *     <li>Subsequent batches will be sent only after the current batch has been processed and until
+ *     {@link IndexStorage#getNextRowIdToBuild()} {@code != null}.</li>
+ * </ul>
+ *
+ * <p>Notes: It is expected that only the primary replica will run tasks to build the index, and if the replica loses primacy, it will stop
+ * the task to build the index, and this will be done by an external component.</p>
  */
 public class IndexBuilder implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuilder.class);
 
-    private static final int BATCH_SIZE = 100;
+    static final int BATCH_SIZE = 100;
 
     private final ExecutorService executor;
 
@@ -59,6 +76,8 @@ public class IndexBuilder implements ManuallyCloseable {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
+
+    private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -119,7 +138,8 @@ public class IndexBuilder implements ManuallyCloseable {
                     executor,
                     busyLock,
                     BATCH_SIZE,
-                    node
+                    node,
+                    listeners
             );
 
             IndexBuildTask previousTask = indexBuildTaskById.putIfAbsent(taskId, newTask);
@@ -194,5 +214,15 @@ public class IndexBuilder implements ManuallyCloseable {
         busyLock.block();
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+    }
+
+    /** Adds a listener. */
+    public void listen(IndexBuildCompletionListener listener) {
+        listeners.add(listener);
+    }
+
+    /** Removes a listener. */
+    public void stopListen(IndexBuildCompletionListener listener) {
+        listeners.remove(listener);
     }
 }

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -58,8 +59,10 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -72,7 +75,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -314,7 +316,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19325")
     public void prolongAfterActiveActorChanger() throws Exception {
         var acceptedNodeRef = new AtomicReference<String>();
 
@@ -330,19 +331,21 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
-        var msRaftClient = metaStorageManager.getService().raftGroupService();
+        RaftGroupService msRaftClient = metaStorageManager.getService().raftGroupService();
 
         msRaftClient.refreshLeader().join();
 
-        var previousLeader = msRaftClient.leader();
+        Peer previousLeader = msRaftClient.leader();
 
-        var newLeader = msRaftClient.peers().stream().filter(peer -> !peer.equals(previousLeader)).findAny().get();
+        Peer newLeader = msRaftClient.peers().stream().filter(peer -> !peer.equals(previousLeader)).findAny().get();
 
-        log.info("Leader transfer [from={}, to={}]", previousLeader, newLeader);
+        log.info("The placement driver group active actor is transferring [from={}, to={}]", previousLeader, newLeader);
 
         msRaftClient.transferLeadership(newLeader).get();
 
-        Lease leaseRenew = waitForProlong(grpPart0, lease);
+        waitForProlong(grpPart0, lease);
+
+        assertEquals(newLeader, msRaftClient.leader());
     }
 
 
@@ -477,13 +480,23 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
-
-            Lease leaseRenew = leaseFromBytes(fut.join().value(), grpPart);
-
             if (lease == null) {
                 return false;
             }
+
+            CompletableFuture<Entry> msFur = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY).exceptionally(ex -> {
+                log.info("Meta storage is unavailable", ex);
+
+                return null;
+            });
+
+            assertThat(msFur, willCompleteSuccessfully());
+
+            if (msFur.join() == null) {
+                return false;
+            }
+
+            Lease leaseRenew = leaseFromBytes(msFur.join().value(), grpPart);
 
             if (lease.getExpirationTime().compareTo(leaseRenew.getExpirationTime()) < 0) {
                 leaseRenewRef.set(leaseRenew);
@@ -495,6 +508,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         }, 10_000));
 
         assertEquals(lease.getLeaseholder(), leaseRenewRef.get().getLeaseholder());
+        assertEquals(lease.getStartTime(), leaseRenewRef.get().getStartTime());
 
         return leaseRenewRef.get();
     }
