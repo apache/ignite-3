@@ -139,8 +139,6 @@ public class ClusterInitializer {
             String initialClusterConfiguration = patchClusterConfigurationWithDefaults(clusterConfiguration);
             validateConfiguration(initialClusterConfiguration);
 
-            LOG.info("Initial cluster configuration[configuration={}]", initialClusterConfiguration);
-
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(msNodeNameSet)
                     .cmgNodes(cmgNodeNameSet)
