@@ -2028,11 +2028,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return validateOperationAgainstSchema(request.transactionId())
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
-                                            request,
                                             rowIdsToDelete,
                                             lastCommitTimes,
+                                            request.commitPartitionId(),
+                                            request.transactionId(),
+                                            request.full(),
                                             txCoordinatorId,
-                                            catalogVersion
+                                            catalogVersion,
+                                            request.skipDelayedAck()
                                     )
                             )
                             .thenApply(res -> new ReplicaResult(result, res));
@@ -2202,34 +2205,40 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Executes an UpdateAll command.
      *
-     * @param request Read write multi rows replica request.
      * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
      * @param lastCommitTimes All timestamps of the last committed entries for each row.
+     * @param commitPartitionId Partition ID that these rows belong to.
+     * @param transactionId Transaction ID.
+     * @param full {@code true} if this is a single-command transaction.
      * @param txCoordinatorId Transaction coordinator id.
      * @param catalogVersion Validated catalog version associated with given operation.
+     * @param skipDelayedAck {@code true} to disable the delayed ack optimization.
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
-            ReadWriteMultiRowReplicaRequest request,
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             Map<UUID, HybridTimestamp> lastCommitTimes,
+            TablePartitionIdMessage commitPartitionId,
+            UUID transactionId,
+            boolean full,
             String txCoordinatorId,
-            int catalogVersion
-    ) {applyUpdateCommand
+            int catalogVersion,
+            boolean skipDelayedAck
+    ) {
         synchronized (commandProcessingLinearizationMutex) {
             UpdateAllCommand cmd = updateAllCommand(
                     rowsToUpdate,
                     lastCommitTimes,
-                    request.commitPartitionId(),
-                    request.transactionId(),
+                    commitPartitionId,
+                    transactionId,
                     hybridClock.now(),
-                    request.full(),
+                    full,
                     txCoordinatorId,
                     catalogVersion
             );
 
             if (!cmd.full()) {
-                if (request.skipDelayedAck()) {
+                if (skipDelayedAck) {
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                     synchronized (safeTime) {
                         if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
@@ -2296,6 +2305,35 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
         }
+    }
+
+    /**
+     * Executes an UpdateAll command.
+     *
+     * @param request Read write multi rows replica request.
+     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
+     * @param lastCommitTimes All timestamps of the last committed entries for each row.
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param catalogVersion Validated catalog version associated with given operation.
+     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
+     */
+    private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
+            ReadWriteMultiRowReplicaRequest request,
+            Map<UUID, BinaryRowMessage> rowsToUpdate,
+            Map<UUID, HybridTimestamp> lastCommitTimes,
+            String txCoordinatorId,
+            int catalogVersion
+    ) {
+        return applyUpdateAllCommand(
+                rowsToUpdate,
+                lastCommitTimes,
+                request.commitPartitionId(),
+                request.transactionId(),
+                request.full(),
+                txCoordinatorId,
+                catalogVersion,
+                request.skipDelayedAck()
+        );
     }
 
     /**
@@ -2547,10 +2585,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(rowLock -> validateOperationAgainstSchema(request.transactionId()))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
-                                            request,
+                                            request.commitPartitionId().asTablePartitionId(),
                                             rowId.uuid(),
                                             null,
                                             lastCommitTime,
+                                            request.transactionId(),
+                                            request.full(),
                                             txCoordinatorId,
                                             catalogVersion
                                     )
