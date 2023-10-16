@@ -102,10 +102,8 @@ sql_result table_metadata_query::fetch_next_row(column_binding_map &column_bindi
     if (m_cursor == m_meta.end())
         return sql_result::AI_NO_DATA;
 
-    column_binding_map::iterator it;
-
-    for (it = column_bindings.begin(); it != column_bindings.end(); ++it)
-        get_column(it->first, it->second);
+    for (auto &binding : column_bindings)
+        get_column(binding.first, binding.second);
 
     return sql_result::AI_SUCCESS;
 }

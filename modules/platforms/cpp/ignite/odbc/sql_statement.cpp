@@ -607,11 +607,12 @@ void sql_statement::execute_get_primary_keys_query(
 
 sql_result sql_statement::internal_execute_get_primary_keys_query(
     const std::string &catalog, const std::string &schema, const std::string &table) {
+    UNUSED_VALUE catalog;
 
     if (m_current_query)
         m_current_query->close();
 
-    m_current_query = std::make_unique<primary_keys_query>(*this, m_connection, catalog, schema, table);
+    m_current_query = std::make_unique<primary_keys_query>(*this, m_connection, schema, table);
 
     return m_current_query->execute();
 }

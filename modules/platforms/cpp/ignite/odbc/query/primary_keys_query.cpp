@@ -17,6 +17,7 @@
 
 #include <utility>
 
+#include "ignite/odbc/log.h"
 #include "ignite/odbc/type_traits.h"
 #include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/query/primary_keys_query.h"
@@ -45,16 +46,53 @@ enum class result_column
     PK_NAME
 };
 
+using namespace ignite;
+
+/**
+ * Reads primary keys.
+ *
+ * @param reader Reader.
+ * @return Primary keys meta.
+ */
+primary_key_meta_vector read_meta(protocol::reader &reader) {
+    auto has_no_data = reader.try_read_nil();
+    if (has_no_data)
+        return {};
+
+    auto tables_num = reader.read_int32();
+
+    primary_key_meta_vector keys;
+    keys.reserve(tables_num);
+
+    for (std::int32_t table_idx = 0; table_idx < tables_num; ++table_idx) {
+        auto schema_name = reader.read_string();
+        auto table_name = reader.read_string();
+        auto key_name = reader.read_string();
+
+        auto have_no_fields = reader.try_read_nil();
+        if (have_no_fields)
+            continue;
+
+        auto fields_num = reader.read_int32();
+        for (std::int32_t field_idx = 0; field_idx < fields_num; ++field_idx) {
+            auto field_name = reader.read_string();
+
+            keys.emplace_back("", schema_name, table_name, field_name, std::int16_t(field_idx + 1), key_name);
+        }
+    }
+
+    return keys;
+}
+
 } // anonymous namespace
 
 namespace ignite
 {
 
-primary_keys_query::primary_keys_query(diagnosable_adapter &diag, sql_connection &connection,
-    std::string catalog, std::string schema, std::string table)
+primary_keys_query::primary_keys_query(
+    diagnosable_adapter &diag, sql_connection &connection, std::string schema, std::string table)
     : query(diag, query_type::PRIMARY_KEYS)
     , m_connection(connection)
-    , m_catalog(std::move(catalog))
     , m_schema(std::move(schema))
     , m_table(std::move(table))
 {
@@ -76,12 +114,52 @@ sql_result primary_keys_query::execute()
     if (m_executed)
         close();
 
-    // TODO: Implement properly
-//    m_meta.push_back(meta::PrimaryKeyMeta(catalog, schema, table, "_KEY", 1, "_KEY"));
+    sql_result result = make_request_get_primary_keys();
 
-    m_executed = true;
+    if (result == sql_result::AI_SUCCESS) {
+        m_executed = true;
+        m_fetched = false;
 
-    cursor = m_meta.begin();
+        m_cursor = m_meta.begin();
+    }
+
+    return result;
+}
+
+sql_result primary_keys_query::make_request_get_primary_keys() {
+    auto success = m_diag.catch_errors([&] {
+        auto response =
+            m_connection.sync_request(protocol::client_operation::JDBC_PK_META, [&](protocol::writer &writer) {
+                writer.write(m_schema);
+                writer.write(m_table);
+            });
+
+        protocol::reader reader{response.get_bytes_view()};
+        bool has_result_set = reader.read_bool();
+
+        auto status = reader.read_int32();
+        auto err_msg = reader.read_string_nullable();
+        if (err_msg)
+            throw odbc_error(response_status_to_sql_state(status), *err_msg);
+
+        if (has_result_set)
+            m_meta = read_meta(reader);
+
+        m_executed = true;
+    });
+
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    std::size_t i = 0;
+    for (const auto &meta : m_meta) {
+        LOG_MSG("[" << i << "] SchemaName:  " << meta.get_schema_name());
+        LOG_MSG("[" << i << "] TableName:   " << meta.get_table_name());
+        LOG_MSG("[" << i << "] ColumnName:  " << meta.get_column_name());
+        LOG_MSG("[" << i << "] KeyName:     " << meta.get_key_name());
+        LOG_MSG("[" << i << "] KeySequence: " << meta.get_key_seq());
+        ++i;
+    }
 
     return sql_result::AI_SUCCESS;
 }
@@ -95,18 +173,21 @@ sql_result primary_keys_query::fetch_next_row(column_binding_map &column_binding
         return sql_result::AI_ERROR;
     }
 
-    if (cursor == m_meta.end())
+    if (!m_fetched)
+        m_fetched = true;
+    else
+        ++m_cursor;
+
+    if (m_cursor == m_meta.end())
         return sql_result::AI_NO_DATA;
 
     for (auto &binding : column_bindings)
         get_column(binding.first, binding.second);
 
-    ++cursor;
-
     return sql_result::AI_SUCCESS;
 }
 
-sql_result primary_keys_query::get_column(uint16_t column_idx, application_data_buffer& buffer)
+sql_result primary_keys_query::get_column(std::uint16_t column_idx, application_data_buffer& buffer)
 {
     if (!m_executed)
     {
@@ -115,10 +196,10 @@ sql_result primary_keys_query::get_column(uint16_t column_idx, application_data_
         return sql_result::AI_ERROR;
     }
 
-    if (cursor == m_meta.end())
+    if (m_cursor == m_meta.end())
         return sql_result::AI_NO_DATA;
 
-    auto &current_column = *cursor;
+    auto &current_column = *m_cursor;
 
     switch (result_column(column_idx))
     {

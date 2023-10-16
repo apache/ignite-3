@@ -35,12 +35,10 @@ public:
      *
      * @param diag Diagnostics collector.
      * @param connection Statement-associated connection.
-     * @param catalog Catalog name.
      * @param schema Schema name.
      * @param table Table name.
      */
-    primary_keys_query(diagnosable_adapter &diag, sql_connection &connection, std::string  catalog,
-        std::string  schema, std::string  table);
+    primary_keys_query(diagnosable_adapter &diag, sql_connection &connection, std::string schema, std::string table);
 
     /**
      * Destructor.
@@ -89,7 +87,7 @@ public:
      *
      * @return True if data is available.
      */
-    bool is_data_available() const override { return cursor != m_meta.end(); }
+    bool is_data_available() const override { return m_cursor != m_meta.end(); }
 
     /**
      * Get number of rows affected by the statement.
@@ -106,11 +104,15 @@ public:
     sql_result next_result_set() override { return sql_result::AI_NO_DATA; }
 
 private:
+    /**
+     * Make get primary keys requests and use response to set internal state.
+     *
+     * @return Operation result.
+     */
+    sql_result make_request_get_primary_keys();
+
     /** Connection associated with the statement. */
     sql_connection& m_connection;
-
-    /** Catalog name. */
-    std::string m_catalog;
 
     /** Schema name. */
     std::string m_schema;
@@ -121,6 +123,9 @@ private:
     /** Query executed. */
     bool m_executed{false};
 
+    /** Result set fetched. */
+    bool m_fetched{false};
+
     /** Columns metadata. */
     column_meta_vector m_columns_meta;
 
@@ -128,7 +133,7 @@ private:
     primary_key_meta_vector m_meta;
 
     /** Result set cursor. */
-    primary_key_meta_vector::iterator cursor;
+    primary_key_meta_vector::iterator m_cursor;
 };
 
 } // namespace ignite
