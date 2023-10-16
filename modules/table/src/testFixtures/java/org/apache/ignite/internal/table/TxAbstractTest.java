@@ -54,7 +54,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -71,6 +70,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
@@ -1332,7 +1332,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             @Override
             public void onNext(BinaryRow item) {
                 SchemaRegistry registry = accounts.schemaView();
-                Row row = registry.resolve(item, registry.schema(registry.lastSchemaVersion()));
+                Row row = registry.resolve(item, registry.lastKnownSchema());
 
                 rows.add(TableRow.tuple(row));
             }
@@ -2041,7 +2041,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testBatchSinglePartitionGet() throws Exception {
         var accountRecordsView = accounts.recordView();
 
-        var marshaller = new TupleMarshallerImpl(accounts.schemaView().schema(accounts.schemaView().lastSchemaVersion()));
+        SchemaRegistry schemaRegistry = accounts.schemaView();
+        var marshaller = new TupleMarshallerImpl(schemaRegistry.lastKnownSchema());
 
         int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
 

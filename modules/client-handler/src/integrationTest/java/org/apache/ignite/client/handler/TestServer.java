@@ -27,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -37,6 +36,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
@@ -58,7 +58,7 @@ public class TestServer {
 
     private final TestSslConfig testSslConfig;
 
-    private final AuthenticationConfiguration authenticationConfiguration;
+    private final SecurityConfiguration securityConfiguration;
 
     private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
 
@@ -68,11 +68,11 @@ public class TestServer {
         this(null, null);
     }
 
-    TestServer(@Nullable TestSslConfig testSslConfig, @Nullable AuthenticationConfiguration authenticationConfiguration) {
+    TestServer(@Nullable TestSslConfig testSslConfig, @Nullable SecurityConfiguration securityConfiguration) {
         this.testSslConfig = testSslConfig;
-        this.authenticationConfiguration = authenticationConfiguration == null
-                ? mock(AuthenticationConfiguration.class)
-                : authenticationConfiguration;
+        this.securityConfiguration = securityConfiguration == null
+                ? mock(SecurityConfiguration.class)
+                : securityConfiguration;
         this.generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         this.configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -131,7 +131,7 @@ public class TestServer {
                 mock(MetricManager.class),
                 metrics,
                 authenticationManager(),
-                authenticationConfiguration,
+                securityConfiguration,
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class)
@@ -153,7 +153,7 @@ public class TestServer {
 
     private AuthenticationManager authenticationManager() {
         AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(authenticationManager);
+        securityConfiguration.listen(authenticationManager);
         return authenticationManager;
     }
 }

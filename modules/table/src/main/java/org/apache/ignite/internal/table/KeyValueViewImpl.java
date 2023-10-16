@@ -663,7 +663,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(
                 rowConverter.registry(),
                 tbl.partitions(),
-                marshaller(rowConverter.registry().lastSchemaVersion())
+                marshaller(rowConverter.registry().lastKnownSchemaVersion())
         );
 
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> {

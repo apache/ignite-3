@@ -40,10 +40,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -202,7 +202,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             @Override
             public void onNext(BinaryRow item) {
                 SchemaRegistry registry = tbl.schemaView();
-                res.add(TableRow.tuple(registry.resolve(item, registry.lastSchemaVersion())));
+                res.add(TableRow.tuple(registry.resolve(item, registry.lastKnownSchemaVersion())));
             }
 
             @Override

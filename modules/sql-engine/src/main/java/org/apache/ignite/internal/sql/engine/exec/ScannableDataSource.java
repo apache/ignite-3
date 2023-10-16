@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.concurrent.Flow.Publisher;
-import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.lang.InternalTuple;
 
 /**
  * Provides read operations over an abstract data source.

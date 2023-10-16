@@ -104,7 +104,7 @@ public class DistributionZoneRebalanceEngine {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
                 @Override
                 protected CompletableFuture<Void> onReplicasUpdate(AlterZoneEventParameters parameters, int oldReplicas) {
-                    return onUpdateReplicas(parameters, oldReplicas);
+                    return onUpdateReplicas(parameters);
                 }
             });
 
@@ -158,48 +158,14 @@ public class DistributionZoneRebalanceEngine {
                         return completedFuture(null);
                     }
 
-                    for (CatalogTableDescriptor tableDescriptor : findTablesByZoneId(zoneId, catalogVersion)) {
-                        CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
-                                tableDescriptor,
-                                zoneDescriptor,
-                                filteredDataNodes,
-                                evt.entryEvent().newEntry().revision(),
-                                metaStorageManager
-                        );
+                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, catalogVersion);
 
-                        // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
-                        // when reading from MetaStorage, it will be encountered by every partition future) to avoid noise
-                        // in the logs.
-                        Set<Throwable> unwrappedCauses = ConcurrentHashMap.newKeySet();
-
-                        for (int partId = 0; partId < partitionFutures.length; partId++) {
-                            int finalPartId = partId;
-
-                            partitionFutures[partId].exceptionally(e -> {
-                                Throwable cause = ExceptionUtils.unwrapCause(e);
-
-                                if (unwrappedCauses.add(cause)) {
-                                    // The exception is specific to this partition.
-                                    LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]",
-                                            e,
-                                            tableInfo(tableDescriptor), finalPartId
-                                    );
-                                } else {
-                                    // The exception is from upstream and not specific for this partition, so don't log the partition index.
-                                    LOG.error(
-                                            "Exception on updating assignments for [table={}]",
-                                            e,
-                                            tableInfo(tableDescriptor)
-                                    );
-                                }
-
-                                return null;
-                            });
-                        }
-                    }
-
-                    return completedFuture(null);
+                    return triggerPartitionsRebalanceForAllTables(
+                            evt.entryEvent().newEntry().revision(),
+                            zoneDescriptor,
+                            filteredDataNodes,
+                            tableDescriptors
+                    );
                 });
             }
 
@@ -210,7 +176,7 @@ public class DistributionZoneRebalanceEngine {
         };
     }
 
-    private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters, int oldReplicas) {
+    private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             int zoneId = parameters.zoneDescriptor().id();
             long causalityToken = parameters.causalityToken();
@@ -223,28 +189,68 @@ public class DistributionZoneRebalanceEngine {
 
                         List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, parameters.catalogVersion());
 
-                        List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
-
-                        for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
-                            LOG.info(
-                                    "Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
-                                    tableInfo(tableDescriptor), oldReplicas, parameters.zoneDescriptor().replicas()
-                            );
-
-                            CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
-                                    tableDescriptor,
-                                    parameters.zoneDescriptor(),
-                                    dataNodes,
-                                    causalityToken,
-                                    metaStorageManager
-                            );
-
-                            tableFutures.add(allOf(partitionFutures));
-                        }
-
-                        return allOf(tableFutures.toArray(CompletableFuture[]::new));
+                        return triggerPartitionsRebalanceForAllTables(
+                                causalityToken,
+                                parameters.zoneDescriptor(),
+                                dataNodes,
+                                tableDescriptors
+                        );
                     });
         });
+    }
+
+    private CompletableFuture<Void> triggerPartitionsRebalanceForAllTables(
+            long revision,
+            CatalogZoneDescriptor zoneDescriptor,
+            Set<String> dataNodes,
+            List<CatalogTableDescriptor> tableDescriptors
+    ) {
+        List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
+
+        for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
+            CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
+                    tableDescriptor,
+                    zoneDescriptor,
+                    dataNodes,
+                    revision,
+                    metaStorageManager
+            );
+
+            // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
+            // when reading from MetaStorage, it will be encountered by every partition future) to avoid noise
+            // in the logs.
+            Set<Throwable> unwrappedCauses = ConcurrentHashMap.newKeySet();
+
+            for (int partId = 0; partId < partitionFutures.length; partId++) {
+                int finalPartId = partId;
+
+                partitionFutures[partId].exceptionally(e -> {
+                    Throwable cause = ExceptionUtils.unwrapCause(e);
+
+                    if (unwrappedCauses.add(cause)) {
+                        // The exception is specific to this partition.
+                        LOG.error(
+                                "Exception on updating assignments for [table={}, partition={}]",
+                                e,
+                                tableInfo(tableDescriptor), finalPartId
+                        );
+                    } else {
+                        // The exception is from upstream and not specific for this partition, so don't log the partition index.
+                        LOG.error(
+                                "Exception on updating assignments for [table={}]",
+                                e,
+                                tableInfo(tableDescriptor)
+                        );
+                    }
+
+                    return null;
+                });
+            }
+
+            tableFutures.add(allOf(partitionFutures));
+        }
+
+        return allOf(tableFutures.toArray(CompletableFuture[]::new));
     }
 
     private List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, int catalogVersion) {

@@ -62,7 +62,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
@@ -103,6 +102,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -119,6 +119,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     private static final String NODE_NAME = "node1";
+
+    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(NODE_NAME);
 
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
@@ -202,8 +204,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         for (int i = 0; i < nodes(); i++) {
             if (!txManagers.containsKey(i)) {
-                TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
-                        () -> "local");
+                TxManager txManager = new TxManagerImpl(
+                        replicaService,
+                        new HeapLockManager(),
+                        hybridClock,
+                        new TransactionIdGenerator(i),
+                        () -> NODE_NAME,
+                        TEST_PLACEMENT_DRIVER
+                );
 
                 txManager.start();
 
@@ -212,8 +220,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             }
         }
 
-        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1),
-                () -> "local");
+        TxManager txManager = new TxManagerImpl(
+                replicaService,
+                new HeapLockManager(),
+                hybridClock,
+                new TransactionIdGenerator(-1),
+                () -> NODE_NAME,
+                TEST_PLACEMENT_DRIVER
+        );
 
         txManager.start();
 
@@ -231,7 +245,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 replicaService,
                 hybridClock,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(NODE_NAME)
+                TEST_PLACEMENT_DRIVER
         );
 
         closeables.add(() -> table.close());
@@ -456,8 +470,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     );
 
                     TxManager txManager = txManagers.computeIfAbsent(index, k -> {
-                        TxManager txMgr = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock,
-                                new TransactionIdGenerator(index), () -> "local");
+                        TxManager txMgr = new TxManagerImpl(
+                                replicaService,
+                                new HeapLockManager(),
+                                hybridClock,
+                                new TransactionIdGenerator(index),
+                                () -> NODE_NAME,
+                                TEST_PLACEMENT_DRIVER
+                        );
                         txMgr.start();
                         closeables.add(txMgr::stop);
 

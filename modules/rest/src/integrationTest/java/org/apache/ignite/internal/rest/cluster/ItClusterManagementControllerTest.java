@@ -40,7 +40,6 @@ import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import jakarta.inject.Inject;
 import java.util.List;
 import org.apache.ignite.configuration.validation.ValidationIssue;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.configuration.ConfigurationValidatorFactory;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -66,7 +66,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     private HttpClient client;
 
     @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
+    private SecurityConfiguration securityConfiguration;
 
     @Mock
     private ConfigurationValidator configurationValidator;
@@ -211,7 +211,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
     private AuthenticationManagerImpl authenticationManager() {
         AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(manager);
+        securityConfiguration.listen(manager);
         return manager;
     }
 }

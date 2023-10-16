@@ -18,21 +18,19 @@
 package org.apache.ignite.internal.table;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIMESTAMP_PRECISION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_TIME_PRECISION;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -57,7 +55,6 @@ import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
@@ -66,6 +63,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +74,8 @@ import org.junit.jupiter.api.Test;
  */
 public class MutableRowTupleAdapterTest {
     private static final int NANOS_IN_SECOND = 9;
+    private static final int TIMESTAMP_PRECISION = 6;
+    private static final int TIME_PRECISION = 0;
 
     /** Schema descriptor. */
     private final SchemaDescriptor schema = new SchemaDescriptor(
@@ -95,9 +95,9 @@ public class MutableRowTupleAdapterTest {
                     new Column("valFloatCol".toUpperCase(), FLOAT, true),
                     new Column("valDoubleCol".toUpperCase(), DOUBLE, true),
                     new Column("valDateCol".toUpperCase(), DATE, true),
-                    new Column("valTimeCol".toUpperCase(), time(), true),
-                    new Column("valDateTimeCol".toUpperCase(), datetime(), true),
-                    new Column("valTimeStampCol".toUpperCase(), timestamp(), true),
+                    new Column("valTimeCol".toUpperCase(), time(TIME_PRECISION), true),
+                    new Column("valDateTimeCol".toUpperCase(), datetime(TIMESTAMP_PRECISION), true),
+                    new Column("valTimeStampCol".toUpperCase(), timestamp(TIMESTAMP_PRECISION), true),
                     new Column("valBitmask1Col".toUpperCase(), NativeTypes.bitmaskOf(22), true),
                     new Column("valBytesCol".toUpperCase(), BYTES, false),
                     new Column("valStringCol".toUpperCase(), STRING, false),
@@ -640,8 +640,8 @@ public class MutableRowTupleAdapterTest {
     }
 
     private <T extends Temporal> T truncateToDefaultPrecision(T temporal) {
-        int precision = temporal instanceof Instant ? DEFAULT_TIMESTAMP_PRECISION
-                : DEFAULT_TIME_PRECISION;
+        int precision = temporal instanceof Instant ? TIMESTAMP_PRECISION
+                : TIME_PRECISION;
 
         return (T) temporal.with(NANO_OF_SECOND,
                 truncatePrecision(temporal.get(NANO_OF_SECOND), tailFactor(precision)));

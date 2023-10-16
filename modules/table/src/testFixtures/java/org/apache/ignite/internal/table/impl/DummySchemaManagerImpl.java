@@ -17,15 +17,16 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy schema manager for tests.
@@ -47,35 +48,30 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaDescriptor schema() {
+    public SchemaDescriptor lastKnownSchema() {
         return schema;
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaDescriptor schema(int ver) {
-        assert ver >= 0;
-
-        assert schema.version() == ver;
+    public SchemaDescriptor schema(int version) {
+        assert version >= 0;
+        assert schema.version() == version;
 
         return schema;
     }
 
     @Override
-    public @Nullable SchemaDescriptor schemaCached(int ver) {
-        assert schema.version() == ver;
+    public CompletableFuture<SchemaDescriptor> schemaAsync(int version) {
+        assert version >= 0;
+        assert schema.version() == version;
 
-        return schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
-        return schema();
+        return completedFuture(schema);
     }
 
     /** {@inheritDoc} */
     @Override
-    public int lastSchemaVersion() {
+    public int lastKnownSchemaVersion() {
         return schema.version();
     }
 

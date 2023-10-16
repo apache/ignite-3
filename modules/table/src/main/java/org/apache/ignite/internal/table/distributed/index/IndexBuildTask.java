@@ -63,6 +63,8 @@ class IndexBuildTask {
 
     private final ClusterNode node;
 
+    private final List<IndexBuildCompletionListener> listeners;
+
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean taskStopGuard = new AtomicBoolean();
@@ -77,7 +79,8 @@ class IndexBuildTask {
             ExecutorService executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
-            ClusterNode node
+            ClusterNode node,
+            List<IndexBuildCompletionListener> listeners
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -87,6 +90,8 @@ class IndexBuildTask {
         this.busyLock = busyLock;
         this.batchSize = batchSize;
         this.node = node;
+        // We do not intentionally make a copy of the list, we want to see changes in the passed list.
+        this.listeners = listeners;
     }
 
     /** Starts building the index. */
@@ -97,9 +102,7 @@ class IndexBuildTask {
             return;
         }
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Start building the index: [{}]", createCommonIndexInfo());
-        }
+        LOG.info("Start building the index: [{}]", createCommonIndexInfo());
 
         try {
             supplyAsync(this::handleNextBatch, executor)
@@ -148,6 +151,12 @@ class IndexBuildTask {
                     .thenComposeAsync(unused -> {
                         if (indexStorage.getNextRowIdToBuild() == null) {
                             // Index has been built.
+                            LOG.info("Index build completed: [{}]", createCommonIndexInfo());
+
+                            for (IndexBuildCompletionListener listener : listeners) {
+                                listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
+                            }
+
                             return completedFuture(null);
                         }
 
