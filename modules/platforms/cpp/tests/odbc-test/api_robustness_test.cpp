@@ -242,8 +242,8 @@ TEST_F(api_robustness_test, sql_columns) {
     SQLCHAR columnName[] = "";
 
     // Everything is ok.
-    SQLRETURN ret = SQLColumns(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
-        sizeof(table_name), columnName, sizeof(columnName));
+    SQLRETURN ret = SQLColumns(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name), columnName, sizeof(columnName));
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -486,15 +486,16 @@ TEST_F(api_robustness_test, sql_foreign_keys) {
 
     // Everything is ok.
     SQLRETURN ret = SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
-        table_name, sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
-        sizeof(table_name));
+        table_name, sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name));
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, 0, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name),
-        catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLForeignKeys(m_statement, 0, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
@@ -503,8 +504,9 @@ TEST_F(api_robustness_test, sql_foreign_keys) {
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name), table_name, sizeof(table_name),
-        catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
@@ -513,8 +515,9 @@ TEST_F(api_robustness_test, sql_foreign_keys) {
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0, sizeof(table_name),
-        catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
@@ -544,7 +547,8 @@ TEST_F(api_robustness_test, sql_foreign_keys) {
     SQLCloseCursor(m_statement);
 
     SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
-        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0, sizeof(table_name));
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0,
+        sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
@@ -608,16 +612,19 @@ TEST_F(api_robustness_test, sql_primary_keys) {
     SQLCHAR table_name[] = "TestType";
 
     // Everything is ok.
-    SQLRETURN ret = SQLPrimaryKeys(
-        m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLRETURN ret = SQLPrimaryKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name));
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    SQLPrimaryKeys(m_statement, 0, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLPrimaryKeys(
+        m_statement, 0, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
     SQLPrimaryKeys(m_statement, catalog_name, 0, schema_name, sizeof(schema_name), table_name, sizeof(table_name));
-    SQLPrimaryKeys(m_statement, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLPrimaryKeys(
+        m_statement, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name), table_name, sizeof(table_name));
     SQLPrimaryKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, 0, table_name, sizeof(table_name));
-    SQLPrimaryKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0, sizeof(table_name));
+    SQLPrimaryKeys(
+        m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0, sizeof(table_name));
     SQLPrimaryKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, 0);
     SQLPrimaryKeys(m_statement, 0, 0, 0, 0, 0, 0);
 }
@@ -770,8 +777,8 @@ TEST_F(api_robustness_test, sql_special_columns) {
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, 0, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
-        sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, 0, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 
@@ -780,8 +787,8 @@ TEST_F(api_robustness_test, sql_special_columns) {
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name), table_name,
-        sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name),
+        table_name, sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 
@@ -790,8 +797,8 @@ TEST_F(api_robustness_test, sql_special_columns) {
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0,
-        sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        0, sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 

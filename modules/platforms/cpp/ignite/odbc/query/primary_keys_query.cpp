@@ -18,15 +18,13 @@
 #include <utility>
 
 #include "ignite/odbc/log.h"
-#include "ignite/odbc/type_traits.h"
-#include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/query/primary_keys_query.h"
+#include "ignite/odbc/sql_connection.h"
+#include "ignite/odbc/type_traits.h"
 
-namespace
-{
+namespace {
 
-enum class result_column
-{
+enum class result_column {
     /** Catalog name. NULL if not applicable to the data source. */
     TABLE_CAT = 1,
 
@@ -86,16 +84,14 @@ primary_key_meta_vector read_meta(protocol::reader &reader) {
 
 } // anonymous namespace
 
-namespace ignite
-{
+namespace ignite {
 
 primary_keys_query::primary_keys_query(
     diagnosable_adapter &diag, sql_connection &connection, std::string schema, std::string table)
     : query(diag, query_type::PRIMARY_KEYS)
     , m_connection(connection)
     , m_schema(std::move(schema))
-    , m_table(std::move(table))
-{
+    , m_table(std::move(table)) {
     m_columns_meta.reserve(6);
 
     const std::string sch;
@@ -109,8 +105,7 @@ primary_keys_query::primary_keys_query(
     m_columns_meta.emplace_back(sch, tbl, "PK_NAME", ignite_type::STRING);
 }
 
-sql_result primary_keys_query::execute()
-{
+sql_result primary_keys_query::execute() {
     if (m_executed)
         close();
 
@@ -164,10 +159,8 @@ sql_result primary_keys_query::make_request_get_primary_keys() {
     return sql_result::AI_SUCCESS;
 }
 
-sql_result primary_keys_query::fetch_next_row(column_binding_map &column_bindings)
-{
-    if (!m_executed)
-    {
+sql_result primary_keys_query::fetch_next_row(column_binding_map &column_bindings) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -187,10 +180,8 @@ sql_result primary_keys_query::fetch_next_row(column_binding_map &column_binding
     return sql_result::AI_SUCCESS;
 }
 
-sql_result primary_keys_query::get_column(std::uint16_t column_idx, application_data_buffer& buffer)
-{
-    if (!m_executed)
-    {
+sql_result primary_keys_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -201,40 +192,33 @@ sql_result primary_keys_query::get_column(std::uint16_t column_idx, application_
 
     auto &current_column = *m_cursor;
 
-    switch (result_column(column_idx))
-    {
-        case result_column::TABLE_CAT:
-        {
+    switch (result_column(column_idx)) {
+        case result_column::TABLE_CAT: {
             buffer.put_string(current_column.get_catalog_name());
             break;
         }
 
-        case result_column::TABLE_SCHEM:
-        {
+        case result_column::TABLE_SCHEM: {
             buffer.put_string(current_column.get_schema_name());
             break;
         }
 
-        case result_column::TABLE_NAME:
-        {
+        case result_column::TABLE_NAME: {
             buffer.put_string(current_column.get_table_name());
             break;
         }
 
-        case result_column::COLUMN_NAME:
-        {
+        case result_column::COLUMN_NAME: {
             buffer.put_string(current_column.get_column_name());
             break;
         }
 
-        case result_column::KEY_SEQ:
-        {
+        case result_column::KEY_SEQ: {
             buffer.put_int16(current_column.get_key_seq());
             break;
         }
 
-        case result_column::PK_NAME:
-        {
+        case result_column::PK_NAME: {
             buffer.put_string(current_column.get_key_name());
             break;
         }
@@ -246,8 +230,7 @@ sql_result primary_keys_query::get_column(std::uint16_t column_idx, application_
     return sql_result::AI_SUCCESS;
 }
 
-sql_result primary_keys_query::close()
-{
+sql_result primary_keys_query::close() {
     m_meta.clear();
 
     m_executed = false;

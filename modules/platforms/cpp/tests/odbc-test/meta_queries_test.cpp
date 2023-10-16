@@ -871,13 +871,11 @@ TEST_F(meta_queries_test, sqlcol_attribute_precision_and_scale_after_exec) {
 TEST_F(meta_queries_test, primary_keys_single_column) {
     odbc_connect(get_basic_connection_string());
 
-    auto ret = exec_query(
-        "drop table if exists primary_keys_single_column");
+    auto ret = exec_query("drop table if exists primary_keys_single_column");
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    ret = exec_query(
-        "create table if not exists primary_keys_single_column(ID int primary key, TEST_COLUMN varchar)");
+    ret = exec_query("create table if not exists primary_keys_single_column(ID int primary key, TEST_COLUMN varchar)");
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -905,8 +903,7 @@ TEST_F(meta_queries_test, primary_keys_single_column) {
 TEST_F(meta_queries_test, primary_keys_multiple_columns) {
     odbc_connect(get_basic_connection_string());
 
-    auto ret = exec_query(
-        "drop table if exists primary_keys_multiple_columns");
+    auto ret = exec_query("drop table if exists primary_keys_multiple_columns");
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 

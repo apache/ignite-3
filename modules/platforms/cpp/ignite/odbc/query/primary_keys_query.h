@@ -17,18 +17,16 @@
 
 #pragma once
 
-#include "ignite/odbc/sql_connection.h"
-#include "ignite/odbc/query/query.h"
 #include "ignite/odbc/meta/primary_key_meta.h"
+#include "ignite/odbc/query/query.h"
+#include "ignite/odbc/sql_connection.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Primary keys query.
  */
-class primary_keys_query : public query
-{
+class primary_keys_query : public query {
 public:
     /**
      * Constructor.
@@ -57,14 +55,14 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector* get_meta() override { return &m_columns_meta; }
+    const column_meta_vector *get_meta() override { return &m_columns_meta; }
 
     /**
      * Fetch next result row to application buffers.
      *
      * @return Operation result.
      */
-    sql_result fetch_next_row(column_binding_map& column_bindings) override;
+    sql_result fetch_next_row(column_binding_map &column_bindings) override;
 
     /**
      * Get data of the specified column in the result set.
@@ -112,7 +110,7 @@ private:
     sql_result make_request_get_primary_keys();
 
     /** Connection associated with the statement. */
-    sql_connection& m_connection;
+    sql_connection &m_connection;
 
     /** Schema name. */
     std::string m_schema;
