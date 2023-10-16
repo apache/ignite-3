@@ -72,8 +72,8 @@ class ItJdbcTest extends IgniteIntegrationTest {
             cluster.startAndInit(1, new int[]{ 0 }, builder -> builder.clusterConfiguration(
                     "{\n"
                             + "  \"security\": {\n"
+                            + "  \"enabled\": true,\n"
                             + "    \"authentication\": {\n"
-                            + "      \"enabled\": true,\n"
                             + "      \"providers\": [\n"
                             + "        {\n"
                             + "          \"name\": \"basic\",\n"

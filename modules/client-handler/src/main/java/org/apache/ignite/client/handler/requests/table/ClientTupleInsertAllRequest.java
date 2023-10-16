@@ -49,10 +49,10 @@ public class ClientTupleInsertAllRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var tuples = readTuples(in, table, false);
-
-            return table.recordView().insertAllAsync(tx, tuples).thenAccept(skippedTuples ->
-                    writeTuples(out, skippedTuples, table.schemaView()));
+            return readTuples(in, table, false).thenCompose(tuples -> {
+                return table.recordView().insertAllAsync(tx, tuples).thenAccept(skippedTuples ->
+                        writeTuples(out, skippedTuples, table.schemaView()));
+            });
         });
     }
 }

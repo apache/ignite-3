@@ -45,7 +45,7 @@ class FullTableSchemaTest {
     }
 
     private static CatalogHashIndexDescriptor someIndex(int id, String name) {
-        return new CatalogHashIndexDescriptor(id, name, 1, true, List.of("a"));
+        return new CatalogHashIndexDescriptor(id, name, 1, true, List.of("a"), false);
     }
 
     private static CatalogTableColumnDescriptor someColumn(String columnName) {

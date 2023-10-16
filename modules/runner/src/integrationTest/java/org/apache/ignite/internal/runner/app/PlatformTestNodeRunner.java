@@ -63,14 +63,15 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.configuration.SecurityChange;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -700,20 +701,23 @@ public class PlatformTestNodeRunner {
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
-                    root -> root.changeRoot(SecurityConfiguration.KEY).changeAuthentication(
-                            change -> {
-                                change.changeEnabled(enable);
-                                change.changeProviders().delete("basic");
+                    root -> {
+                        SecurityChange securityChange = root.changeRoot(SecurityConfiguration.KEY);
+                        securityChange.changeEnabled(enable);
+                        securityChange.changeAuthentication(
+                                change -> {
+                                    change.changeProviders().delete("basic");
 
-                                if (enable) {
-                                    change.changeProviders().create("basic", authenticationProviderChange -> {
-                                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                                .changeUsername("user-1")
-                                                .changePassword("password-1");
-                                    });
+                                    if (enable) {
+                                        change.changeProviders().create("basic", authenticationProviderChange -> {
+                                            authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                                                    .changeUsername("user-1")
+                                                    .changePassword("password-1");
+                                        });
+                                    }
                                 }
-                            }
-                    ));
+                        );
+                    });
 
             assertThat(changeFuture, willCompleteSuccessfully());
 

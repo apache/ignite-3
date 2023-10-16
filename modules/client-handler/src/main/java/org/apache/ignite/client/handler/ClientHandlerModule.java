@@ -37,7 +37,6 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -104,7 +104,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final AuthenticationManager authenticationManager;
 
-    private final AuthenticationConfiguration authenticationConfiguration;
+    private final SecurityConfiguration securityConfiguration;
 
     private final HybridClock clock;
 
@@ -126,7 +126,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param clusterIdSupplier ClusterId supplier.
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
-     * @param authenticationConfiguration Authentication configuration.
+     * @param securityConfiguration Security configuration.
      * @param clock Hybrid clock.
      */
     public ClientHandlerModule(
@@ -142,7 +142,7 @@ public class ClientHandlerModule implements IgniteComponent {
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
-            AuthenticationConfiguration authenticationConfiguration,
+            SecurityConfiguration securityConfiguration,
             HybridClock clock,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService
@@ -158,7 +158,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert metricManager != null;
         assert metrics != null;
         assert authenticationManager != null;
-        assert authenticationConfiguration != null;
+        assert securityConfiguration != null;
         assert clock != null;
         assert schemaSyncService != null;
         assert catalogService != null;
@@ -175,7 +175,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.metricManager = metricManager;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
-        this.authenticationConfiguration = authenticationConfiguration;
+        this.securityConfiguration = securityConfiguration;
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
@@ -318,7 +318,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 schemaSyncService,
                 catalogService
         );
-        authenticationConfiguration.listen(clientInboundMessageHandler);
+        securityConfiguration.listen(clientInboundMessageHandler);
         return clientInboundMessageHandler;
     }
 

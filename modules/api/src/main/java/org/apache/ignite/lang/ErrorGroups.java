@@ -345,6 +345,9 @@ public class ErrorGroups {
 
         /** Failure due to an abandoned transaction. */
         public static final int TX_ABANDONED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Failure due to primary replica expiration. */
+        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Replicator error group. */
@@ -483,8 +486,11 @@ public class ErrorGroups {
         /** Authentication error group. */
         public static final ErrorGroup AUTHENTICATION_ERR_GROUP = registerGroup("AUTHENTICATION", (short) 15);
 
-        /** General authentication error. */
-        public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 1);
+        /** Authentication error caused by unsupported authentication type. */
+        public static final int UNSUPPORTED_AUTHENTICATION_TYPE_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Authentication error caused by invalid credentials. */
+        public static final int INVALID_CREDENTIALS_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /**

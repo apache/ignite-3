@@ -104,12 +104,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testTxCorrectness() throws InterruptedException {
+    void testTxCorrectness() {
         Session ses = client().sql().createSession();
 
         // Create table.
         ses.execute(null, "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
-        waitForTableOnAllNodes("testExecuteDdlDml");
 
         // Async
         Transaction tx = client().transactions().begin();
@@ -170,7 +169,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testExecuteAsyncDdlDml() throws InterruptedException {
+    void testExecuteAsyncDdlDml() {
         Session session = client().sql().createSession();
 
         // Create table.
@@ -183,8 +182,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertTrue(createRes.wasApplied());
         assertEquals(-1, createRes.affectedRows());
         assertThrows(NoRowSetExpectedException.class, createRes::currentPageSize);
-
-        waitForTableOnAllNodes("testExecuteAsyncDdlDml");
 
         // Insert data.
         for (int i = 0; i < 10; i++) {
@@ -242,15 +239,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @SuppressWarnings("ConstantConditions")
     @Test
-    void testExecuteDdlDml() throws InterruptedException {
+    void testExecuteDdlDml() {
         Session session = client().sql().createSession();
 
         // Create table.
         ResultSet createRes = session.execute(
                 null,
                 "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
-
-        waitForTableOnAllNodes("testExecuteDdlDml");
 
         assertFalse(createRes.hasRowSet());
         assertNull(createRes.metadata());
@@ -325,11 +320,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testFetchNextPage() throws InterruptedException {
+    void testFetchNextPage() {
         Session session = client().sql().createSession();
 
         session.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY, VAL INT)").join();
-        waitForTableOnAllNodes("testFetchNextPage");
 
         for (int i = 0; i < 10; i++) {
             session.executeAsync(null, "INSERT INTO testFetchNextPage VALUES (?, ?)", i, i).join();
@@ -368,11 +362,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testTransactionRollbackRevertsSqlUpdate() throws InterruptedException {
+    void testTransactionRollbackRevertsSqlUpdate() {
         Session session = client().sql().createSession();
 
         session.executeAsync(null, "CREATE TABLE testTx(ID INT PRIMARY KEY, VAL INT)").join();
-        waitForTableOnAllNodes("testTx");
 
         session.executeAsync(null, "INSERT INTO testTx VALUES (1, 1)").join();
 
@@ -434,7 +427,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testAllColumnTypes() throws InterruptedException {
+    void testAllColumnTypes() {
         Session session = client().sql().createSession();
 
         String createTable = "CREATE TABLE testAllColumnTypes("
@@ -454,8 +447,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "VAL_BYTES BINARY)";
 
         session.execute(null, createTable);
-
-        waitForTableOnAllNodes("testAllColumnTypes");
 
         String insertData = "INSERT INTO testAllColumnTypes VALUES ("
                 + "1, "

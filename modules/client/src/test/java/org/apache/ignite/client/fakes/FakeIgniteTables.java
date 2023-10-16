@@ -247,12 +247,12 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                 new SchemaVersions() {
                     @Override
                     public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
-                        return completedFuture(schemaReg.lastSchemaVersion());
+                        return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
 
                     @Override
                     public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
-                        return completedFuture(schemaReg.lastSchemaVersion());
+                        return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
                 }
         );

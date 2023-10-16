@@ -36,6 +36,7 @@ import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -66,7 +68,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.systemview.api.SystemViewProvider;
+import org.apache.ignite.internal.systemview.api.SystemViews;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.jetbrains.annotations.Nullable;
@@ -74,16 +81,20 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Catalog service implementation.
  */
-public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
+public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters>
+        implements CatalogManager, SystemViewProvider {
     private static final int MAX_RETRY_COUNT = 10;
+
+    private static final int SYSTEM_VIEW_STRING_COLUMN_LENGTH = Short.MAX_VALUE;
 
     /** Safe time to wait before new Catalog version activation. */
     private static final int DEFAULT_DELAY_DURATION = 0;
 
     /** Initial update token for a catalog descriptor, this token is valid only before the first call of
-     * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)}.
-     * After that {@link CatalogObjectDescriptor#updateToken()} will be initialised with a causality token from
-     * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)}
+     * {@link UpdateEntry#applyUpdate(Catalog, long)}.
+     *
+     * <p>After that {@link CatalogObjectDescriptor#updateToken()} will be initialised with a causality token from
+     * {@link UpdateEntry#applyUpdate(Catalog, long)}
      */
     public static final long INITIAL_CAUSALITY_TOKEN = 0L;
 
@@ -448,6 +459,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 });
     }
 
+    @Override
+    public List<SystemView<?>> systemViews() {
+        return List.of(
+                createSystemViewsView(),
+                createSystemViewColumnsView()
+        );
+    }
+
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
         public CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
@@ -535,6 +554,90 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             }
 
             return bulkUpdateEntries;
+        }
+    }
+
+    private SystemView<?> createSystemViewsView() {
+        Iterable<SchemaAwareDescriptor<CatalogSystemViewDescriptor>> viewData = () -> {
+            int version = latestCatalogVersion();
+
+            Catalog catalog = catalog(version);
+
+            return catalog.schemas().stream()
+                    .flatMap(schema -> Arrays.stream(schema.systemViews())
+                            .map(viewDescriptor -> new SchemaAwareDescriptor<>(viewDescriptor, schema.name()))
+                    )
+                    .iterator();
+        };
+
+        Publisher<SchemaAwareDescriptor<CatalogSystemViewDescriptor>> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
+
+        return SystemViews.<SchemaAwareDescriptor<CatalogSystemViewDescriptor>>clusterViewBuilder()
+                .name("SYSTEM_VIEWS")
+                .addColumn("ID", NativeTypes.INT32, entry -> entry.descriptor.id())
+                .addColumn("SCHEMA", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
+                        entry -> entry.schema)
+                .addColumn("NAME", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
+                        entry -> entry.descriptor.name())
+                .addColumn("TYPE", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
+                        entry -> entry.descriptor.systemViewType().name())
+                .dataProvider(viewDataPublisher)
+                .build();
+    }
+
+    private SystemView<?> createSystemViewColumnsView() {
+        Iterable<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>> viewData = () -> {
+            int version = latestCatalogVersion();
+
+            Catalog catalog = catalog(version);
+
+            return catalog.schemas().stream()
+                    .flatMap(schema -> Arrays.stream(schema.systemViews()))
+                    .flatMap(viewDescriptor -> viewDescriptor.columns().stream()
+                            .map(columnDescriptor -> new ParentIdAwareDescriptor<>(columnDescriptor, viewDescriptor.id()))
+                    )
+                    .iterator();
+        };
+
+        Publisher<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
+
+        return SystemViews.<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>>clusterViewBuilder()
+                .name("SYSTEM_VIEW_COLUMNS")
+                .addColumn("VIEW_ID", NativeTypes.INT32, entry -> entry.id)
+                .addColumn("NAME", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
+                .addColumn("TYPE", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.type().name())
+                .addColumn("NULLABLE", NativeTypes.BOOLEAN, entry -> entry.descriptor.nullable())
+                .addColumn("PRECISION", NativeTypes.INT32, entry -> entry.descriptor.precision())
+                .addColumn("SCALE", NativeTypes.INT32, entry -> entry.descriptor.scale())
+                .addColumn("LENGTH", NativeTypes.INT32, entry -> entry.descriptor.length())
+                .dataProvider(viewDataPublisher)
+                .build();
+    }
+
+    /**
+     * A container that keeps given descriptor along with name of the schema this
+     * descriptor belongs to.
+     */
+    private static class SchemaAwareDescriptor<T> {
+        private final T descriptor;
+        private final String schema;
+
+        SchemaAwareDescriptor(T descriptor, String schema) {
+            this.descriptor = descriptor;
+            this.schema = schema;
+        }
+    }
+
+    /**
+     * A container that keeps given descriptor along with its parent's id.
+     */
+    private static class ParentIdAwareDescriptor<T> {
+        private final T descriptor;
+        private final int id;
+
+        ParentIdAwareDescriptor(T descriptor, int id) {
+            this.descriptor = descriptor;
+            this.id = id;
         }
     }
 }

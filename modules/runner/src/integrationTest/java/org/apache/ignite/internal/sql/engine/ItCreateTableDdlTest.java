@@ -139,7 +139,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void implicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(2, colocationColumns.length);
         assertEquals("ID1", colocationColumns[0].name());
@@ -206,7 +206,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void explicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("ID0", colocationColumns[0].name());
@@ -219,7 +219,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void explicitColocationColumnsCaseSensitive() {
         sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("Id0", colocationColumns[0].name());
