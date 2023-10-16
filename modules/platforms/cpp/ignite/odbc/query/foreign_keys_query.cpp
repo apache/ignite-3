@@ -40,19 +40,19 @@ foreign_keys_query::foreign_keys_query(diagnosable_adapter& m_diag, sql_connecti
     const std::string sch;
     const std::string tbl;
 
-    m_columns_meta.emplace_back(sch, tbl, "PKTABLE_CAT",   ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "PKTABLE_CAT", ignite_type::STRING);
     m_columns_meta.emplace_back(sch, tbl, "PKTABLE_SCHEM", ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "PKTABLE_NAME",  ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "PKTABLE_NAME", ignite_type::STRING);
     m_columns_meta.emplace_back(sch, tbl, "PKCOLUMN_NAME", ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "FKTABLE_CAT",   ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "FKTABLE_CAT", ignite_type::STRING);
     m_columns_meta.emplace_back(sch, tbl, "FKTABLE_SCHEM", ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "FKTABLE_NAME",  ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "FKTABLE_NAME", ignite_type::STRING);
     m_columns_meta.emplace_back(sch, tbl, "FKCOLUMN_NAME", ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "KEY_SEQ",       ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "UPDATE_RULE",   ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "DELETE_RULE",   ignite_type::INT16);
-    m_columns_meta.emplace_back(sch, tbl, "FK_NAME",       ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "PK_NAME",       ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "KEY_SEQ", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "UPDATE_RULE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "DELETE_RULE", ignite_type::INT16);
+    m_columns_meta.emplace_back(sch, tbl, "FK_NAME", ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "PK_NAME", ignite_type::STRING);
     m_columns_meta.emplace_back(sch, tbl, "DEFERRABILITY", ignite_type::INT16);
 }
 
