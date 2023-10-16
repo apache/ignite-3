@@ -53,7 +53,7 @@ public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPa
     }
 
     @Override
-    public String patchDefaults(String hocon) {
+    public String patchWithDefaults(String hocon) {
         SuperRoot superRoot = convertToSuperRoot(hocon);
 
         SuperRootChange rootChange = new SuperRootChangeImpl(superRoot);

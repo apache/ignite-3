@@ -342,7 +342,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(clusterTag(msgFactory, msg.clusterName()))
-                .clusterConfigurationToApply(msg.clusterConfigurationToApply())
+                .initialClusterConfiguration(msg.initialClusterConfiguration())
                 .build();
     }
 
@@ -391,7 +391,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         LOG.error("Error when retrieving cluster configuration", e);
                         updateDistributedConfigurationActionFuture.completeExceptionally(e);
                     } else {
-                        String configuration = state.clusterConfigurationToApply();
+                        String configuration = state.initialClusterConfiguration();
                         if (configuration != null) {
                             updateDistributedConfigurationActionFuture.complete(
                                     new UpdateDistributedConfigurationAction(
@@ -409,7 +409,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
         return service.readClusterState()
                 .thenCompose(state -> {
-                    if (state.clusterConfigurationToApply() != null) {
+                    if (state.initialClusterConfiguration() != null) {
                         ClusterState clusterState = msgFactory.clusterState()
                                 .cmgNodes(Set.copyOf(state.cmgNodes()))
                                 .metaStorageNodes(Set.copyOf(state.metaStorageNodes()))

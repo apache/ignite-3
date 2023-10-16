@@ -27,5 +27,5 @@ public interface ConfigurationDefaultsPatcher {
      * @param hocon HOCON string.
      * @return Patched HOCON string.
      */
-    String patchDefaults(String hocon);
+    String patchWithDefaults(String hocon);
 }
