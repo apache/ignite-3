@@ -114,7 +114,7 @@ class SecurityConfigurationModuleTest {
     }
 
     @Test
-    void noSetDefaultUserIfProvidersIsNotEmpty() {
+    void doNoSetDefaultUserIfProvidersIsNotEmpty() {
         rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
             authenticationChange.changeProviders().create("basic", change -> {
                 change.convert(BasicAuthenticationProviderChange.class)
