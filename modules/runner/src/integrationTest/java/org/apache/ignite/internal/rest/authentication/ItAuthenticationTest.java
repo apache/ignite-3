@@ -118,7 +118,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.authentication.enabled:true, "
+                + "         security.enabled:true, "
                 + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]}\"\n"
                 + "  }";
 
@@ -144,8 +144,8 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
         // change password
         String updateRestAuthConfigBody = "{\n"
                 + "    \"security\": {\n"
+                + "        \"enabled\": true,\n"
                 + "        \"authentication\": {\n"
-                + "            \"enabled\": true,\n"
                 + "            \"providers\": [\n"
                 + "                {\n"
                 + "                    \"name\": \"basic\",\n"
@@ -184,7 +184,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.authentication.enabled:true, "
+                + "         security.enabled:true, "
                 + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]}\"\n"
                 + "  }";
 

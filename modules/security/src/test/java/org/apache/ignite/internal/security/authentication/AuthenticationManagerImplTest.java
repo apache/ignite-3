@@ -32,9 +32,9 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationChange;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.configuration.SecurityChange;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
@@ -47,14 +47,14 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     private final AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
 
     @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
+    private SecurityConfiguration securityConfiguration;
 
     @Test
     public void enableAuth() {
         // when
-        AuthenticationView adminPasswordAuthView = mutateConfiguration(
-                authenticationConfiguration, change -> {
-                    change.changeProviders(providers -> providers.create("basic", provider -> {
+        SecurityView adminPasswordView = mutateConfiguration(
+                securityConfiguration, change -> {
+                    change.changeAuthentication().changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
                                 .changePassword("password");
@@ -63,7 +63,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
                 })
                 .value();
 
-        manager.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
+        manager.onUpdate(new StubSecurityViewEvent(null, adminPasswordView)).join();
 
         // then
         // successful authentication with valid credentials
@@ -79,12 +79,12 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     public void leaveOldSettingWhenInvalidConfiguration() {
         // when
-        AuthenticationView invalidAuthView = mutateConfiguration(
-                authenticationConfiguration, change -> {
+        SecurityView invalidAuthView = mutateConfiguration(
+                securityConfiguration, change -> {
                     change.changeEnabled(true);
                 })
                 .value();
-        manager.onUpdate(new StubAuthenticationViewEvent(null, invalidAuthView)).join();
+        manager.onUpdate(new StubSecurityViewEvent(null, invalidAuthView)).join();
 
         // then
         // authentication is still disabled
@@ -96,9 +96,9 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     public void disableAuthEmptyProviders() {
         //when
-        AuthenticationView adminPasswordAuthView = mutateConfiguration(
-                authenticationConfiguration, change -> {
-                    change.changeProviders(providers -> providers.create("basic", provider -> {
+        SecurityView adminPasswordView = mutateConfiguration(
+                securityConfiguration, change -> {
+                    change.changeAuthentication().changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
                                 .changePassword("password");
@@ -107,7 +107,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
                 })
                 .value();
 
-        manager.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
+        manager.onUpdate(new StubSecurityViewEvent(null, adminPasswordView)).join();
 
         // then
 
@@ -118,14 +118,14 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals("admin", manager.authenticate(validCredentials).username());
 
         // disable authentication
-        AuthenticationView disabledAuthView = mutateConfiguration(
-                authenticationConfiguration, change -> {
-                    change.changeProviders(providers -> providers.delete("basic"));
+        SecurityView disabledView = mutateConfiguration(
+                securityConfiguration, change -> {
+                    change.changeAuthentication().changeProviders(providers -> providers.delete("basic"));
                     change.changeEnabled(false);
                 })
                 .value();
 
-        manager.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, disabledAuthView)).join();
+        manager.onUpdate(new StubSecurityViewEvent(adminPasswordView, disabledView)).join();
 
         // then
         // authentication is disabled
@@ -137,9 +137,9 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     public void disableAuthNotEmptyProviders() {
         //when
-        AuthenticationView adminPasswordAuthView = mutateConfiguration(
-                authenticationConfiguration, change -> {
-                    change.changeProviders(providers -> providers.create("basic", provider -> {
+        SecurityView adminPasswordView = mutateConfiguration(
+                securityConfiguration, change -> {
+                    change.changeAuthentication().changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
                                 .changePassword("password");
@@ -148,7 +148,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
                 })
                 .value();
 
-        manager.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
+        manager.onUpdate(new StubSecurityViewEvent(null, adminPasswordView)).join();
 
         // then
         // successful authentication with valid credentials
@@ -157,13 +157,13 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals("admin", manager.authenticate(validCredentials).username());
 
         // disable authentication
-        AuthenticationView disabledAuthView = mutateConfiguration(
-                authenticationConfiguration, change -> {
+        SecurityView disabledView = mutateConfiguration(
+                securityConfiguration, change -> {
                     change.changeEnabled(false);
                 })
                 .value();
 
-        manager.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, disabledAuthView)).join();
+        manager.onUpdate(new StubSecurityViewEvent(adminPasswordView, disabledView)).join();
 
         // then
         // authentication is disabled
@@ -175,9 +175,9 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     public void changedCredentials() {
         // when
-        AuthenticationView adminPasswordAuthView = mutateConfiguration(
-                authenticationConfiguration, change -> {
-                    change.changeProviders(providers -> providers.create("basic", provider -> {
+        SecurityView adminPasswordView = mutateConfiguration(
+                securityConfiguration, change -> {
+                    change.changeAuthentication().changeProviders(providers -> providers.create("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
                                 .changePassword("password");
@@ -186,7 +186,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
                 })
                 .value();
 
-        manager.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
+        manager.onUpdate(new StubSecurityViewEvent(null, adminPasswordView)).join();
 
         // then
         // successful authentication with valid credentials
@@ -195,9 +195,9 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals("admin", manager.authenticate(adminPasswordCredentials).username());
 
         // change authentication settings - change password
-        AuthenticationView adminNewPasswordAuthView = mutateConfiguration(
-                authenticationConfiguration, change -> {
-                    change.changeProviders(providers -> providers.update("basic", provider -> {
+        SecurityView adminNewPasswordView = mutateConfiguration(
+                securityConfiguration, change -> {
+                    change.changeAuthentication().changeProviders(providers -> providers.update("basic", provider -> {
                         provider.convert(BasicAuthenticationProviderChange.class)
                                 .changeUsername("admin")
                                 .changePassword("new-password");
@@ -205,7 +205,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
                 })
                 .value();
 
-        manager.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, adminNewPasswordAuthView)).join();
+        manager.onUpdate(new StubSecurityViewEvent(adminPasswordView, adminNewPasswordView)).join();
 
         assertThrows(InvalidCredentialsException.class, () -> manager.authenticate(adminPasswordCredentials));
 
@@ -243,9 +243,9 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         verify(authenticator4).authenticate(credentials);
     }
 
-    private static AuthenticationConfiguration mutateConfiguration(AuthenticationConfiguration configuration,
-            Consumer<AuthenticationChange> consumer) {
-        CompletableFuture<AuthenticationConfiguration> future = configuration.change(consumer)
+    private static SecurityConfiguration mutateConfiguration(SecurityConfiguration configuration,
+            Consumer<SecurityChange> consumer) {
+        CompletableFuture<SecurityConfiguration> future = configuration.change(consumer)
                 .thenApply(unused -> configuration);
         assertThat(future, willCompleteSuccessfully());
         return future.join();
