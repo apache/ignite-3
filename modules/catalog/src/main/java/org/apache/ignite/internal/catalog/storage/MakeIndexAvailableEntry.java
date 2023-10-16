@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.Arrays;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -31,20 +36,15 @@ import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParamete
 public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
     private static final long serialVersionUID = -5686678143537999594L;
 
-    private final String schemaName;
-
-    private final CatalogIndexDescriptor descriptor;
+    private final int indexId;
 
     /** Constructor. */
-    public MakeIndexAvailableEntry(String schemaName, CatalogIndexDescriptor descriptor) {
-        this.schemaName = schemaName;
-        this.descriptor = descriptor;
+    public MakeIndexAvailableEntry(int indexId) {
+        this.indexId = indexId;
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        descriptor.updateToken(causalityToken);
-
         CatalogSchemaDescriptor schema = catalog.schema(schemaName);
 
         return new Catalog(
@@ -57,7 +57,7 @@ public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
                         schema.name(),
                         schema.tables(),
                         Arrays.stream(schema.indexes())
-                                .map(source -> source.id() == descriptor.id() ? descriptor : source)
+                                .map(source -> source.id() == indexId ? createReadWriteIndex(source, causalityToken) : source)
                                 .toArray(CatalogIndexDescriptor[]::new),
                         schema.systemViews(),
                         causalityToken
@@ -72,16 +72,44 @@ public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new MakeIndexAvailableEventParameters(causalityToken, catalogVersion, descriptor.id());
+        return new MakeIndexAvailableEventParameters(causalityToken, catalogVersion, indexId);
     }
 
-    /** Returns schema name. */
-    public String schemaName() {
-        return schemaName;
+    private CatalogIndexDescriptor createReadWriteIndex(CatalogIndexDescriptor source, long causalityToken) {
+        CatalogIndexDescriptor updateIndexDescriptor;
+
+        if (source instanceof CatalogHashIndexDescriptor) {
+            updateIndexDescriptor = createReadWriteIndex((CatalogHashIndexDescriptor) source);
+        } else if (source instanceof CatalogSortedIndexDescriptor) {
+            updateIndexDescriptor = createReadWriteIndex((CatalogSortedIndexDescriptor) source);
+        } else {
+            throw new CatalogValidationException(format("Unsupported index type '{}' {}", indexId, source));
+        }
+
+        updateIndexDescriptor.updateToken(causalityToken);
+
+        return updateIndexDescriptor;
     }
 
-    /** Returns descriptor of the available to read-write index. */
-    public CatalogIndexDescriptor descriptor() {
-        return descriptor;
+    private static CatalogIndexDescriptor createReadWriteIndex(CatalogHashIndexDescriptor index) {
+        return new CatalogHashIndexDescriptor(
+                index.id(),
+                index.name(),
+                index.tableId(),
+                index.unique(),
+                index.columns(),
+                false
+        );
+    }
+
+    private static CatalogIndexDescriptor createReadWriteIndex(CatalogSortedIndexDescriptor index) {
+        return new CatalogSortedIndexDescriptor(
+                index.id(),
+                index.name(),
+                index.tableId(),
+                index.unique(),
+                index.columns(),
+                false
+        );
     }
 }
