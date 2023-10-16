@@ -52,8 +52,8 @@ public class IgniteExceptionMapperUtil {
      *
      * @param mapper Exception mapper from internal exception to a public one.
      * @param registeredMappings Already registered mappings.
-     * @throws IgniteException If a mapper for the given {@code clazz} already registered,
-     *      or {@code clazz} represents Java standard exception like {@link NullPointerException}, {@link IllegalArgumentException}.
+     * @throws IgniteException If a mapper for the given {@code clazz} already registered, or {@code clazz} represents Java standard
+     *         exception like {@link NullPointerException}, {@link IllegalArgumentException}.
      */
     static void registerMapping(
             IgniteExceptionMapper<?, ?> mapper,
@@ -87,23 +87,30 @@ public class IgniteExceptionMapperUtil {
             if (origin instanceof AssertionError) {
                 return new IgniteException(INTERNAL_ERR, origin);
             }
-
             return origin;
         }
 
-        IgniteExceptionMapper<? extends Exception, ? extends Exception> m = EXCEPTION_CONVERTERS.get(origin.getClass());
+        Throwable res;
+
+        // Try to find appropriate mapper, moving from original class to supper-classes step by step.
+        Class exceptionClass = origin.getClass();
+        IgniteExceptionMapper<? extends Exception, ? extends Exception> m;
+        while ((m = EXCEPTION_CONVERTERS.get(exceptionClass)) == null && exceptionClass != Throwable.class) {
+            exceptionClass = exceptionClass.getSuperclass();
+        }
+
         if (m != null) {
-            Exception mapped = map(m, origin);
+            res = map(m, origin);
 
-            assert mapped instanceof IgniteException || mapped instanceof IgniteCheckedException :
-                    "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + mapped + ']';
+            assert res instanceof IgniteException || res instanceof IgniteCheckedException :
+                    "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + res + ']';
 
-            return mapped;
+        } else {
+            res = origin;
         }
 
-        if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
-
-            return origin;
+        if (res instanceof IgniteException || res instanceof IgniteCheckedException) {
+            return res;
         }
 
         // There are no exception mappings for the given exception. This case should be considered as internal error.
@@ -111,8 +118,8 @@ public class IgniteExceptionMapperUtil {
     }
 
     /**
-     * Returns a new CompletableFuture that, when the given {@code origin} future completes exceptionally,
-     * maps the origin's exception to a public Ignite exception if it is needed.
+     * Returns a new CompletableFuture that, when the given {@code origin} future completes exceptionally, maps the origin's exception to a
+     * public Ignite exception if it is needed.
      *
      * @param origin The future to use to create a new stage.
      * @param <T> Type os result.

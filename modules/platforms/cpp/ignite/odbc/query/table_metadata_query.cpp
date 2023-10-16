@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-#include "ignite/odbc/query/table_metadata_query.h"
+#include <utility>
+
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
+#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/type_traits.h"
@@ -45,18 +47,18 @@ enum class result_column {
 
 namespace ignite {
 
-table_metadata_query::table_metadata_query(diagnosable_adapter &diag, sql_connection &connection,
-    const std::string &catalog, const std::string &schema, const std::string &table, const std::string &table_type)
+table_metadata_query::table_metadata_query(diagnosable_adapter &diag, sql_connection &connection, std::string catalog,
+    std::string schema, std::string table, std::string table_type)
     : query(diag, query_type::TABLE_METADATA)
     , m_connection(connection)
-    , m_catalog(catalog)
-    , m_schema(schema)
-    , m_table(table)
-    , m_table_type(table_type) {
+    , m_catalog(std::move(catalog))
+    , m_schema(std::move(schema))
+    , m_table(std::move(table))
+    , m_table_type(std::move(table_type)) {
     m_columns_meta.reserve(5);
 
-    const std::string sch("");
-    const std::string tbl("");
+    const std::string sch;
+    const std::string tbl;
 
     m_columns_meta.emplace_back(sch, tbl, "TABLE_CAT", ignite_type::STRING);
     m_columns_meta.emplace_back(sch, tbl, "TABLE_SCHEM", ignite_type::STRING);

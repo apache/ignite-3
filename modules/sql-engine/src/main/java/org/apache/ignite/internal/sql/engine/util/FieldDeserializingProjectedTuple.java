@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.row.InternalTuple;
 
 /**
  * A projected tuple that doesn't require delegate to be in particular format.

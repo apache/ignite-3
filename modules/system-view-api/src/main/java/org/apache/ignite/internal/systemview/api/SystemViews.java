@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.systemview;
+package org.apache.ignite.internal.systemview.api;
 
 /**
  * Provides static factory methods for system view builders.
@@ -32,6 +32,9 @@ public final class SystemViews {
     /**
      * Creates an instance of a builder to construct cluster-wide system views.
      *
+     * <p>Use this view to expose the data from a common source, like distributed meta storage,
+     * table, or anything, so every node will provide the same copy of dataset.
+     *
      * @param <T> Type of elements returned by a system view.
      * @return Returns a builder to construct cluster-wide system views.
      */
@@ -41,6 +44,11 @@ public final class SystemViews {
 
     /**
      * Creates an instance of a builder to construct node system views.
+     *
+     * <p>Use this view to expose data that is unique to a particular node, and can be acquired
+     * only on the node itself. As example, this type of view is suitable to expose client connection to
+     * the node, or any metadata from task coordinator (like query coordinator, or tx coordinator;
+     * assuming there is no distributed registry for such kind of metadata).
      *
      * @param <T> Type of elements returned by a system view.
      * @return Returns a builder to construct node system views.

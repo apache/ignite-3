@@ -54,7 +54,7 @@ class DistributedConfigurationUpdaterTest extends BaseIgniteAbstractTest {
         when(presentation.update(anyString())).thenReturn(completedFuture(null));
 
         CompletableFuture<Void> nextAction = new CompletableFuture<>();
-        String configuration = "security.authentication.enabled:true";
+        String configuration = "security.enabled:true";
         UpdateDistributedConfigurationAction updateDistributedConfigurationAction =
                 new UpdateDistributedConfigurationAction(
                         configuration,

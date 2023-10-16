@@ -36,11 +36,11 @@ public class AuthenticationProvidersValidatorImpl implements
             AuthenticationProvidersValidator annotation,
             ValidationContext<NamedListView<? extends AuthenticationProviderView>> ctx
     ) {
-        boolean enabled = ctx.getNewRoot(SecurityConfiguration.KEY).authentication().enabled();
+        boolean enabled = ctx.getNewRoot(SecurityConfiguration.KEY).enabled();
         NamedListView<? extends AuthenticationProviderView> view = ctx.getNewValue();
 
         if (enabled && view.size() == 0) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Providers must be present, if auth is enabled"));
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Providers must be present, if security is enabled"));
         }
     }
 }

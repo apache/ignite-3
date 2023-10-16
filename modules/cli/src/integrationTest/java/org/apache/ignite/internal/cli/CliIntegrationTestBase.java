@@ -55,6 +55,10 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }\n"
+            + "  rest: {\n"
+            + "    port: {}\n"
+            + "    ssl.port: {}\n"
+            + "  }\n"
             + "}";
 
 

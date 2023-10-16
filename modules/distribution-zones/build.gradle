@@ -52,6 +52,7 @@ dependencies {
     testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-metastorage')
     testImplementation project(':ignite-runner')
+    testImplementation project(':ignite-system-view-api')
 
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))

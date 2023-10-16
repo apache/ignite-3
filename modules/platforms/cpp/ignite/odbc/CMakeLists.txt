@@ -37,6 +37,7 @@ set(SOURCES
     meta/table_meta.cpp
     query/column_metadata_query.cpp
     query/data_query.cpp
+    query/foreign_keys_query.cpp
     query/table_metadata_query.cpp
     query/type_info_query.cpp
     odbc.cpp

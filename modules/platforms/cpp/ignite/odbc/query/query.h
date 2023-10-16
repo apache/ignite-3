@@ -39,6 +39,9 @@ enum class query_type {
 
     /** Type info. */
     TYPE_INFO,
+
+    /** Foreign keys. */
+    FOREIGN_KEYS,
 };
 
 /**

@@ -57,7 +57,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -119,7 +119,7 @@ public class TestServer implements AutoCloseable {
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId,
-            @Nullable AuthenticationConfiguration authenticationConfiguration,
+            @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port
     ) {
         this(
@@ -129,7 +129,7 @@ public class TestServer implements AutoCloseable {
                 responseDelay,
                 nodeName,
                 clusterId,
-                authenticationConfiguration,
+                securityConfiguration,
                 port,
                 null
         );
@@ -148,7 +148,7 @@ public class TestServer implements AutoCloseable {
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId,
-            @Nullable AuthenticationConfiguration authenticationConfiguration,
+            @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
             @Nullable HybridClock clock
     ) {
@@ -191,9 +191,9 @@ public class TestServer implements AutoCloseable {
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
 
-        AuthenticationConfiguration authenticationConfigToApply = authenticationConfiguration == null
-                ? mock(AuthenticationConfiguration.class)
-                : authenticationConfiguration;
+        SecurityConfiguration securityConfigurationOnInit = securityConfiguration == null
+                ? mock(SecurityConfiguration.class)
+                : securityConfiguration;
 
         if (clock == null) {
             clock = new HybridClockImpl();
@@ -210,7 +210,7 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterId,
                         metrics,
-                        authenticationConfigToApply,
+                        securityConfigurationOnInit,
                         clock)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
@@ -224,8 +224,8 @@ public class TestServer implements AutoCloseable {
                         () -> CompletableFuture.completedFuture(clusterId),
                         mock(MetricManager.class),
                         metrics,
-                        authenticationManager(authenticationConfigToApply),
-                        authenticationConfigToApply,
+                        authenticationManager(securityConfigurationOnInit),
+                        securityConfigurationOnInit,
                         clock,
                         new AlwaysSyncedSchemaSyncService(),
                         mockCatalogService()
@@ -320,9 +320,9 @@ public class TestServer implements AutoCloseable {
         }
     }
 
-    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+    private AuthenticationManager authenticationManager(SecurityConfiguration securityConfiguration) {
         AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(authenticationManager);
+        securityConfiguration.listen(authenticationManager);
         return authenticationManager;
     }
 }

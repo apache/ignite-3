@@ -50,8 +50,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/** Tests for the REST port range configuration. */
-public class ItPortRangeTest extends IgniteIntegrationTest {
+/** Tests for the REST ports configuration. */
+public class ItRestPortsTest extends IgniteIntegrationTest {
 
     /** Trust store path. */
     private static final String trustStorePath = "ssl/truststore.jks";
@@ -85,7 +85,7 @@ public class ItPortRangeTest extends IgniteIntegrationTest {
     }
 
     @ParameterizedTest
-    @DisplayName("Port range works in all configurations")
+    @DisplayName("Ports are configured in all configurations")
     @MethodSource("sslConfigurationProperties")
     void portRange(boolean sslEnabled, boolean dualProtocol, TestInfo testInfo) throws IOException, InterruptedException {
         List<RestNode> nodes = IntStream.range(0, 3)
@@ -94,8 +94,8 @@ public class ItPortRangeTest extends IgniteIntegrationTest {
                             .workDir(workDir)
                             .name(testNodeName(testInfo, id))
                             .networkPort(3344 + id)
-                            .httpPort(10300)
-                            .httpsPort(10400)
+                            .httpPort(10300 + id)
+                            .httpsPort(10400 + id)
                             .sslEnabled(sslEnabled)
                             .dualProtocol(dualProtocol)
                             .build();

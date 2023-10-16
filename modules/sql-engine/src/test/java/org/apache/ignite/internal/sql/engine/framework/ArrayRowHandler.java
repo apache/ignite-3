@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.util.ArrayUtils;
