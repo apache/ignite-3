@@ -213,21 +213,19 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
         placementDriver.setAwaitPrimaryReplicaFunction((groupId, timestamp) -> primaryReplicaFuture);
 
         PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE_NAME);
-        CompletableFuture<?> durableCleanupFuture = placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters);
+        assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
 
-        assertFalse(durableCleanupFuture.isDone());
+        assertFalse(txStateStorage.get(tx0).locksReleased());
 
         Thread primaryReplicaFutureCompleteThread =
                 new Thread(() -> primaryReplicaFuture.completeExceptionally(new RuntimeException("test exception")));
         primaryReplicaFutureCompleteThread.start();
 
-        assertFalse(durableCleanupFuture.isDone());
+        assertFalse(txStateStorage.get(tx0).locksReleased());
 
         placementDriver.setAwaitPrimaryReplicaFunction(null);
 
         primaryReplicaFutureCompleteThread.join();
-
-        assertThat(durableCleanupFuture, willSucceedIn(1, SECONDS));
 
         assertTrue(txStateStorage.get(tx0).locksReleased());
     }
