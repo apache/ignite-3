@@ -73,7 +73,7 @@ public class TxMeta implements TransactionMeta {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
-        this.locksReleased = false;
+        this.locksReleased = locksReleased;
     }
 
     @Override

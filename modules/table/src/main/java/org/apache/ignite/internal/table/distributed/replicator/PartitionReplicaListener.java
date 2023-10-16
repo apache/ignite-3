@@ -353,11 +353,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 txMeta.commitTimestamp())
                         );
                     } else {
-                        LOG.warn("Failed to execute cleanup on commit partition primary replica switch [txId=" + txId + ']', e);
+                        LOG.warn("Failed to execute cleanup on commit partition primary replica switch [txId="
+                                + txId + ", commitPartition=" + replicationGroupId + ']', e);
 
                         return txManager.executeCleanupAsync(() -> durableCleanup(txId, txMeta));
                     }
-                });
+                })
+                .thenCompose(f -> f);
     }
 
     private void markLocksReleased(

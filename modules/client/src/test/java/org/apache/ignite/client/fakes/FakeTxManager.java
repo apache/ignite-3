@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -156,6 +157,11 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
         return CompletableFuture.runAsync(runnable);
+    }
+
+    @Override
+    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
+        return action.get();
     }
 
     @Override

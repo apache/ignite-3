@@ -435,7 +435,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         doAnswer(invocation -> txStateMeta).when(txManager).stateMeta(any());
 
-        doAnswer(invocation -> completedFuture(null)).when(txManager).executeCleanupAsync(any());
+        doAnswer(invocation -> completedFuture(null)).when(txManager).executeCleanupAsync(any(Runnable.class));
 
         doAnswer(invocation -> {
             var resp = new TxMessagesFactory().txStateResponse().txStateMeta(txStateMeta).build();
@@ -517,7 +517,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
         testMvPartitionStorage.clear();
         pendingRows.clear();
-        //lockManager.locks(txId).forEachRemaining(lock -> lockManager.release(lock));
     }
 
     @Test
