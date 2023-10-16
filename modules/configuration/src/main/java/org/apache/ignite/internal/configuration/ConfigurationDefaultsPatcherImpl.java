@@ -63,6 +63,7 @@ public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPa
         ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
                 .includeInternal(true)
                 .maskSecretValues(false)
+                .skipEmptyValues(true)
                 .build();
 
         return HoconConverter.represent(superRoot, List.of(), visitor).render(ConfigRenderOptions.concise());
