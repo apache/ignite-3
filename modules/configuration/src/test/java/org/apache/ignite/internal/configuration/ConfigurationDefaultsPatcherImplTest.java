@@ -25,7 +25,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class ConfigurationDefaultsPatcherImplTest {
-    private static final TestConfigurationModule module = new TestConfigurationModule();
+    private static final TestConfigurationModule MODULE = new TestConfigurationModule();
 
     private static ConfigurationTreeGenerator generator;
 
@@ -34,12 +34,12 @@ class ConfigurationDefaultsPatcherImplTest {
     @BeforeAll
     static void beforeAll() {
         generator = new ConfigurationTreeGenerator(
-                module.rootKeys(),
-                module.schemaExtensions(),
-                module.polymorphicSchemaExtensions()
+                MODULE.rootKeys(),
+                MODULE.schemaExtensions(),
+                MODULE.polymorphicSchemaExtensions()
         );
         patcher = new ConfigurationDefaultsPatcherImpl(
-                module,
+                MODULE,
                 generator
         );
     }
