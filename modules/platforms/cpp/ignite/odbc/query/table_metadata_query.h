@@ -97,7 +97,7 @@ public:
      *
      * @return Number of rows affected by the statement.
      */
-    std::int64_t affected_rows() const override;
+    [[nodiscard]] std::int64_t affected_rows() const override;
 
     /**
      * Move to the next result set.
