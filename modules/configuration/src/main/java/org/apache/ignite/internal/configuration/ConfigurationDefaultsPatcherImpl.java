@@ -32,7 +32,7 @@ import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 /**
  * Implementation of {@link ConfigurationDefaultsPatcher}.
  */
-public class ClusterConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPatcher {
+public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPatcher {
     /**
      * Configuration module.
      */
@@ -44,7 +44,7 @@ public class ClusterConfigurationDefaultsPatcherImpl implements ConfigurationDef
     private final ConfigurationTreeGenerator generator;
 
 
-    public ClusterConfigurationDefaultsPatcherImpl(
+    public ConfigurationDefaultsPatcherImpl(
             ConfigurationModule configurationModule,
             ConfigurationTreeGenerator generator
     ) {
