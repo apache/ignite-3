@@ -28,6 +28,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -45,7 +46,7 @@ public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = catalog.schema(schemaName);
+        CatalogSchemaDescriptor schema = schemaByIndexId(catalog, indexId);
 
         return new Catalog(
                 catalog.version(),
@@ -75,7 +76,23 @@ public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
         return new MakeIndexAvailableEventParameters(causalityToken, catalogVersion, indexId);
     }
 
-    private CatalogIndexDescriptor createReadWriteIndex(CatalogIndexDescriptor source, long causalityToken) {
+    private static CatalogSchemaDescriptor schemaByIndexId(Catalog catalog, int indexId) {
+        CatalogIndexDescriptor index = catalog.index(indexId);
+
+        assert index != null : indexId;
+
+        CatalogTableDescriptor table = catalog.table(index.tableId());
+
+        assert table != null : index.tableId();
+
+        CatalogSchemaDescriptor schema = catalog.schema(table.schemaId());
+
+        assert schema != null : table.schemaId();
+
+        return schema;
+    }
+
+    private static CatalogIndexDescriptor createReadWriteIndex(CatalogIndexDescriptor source, long causalityToken) {
         CatalogIndexDescriptor updateIndexDescriptor;
 
         if (source instanceof CatalogHashIndexDescriptor) {
@@ -83,7 +100,7 @@ public class MakeIndexAvailableEntry implements UpdateEntry, Fireable {
         } else if (source instanceof CatalogSortedIndexDescriptor) {
             updateIndexDescriptor = createReadWriteIndex((CatalogSortedIndexDescriptor) source);
         } else {
-            throw new CatalogValidationException(format("Unsupported index type '{}' {}", indexId, source));
+            throw new CatalogValidationException(format("Unsupported index type '{}' {}", source.id(), source));
         }
 
         updateIndexDescriptor.updateToken(causalityToken);

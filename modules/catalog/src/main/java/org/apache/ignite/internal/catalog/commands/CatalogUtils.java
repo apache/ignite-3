@@ -394,7 +394,7 @@ public class CatalogUtils {
         CatalogIndexDescriptor index = catalog.index(indexId);
 
         if (index == null) {
-            throw new IndexNotFoundValidationException(format("Index with id '' not found", indexId));
+            throw new IndexNotFoundValidationException(format("Index with ID '{}' not found", indexId));
         }
 
         return index;

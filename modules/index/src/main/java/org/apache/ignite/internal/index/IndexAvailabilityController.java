@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -243,13 +242,10 @@ public class IndexAvailabilityController implements ManuallyCloseable {
                 return completedFuture(null);
             }
 
-            // We can use the latest version of the catalog since we are on the metastore thread.
-            CatalogIndexDescriptor indexDescriptor = getIndexDescriptorStrict(indexId, catalogManager.latestCatalogVersion());
-
             // We will not wait for the command to be executed, since we will then find ourselves in a dead lock since we will not be able
             // to free the metastore thread.
             catalogManager
-                    .execute(buildMakeIndexAvailableCommand(indexDescriptor))
+                    .execute(buildMakeIndexAvailableCommand(indexId))
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable unwrapCause = unwrapCause(throwable);
@@ -354,8 +350,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
         return Integer.parseInt(key.substring(indexIdFromIndex, indexIdToIndex));
     }
 
-    private static CatalogCommand buildMakeIndexAvailableCommand(CatalogIndexDescriptor indexDescriptor) {
-        // TODO: IGNITE-20636 Use only indexId
-        return MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexDescriptor.name()).build();
+    private static CatalogCommand buildMakeIndexAvailableCommand(int indexId) {
+        return MakeIndexAvailableCommand.builder().indexId(indexId).build();
     }
 }

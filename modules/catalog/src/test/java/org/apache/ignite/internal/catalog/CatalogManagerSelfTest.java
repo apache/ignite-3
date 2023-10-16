@@ -1868,7 +1868,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
@@ -1887,7 +1887,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
@@ -1926,7 +1926,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         });
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
@@ -2000,5 +2000,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     private @Nullable CatalogIndexDescriptor index(int catalogVersion, String indexName) {
         return manager.schema(catalogVersion).index(indexName);
+    }
+
+    private int indexId(String indexName) {
+        CatalogIndexDescriptor index = manager.index(indexName, clock.nowLong());
+
+        assertNotNull(index, indexName);
+
+        return index.id();
     }
 }

@@ -763,6 +763,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static void createTestTableAndIndexes(CatalogService catalogService) {
         int id = 0;
 
+        int schemaId = id++;
         int tableId = id++;
         int zoneId = id++;
         int sortedIndexId = id++;
@@ -770,6 +771,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 tableId,
+                schemaId,
                 hashIndexId,
                 TABLE_NAME,
                 zoneId,
