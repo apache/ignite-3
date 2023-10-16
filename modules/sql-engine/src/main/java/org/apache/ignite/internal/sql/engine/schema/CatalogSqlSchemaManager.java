@@ -225,11 +225,11 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         SystemViewType systemViewType = descriptor.systemViewType();
 
         switch (systemViewType) {
-            case LOCAL:
+            case NODE:
                 // node name is always the first column.
                 distribution = IgniteDistributions.identity(0);
                 break;
-            case GLOBAL:
+            case CLUSTER:
                 distribution = IgniteDistributions.single();
                 break;
             default:

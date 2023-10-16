@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-import java.util.concurrent.Flow.Publisher;
-import org.apache.ignite.internal.lang.InternalTuple;
+dependencies {
+    implementation project(':ignite-core')
 
-/**
- * Provides read operations over an abstract data source.
- */
-@FunctionalInterface
-public interface ScannableDataSource {
-    Publisher<InternalTuple> scan();
+    implementation libs.jetbrains.annotations
+
+    testImplementation libs.hamcrest.core
+    testImplementation(testFixtures(project(':ignite-core')))
 }
+
+description = 'ignite-system-view-api'

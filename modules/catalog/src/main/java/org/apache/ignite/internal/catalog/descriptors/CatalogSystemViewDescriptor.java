@@ -98,10 +98,10 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
         /**
          * Node system view.
          */
-        LOCAL,
+        NODE,
         /**
          * Cluster-wide system view.
          */
-        GLOBAL
+        CLUSTER
     }
 }
