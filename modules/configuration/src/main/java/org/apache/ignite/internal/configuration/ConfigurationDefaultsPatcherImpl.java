@@ -58,7 +58,7 @@ public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPa
 
         SuperRootChange rootChange = new SuperRootChangeImpl(superRoot);
 
-        configurationModule.patchDefaults(rootChange);
+        configurationModule.patchConfigurationWithDefaults(rootChange);
 
         ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
                 .includeInternal(true)

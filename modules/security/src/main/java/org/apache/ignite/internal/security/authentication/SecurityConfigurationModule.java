@@ -63,7 +63,7 @@ public class SecurityConfigurationModule implements ConfigurationModule {
     }
 
     @Override
-    public void patchDefaults(SuperRootChange rootChange) {
+    public void patchConfigurationWithDefaults(SuperRootChange rootChange) {
         rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
             if (authenticationChange.changeProviders().size() == 0) {
                 authenticationChange.changeProviders().create(DEFAULT_PROVIDER_NAME, change -> {

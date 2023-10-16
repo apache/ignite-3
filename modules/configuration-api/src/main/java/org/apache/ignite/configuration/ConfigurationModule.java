@@ -95,7 +95,12 @@ public interface ConfigurationModule {
         return emptySet();
     }
 
-    default void patchDefaults(SuperRootChange defaults) {
+    /**
+     * Patches the provided configuration with default values.
+     *
+     * @param rootChange Root change.
+     */
+    default void patchConfigurationWithDefaults(SuperRootChange rootChange) {
         // No-op.
     }
 }
