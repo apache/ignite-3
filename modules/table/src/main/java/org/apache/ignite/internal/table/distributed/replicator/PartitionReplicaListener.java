@@ -326,7 +326,15 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         List<CompletableFuture<?>> cleanupFutures = new ArrayList<>();
 
-        for (IgniteBiTuple<UUID, TxMeta> tx : txStateStorage.scan()) {
+        Cursor<IgniteBiTuple<UUID, TxMeta>> txs;
+
+        try {
+            txs = txStateStorage.scan();
+        } catch (IgniteInternalException e) {
+            return completedFuture(false);
+        }
+
+        for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
             UUID txId = tx.getKey();
             TxMeta txMeta = tx.getValue();
 
