@@ -47,7 +47,7 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
     public void enableAuthEmptyProviders() {
         // when
         SecurityView newValue = mutateConfiguration(securityConfiguration, change -> {
-            change.changeAuthentication().changeEnabled(true);
+            change.changeEnabled(true);
         }).value();
 
         ValidationContext<NamedListView<? extends AuthenticationProviderView>> ctx = mockValidationContext(
@@ -62,7 +62,7 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
                 AuthenticationProvidersValidatorImpl.INSTANCE,
                 mock(AuthenticationProvidersValidator.class),
                 ctx,
-                "Providers must be present, if auth is enabled"
+                "Providers must be present, if security is enabled"
         );
     }
 

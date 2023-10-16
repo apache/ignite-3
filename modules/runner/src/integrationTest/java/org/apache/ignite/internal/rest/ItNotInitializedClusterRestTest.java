@@ -253,7 +253,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.authentication.enabled:1 "
+                + "         security.enabled:1 "
                 + "     }\"\n"
                 + "  }";
 

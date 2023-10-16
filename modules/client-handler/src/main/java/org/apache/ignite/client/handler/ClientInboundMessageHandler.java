@@ -105,10 +105,12 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -124,7 +126,7 @@ import org.jetbrains.annotations.Nullable;
  * Handles messages from thin clients.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements ConfigurationListener<AuthenticationView> {
+public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements ConfigurationListener<SecurityView> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -178,6 +180,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     /** Authentication manager. */
     private final AuthenticationManager authenticationManager;
+
+    private final SchemaVersions schemaVersions;
 
     /**
      * Constructor.
@@ -244,6 +248,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
+
+        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
     }
 
     @Override
@@ -547,7 +553,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTablesGetRequest.process(out, igniteTables);
 
             case ClientOp.SCHEMAS_GET:
-                return ClientSchemasGetRequest.process(in, out, igniteTables);
+                return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
 
             case ClientOp.TABLE_GET:
                 return ClientTableGetRequest.process(in, out, igniteTables);
@@ -714,7 +720,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     @Override
-    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationView> ctx) {
+    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<SecurityView> ctx) {
         if (clientContext != null && channelHandlerContext != null) {
             channelHandlerContext.close();
         }

@@ -54,7 +54,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -147,7 +146,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HeapLockManager(),
                 new HybridClockImpl(),
                 new TransactionIdGenerator(0xdeadbeef),
-                clusterNode::id
+                clusterNode::id,
+                new TestPlacementDriver(clusterNode.name())
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -156,8 +156,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     ClusterNode recipientNode,
                     Long term,
                     boolean commit,
-                    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
-                    UUID txId) {
+                    Map<TablePartitionId, Long> enlistedGroups,
+                    UUID txId
+            ) {
                 return completedFuture(null);
             }
         };

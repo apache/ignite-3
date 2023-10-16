@@ -43,7 +43,7 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -60,7 +60,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     private HttpClient client;
 
     @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
+    private SecurityConfiguration securityConfiguration;
 
     @Test
     void testControllerLoaded() {
@@ -163,7 +163,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
     private AuthenticationManagerImpl authenticationManager() {
         AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(manager);
+        securityConfiguration.listen(manager);
         return manager;
     }
 }

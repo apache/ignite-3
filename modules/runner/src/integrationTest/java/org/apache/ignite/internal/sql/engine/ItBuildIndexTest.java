@@ -188,13 +188,11 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
-     * Waits for all nodes in the cluster to have the given index in the configuration.
+     * Waits for all nodes in the cluster to have the given index in the Catalog.
      *
-     * @param indexName  An index.
+     * @param indexName Name of an index to wait for.
      */
     private static void waitForIndex(String indexName) throws InterruptedException {
-        // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertFalse(nullOrEmpty(CLUSTER_NODES));
         assertTrue(waitForCondition(
                 () -> CLUSTER_NODES.stream().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),

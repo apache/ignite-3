@@ -283,11 +283,11 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void updateNodeConfigurationWithInvalidParam() throws JsonProcessingException {
+    void updateClusterConfigurationWithInvalidParam() throws JsonProcessingException {
         ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> clusterConfigurationApi.updateClusterConfiguration("{\n"
-                        + "    security.authentication.enabled:true, \n"
+                        + "    security.enabled:true, \n"
                         + "    security.authentication.providers:[]\n"
                         + "}")
         );
