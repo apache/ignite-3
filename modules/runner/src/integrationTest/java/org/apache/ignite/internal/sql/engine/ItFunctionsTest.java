@@ -29,13 +29,16 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
 import org.apache.calcite.sql.validate.SqlValidatorException;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -342,6 +345,23 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT SUBSTR(1000, 1, 3)").returns("100").check();
 
         assertThrowsWithCause(() -> sql("SELECT SUBSTR('1234567', 1, -3)"), IgniteException.class, "negative substring length");
+    }
+
+    @Test
+    public void testRound() {
+        assertQuery("SELECT ROUND(1.7)")
+                .returns(BigDecimal.valueOf(2))
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(2).scale(0))
+                .check();
+
+        assertQuery("SELECT ROUND(1.123, s)FROM (VALUES (0), (1), (2), (3), (4) ) t(s)")
+                .returns(BigDecimal.valueOf(1))
+                .returns(BigDecimal.valueOf((1.1)))
+                .returns(BigDecimal.valueOf((1.12)))
+                .returns(BigDecimal.valueOf((1.123)))
+                .returns(new BigDecimal("1.1230"))
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(3))
+                .check();
     }
 
     /**
