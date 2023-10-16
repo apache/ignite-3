@@ -17,23 +17,21 @@
 
 #include <utility>
 
-#include "ignite/odbc/type_traits.h"
 #include "ignite/odbc/query/foreign_keys_query.h"
+#include "ignite/odbc/type_traits.h"
 
-namespace ignite
-{
+namespace ignite {
 
-foreign_keys_query::foreign_keys_query(diagnosable_adapter& m_diag,
-    std::string primary_catalog, std::string primary_schema, std::string primary_table,
-    std::string foreign_catalog, std::string foreign_schema, std::string foreign_table)
+foreign_keys_query::foreign_keys_query(diagnosable_adapter &m_diag, std::string primary_catalog,
+    std::string primary_schema, std::string primary_table, std::string foreign_catalog, std::string foreign_schema,
+    std::string foreign_table)
     : query(m_diag, query_type::FOREIGN_KEYS)
     , m_primary_catalog(std::move(primary_catalog))
     , m_primary_schema(std::move(primary_schema))
     , m_primary_table(std::move(primary_table))
     , m_foreign_catalog(std::move(foreign_catalog))
     , m_foreign_schema(std::move(foreign_schema))
-    , m_foreign_table(std::move(foreign_table))
-{
+    , m_foreign_table(std::move(foreign_table)) {
     m_columns_meta.reserve(14);
 
     const std::string sch;
@@ -55,17 +53,14 @@ foreign_keys_query::foreign_keys_query(diagnosable_adapter& m_diag,
     m_columns_meta.emplace_back(sch, tbl, "DEFERRABILITY", ignite_type::INT16);
 }
 
-sql_result foreign_keys_query::execute()
-{
+sql_result foreign_keys_query::execute() {
     m_executed = true;
 
     return sql_result::AI_SUCCESS;
 }
 
-sql_result foreign_keys_query::fetch_next_row(column_binding_map&)
-{
-    if (!m_executed)
-    {
+sql_result foreign_keys_query::fetch_next_row(column_binding_map &) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -74,10 +69,8 @@ sql_result foreign_keys_query::fetch_next_row(column_binding_map&)
     return sql_result::AI_NO_DATA;
 }
 
-sql_result foreign_keys_query::get_column(std::uint16_t, application_data_buffer&)
-{
-    if (!m_executed)
-    {
+sql_result foreign_keys_query::get_column(std::uint16_t, application_data_buffer &) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -86,8 +79,7 @@ sql_result foreign_keys_query::get_column(std::uint16_t, application_data_buffer
     return sql_result::AI_NO_DATA;
 }
 
-sql_result foreign_keys_query::close()
-{
+sql_result foreign_keys_query::close() {
     m_executed = false;
 
     return sql_result::AI_SUCCESS;

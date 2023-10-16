@@ -593,8 +593,8 @@ sql_result sql_statement::internal_execute_get_foreign_keys_query(const std::str
     if (m_current_query)
         m_current_query->close();
 
-    m_current_query = std::make_unique<foreign_keys_query>(*this, primary_catalog, primary_schema, primary_table,
-        foreign_catalog, foreign_schema, foreign_table);
+    m_current_query = std::make_unique<foreign_keys_query>(
+        *this, primary_catalog, primary_schema, primary_table, foreign_catalog, foreign_schema, foreign_table);
 
     return m_current_query->execute();
 }

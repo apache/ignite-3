@@ -17,17 +17,15 @@
 
 #pragma once
 
-#include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/query/query.h"
+#include "ignite/odbc/sql_connection.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Foreign keys query.
  */
-class foreign_keys_query : public query
-{
+class foreign_keys_query : public query {
 public:
     /**
      * Constructor.
@@ -40,9 +38,8 @@ public:
      * @param foreign_schema Foreign key schema name.
      * @param foreign_table Foreign key table name.
      */
-    foreign_keys_query(diagnosable_adapter &diag, std::string primary_catalog,
-        std::string primary_schema, std::string primary_table, std::string foreign_catalog,
-        std::string foreign_schema, std::string foreign_table);
+    foreign_keys_query(diagnosable_adapter &diag, std::string primary_catalog, std::string primary_schema,
+        std::string primary_table, std::string foreign_catalog, std::string foreign_schema, std::string foreign_table);
 
     /**
      * Destructor.
@@ -61,7 +58,7 @@ public:
      *
      * @return Column metadata.
      */
-    const column_meta_vector* get_meta() override { return &m_columns_meta; }
+    const column_meta_vector *get_meta() override { return &m_columns_meta; }
 
     /**
      * Fetch next result row to application buffers.
