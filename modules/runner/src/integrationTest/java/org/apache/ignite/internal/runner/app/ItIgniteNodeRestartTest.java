@@ -253,7 +253,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,
-                CompletableFuture::completedFuture,
+                hocon -> hocon,
                 new TestConfigurationValidator()
         );
 

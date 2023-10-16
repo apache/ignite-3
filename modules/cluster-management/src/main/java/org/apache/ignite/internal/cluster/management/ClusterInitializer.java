@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.ConfigurationDefaultsSetter;
+import org.apache.ignite.configuration.ConfigurationDefaultsPatcher;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
@@ -55,19 +55,20 @@ public class ClusterInitializer {
 
     private final ClusterService clusterService;
 
-    private final ConfigurationDefaultsSetter configurationDefaultsSetter;
+    private final ConfigurationDefaultsPatcher configurationDefaultsPatcher;
 
     private final ConfigurationValidator clusterConfigurationValidator;
+
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Constructor. */
     public ClusterInitializer(
             ClusterService clusterService,
-            ConfigurationDefaultsSetter configurationDefaultsSetter,
+            ConfigurationDefaultsPatcher configurationDefaultsPatcher,
             ConfigurationValidator clusterConfigurationValidator
     ) {
         this.clusterService = clusterService;
-        this.configurationDefaultsSetter = configurationDefaultsSetter;
+        this.configurationDefaultsPatcher = configurationDefaultsPatcher;
         this.clusterConfigurationValidator = clusterConfigurationValidator;
     }
 
@@ -136,19 +137,15 @@ public class ClusterInitializer {
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
-            String initialClusterConfiguration = clusterConfiguration == null
-                    ? ""
-                    : clusterConfiguration;
+            String initialClusterConfiguration = patchClusterConfigurationWithDefaults(clusterConfiguration);
 
-            CompletableFuture<CmgInitMessage> initMessageFuture = setDefaultsToClusterConfiguration(
-                    initialClusterConfiguration)
-                    .thenCompose(cfg -> validateConfiguration(cfg).thenApply(v -> cfg))
+            CompletableFuture<CmgInitMessage> initMessageFuture = validateConfiguration(initialClusterConfiguration)
                     .thenApply(cfg -> {
                         return msgFactory.cmgInitMessage()
                                 .metaStorageNodes(msNodeNameSet)
                                 .cmgNodes(cmgNodeNameSet)
                                 .clusterName(clusterName)
-                                .clusterConfigurationToApply(cfg)
+                                .clusterConfigurationToApply(initialClusterConfiguration)
                                 .build();
                     });
 
@@ -264,8 +261,8 @@ public class ClusterInitializer {
     }
 
 
-    private CompletableFuture<String> setDefaultsToClusterConfiguration(@Nullable String hocon) {
-        return configurationDefaultsSetter.setDefaults(hocon == null ? "" : hocon);
+    private String patchClusterConfigurationWithDefaults(@Nullable String hocon) {
+        return configurationDefaultsPatcher.patchDefaults(hocon == null ? "" : hocon);
     }
 
     private CompletableFuture<Void> validateConfiguration(String hocon) {

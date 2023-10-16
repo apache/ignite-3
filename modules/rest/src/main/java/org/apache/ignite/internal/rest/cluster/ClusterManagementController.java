@@ -20,7 +20,6 @@ package org.apache.ignite.internal.rest.cluster;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -74,7 +74,6 @@ public class ClusterManagementController implements ClusterManagementApi {
                     initCommand.cmgNodes());
         }
 
-        //return validateConfiguration(initCommand.clusterConfiguration())
         return clusterInitializer.initCluster(
                 initCommand.metaStorageNodes(),
                 initCommand.cmgNodes(),
@@ -99,7 +98,7 @@ public class ClusterManagementController implements ClusterManagementApi {
     }
 
     private static RuntimeException mapException(Throwable ex) {
-        var cause = unwrapException(ex);
+        var cause = ExceptionUtils.unwrapCause(ex);
         if (cause instanceof IgniteInternalException) {
             return (IgniteInternalException) cause;
         } else if (cause instanceof IllegalArgumentException || cause instanceof ConfigurationValidationException) {
@@ -108,14 +107,6 @@ public class ClusterManagementController implements ClusterManagementApi {
             return (RuntimeException) cause;
         } else {
             return new IgniteException(cause);
-        }
-    }
-
-    private static Throwable unwrapException(Throwable ex) {
-        if (ex instanceof CompletionException) {
-            return ex.getCause();
-        } else {
-            return ex;
         }
     }
 }

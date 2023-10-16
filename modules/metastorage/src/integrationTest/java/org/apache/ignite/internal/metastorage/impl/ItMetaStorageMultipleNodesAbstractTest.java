@@ -152,7 +152,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
-                    CompletableFuture::completedFuture,
+                    hocon -> hocon,
                     new TestConfigurationValidator()
             );
 

@@ -63,7 +63,7 @@ import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
-import org.apache.ignite.internal.configuration.ClusterConfigurationDefaultsSetter;
+import org.apache.ignite.internal.configuration.ClusterConfigurationDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -239,7 +239,7 @@ public class IgniteImpl implements Ignite {
     private final ConfigurationManager clusterCfgMgr;
 
     /** Cluster configuration defaults setter. */
-    private final ClusterConfigurationDefaultsSetter clusterConfigurationDefaultsSetter;
+    private final ClusterConfigurationDefaultsPatcherImpl clusterConfigurationDefaultsSetter;
 
     /** Cluster initializer. */
     private final ClusterInitializer clusterInitializer;
@@ -422,8 +422,9 @@ public class IgniteImpl implements Ignite {
         NodeAttributesCollector nodeAttributesCollector =
                 new NodeAttributesCollector(nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY));
 
+
         clusterConfigurationDefaultsSetter =
-                new ClusterConfigurationDefaultsSetter(modules.distributed().rootKeys(), distributedConfigurationGenerator);
+                new ClusterConfigurationDefaultsPatcherImpl(modules.distributed(), distributedConfigurationGenerator);
 
         clusterInitializer = new ClusterInitializer(
                 clusterSvc,
@@ -760,8 +761,6 @@ public class IgniteImpl implements Ignite {
 
             // Node configuration manager startup.
             lifecycleManager.startComponent(nodeCfgMgr);
-
-            lifecycleManager.startComponent(clusterConfigurationDefaultsSetter);
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(

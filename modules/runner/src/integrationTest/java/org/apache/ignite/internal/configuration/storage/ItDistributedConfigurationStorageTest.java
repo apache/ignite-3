@@ -129,7 +129,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
-                    CompletableFuture::completedFuture,
+                    hocon -> hocon,
                     new TestConfigurationValidator()
             );
 

@@ -17,18 +17,20 @@
 
 package org.apache.ignite.configuration;
 
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.ConfigurationTree;
+import org.apache.ignite.configuration.RootKey;
 
 /**
- * Configuration defaults setter. This interface is used to set the default values for the cluster configuration that can not be set
- * in the configuration itself.
+ * Interface that represent a "change" for the conjunction of all roots in the configuration.
  */
-public interface ConfigurationDefaultsSetter {
-    /*
-     * Sets the default values for the cluster configuration. This method is called when the cluster is started for the first time.
-     *
-     * @param hocon HOCON representation of the cluster configuration.
-     * @return Future that is completed when the default values are set.
+public interface SuperRootChange {
+    /**
+     * Returns a root view for the root key.
      */
-    CompletableFuture<String> setDefaults(String hocon);
+    <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey);
+
+    /**
+     * Returns a root change for the root key.
+     */
+    <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey);
 }

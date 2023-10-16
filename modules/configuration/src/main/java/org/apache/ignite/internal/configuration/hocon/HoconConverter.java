@@ -22,6 +22,7 @@ import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
 import java.util.List;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
@@ -42,29 +43,31 @@ public class HoconConverter {
             ConfigurationRegistry registry,
             List<String> path
     ) throws IllegalArgumentException {
-        ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
-                .includeInternal(false)
-                .maskSecretValues(true)
-                .build();
-        return represent(registry, path, visitor);
+        Object res = registry.represent(
+                path,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .maskSecretValues(true)
+                        .build());
+
+        return ConfigImpl.fromAnyRef(res, null);
     }
 
     /**
      * Converts configuration subtree to a HOCON {@link ConfigValue} instance.
      *
-     * @param registry Configuration registry instance.
-     * @param path     Path to the configuration subtree. Can be empty, can't be {@code null}.
-     * @param visitor  Visitor that will be used to convert configuration subtree.
+     * @param superRoot Super root instance.
+     * @param path Path to the configuration subtree. Can be empty, can't be {@code null}.
+     * @param visitor Visitor that will be used to convert configuration subtree.
      * @return {@link ConfigValue} instance that represents configuration subtree.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public static ConfigValue represent(
-            ConfigurationRegistry registry,
+            SuperRoot superRoot,
             List<String> path,
             ConfigurationVisitor<?> visitor
     ) {
-        Object res = registry.represent(path, visitor);
-
+        Object res = superRoot.represent(path, visitor);
         return ConfigImpl.fromAnyRef(res, null);
     }
 

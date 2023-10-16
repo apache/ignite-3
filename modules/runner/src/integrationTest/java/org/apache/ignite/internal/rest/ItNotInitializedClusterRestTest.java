@@ -212,7 +212,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
     @Test
     @DisplayName("Cluster is not initialized, if config has a syntax error")
     void initClusterWithInvalidHoconConfig() throws IOException, InterruptedException {
-        // When POST /management/v1/cluster/init with invalid config
+        // When POST /management/v1/cluster/init with invalid config.
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
                 + "        \"" + nodeNames.get(0) + "\"\n"
@@ -245,7 +245,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
     @Test
     @DisplayName("Cluster is not initialized, if config has logic error")
     void initClusterWithInvalidConfig() throws IOException, InterruptedException {
-        // When POST /management/v1/cluster/init with invalid config
+        // When POST /management/v1/cluster/init with invalid config.
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
                 + "        \"" + nodeNames.get(0) + "\"\n"

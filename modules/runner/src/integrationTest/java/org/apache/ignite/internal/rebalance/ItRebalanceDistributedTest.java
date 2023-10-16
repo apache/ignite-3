@@ -814,7 +814,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
-                    CompletableFuture::completedFuture,
+                    hocon -> hocon,
                     new TestConfigurationValidator()
             );
 
