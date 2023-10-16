@@ -128,9 +128,54 @@ public class IgniteSqlFunctions {
         return b instanceof ByteString ? octetLength((ByteString) b) : charLength((String) b);
     }
 
-    private static BigDecimal setScale(int precision, int scale, BigDecimal decimal) {
-        return precision == IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL)
-            ? decimal : decimal.setScale(scale, RoundingMode.HALF_UP);
+    // SQL ROUND function
+
+    /** SQL {@code ROUND} operator applied to int values. */
+    public static int sround(int b0) {
+        return sround(BigDecimal.valueOf(b0)).intValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to int values. */
+    public static int sround(int b0, int b1) {
+        return sround(BigDecimal.valueOf(b0), b1).intValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to long values. */
+    public static long sround(long b0) {
+        return sround(BigDecimal.valueOf(b0)).longValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to long values. */
+    public static long sround(long b0, int b1) {
+        return sround(BigDecimal.valueOf(b0), b1).longValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to double values. */
+    public static double sround(double b0) {
+        return sround(BigDecimal.valueOf(b0)).doubleValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to double values. */
+    public static double sround(double b0, int b1) {
+        return sround(BigDecimal.valueOf(b0), b1).doubleValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to BigDecimal values. */
+    public static BigDecimal sround(BigDecimal b0) {
+        return b0.setScale(0, RoundingMode.HALF_UP);
+    }
+
+    /** SQL {@code ROUND} operator applied to BigDecimal values. */
+    public static BigDecimal sround(BigDecimal b0, int b1) {
+        int originalScale = b0.scale();
+
+        if (b1 >= originalScale) {
+            return b0;
+        }
+
+        BigDecimal roundedValue = b0.setScale(b1, RoundingMode.HALF_UP);
+        // Pad with zeros to match the original scale
+        return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
     }
 
     /** CAST(DOUBLE AS DECIMAL). */

@@ -632,7 +632,7 @@ public class RexImpTable {
       defineMethod(DEGREES, "degrees", NullPolicy.STRICT);
       defineMethod(POW, "power", NullPolicy.STRICT);
       defineMethod(RADIANS, "radians", NullPolicy.STRICT);
-      defineMethod(ROUND, "sround", NullPolicy.STRICT);
+      defineIgniteMethod(ROUND, "sround", NullPolicy.STRICT);
       defineMethod(SEC, "sec", NullPolicy.STRICT);
       defineMethod(SECH, "sech", NullPolicy.STRICT);
       defineMethod(SIGN, "sign", NullPolicy.STRICT);
@@ -1143,6 +1143,11 @@ public class RexImpTable {
     private void defineMethod(SqlOperator operator, Method method,
         NullPolicy nullPolicy) {
       map.put(operator, new MethodImplementor(method, nullPolicy, false));
+    }
+
+    private void defineIgniteMethod(SqlOperator operator, String method,
+            NullPolicy nullPolicy) {
+      map.put(operator, new IgniteMethodNameImplementor(method, nullPolicy, false));
     }
 
     private void defineUnary(SqlOperator operator, ExpressionType expressionType,
@@ -4356,6 +4361,26 @@ public class RexImpTable {
     @Override Expression implementSafe(final RexToLixTranslator translator,
         final RexCall call, final List<Expression> argValueList) {
       return Expressions.constant(null);
+    }
+  }
+
+  private static class IgniteMethodNameImplementor extends AbstractRexCallImplementor {
+    private final String methodName;
+
+    IgniteMethodNameImplementor(String methodName, NullPolicy nullPolicy,
+            boolean harmonize) {
+      this("method_name_call", methodName, nullPolicy, harmonize);
+    }
+
+    IgniteMethodNameImplementor(String variableName, String methodName,
+            NullPolicy nullPolicy, boolean harmonize) {
+      super(variableName, nullPolicy, harmonize);
+      this.methodName = requireNonNull(methodName, "methodName");
+    }
+
+    @Override Expression implementSafe(RexToLixTranslator translator,
+            RexCall call, List<Expression> argValueList) {
+      return EnumUtils.call(null, IgniteSqlFunctions.class, methodName, argValueList);
     }
   }
 

@@ -25,12 +25,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Sql functions test.
@@ -241,5 +244,58 @@ public class IgniteSqlFunctionsTest {
         } else {
             assertThrowsSqlException(Sql.RUNTIME_ERR, "Numeric field overflow", convert::get);
         }
+    }
+
+    /** Tests for ROUND(x) function. */
+    @Test
+    public void testRound() {
+        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.000")));
+        assertEquals(1, IgniteSqlFunctions.sround(1), "int");
+        assertEquals(1L, IgniteSqlFunctions.sround(1L), "long");
+        assertEquals(1.0d, IgniteSqlFunctions.sround(1.123d), "double");
+    }
+
+    /** Tests for ROUND(x, s) function, where x is a BigDecimal value. */
+    @ParameterizedTest
+    @CsvSource({
+            "1.123, 0, 1.000",
+            "1.123, 1, 1.100",
+            "1.123, 2, 1.120",
+            "1.123, 3, 1.123",
+            "1.123, 4, 1.123",
+            "10.123, 0, 10.000",
+            "10.123, -1, 10.000",
+            "10.123, -2, 0.000",
+            "10.123, 3, 10.123",
+            "10.123, 4, 10.123",
+    })
+    public void testRound2Decimal(String input, int scale, String result) {
+        assertEquals(new BigDecimal(result), IgniteSqlFunctions.sround(new BigDecimal(result), scale));
+    }
+
+    /** Tests for ROUND(x, s) function, where x is a double value. */
+    @ParameterizedTest
+    @MethodSource("round2Double")
+    public void testRound2Double(double input, int scale, double result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
+    }
+
+    private static Stream<Arguments> round2Double() {
+        return Stream.of(
+                Arguments.of(1.123d, 3, 1.123d),
+                Arguments.of(1.123d, 2, 1.12d),
+                Arguments.of(1.245d, 1, 1.2d),
+                Arguments.of(1.123d, 0, 1.0d),
+                Arguments.of(1.123d, 0, 1.0d),
+
+                Arguments.of(5.5d, 1, 5.5d)
+        );
+    }
+
+    /** Tests for ROUND(x, s) function, where x is a int / long value. */
+    @Test
+    public void testRound2OtherTypes() {
+        assertEquals(1, IgniteSqlFunctions.sround(1, 2), "int");
+        assertEquals(1L, IgniteSqlFunctions.sround(1L, 3), "long");
     }
 }

@@ -22,7 +22,6 @@ import org.apache.calcite.sql.SqlBasicFunction;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlOperatorBinding;
 import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
@@ -175,8 +174,8 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                 public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
                     RelDataType operandType = opBinding.getOperandType(0);
 
-                    // If there is only one argument and it supports scale, use scale 0.
-                    if (opBinding.getOperandCount() == 1 && operandType.getSqlTypeName().allowsScale()) {
+                    // If there is only one argument and it supports precision and scale, set scale 0.
+                    if (opBinding.getOperandCount() == 1 && operandType.getSqlTypeName().allowsPrecScale(true, true)) {
                         int precision = operandType.getPrecision();
                         IgniteTypeFactory typeFactory = Commons.typeFactory();
 

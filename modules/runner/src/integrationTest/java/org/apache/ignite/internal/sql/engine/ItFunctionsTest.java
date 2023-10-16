@@ -354,12 +354,12 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
                 .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(2).scale(0))
                 .check();
 
-        assertQuery("SELECT ROUND(1.123, s)FROM (VALUES (0), (1), (2), (3), (4) ) t(s)")
-                .returns(BigDecimal.valueOf(1))
-                .returns(BigDecimal.valueOf((1.1)))
-                .returns(BigDecimal.valueOf((1.12)))
-                .returns(BigDecimal.valueOf((1.123)))
-                .returns(new BigDecimal("1.1230"))
+        assertQuery("SELECT ROUND(1.123, s) FROM (VALUES (0), (1), (2), (3), (4) ) t(s)")
+                .returns(new BigDecimal("1.000"))
+                .returns(new BigDecimal("1.100"))
+                .returns(new BigDecimal("1.120"))
+                .returns(new BigDecimal("1.123"))
+                .returns(new BigDecimal("1.123"))
                 .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(3))
                 .check();
     }
