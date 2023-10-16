@@ -79,28 +79,26 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private int partitions;
 
-    private VaultManager vaultManager;
+    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
-    private MetaStorageManagerImpl metaStorageManager;
+    private final MetaStorageManagerImpl metaStorageManager = StandaloneMetaStorageManager.create(vaultManager);
 
-    private CatalogManager catalogManager;
+    private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-    private IndexBuilder indexBuilder;
+    private final IndexBuilder indexBuilder = new IndexBuilder(
+            NODE_NAME,
+            1,
+            mock(ReplicaService.class, invocation -> completedFuture(null))
+    );
 
-    private IndexAvailabilityController indexAvailabilityController;
+    private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(
+            catalogManager,
+            metaStorageManager,
+            indexBuilder
+    );
 
     @BeforeEach
     void setUp() {
-        vaultManager = new VaultManager(new InMemoryVaultService());
-
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager);
-
-        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
-
-        indexBuilder = new IndexBuilder(NODE_NAME, 1, mock(ReplicaService.class, invocation -> completedFuture(null)));
-
-        indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
-
         Stream.of(vaultManager, metaStorageManager, catalogManager).forEach(IgniteComponent::start);
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
@@ -126,11 +124,11 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                indexAvailabilityController == null ? null : indexAvailabilityController::close,
-                indexBuilder == null ? null : indexBuilder::close,
-                catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop,
-                vaultManager == null ? null : vaultManager::stop
+                indexAvailabilityController::close,
+                indexBuilder::close,
+                catalogManager::stop,
+                metaStorageManager::stop,
+                vaultManager::stop
         );
     }
 
@@ -178,7 +176,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testMetastoreKeysAfterFinishBuildIndexForAllPartition() throws Exception {
+    void testMetastoreKeysAfterFinishBuildIndexForAllPartitions() throws Exception {
         createIndex(INDEX_NAME);
 
         int indexId = indexId(INDEX_NAME);
@@ -266,7 +264,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testMetastoreKeysAfterDropIndexWithTwoRemainingPartition() throws Exception {
+    void testMetastoreKeysAfterDropIndexWithTwoRemainingPartitions() throws Exception {
         createIndex(INDEX_NAME);
 
         int indexId = indexId(INDEX_NAME);
@@ -396,10 +394,10 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private static String startBuildIndexKey(int indexId) {
-        return "startBuildIndex." + indexId;
+        return "indexBuild.start." + indexId;
     }
 
     private static String partitionBuildIndexKey(int indexId, int partitionId) {
-        return "partitionBuildIndex." + indexId + "." + partitionId;
+        return "indexBuild.partition." + indexId + "." + partitionId;
     }
 }

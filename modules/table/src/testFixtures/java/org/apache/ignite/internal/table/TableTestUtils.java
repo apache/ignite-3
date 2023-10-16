@@ -202,7 +202,7 @@ public class TableTestUtils {
     }
 
     /**
-     * Returns index descriptor form catalog, {@code null} if table is absent.
+     * Returns index descriptor from the catalog, {@code null} if the table is absent.
      *
      * @param catalogService Catalog service.
      * @param indexName Index name.
@@ -213,7 +213,7 @@ public class TableTestUtils {
     }
 
     /**
-     * Returns index descriptor form catalog.
+     * Returns index descriptor from the catalog.
      *
      * @param catalogService Catalog service.
      * @param indexName Index name.

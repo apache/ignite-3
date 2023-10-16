@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -41,6 +42,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.IndexAlreadyAvailableValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -51,6 +54,7 @@ import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -65,7 +69,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * Component is responsible for ensuring that the index, upon completion of the distributed index building for all partitions, becomes
+ * This component is responsible for ensuring that an index, upon completion of a distributed index building for all partitions, becomes
  * available for read-write.
  *
  * <p>An approximate algorithm for making an index available for read-write:</p>
@@ -80,8 +84,15 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     <li>At {@link CatalogEvent#INDEX_AVAILABLE}, key {@code startBuildIndex.<indexId>} in the metastore will be deleted.</li>
  * </ul>
  *
- * <p>Notes: At {@link CatalogEvent#INDEX_DROP}, the keys in the metastore are deleted: {@code startBuildIndex.<indexId>} and
- * {@code partitionBuildIndex.<indexId>.<partitionId_0>}...{@code partitionBuildIndex.<indexId>.<partitionId_N>}.</p>
+ * <p>Notes:</p>
+ * <ul>
+ *     <li>At {@link CatalogEvent#INDEX_DROP}, the keys in the metastore are deleted: {@code startBuildIndex.<indexId>} and
+ *     {@code partitionBuildIndex.<indexId>.<partitionId_0>}...{@code partitionBuildIndex.<indexId>.<partitionId_N>}.</li>
+ *     <li>Handling of {@link CatalogEvent#INDEX_CREATE}, {@link CatalogEvent#INDEX_DROP}, {@link CatalogEvent#INDEX_AVAILABLE} and watch
+ *     prefix {@link #PARTITION_BUILD_INDEX_KEY_PREFIX} is made by the whole cluster (and only one node makes a write to the metastore) as
+ *     these events are global, but only one node (a primary replica owning a partition) handles
+ *     {@link IndexBuildCompletionListener#onBuildCompletion} (form {@link IndexBuilder#listen}) event.</li>
+ * </ul>
  *
  * @see CatalogIndexDescriptor#writeOnly()
  */
@@ -90,9 +101,9 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 public class IndexAvailabilityController implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityController.class);
 
-    private static final String START_BUILD_INDEX_KEY_PREFIX = "startBuildIndex";
+    private static final String START_BUILD_INDEX_KEY_PREFIX = "indexBuild.start";
 
-    private static final String PARTITION_BUILD_INDEX_KEY_PREFIX = "partitionBuildIndex";
+    private static final String PARTITION_BUILD_INDEX_KEY_PREFIX = "indexBuild.partition";
 
     private final CatalogManager catalogManager;
 
@@ -156,7 +167,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
             }
         });
 
-        indexBuilder.listen((indexId, tableId, partitionId) -> onIndexBuildForPartition(indexId, partitionId));
+        indexBuilder.listen((indexId, tableId, partitionId) -> onIndexBuildCompletionForPartition(indexId, partitionId));
     }
 
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
@@ -237,18 +248,41 @@ public class IndexAvailabilityController implements ManuallyCloseable {
 
             // We will not wait for the command to be executed, since we will then find ourselves in a dead lock since we will not be able
             // to free the metastore thread.
-            catalogManager.execute(buildMakeIndexAvailableCommand(indexDescriptor));
+            catalogManager
+                    .execute(buildMakeIndexAvailableCommand(indexDescriptor))
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            Throwable unwrapCause = unwrapCause(throwable);
+
+                            if (!(unwrapCause instanceof IndexNotFoundValidationException)
+                                    && !(unwrapCause instanceof IndexAlreadyAvailableValidationException)
+                                    && !(unwrapCause instanceof NodeStoppingException)) {
+                                LOG.error("Error processing the command to make the index available: {}", unwrapCause, indexId);
+                            }
+                        }
+                    });
 
             return completedFuture(null);
         });
     }
 
-    private void onIndexBuildForPartition(int indexId, int partitionId) {
+    private void onIndexBuildCompletionForPartition(int indexId, int partitionId) {
         inBusyLock(busyLock, () -> {
             ByteArray partitionBuildIndexKey = partitionBuildIndexKey(indexId, partitionId);
 
-            // We don't need to wait for the operation to complete.
-            metaStorageManager.invoke(exists(partitionBuildIndexKey), remove(partitionBuildIndexKey), noop());
+            // Intentionally not waiting for the operation to complete or returning the future because it is not necessary.
+            metaStorageManager
+                    .invoke(exists(partitionBuildIndexKey), remove(partitionBuildIndexKey), noop())
+                    .whenComplete((operationResult, throwable) -> {
+                        if (throwable != null && !(unwrapCause(throwable) instanceof NodeStoppingException)) {
+                            LOG.error(
+                                    "Error processing the operation to delete the partition index building key: "
+                                            + "[indexId={}, partitionId={}]",
+                                    throwable,
+                                    indexId, partitionId
+                            );
+                        }
+                    });
         });
     }
 
@@ -281,7 +315,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
     }
 
     private boolean isMetastoreKeyAbsent(ByteArray key, long metastoreRevision) {
-        return metaStorageManager.getLocally(key, metastoreRevision).tombstone();
+        return metaStorageManager.getLocally(key, metastoreRevision).value() == null;
     }
 
     private static ByteArray startBuildIndexKey(int indexId) {
