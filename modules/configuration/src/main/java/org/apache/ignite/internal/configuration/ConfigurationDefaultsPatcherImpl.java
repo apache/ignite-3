@@ -74,7 +74,7 @@ public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPa
             Config config = ConfigFactory.parseString(hocon);
             ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
 
-            SuperRoot superRoot = generator.createEmptySuperRoot();
+            SuperRoot superRoot = generator.createSuperRoot();
             hoconSource.descend(superRoot);
 
             return superRoot;

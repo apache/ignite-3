@@ -44,15 +44,15 @@ class ConfigurationDefaultsPatcherImplTest {
         );
     }
 
-    @Test
-    void patchedHoconDoesNotContainNullValues() {
-        String patchedHocon = patcher.patchWithDefaults("");
-        assertThat(patchedHocon, equalTo("{\"testRoot\":{\"testSubConfiguration\":{\"testInt\":42}}}"));
-    }
-
     @AfterAll
     static void afterAll() {
         generator.close();
         generator = null;
+    }
+
+    @Test
+    void patchedHoconDoesNotContainNullValues() {
+        String patchedHocon = patcher.patchWithDefaults("");
+        assertThat(patchedHocon, equalTo("{\"testRoot\":{\"testSubConfiguration\":{\"testInt\":42}}}"));
     }
 }
