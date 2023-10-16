@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -364,7 +366,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                         LOG.warn("Failed to execute cleanup on commit partition primary replica switch [txId="
                                 + txId + ", commitPartition=" + replicationGroupId + ']', e);
 
-                        return txManager.executeCleanupAsync(() -> durableCleanup(txId, txMeta));
+                        if (hasCause(e, null, NodeStoppingException.class)) {
+                            return completedFuture(null);
+                        } else {
+                            return txManager.executeCleanupAsync(() -> durableCleanup(txId, txMeta));
+                        }
                     }
                 })
                 .thenCompose(f -> f);
