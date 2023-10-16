@@ -342,6 +342,24 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return new RangeIterableImpl(ranges, comparator);
     }
 
+    private static Map.Entry<List<RexNode>, RelDataType> shrinkBounds(IgniteTypeFactory factory, List<RexNode> bound, RelDataType rowType) {
+        ImmutableList.Builder<RexNode> lowerBuilder = ImmutableList.builder();
+        ImmutableList.Builder<RelDataType> typesBuilder = ImmutableList.builder();
+        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
+        int i = 0;
+        for (RexNode node : bound) {
+            if (node != null) {
+                typesBuilder.add(types.get(i));
+                lowerBuilder.add(node);
+            }
+            ++i;
+        }
+        bound = lowerBuilder.build();
+        rowType = TypeUtils.createRowType(factory, typesBuilder.build());
+
+        return Map.entry(bound, rowType);
+    }
+
     /**
      * Expand column-oriented {@link SearchBounds} to a row-oriented list of ranges ({@link RangeCondition}).
      *
@@ -370,14 +388,37 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         if ((fieldIdx >= searchBounds.size())
                 || (!lowerInclude && !upperInclude)
                 || searchBounds.get(fieldIdx) == null) {
+            RelDataType lowerType = rowType;
+            RelDataType upperType = rowType;
+
+            RowFactory<RowT> lowerFactory = rowFactory;
+            RowFactory<RowT> upperFactory = rowFactory;
+
+            if (containNull) {
+                Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), curLower, rowType);
+                curLower = res.getKey();
+                lowerType = res.getValue();
+
+                res = shrinkBounds(ctx.getTypeFactory(), curUpper, rowType);
+                curUpper = res.getKey();
+                upperType = res.getValue();
+
+                lowerFactory = ctx.rowHandler()
+                        .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(lowerType)));
+
+                upperFactory = ctx.rowHandler()
+                        .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(upperType)));
+            }
+
             ranges.add(new RangeConditionImpl(
                     curLower,
                     curUpper,
-                    rowType,
                     lowerInclude,
                     upperInclude,
-                    rowFactory,
-                    containNull
+                    lowerType,
+                    upperType,
+                    lowerFactory,
+                    upperFactory
             ));
 
             return;
@@ -735,25 +776,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private static Map.Entry<List<RexNode>, RelDataType> shrinkBounds(IgniteTypeFactory factory, List<RexNode> bound, RelDataType rowType) {
-        ArrayList<RexNode> lowerInit = new ArrayList<>(bound);
-        ImmutableList.Builder<RexNode> lowerBuilder = ImmutableList.builder();
-        ImmutableList.Builder<RelDataType> typesBuilder = ImmutableList.builder();
-        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
-        int i = 0;
-        for (RexNode node : lowerInit) {
-            if (node != null) {
-                typesBuilder.add(types.get(i));
-                lowerBuilder.add(node);
-            }
-            ++i;
-        }
-        bound = lowerBuilder.build();
-        rowType = TypeUtils.createRowType(factory, typesBuilder.build());
-
-        return Map.entry(bound, rowType);
-    }
-
     private class RangeConditionImpl implements RangeCondition<RowT> {
         /** Lower bound expression. */
         private final SingleScalar lowerBound;
@@ -774,10 +796,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private @Nullable RowT upperRow;
 
         /** Lower bound row factory. */
-        private final RowFactory<RowT> factoryLower;
+        private final RowFactory<RowT> lowerFactory;
 
         /** Upper bound row factory. */
-        private final RowFactory<RowT> factoryUpper;
+        private final RowFactory<RowT> upperFactory;
 
         /** Cached skip range flag. */
         private @Nullable Boolean skip;
@@ -785,52 +807,32 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private RangeConditionImpl(
                 List<RexNode> lower,
                 List<RexNode> upper,
-                RelDataType rowType,
                 boolean lowerInclude,
                 boolean upperInclude,
-                RowFactory<RowT> factory,
-                boolean containNulls
+                RelDataType rowTypeLower,
+                RelDataType rowTypeUpper,
+                RowFactory<RowT> lowerFactory,
+                RowFactory<RowT> upperFactory
         ) {
-            RelDataType rowTypeLower;
-            RelDataType rowTypeUpper;
-
-            if (containNulls) {
-                Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), lower, rowType);
-                lower = res.getKey();
-                rowTypeLower = res.getValue();
-
-                res = shrinkBounds(ctx.getTypeFactory(), upper, rowType);
-                upper = res.getKey();
-                rowTypeUpper = res.getValue();
-            } else {
-                rowTypeLower = rowType;
-                rowTypeUpper = rowType;
-            }
-
             this.lowerBound = scalar(lower, rowTypeLower);
             this.upperBound = scalar(upper, rowTypeUpper);
             this.lowerInclude = lowerInclude;
             this.upperInclude = upperInclude;
 
-            factoryLower = containNulls
-                    ? ctx.rowHandler().factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowTypeLower)))
-                    : factory;
-
-            factoryUpper = containNulls
-                    ? ctx.rowHandler().factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowTypeUpper)))
-                    : factory;
+            this.lowerFactory = lowerFactory;
+            this.upperFactory = upperFactory;
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT lower() {
-            return lowerRow != null ? lowerRow : getRow(lowerBound, true);
+            return lowerRow != null ? lowerRow : getRow(lowerBound, lowerFactory);
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT upper() {
-            return upperRow != null ? upperRow : getRow(upperBound, false);
+            return upperRow != null ? upperRow : getRow(upperBound, upperFactory);
         }
 
         /** {@inheritDoc} */
@@ -846,8 +848,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Compute row. */
-        private RowT getRow(SingleScalar scalar, boolean lower) {
-            RowT res = lower ? factoryLower.create() : factoryUpper.create();
+        private RowT getRow(SingleScalar scalar, RowFactory<RowT> factory) {
+            RowT res = factory.create();
             scalar.execute(ctx, null, res);
 
             RowHandler<RowT> hnd = ctx.rowHandler();

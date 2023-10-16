@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.math.BigDecimal;
@@ -27,33 +29,44 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
+import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 /**
@@ -174,6 +187,53 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
 
         assertEquals(List.of(new TestRange(new Object[]{1})), list);
+    }
+
+    @ParameterizedTest(name = "condition satisfies: [{0}] the index")
+    @ValueSource(booleans = {true, false})
+    public void testConditionsNotContainsNulls(boolean conditionSatisfyIdx) {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+
+        RexNode val1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
+        RexNode val2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
+
+        RelDataTypeSystem typeSystem = Commons.cluster().getTypeFactory().getTypeSystem();
+
+        RexLocalRef ref1 = rexBuilder.makeLocalRef(new BasicSqlType(typeSystem, SqlTypeName.INTEGER), conditionSatisfyIdx ? 1 : 3);
+        RexLocalRef ref2 = rexBuilder.makeLocalRef(new BasicSqlType(typeSystem, SqlTypeName.INTEGER), 2);
+
+        RexNode pred1 = rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN, ref1, val1);
+        RexNode pred2 = rexBuilder.makeCall(SqlStdOperatorTable.GREATER_THAN, ref2, val2);
+
+        RexNode andCondition = rexBuilder.makeCall(SqlStdOperatorTable.AND, pred1, pred2);
+
+        RelDataType rowType = new Builder(typeFactory)
+                .add("C1", SqlTypeName.INTEGER)
+                .add("C2", SqlTypeName.INTEGER)
+                .add("C3", SqlTypeName.INTEGER)
+                .build();
+
+        List<SearchBounds> bounds = RexUtils.buildSortedSearchBounds(Commons.cluster(),
+                RelCollations.of(ImmutableIntList.of(1, 2)), andCondition, rowType, ImmutableBitSet.of(0, 1, 2));
+
+        if (!conditionSatisfyIdx) {
+            assertNull(bounds);
+            return;
+        }
+
+        assertNotNull(bounds);
+
+        // condition expression is not used
+        RexLiteral condition = rexBuilder.makeLiteral(true);
+
+        List<SearchBounds> boundsList = List.of(
+                new RangeBounds(condition, val1, val2, true, true)
+        );
+
+        RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, null);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-13568 seems length predicate bounds
+        //  for sequential columns also belong to index need to be 2
+        assertEquals(1, ranges.iterator().next().lower().length);
     }
 
     static final class TestRange {
