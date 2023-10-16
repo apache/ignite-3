@@ -23,11 +23,10 @@
 namespace ignite
 {
 
-foreign_keys_query::foreign_keys_query(diagnosable_adapter& m_diag, sql_connection& connection,
+foreign_keys_query::foreign_keys_query(diagnosable_adapter& m_diag,
     std::string primary_catalog, std::string primary_schema, std::string primary_table,
     std::string foreign_catalog, std::string foreign_schema, std::string foreign_table)
     : query(m_diag, query_type::FOREIGN_KEYS)
-    , m_connection(connection)
     , m_primary_catalog(std::move(primary_catalog))
     , m_primary_schema(std::move(primary_schema))
     , m_primary_table(std::move(primary_table))
@@ -65,7 +64,6 @@ sql_result foreign_keys_query::execute()
 
 sql_result foreign_keys_query::fetch_next_row(column_binding_map&)
 {
-    // TODO: Implement proper meta fetching
     if (!m_executed)
     {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
@@ -78,7 +76,6 @@ sql_result foreign_keys_query::fetch_next_row(column_binding_map&)
 
 sql_result foreign_keys_query::get_column(std::uint16_t, application_data_buffer&)
 {
-    // TODO: Implement proper meta fetching
     if (!m_executed)
     {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
@@ -94,18 +91,6 @@ sql_result foreign_keys_query::close()
     m_executed = false;
 
     return sql_result::AI_SUCCESS;
-}
-
-bool foreign_keys_query::is_data_available() const
-{
-    // TODO: Implement proper meta fetching
-    return false;
-}
-
-sql_result foreign_keys_query::next_result_set()
-{
-    // TODO: Implement proper meta fetching
-    return sql_result::AI_NO_DATA;
 }
 
 } // namespace ignite

@@ -33,7 +33,6 @@ public:
      * Constructor.
      *
      * @param diag Diagnostics collector.
-     * @param connection Statement-associated connection.
      * @param primary_catalog Primary key catalog name.
      * @param primary_schema Primary key schema name.
      * @param primary_table Primary key table name.
@@ -41,7 +40,7 @@ public:
      * @param foreign_schema Foreign key schema name.
      * @param foreign_table Foreign key table name.
      */
-    foreign_keys_query(diagnosable_adapter &diag, sql_connection &connection, std::string primary_catalog,
+    foreign_keys_query(diagnosable_adapter &diag, std::string primary_catalog,
         std::string primary_schema, std::string primary_table, std::string foreign_catalog,
         std::string foreign_schema, std::string foreign_table);
 
@@ -92,7 +91,7 @@ public:
      *
      * @return True if data is available.
      */
-    bool is_data_available() const override;
+    bool is_data_available() const override { return false; }
 
     /**
      * Get number of rows affected by the statement.
@@ -106,12 +105,9 @@ public:
      *
      * @return Operation result.
      */
-    sql_result next_result_set() override;
+    sql_result next_result_set() override { return sql_result::AI_NO_DATA; }
 
 private:
-    /** Connection associated with the statement. */
-    sql_connection& m_connection;
-
     /** Primary key catalog name. */
     std::string m_primary_catalog;
 
