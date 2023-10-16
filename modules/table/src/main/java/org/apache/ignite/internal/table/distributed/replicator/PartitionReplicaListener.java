@@ -349,7 +349,15 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        return allOf(cleanupFutures.toArray(new CompletableFuture<?>[0])).thenApply(unused -> false);
+        allOf(cleanupFutures.toArray(new CompletableFuture<?>[0]))
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Failure occurred while triggering cleanup on commit partition primary replica election "
+                                + "[commitPartition=" + replicationGroupId + ']', e);
+                    }
+                });
+
+        return completedFuture(false);
     }
 
     private CompletableFuture<?> durableCleanup(UUID txId, TxMeta txMeta) {
