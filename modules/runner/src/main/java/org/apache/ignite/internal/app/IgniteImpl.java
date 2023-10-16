@@ -508,7 +508,7 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier delayDurationMsSupplier = () -> schemaSyncConfig.delayDuration().value();
 
-        catalogManager = new CatalogManagerImpl(
+        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
                 delayDurationMsSupplier
@@ -517,6 +517,9 @@ public class IgniteImpl implements Ignite {
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
+        systemViewManager.register(catalogManager);
+
+        this.catalogManager = catalogManager;
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
