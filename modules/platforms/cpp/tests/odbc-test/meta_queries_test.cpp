@@ -867,3 +867,81 @@ TEST_F(meta_queries_test, sqlcol_attribute_precision_and_scale_after_prepare) {
 TEST_F(meta_queries_test, sqlcol_attribute_precision_and_scale_after_exec) {
     check_col_precision_and_scale(&odbc_suite::exec_query, &check_column_meta_with_sqlcol_attribute);
 }
+
+TEST_F(meta_queries_test, primary_keys_single_column) {
+    odbc_connect(get_basic_connection_string());
+
+    auto ret = exec_query(
+        "drop table if exists primary_keys_single_column");
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = exec_query(
+        "create table if not exists primary_keys_single_column(ID int primary key, TEST_COLUMN varchar)");
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    SQLCHAR any[] = "%";
+    SQLCHAR table[] = "PRIMARY_KEYS_SINGLE_COLUMN";
+
+    ret = SQLPrimaryKeys(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = SQLFetch(m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    check_string_column(m_statement, 1, "");
+    check_string_column(m_statement, 2, "PUBLIC");
+    check_string_column(m_statement, 3, "PRIMARY_KEYS_SINGLE_COLUMN");
+    check_string_column(m_statement, 4, "ID");
+    check_string_column(m_statement, 5, "1");
+    check_string_column(m_statement, 6, "PK_PRIMARY_KEYS_SINGLE_COLUMN");
+
+    ret = SQLFetch(m_statement);
+
+    ASSERT_EQ(ret, SQL_NO_DATA);
+}
+
+TEST_F(meta_queries_test, primary_keys_multiple_columns) {
+    odbc_connect(get_basic_connection_string());
+
+    auto ret = exec_query(
+        "drop table if exists primary_keys_multiple_columns");
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = exec_query(
+        "create table if not exists primary_keys_multiple_columns(ID1 int, ID2 varchar, primary key (ID1, ID2))");
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    SQLCHAR any[] = "%";
+    SQLCHAR table[] = "PRIMARY_KEYS_MULTIPLE_COLUMNS";
+
+    ret = SQLPrimaryKeys(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = SQLFetch(m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    check_string_column(m_statement, 1, "");
+    check_string_column(m_statement, 2, "PUBLIC");
+    check_string_column(m_statement, 3, "PRIMARY_KEYS_MULTIPLE_COLUMNS");
+    check_string_column(m_statement, 4, "ID1");
+    check_string_column(m_statement, 5, "1");
+    check_string_column(m_statement, 6, "PK_PRIMARY_KEYS_MULTIPLE_COLUMNS");
+
+    ret = SQLFetch(m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    check_string_column(m_statement, 1, "");
+    check_string_column(m_statement, 2, "PUBLIC");
+    check_string_column(m_statement, 3, "PRIMARY_KEYS_MULTIPLE_COLUMNS");
+    check_string_column(m_statement, 4, "ID2");
+    check_string_column(m_statement, 5, "2");
+    check_string_column(m_statement, 6, "PK_PRIMARY_KEYS_MULTIPLE_COLUMNS");
+
+    ret = SQLFetch(m_statement);
+
+    ASSERT_EQ(ret, SQL_NO_DATA);
+}
