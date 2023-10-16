@@ -311,10 +311,11 @@ public class FilePageStore implements PageStore {
                     header
             );
 
-            newValue = new ArrayList<>(previousValue);
+            newValue = new ArrayList<>(previousValue.size() + 1);
 
             // Should add to the head, since read operations should always start from the most recent.
-            newValue.add(0, newDeltaFilePageStoreIo);
+            newValue.add(newDeltaFilePageStoreIo);
+            newValue.addAll(previousValue);
 
             newValue = unmodifiableList(newValue);
         } while (!DELTA_FILE_PAGE_STORE_IOS.compareAndSet(this, previousValue, newValue));
