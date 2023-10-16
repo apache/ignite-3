@@ -247,6 +247,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final PlacementDriver placementDriver;
 
     /**
+     * Mutex for command processing linearization.
+     * Some actions like update or updateAll requires strict ordering within their application to storage on all nodes in replication group.
+     * Given ordering should match corresponding command's safeTime.
+     */
+    private final Object commandProcessingLinearizationMutex = new Object();
+
+    /**
      * The constructor.
      *
      * @param mvDataStorage Data storage.
@@ -722,7 +729,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(null);
         }
 
-        synchronized (this) {
+        synchronized (commandProcessingLinearizationMutex) {
             return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build());
         }
     }
@@ -1302,7 +1309,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return reliableCatalogVersionFor(currentTimestamp)
                 .thenCompose(catalogVersion -> {
-                    synchronized (this) {
+                    synchronized (commandProcessingLinearizationMutex) {
                         FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
                                 .txId(txId)
                                 .commit(commit)
@@ -1393,7 +1400,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return reliableCatalogVersionFor(hybridTimestamp(commandTimestamp))
                     .thenCompose(catalogVersion -> {
-                        synchronized (this) {
+                        synchronized (commandProcessingLinearizationMutex) {
                             TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
                                     .txId(request.txId())
                                     .commit(request.commit())
@@ -1781,7 +1788,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
-                    return validateAtTimestampAndBuildUpdateAllCommand(request.transactionId())
+                    return validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
                                             rowIdsToDelete,
@@ -1850,7 +1857,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return allOf(insertLockFuts)
                             .thenCompose(ignored ->
                                     // We are inserting completely new rows - no need to cleanup anything in this case, hence empty times.
-                                    validateAtTimestampAndBuildUpdateAllCommand(request.transactionId())
+                                    validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                             )
                             .thenCompose(catalogVersion -> applyUpdateAllCommand(
                                             convertedMap,
@@ -1911,7 +1918,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(null, null));
                     }
 
-                    return validateAtTimestampAndBuildUpdateAllCommand(request.transactionId())
+                    return validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
                                             rowsToUpdate,
@@ -2027,7 +2034,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
-                    return validateAtTimestampAndBuildUpdateAllCommand(request.transactionId())
+                    return validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
                                             rowIdsToDelete,
@@ -2087,9 +2094,17 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Executes an Update command.
      *
+     * @param tablePartId {@link TablePartitionId} object.
+     * @param rowUuid Row UUID.
+     * @param row Row.
+     * @param lastCommitTimestamp The timestamp of the last committed entry for the row.
+     * @param txId Transaction ID.
+     * @param full {@code True} if this is a full transaction.
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param catalogVersion Validated catalog version associated with given operation.
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
-    private synchronized CompletableFuture<CompletableFuture<?>> applyUpdateCommand(
+    private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -2099,119 +2114,22 @@ public class PartitionReplicaListener implements ReplicaListener {
             String txCoordinatorId,
             int catalogVersion
     ) {
-        UpdateCommand cmd = updateCommand(
-                tablePartId,
-                rowUuid,
-                row,
-                lastCommitTimestamp,
-                txId,
-                full,
-                txCoordinatorId,
-                hybridClock.now(),
-                catalogVersion
-        );
+        synchronized (commandProcessingLinearizationMutex) {
+            UpdateCommand cmd = updateCommand(
+                    tablePartId,
+                    rowUuid,
+                    row,
+                    lastCommitTimestamp,
+                    txId,
+                    full,
+                    txCoordinatorId,
+                    hybridClock.now(),
+                    catalogVersion
+            );
 
-        if (!cmd.full()) {
-            CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
-                // This check guaranties the result will never be lost. Currently always null.
-                assert res == null : "Replication result is lost";
-
-                // Set context for delayed response.
-                return cmd.txId();
-            });
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
-            synchronized (safeTime) {
-                if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                    storageUpdateHandler.handleUpdate(
-                            cmd.txId(),
-                            cmd.rowUuid(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            cmd.row(),
-                            true,
-                            null,
-                            null,
-                            cmd.lastCommitTimestamp());
-
-                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                }
-            }
-
-            return completedFuture(fut);
-        } else {
-            return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
-                // This check guaranties the result will never be lost. Currently always null.
-                assert res == null : "Replication result is lost";
-
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
-                // Try to avoid double write if an entry is already replicated.
-                // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
-                // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
-                // just because there's only one operation in 1PC.
-                storageUpdateHandler.handleUpdate(
-                        cmd.txId(),
-                        cmd.rowUuid(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        cmd.row(),
-                        false,
-                        null,
-                        cmd.safeTime(),
-                        cmd.lastCommitTimestamp());
-
-                return null;
-            });
-        }
-    }
-
-    /**
-     * Executes an UpdateAll command.
-     *
-     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
-     */
-    private synchronized CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
-            Map<UUID, HybridTimestamp> lastCommitTimes,
-            TablePartitionIdMessage commitPartitionId,
-            UUID transactionId,
-            boolean full,
-            String txCoordinatorId,
-            int catalogVersion,
-            boolean skipDelayedAck
-    ) {
-        UpdateAllCommand cmd = updateAllCommand(
-                rowsToUpdate,
-                lastCommitTimes,
-                commitPartitionId,
-                transactionId,
-                hybridClock.now(),
-                full,
-                txCoordinatorId,
-                catalogVersion
-        );
-
-        if (!cmd.full()) {
-            if (skipDelayedAck) {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
-                synchronized (safeTime) {
-                    if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                        storageUpdateHandler.handleUpdateAll(
-                                cmd.txId(),
-                                cmd.rowsToUpdate(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                true,
-                                null,
-                                null,
-                                cmd.lastCommitTimestamps());
-
-                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                    }
-                }
-
-                return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
-            } else {
-                CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
-                    // Currently result is always null on a successfull execution of a replication command.
-                    // This check guaranties the result will never be lost.
+            if (!cmd.full()) {
+                CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                    // This check guaranties the result will never be lost. Currently always null.
                     assert res == null : "Replication result is lost";
 
                     // Set context for delayed response.
@@ -2221,40 +2139,150 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
                 synchronized (safeTime) {
                     if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                        storageUpdateHandler.handleUpdateAll(
+                        storageUpdateHandler.handleUpdate(
                                 cmd.txId(),
-                                cmd.rowsToUpdate(),
+                                cmd.rowUuid(),
                                 cmd.tablePartitionId().asTablePartitionId(),
+                                cmd.row(),
                                 true,
                                 null,
                                 null,
-                                cmd.lastCommitTimestamps());
+                                cmd.lastCommitTimestamp());
 
                         updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                     }
                 }
 
                 return completedFuture(fut);
+            } else {
+                return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                    // This check guaranties the result will never be lost. Currently always null.
+                    assert res == null : "Replication result is lost";
+
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+                    // Try to avoid double write if an entry is already replicated.
+                    // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
+                    // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
+                    // just because there's only one operation in 1PC.
+                    storageUpdateHandler.handleUpdate(
+                            cmd.txId(),
+                            cmd.rowUuid(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.row(),
+                            false,
+                            null,
+                            cmd.safeTime(),
+                            cmd.lastCommitTimestamp());
+
+                    return null;
+                });
             }
-        } else {
-            return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
-                assert res == null : "Replication result is lost";
+        }
+    }
 
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
-                // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
-                // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
-                // just because there's only one operation in 1PC.
-                storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
-                        cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        false,
-                        null,
-                        cmd.safeTime(),
-                        cmd.lastCommitTimestamps());
+    /**
+     * Executes an UpdateAll command.
+     *
+     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
+     * @param lastCommitTimes All timestamps of the last committed entries for each row.
+     * @param commitPartitionId Partition ID that these rows belong to.
+     * @param transactionId Transaction ID.
+     * @param full {@code true} if this is a single-command transaction.
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param catalogVersion Validated catalog version associated with given operation.
+     * @param skipDelayedAck {@code true} to disable the delayed ack optimization.
+     *
+     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
+     */
+    private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
+            Map<UUID, BinaryRowMessage> rowsToUpdate,
+            Map<UUID, HybridTimestamp> lastCommitTimes,
+            TablePartitionIdMessage commitPartitionId,
+            UUID transactionId,
+            boolean full,
+            String txCoordinatorId,
+            int catalogVersion,
+            boolean skipDelayedAck
+    ) {
+        synchronized (commandProcessingLinearizationMutex) {
+            UpdateAllCommand cmd = updateAllCommand(
+                    rowsToUpdate,
+                    lastCommitTimes,
+                    commitPartitionId,
+                    transactionId,
+                    hybridClock.now(),
+                    full,
+                    txCoordinatorId,
+                    catalogVersion
+            );
 
-                return null;
-            });
+            if (!cmd.full()) {
+                if (skipDelayedAck) {
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+                    synchronized (safeTime) {
+                        if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                            storageUpdateHandler.handleUpdateAll(
+                                    cmd.txId(),
+                                    cmd.rowsToUpdate(),
+                                    cmd.tablePartitionId().asTablePartitionId(),
+                                    true,
+                                    null,
+                                    null,
+                                    cmd.lastCommitTimestamps());
+
+                            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                        }
+                    }
+
+                    return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
+                } else {
+                    CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                        // Currently result is always null on a successfull execution of a replication command.
+                        // This check guaranties the result will never be lost.
+                        assert res == null : "Replication result is lost";
+
+                        // Set context for delayed response.
+                        return cmd.txId();
+                    });
+
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+                    synchronized (safeTime) {
+                        if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                            storageUpdateHandler.handleUpdateAll(
+                                    cmd.txId(),
+                                    cmd.rowsToUpdate(),
+                                    cmd.tablePartitionId().asTablePartitionId(),
+                                    true,
+                                    null,
+                                    null,
+                                    cmd.lastCommitTimestamps());
+
+                            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                        }
+                    }
+
+                    return completedFuture(fut);
+                }
+            } else {
+                return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                    assert res == null : "Replication result is lost";
+
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+                    // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
+                    // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
+                    // just because there's only one operation in 1PC.
+                    storageUpdateHandler.handleUpdateAll(
+                            cmd.txId(),
+                            cmd.rowsToUpdate(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            false,
+                            null,
+                            cmd.safeTime(),
+                            cmd.lastCommitTimestamps());
+
+                    return null;
+                });
+            }
         }
     }
 
@@ -2303,7 +2331,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     return completedFuture(new ReplicaResult(false, request.full() ? null : completedFuture(null)));
                                 }
 
-                                return validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                                return validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                                         .thenCompose(
                                                 catalogVersion -> applyUpdateCommand(
                                                         request.commitPartitionId().asTablePartitionId(),
@@ -2329,7 +2357,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     RowId rowId0 = new RowId(partId(), UUID.randomUUID());
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                            .thenCompose(rowIdLock -> validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request.commitPartitionId().asTablePartitionId(),
@@ -2362,7 +2390,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                            .thenCompose(rowIdLock -> validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request.commitPartitionId().asTablePartitionId(),
@@ -2395,7 +2423,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                            .thenCompose(rowIdLock -> validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request.commitPartitionId().asTablePartitionId(),
@@ -2424,7 +2452,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                            .thenCompose(rowIdLock -> validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request.commitPartitionId().asTablePartitionId(),
@@ -2453,7 +2481,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId())
+                            .thenCompose(rowIdLock -> validateOperationAgainstSchemaAtTimestamp(request.transactionId())
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request.commitPartitionId().asTablePartitionId(),
@@ -2516,7 +2544,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(rowLock -> validateAtTimestampAndBuildUpdateCommand(request.transactionId()))
+                            .thenCompose(rowLock -> validateOperationAgainstSchemaAtTimestamp(request.transactionId()))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
                                             request.commitPartitionId().asTablePartitionId(),
@@ -2539,7 +2567,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(ignored -> validateAtTimestampAndBuildUpdateCommand(request.transactionId()))
+                            .thenCompose(ignored -> validateOperationAgainstSchemaAtTimestamp(request.transactionId()))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
                                             request.commitPartitionId().asTablePartitionId(),
@@ -2740,7 +2768,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return completedFuture(new ReplicaResult(false, null));
                             }
 
-                            return validateAtTimestampAndBuildUpdateCommand(txId)
+                            return validateOperationAgainstSchemaAtTimestamp(txId)
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     commitPartitionId.asTablePartitionId(),
@@ -3018,12 +3046,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Chooses operation timestamp, makes validations that require it and constructs an {@link UpdateCommand} object.
+     * Chooses operation timestamp and makes schema related validations.
      *
      * @param txId Transaction ID.
-     * @return Future that will complete with the constructed {@link UpdateCommand} object.
+     * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
      */
-    private CompletableFuture<Integer> validateAtTimestampAndBuildUpdateCommand(UUID txId) {
+    private CompletableFuture<Integer> validateOperationAgainstSchemaAtTimestamp(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return reliableCatalogVersionFor(operationTimestamp)
@@ -3104,22 +3132,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {
         return schemaSyncService.waitForMetadataCompleteness(ts)
                 .thenApply(unused -> catalogService.activeCatalogVersion(ts.longValue()));
-    }
-
-    /**
-     * Chooses operation timestamp, makes validations that require it and constructs an {@link UpdateCommand} object.
-     *
-     * @param transactionId Transaction ID.
-     */
-    private CompletableFuture<Integer> validateAtTimestampAndBuildUpdateAllCommand(UUID transactionId) {
-        HybridTimestamp operationTimestamp = hybridClock.now();
-
-        return reliableCatalogVersionFor(operationTimestamp)
-                .thenApply(catalogVersion -> {
-                    failIfSchemaChangedSinceTxStart(transactionId, operationTimestamp);
-
-                    return catalogVersion;
-                });
     }
 
     /**
