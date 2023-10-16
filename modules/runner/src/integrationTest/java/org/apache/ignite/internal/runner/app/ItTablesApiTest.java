@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -42,7 +43,6 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
-import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
@@ -50,6 +50,7 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -140,8 +141,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         Table tbl = createTable(ignite0, TABLE_NAME);
 
-        // TODO: IGNITE-20388 Fix it
-        assertThrowsWithCause(() -> createTable(ignite0, TABLE_NAME), TableExistsValidationException.class);
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Table with name 'PUBLIC.TBL1' already exists",
+                () -> createTable(ignite0, TABLE_NAME));
 
         assertEquals(tbl, createTableIfNotExists(ignite0, TABLE_NAME));
     }
@@ -152,7 +155,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testTableAlreadyCreatedFromLaggedNode() throws Exception {
+    public void testTableAlreadyCreatedFromLaggedNode() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
         Ignite ignite0 = clusterNodes.get(0);
@@ -170,8 +173,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
-                // TODO: IGNITE-20388 Fix it
-                assertThrowsWithCause(() -> createTable(ignite, TABLE_NAME), TableExistsValidationException.class);
+                assertThrowsSqlException(
+                        Sql.STMT_VALIDATION_ERR,
+                        "Table with name 'PUBLIC.TBL1' already exists",
+                        () -> createTable(ignite, TABLE_NAME));
 
                 assertNotNull(createTableIfNotExists(ignite, TABLE_NAME));
             }
@@ -182,7 +187,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.stopInhibit();
 
-        // TODO: IGNITE-20388 Fix it
         assertThat(createTblFut, willThrowWithCauseOrSuppressed(TableExistsValidationException.class));
         assertThat(createTblIfNotExistsFut, willCompleteSuccessfully());
     }
@@ -328,8 +332,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
-                // TODO: IGNITE-20388 Fix it
-                assertThrowsWithCause(() -> addColumn(ignite, TABLE_NAME), CatalogValidationException.class);
+                assertThrowsSqlException(
+                        Sql.STMT_VALIDATION_ERR,
+                        "Failed to validate query. Column with name 'VALINT3' already exists",
+                        () -> addColumn(ignite, TABLE_NAME));
             }
         }
 
@@ -337,7 +343,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.stopInhibit();
 
-        // TODO: IGNITE-20388 Fix it
         assertThat(addColFut, willThrowWithCauseOrSuppressed(CatalogValidationException.class));
     }
 
@@ -400,8 +405,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
             assertNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
 
-            // TODO: IGNITE-20388 Fix it
-            assertThrowsWithCause(() -> dropTable(ignite, TABLE_NAME), TableNotFoundValidationException.class);
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR,
+                    "Table with name 'PUBLIC.TBL1' not found",
+                    () -> dropTable(ignite, TABLE_NAME));
 
             dropTableIfExists(ignite, TABLE_NAME);
         }
