@@ -138,9 +138,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        awaitActualMetastoreRevision();
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
-        assertStartBuildIndexKeyExists(indexId);
+        assertInProgressBuildIndexKeyExists(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyExists(indexId, partitionId);
@@ -162,9 +162,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         finishBuildingIndexForPartition(indexId, 0);
 
-        awaitActualMetastoreRevision();
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
-        assertStartBuildIndexKeyExists(indexId);
+        assertInProgressBuildIndexKeyExists(indexId);
 
         assertPartitionBuildIndexKeyAbsent(indexId, 0);
 
@@ -188,9 +188,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             );
         }
 
-        awaitActualMetastoreRevision();
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
-        assertStartBuildIndexKeyAbsent(indexId);
+        assertInProgressBuildIndexKeyAbsent(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
@@ -207,9 +207,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitActualMetastoreRevision();
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
-        assertStartBuildIndexKeyAbsent(indexId);
+        assertInProgressBuildIndexKeyAbsent(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
@@ -233,9 +233,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitActualMetastoreRevision();
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
-        assertStartBuildIndexKeyAbsent(indexId);
+        assertInProgressBuildIndexKeyAbsent(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
@@ -254,9 +254,9 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitActualMetastoreRevision();
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
-        assertStartBuildIndexKeyAbsent(indexId);
+        assertInProgressBuildIndexKeyAbsent(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
@@ -275,16 +275,16 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitActualMetastoreRevision();
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
-        assertStartBuildIndexKeyAbsent(indexId);
+        assertInProgressBuildIndexKeyAbsent(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
         }
     }
 
-    private void awaitActualMetastoreRevision() throws Exception {
+    private void awaitTillGlobalMetastoreRevisionIsApplied() throws Exception {
         assertTrue(
                 waitForCondition(() -> {
                     CompletableFuture<Long> currentRevisionFuture = metaStorageManager.getService().currentRevision();
@@ -353,8 +353,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         assertThat(finishBuildIndexFuture, willCompleteSuccessfully());
     }
 
-    private void assertStartBuildIndexKeyExists(int indexId) {
-        String startBuildIndexKey = startBuildIndexKey(indexId);
+    private void assertInProgressBuildIndexKeyExists(int indexId) {
+        String startBuildIndexKey = inProgressBuildIndexKey(indexId);
 
         assertThat(
                 startBuildIndexKey,
@@ -363,8 +363,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private void assertStartBuildIndexKeyAbsent(int indexId) {
-        String startBuildIndexKey = startBuildIndexKey(indexId);
+    private void assertInProgressBuildIndexKeyAbsent(int indexId) {
+        String startBuildIndexKey = inProgressBuildIndexKey(indexId);
 
         assertThat(
                 startBuildIndexKey,
@@ -393,8 +393,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static String startBuildIndexKey(int indexId) {
-        return "indexBuild.start." + indexId;
+    private static String inProgressBuildIndexKey(int indexId) {
+        return "indexBuild.inProgress." + indexId;
     }
 
     private static String partitionBuildIndexKey(int indexId, int partitionId) {
