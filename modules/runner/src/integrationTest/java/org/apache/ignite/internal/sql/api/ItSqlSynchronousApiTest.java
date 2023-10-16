@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.tx.TxManager;
@@ -37,6 +38,7 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Index;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -53,9 +55,12 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for synchronous SQL API.
@@ -347,30 +352,94 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertEquals(0, ((IgniteImpl) CLUSTER_NODES.get(0)).txManager().pending());
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20342")
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "INSERT INTO tst VALUES (2, ?)",
+            "SELECT * FROM tst WHERE id = ? "
+    })
+    public void runtimeErrorInDmlCausesTransactionToFail(String query) {
+        sql("CREATE TABLE tst(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        sql("INSERT INTO tst VALUES (?,?)", 1, 1);
+
+        try (Session ses = igniteSql().createSession()) {
+            Transaction tx = igniteTx().begin();
+            String dmlQuery = "UPDATE tst SET val = val/(val - ?) + 1";
+
+            assertThrowsSqlException(
+                    Sql.RUNTIME_ERR,
+                    "/ by zero",
+                    () -> ses.execute(tx, dmlQuery, 1).affectedRows());
+
+            IgniteException err = assertThrows(IgniteException.class, () -> {
+                ResultSet<SqlRow> rs = ses.execute(tx, query, 2);
+                if (rs.hasRowSet()) {
+                    assertTrue(rs.hasNext());
+                } else {
+                    assertTrue(rs.wasApplied());
+                }
+            });
+
+            assertEquals(Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, err.code(), err.toString());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "INSERT INTO tst VALUES (2, ?)",
+            "SELECT * FROM tst WHERE id = ? "
+    })
+    public void runtimeErrorInQueryCausesTransactionToFail(String query) {
+        sql("CREATE TABLE tst(id INTEGER PRIMARY KEY, val INTEGER)");
+
+        sql("INSERT INTO tst VALUES (?,?)", 1, 1);
+
+        try (Session ses = igniteSql().createSession()) {
+            Transaction tx = igniteTx().begin();
+
+            assertThrowsSqlException(
+                    Sql.RUNTIME_ERR,
+                    "/ by zero",
+                    () -> ses.execute(tx, "SELECT val/? FROM tst WHERE id=?", 0, 1).next());
+
+            IgniteException err = assertThrows(IgniteException.class, () -> {
+                ResultSet<SqlRow> rs = ses.execute(tx, query, 2);
+                if (rs.hasRowSet()) {
+                    assertTrue(rs.hasNext());
+                } else {
+                    assertTrue(rs.wasApplied());
+                }
+            });
+
+            assertEquals(Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, err.code(), err.toString());
+        }
+    }
+
     @Test
-    public void runtimeErrorInTransaction() {
-        int size = 100;
-        sql("CREATE TABLE tst(id INT PRIMARY KEY, val INT)");
-        for (int i = 0; i < size; i++) {
-            sql("INSERT INTO tst VALUES (?,?)", i, i);
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20534")
+    public void testLockIsNotReleasedAfterTxRollback() {
+        Ignite ignite = CLUSTER_NODES.get(0);
+        IgniteSql sql = ignite.sql();
+
+        try (Session ses = ignite.sql().createSession()) {
+            ses.execute(null, "CREATE TABLE IF NOT EXISTS tst(id INTEGER PRIMARY KEY, val INTEGER)").affectedRows();
         }
 
-        Session ses = igniteSql().createSession();
-        Transaction tx = igniteTx().begin();
+        try (Session session = sql.createSession()) {
+            Transaction tx = ignite.transactions().begin();
 
-        try {
-            String sqlText = "UPDATE tst SET val = val/(val - ?) + " + size;
+            assertThrows(RuntimeException.class, () -> session.execute(tx, "SELECT 1/0"));
 
-            for (int i = 0; i < size; i++) {
-                int param = i;
-                assertThrowsSqlException(
-                        Sql.RUNTIME_ERR,
-                        "/ by zero",
-                        () -> ses.execute(tx, sqlText, param));
+            tx.rollback();
 
-            }
-        } finally {
+            session.execute(tx, "INSERT INTO tst VALUES (1, 1)");
+        }
+
+        try (Session session = sql.createSession()) {
+            Transaction tx = ignite.transactions().begin(new TransactionOptions().readOnly(false));
+
+            session.execute(tx, "INSERT INTO tst VALUES (1, 1)");
+
             tx.commit();
         }
     }

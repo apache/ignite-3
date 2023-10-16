@@ -22,9 +22,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;

@@ -49,15 +49,15 @@ public class ClientComputeExecuteColocatedRequest {
             IgniteCompute compute,
             IgniteTables tables) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var keyTuple = readTuple(in, table, true);
+            return readTuple(in, table, true).thenCompose(keyTuple -> {
+                List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
+                String jobClassName = in.unpackString();
+                Object[] args = unpackArgs(in);
 
-            List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
-            String jobClassName = in.unpackString();
-            Object[] args = unpackArgs(in);
-
-            return compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
-                out.packInt(table.schemaView().lastSchemaVersion());
-                out.packObjectAsBinaryTuple(val);
+                return compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
+                    out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    out.packObjectAsBinaryTuple(val);
+                });
             });
         });
     }

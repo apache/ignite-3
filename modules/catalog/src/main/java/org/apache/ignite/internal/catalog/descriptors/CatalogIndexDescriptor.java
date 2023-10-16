@@ -21,9 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUS
 
 import org.apache.ignite.internal.tostring.S;
 
-/**
- * Index descriptor base class.
- */
+/** Index descriptor base class. */
 public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -8045949593661301287L;
 
@@ -33,13 +31,14 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Unique constraint flag. */
     private final boolean unique;
 
-    /** Write only flag. {@code True} when index is building. */
-    private boolean writeOnly;
+    /** Write only flag. {@code True} when the index is being built, {@code false} when it is built. */
+    private final boolean writeOnly;
 
-    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique) {
+    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, boolean writeOnly) {
         super(id, Type.INDEX, name, INITIAL_CAUSALITY_TOKEN);
         this.tableId = tableId;
         this.unique = unique;
+        this.writeOnly = writeOnly;
     }
 
     /** Gets table id. */
@@ -52,19 +51,11 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return unique;
     }
 
+    /** Returns the state of the index, {@code true} when the index is being built, {@code false} when it is built. */
     public boolean writeOnly() {
         return writeOnly;
     }
 
-    /**
-     * Checks if a column with given name is indexed.
-     *
-     * @param columnName Column name to check.
-     * @return {@code true} if index contains the column, {@code false} otherwise.
-     */
-    public abstract boolean hasColumn(String columnName);
-
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

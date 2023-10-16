@@ -123,9 +123,11 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return catalog;
     }
 
-    private static Catalog catalog(CatalogTableDescriptor[] tables,
+    static Catalog catalog(
+            CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
-            CatalogSystemViewDescriptor[] systemViews) {
+            CatalogSystemViewDescriptor[] systemViews
+    ) {
         return new Catalog(
                 1,
                 0L,

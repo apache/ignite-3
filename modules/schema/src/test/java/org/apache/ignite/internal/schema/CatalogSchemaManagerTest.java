@@ -65,6 +65,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.subscription.ListAccumulator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -359,7 +360,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
-        assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
         assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
@@ -381,7 +382,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = future.join();
 
-        assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
         assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
@@ -421,17 +422,6 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
         assertThat(future, willBe(false));
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
-    }
-
-    @Test
-    void waitLatestSchemaReturnsLatestSchema() {
-        create2TableVersions();
-
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
-
-        SchemaDescriptor schemaDescriptor = schemaRegistry.waitLatestSchema();
-
-        assertThat(schemaDescriptor.version(), is(2));
     }
 
     @Test

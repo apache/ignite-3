@@ -45,7 +45,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -54,7 +53,6 @@ import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.ReplicationGroupsUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -361,7 +359,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         LOG.info("Node {} knocked out", nodeIndex);
     }
 
-    private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
+    private void createTestTableWith3Replicas(String storageEngine) {
         String zoneSql = "create zone test_zone"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3;";
@@ -372,22 +370,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
-
-        waitForTableToStart();
-    }
-
-    private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18733 - remove this wait because when a table creation query is executed, the table must be fully ready.
-
-        BooleanSupplier tableStarted = () -> {
-            int numberOfStartedRaftNodes = cluster.runningNodes()
-                    .map(ReplicationGroupsUtils::tablePartitionIds)
-                    .mapToInt(List::size)
-                    .sum();
-            return numberOfStartedRaftNodes == 3;
-        };
-
-        assertTrue(waitForCondition(tableStarted, 10_000), "Did not see all table RAFT nodes started");
     }
 
     /**

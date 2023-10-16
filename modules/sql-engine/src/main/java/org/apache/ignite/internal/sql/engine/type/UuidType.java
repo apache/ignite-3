@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.type;
 
 import java.util.UUID;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 
 /** UUID SQL type. */

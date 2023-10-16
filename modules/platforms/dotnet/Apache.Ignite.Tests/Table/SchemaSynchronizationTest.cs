@@ -73,7 +73,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         // Modify table, insert data - client will use old schema, receive error, retry with new schema.
         // The process is transparent for the user: updated schema is in effect immediately.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} DROP COLUMN NAME");
-        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var rec2 = new IgniteTuple
         {
@@ -132,7 +131,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         // then force reload schema and retry.
         // The process is transparent for the user: updated schema is in effect immediately.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name2'");
-        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var rec2 = new IgniteTuple
         {
@@ -181,7 +179,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         // Modify table, insert data - client will use old schema, receive error, retry with new schema.
         // The process is transparent for the user: updated schema is in effect immediately.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
-        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         switch (testMode)
         {
@@ -228,7 +225,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         await view.InsertAsync(null, rec);
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
-        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var pocoView = table.GetRecordView<Poco>();
         var poco = new Poco(1, string.Empty);
@@ -279,7 +275,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         await view.InsertAsync(null, rec);
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
-        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var pocoView = table.GetRecordView<Poco>();
 
@@ -328,7 +323,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         await view.InsertAsync(null, rec);
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
-        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var pocoView = table.GetKeyValueView<int, string>();
         var res = await pocoView.GetAsync(null, 1);
@@ -373,7 +367,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             // Update schema.
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.
             await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
-            await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
             for (int i = 10; i < 20; i++)
             {
@@ -395,7 +388,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         // Update schema.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
-        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         // Stream data with new schema. Client does not yet know about the new schema,
         // but unmapped column exception will trigger schema reload.
@@ -408,38 +400,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         // Inserted with new schema.
         var res2 = await view.GetAsync(null, GetTuple(1));
         Assert.AreEqual("BAR", res2.Value["VAL"]);
-    }
-
-    private async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)
-    {
-        // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
-        // Currently new schema version is not immediately available on all nodes.
-        // Use separate client to check schema sync without affecting the system under test.
-        var configs = Client.Configuration.Endpoints.Select(e => new IgniteClientConfiguration(e)).ToList();
-
-        foreach (var cfg in configs)
-        {
-            using var client = await IgniteClient.StartAsync(cfg);
-            var table = await client.Tables.GetTableAsync(tableName);
-            var tableImpl = (Table)table!;
-            var sw = Stopwatch.StartNew();
-
-            while (true)
-            {
-                var schema = await tableImpl.GetSchemaAsync(Apache.Ignite.Internal.Table.Table.SchemaVersionForceLatest);
-                if (schema.Version >= schemaVer)
-                {
-                    break;
-                }
-
-                if (sw.Elapsed > TimeSpan.FromMilliseconds(timeoutMs))
-                {
-                    Assert.Fail($"Schema version {schema.Version} is not available on node {cfg.Endpoints[0]} after {timeoutMs}ms");
-                }
-
-                await Task.Delay(50);
-            }
-        }
     }
 
     private record Poco(int Id, string Name);

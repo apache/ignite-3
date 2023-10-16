@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.benchmarks;
 
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
 
 import com.facebook.presto.bytecode.Access;
 import com.facebook.presto.bytecode.BytecodeBlock;

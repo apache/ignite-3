@@ -184,25 +184,6 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         return startedNodes.get(idx);
     }
 
-    void waitForTableOnAllNodes(String tableName) throws InterruptedException {
-        // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
-        // Currently newly created table is not immediately available on all nodes.
-        boolean res = IgniteTestUtils.waitForCondition(() -> {
-            var nodeCount = client().clusterNodes().size();
-
-            // Do N checks - they will go to different nodes becase of request balancing.
-            for (int i = 0; i < nodeCount; i++) {
-                if (client().tables().table(tableName) == null) {
-                    return false;
-                }
-            }
-
-            return true;
-        }, 3000);
-
-        assertTrue(res);
-    }
-
     /**
      * Test class.
      */

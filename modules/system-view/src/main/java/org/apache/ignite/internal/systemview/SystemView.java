@@ -26,7 +26,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.StringUtils;
 

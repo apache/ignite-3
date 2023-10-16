@@ -150,7 +150,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         TableImpl table = tableImpl(ignite0, TABLE_NAME);
 
-        assertEquals(1, table.schemaView().schema().version());
+        assertEquals(1, table.schemaView().lastKnownSchemaVersion());
 
         WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
 
@@ -161,7 +161,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         table = tableImpl(ignite2, TABLE_NAME);
 
         TableImpl table0 = table;
-        assertTrue(waitForCondition(() -> table0.schemaView().schema().version() == 2, 5_000));
+        assertTrue(waitForCondition(() -> table0.schemaView().lastKnownSchemaVersion() == 2, 5_000));
 
         // Should not receive the table because we are waiting for the synchronization of schemas.
         assertThat(ignite1.tables().tableAsync(TABLE_NAME), willTimeoutFast());
@@ -184,7 +184,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         table = tableImpl(ignite1, TABLE_NAME);
 
         TableImpl table1 = table;
-        assertTrue(waitForCondition(() -> table1.schemaView().schema().version() == 2, 5_000));
+        assertTrue(waitForCondition(() -> table1.schemaView().lastKnownSchemaVersion() == 2, 5_000));
     }
 
     /**
@@ -286,7 +286,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         TableImpl table = tableImpl(ignite0, TABLE_NAME);
 
-        assertEquals(1, table.schemaView().schema().version());
+        assertEquals(1, table.schemaView().lastKnownSchemaVersion());
 
         for (int i = 0; i < 10; i++) {
             table.recordView().insert(
@@ -311,7 +311,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
             TableImpl tableOnNode = tableImpl(node, TABLE_NAME);
 
-            assertTrue(waitForCondition(() -> tableOnNode.schemaView().lastSchemaVersion() == 2, 10_000));
+            assertTrue(waitForCondition(() -> tableOnNode.schemaView().lastKnownSchemaVersion() == 2, 10_000));
         }
 
         CompletableFuture<?> insertFut = runAsync(() -> {
