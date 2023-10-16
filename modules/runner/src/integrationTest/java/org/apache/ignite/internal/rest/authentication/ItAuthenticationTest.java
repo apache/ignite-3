@@ -118,7 +118,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.authentication.enabled:true"
+                + "         security.enabled:true"
                 + "     }\"\n"
                 + "  }";
 

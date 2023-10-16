@@ -158,7 +158,10 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
         HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "security.enabled=true"),
+                patch("/management/v1/configuration/cluster", "{\n"
+                        + "    security.enabled:true, \n"
+                        + "    security.authentication.providers:null\n"
+                        + "}"),
                 BodyHandlers.ofString()
         );
 
@@ -167,7 +170,10 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 patchRequest,
                 hasStatusCodeAndBody(
                         400,
-                        containsString("'security' configuration doesn't have the 'enabled' sub-configuration")
+                        containsString(
+                                "Validation did not pass for keys: "
+                                        + "[security.authentication.providers, Providers must be present, if security is enabled]"
+                        )
                 )
         );
     }

@@ -267,7 +267,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(initProblem.title(), is("Bad Request")),
                 () -> assertThat(
                         initProblem.detail(),
-                        containsString("'boolean' is expected as a type for the 'security.authentication.enabled' configuration value")
+                        containsString("'boolean' is expected as a type for the 'security.enabled' configuration value")
                 )
         );
 

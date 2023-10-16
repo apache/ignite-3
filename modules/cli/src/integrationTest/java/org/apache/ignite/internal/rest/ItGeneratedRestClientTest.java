@@ -288,7 +288,7 @@ public class ItGeneratedRestClientTest {
                 ApiException.class,
                 () -> clusterConfigurationApi.updateClusterConfiguration("{\n"
                         + "    security.enabled:true, \n"
-                        + "    security.authentication.providers:[]\n"
+                        + "    security.authentication.providers:null\n"
                         + "}")
         );
 
