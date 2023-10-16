@@ -115,7 +115,7 @@ public class MockNode {
 
         this.clusterInitializer = new ClusterInitializer(
                 clusterService,
-                CompletableFuture::completedFuture,
+                hocon -> hocon,
                 new TestConfigurationValidator()
         );
 

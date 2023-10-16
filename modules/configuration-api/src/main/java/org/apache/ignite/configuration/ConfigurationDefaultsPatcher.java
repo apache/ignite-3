@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
-
-import org.apache.ignite.configuration.ConfigurationTree;
-import org.apache.ignite.configuration.RootKey;
+package org.apache.ignite.configuration;
 
 /**
- * Interface that represent a "change" for the conjunction of all roots in the configuration.
+ * Patcher for the configuration. This patcher is used to set the default values for the cluster configuration.
  */
-public interface SuperRootChange {
+public interface ConfigurationDefaultsPatcher {
     /**
-     * Returns a root view for the root key.
+     * Patches the configuration with the default values.
+     *
+     * @param hocon HOCON string.
+     * @return Patched HOCON string.
      */
-    <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey);
-
-    /**
-     * Returns a root change for the root key.
-     */
-    <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey);
+    String patchDefaults(String hocon);
 }

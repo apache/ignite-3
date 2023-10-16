@@ -23,8 +23,10 @@ import java.util.Collections;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -34,6 +36,12 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
  */
 @AutoService(ConfigurationModule.class)
 public class SecurityConfigurationModule implements ConfigurationModule {
+    private static final String DEFAULT_PROVIDER_NAME = "default";
+
+    private static final String DEFAULT_USERNAME = "ignite";
+
+    private static final String DEFAULT_PASSWORD = "ignite";
+
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
@@ -52,5 +60,18 @@ public class SecurityConfigurationModule implements ConfigurationModule {
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return Collections.singleton(BasicAuthenticationProviderConfigurationSchema.class);
+    }
+
+    @Override
+    public void patchDefaults(SuperRootChange rootChange) {
+        rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
+            if (authenticationChange.changeProviders().size() == 0) {
+                authenticationChange.changeProviders().create(DEFAULT_PROVIDER_NAME, change -> {
+                    change.convert(BasicAuthenticationProviderChange.class)
+                            .changeUsername(DEFAULT_USERNAME)
+                            .changePassword(DEFAULT_PASSWORD);
+                });
+            }
+        });
     }
 }

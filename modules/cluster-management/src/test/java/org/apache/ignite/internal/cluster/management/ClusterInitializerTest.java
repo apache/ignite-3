@@ -77,7 +77,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
 
         clusterInitializer = new ClusterInitializer(
                 clusterService,
-                CompletableFuture::completedFuture,
+                hocon -> hocon,
                 new TestConfigurationValidator()
         );
     }

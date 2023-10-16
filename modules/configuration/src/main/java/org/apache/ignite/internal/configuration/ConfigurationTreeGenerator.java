@@ -110,6 +110,17 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
     }
 
     /**
+     * Creates a new instance of {@link SuperRoot} with all the roots created.
+     *
+     * @return New instance of {@link SuperRoot}.
+     */
+    public synchronized SuperRoot createEmptySuperRoot() {
+        assert generator != null : "ConfigurationTreeGenerator is already closed";
+
+        return new SuperRoot(rootCreator());
+    }
+
+    /**
      * Creates new instance of {@code *Configuration} class corresponding to the given Configuration Schema.
      *
      * @param rootKey Root key of the configuration root.

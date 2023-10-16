@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 
-import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -31,12 +30,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -47,10 +46,6 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
-import org.apache.ignite.internal.configuration.util.NodeValue;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -160,23 +155,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
-        SuperRoot superRoot = changer.superRoot();
-
-        NodeValue<?> node;
-        try {
-            node = ConfigurationUtil.find(path, superRoot, false);
-        } catch (KeyNotFoundException e) {
-            throw new IllegalArgumentException(e.getMessage());
-        }
-
-        Object value = node.value();
-        if (value instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) value).accept(node.field(), null, visitor);
-        }
-
-        assert value == null || value instanceof Serializable;
-
-        return visitor.visitLeafNode(node.field(), null, (Serializable) value);
+        return changer.superRoot().represent(path, visitor);
     }
 
     /**
@@ -203,21 +182,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
                 SuperRoot superRoot = (SuperRoot) node;
 
-                change.accept(new SuperRootChange() {
-                    @Override
-                    public <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey) {
-                        return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
-                    }
-
-                    @Override
-                    public <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey) {
-                        // "construct" does a field copying, which is what we need before mutating it.
-                        superRoot.construct(rootKey.key(), ConfigurationUtil.EMPTY_CFG_SRC, true);
-
-                        // "rootView" is not re-used here because of return type incompatibility, although code is the same.
-                        return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
-                    }
-                });
+                change.accept(new SuperRootChangeImpl(superRoot));
             }
         });
     }

@@ -287,25 +287,14 @@ public class ItGeneratedRestClientTest {
         ApiException thrown = assertThrows(
                 ApiException.class,
                 () -> clusterConfigurationApi.updateClusterConfiguration("{\n"
-                        + "    \"security\": {\n"
-                        + "        \"authentication\": {\n"
-                        + "            \"enabled\": true,\n"
-                        + "            \"providers\": [\n"
-                        + "                {\n"
-                        + "                    \"name\": \"basic\",\n"
-                        + "                    \"type\": \"basic\",\n"
-                        + "                    \"username\": \"\",\n"
-                        + "                    \"password\": \"\"\n"
-                        + "                }\n"
-                        + "            ]\n"
-                        + "        }\n"
-                        + "    }\n"
+                        + "    security.authentication.enabled:true, \n"
+                        + "    security.authentication.providers:[]\n"
                         + "}")
         );
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
         assertThat(problem.getStatus(), equalTo(400));
-        assertThat(problem.getInvalidParams(), hasSize(2));
+        assertThat(problem.getInvalidParams(), hasSize(1));
     }
 
     @Test

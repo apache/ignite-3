@@ -89,7 +89,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
     public void disabledAuthentication(TestInfo testInfo) throws IOException, InterruptedException {
         RestNode metaStorageNode = nodes.get(0);
 
-        // when
+        // When.
         String initClusterBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
                 + "        \"" + metaStorageNode.name() + "\"\n"
@@ -100,7 +100,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
 
-        // then
+        // Then.
         for (RestNode node : nodes) {
             assertTrue(isRestAvailable(node.httpAddress(), "", ""));
         }
@@ -108,7 +108,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void defaultUser(TestInfo testInfo) throws InterruptedException, IOException {
-        // when
+        // When.
         RestNode metaStorageNode = nodes.get(0);
 
         String initClusterBody = "{\n"
@@ -124,8 +124,8 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
 
-        // then
-        // authentication is enabled
+        // Then.
+        // Authentication is enabled.
         for (RestNode node : nodes) {
             assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
                     Duration.ofSeconds(5).toMillis()));
@@ -139,7 +139,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void changeCredentials(TestInfo testInfo) throws InterruptedException, IOException {
-        // when
+        // When.
         RestNode metaStorageNode = nodes.get(0);
 
         String initClusterBody = "{\n"
@@ -150,13 +150,14 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
                 + "         security.authentication.enabled:true, "
-                + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]}\"\n"
+                + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]"
+                + "     }\"\n"
                 + "  }";
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
 
-        // then
-        // authentication is enabled
+        // Then.
+        // Authentication is enabled.
         for (RestNode node : nodes) {
             assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
                     Duration.ofSeconds(5).toMillis()));
@@ -172,7 +173,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
             assertFalse(isRestAvailable(node.httpAddress(), "admin", "wrong-password"));
         }
 
-        // change password
+        // Change credentials.
         String updateRestAuthConfigBody = "{\n"
                 + "    \"security\": {\n"
                 + "        \"authentication\": {\n"
@@ -205,7 +206,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws InterruptedException, IOException {
-        // when
+        // When.
         RestNode metaStorageNode = nodes.get(0);
 
         String initClusterBody = "{\n"
@@ -221,8 +222,8 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
 
-        // then
-        // authentication is enabled
+        // Then.
+        // Authentication is enabled.
         for (RestNode node : nodes) {
             assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
                     Duration.ofSeconds(5).toMillis()));
@@ -238,7 +239,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
             assertFalse(isRestAvailable(node.httpAddress(), "admin", "wrong-password"));
         }
 
-        // restart one of the nodes
+        // Restart a node.
         RestNode nodeToRestart = nodes.get(2);
         nodeToRestart.restart();
         waitForAllNodesStarted(Collections.singletonList(nodeToRestart));

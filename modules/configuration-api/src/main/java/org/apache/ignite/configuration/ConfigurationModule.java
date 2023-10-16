@@ -94,4 +94,8 @@ public interface ConfigurationModule {
     default Collection<Class<?>> polymorphicSchemaExtensions() {
         return emptySet();
     }
+
+    default void patchDefaults(SuperRootChange defaults) {
+        // No-op.
+    }
 }
