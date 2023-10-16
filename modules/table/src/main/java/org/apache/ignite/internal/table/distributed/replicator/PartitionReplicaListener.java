@@ -1292,16 +1292,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<?> changeStateFuture = finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId);
 
         return cleanup(changeStateFuture, enlistedPartitions, commit, commitTimestamp, txId, ATTEMPTS_TO_CLEANUP_REPLICA)
-                .whenComplete((v, e) -> {
-                    if (e == null) {
-                        txManager.executeCleanupAsync(() -> markLocksReleased(
-                                txId,
-                                enlistedPartitions,
-                                commit ? COMMITED : ABORTED,
-                                commitTimestamp)
-                        );
-                    }
-                });
+                .thenRun(() -> markLocksReleased(
+                        txId,
+                        enlistedPartitions,
+                        commit ? COMMITED : ABORTED,
+                        commitTimestamp)
+                );
     }
 
     private CompletableFuture<Void> cleanup(UUID txId, TxMeta txMeta) {
