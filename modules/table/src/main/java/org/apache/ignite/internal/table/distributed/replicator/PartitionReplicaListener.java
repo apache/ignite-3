@@ -382,11 +382,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         ArrayList<CompletableFuture<?>> futs = new ArrayList<>();
 
-            for (UUID txId : txCleanupReadyFutures.keySet()) {
-                txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-                    if (txOps == null || isFinalState(txOps.state)) {
-                        return null;
-                    }
+        for (UUID txId : txCleanupReadyFutures.keySet()) {
+            txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+                if (txOps == null || isFinalState(txOps.state)) {
+                    return null;
+                }
 
                 if (!txOps.futures.isEmpty()) {
                     CompletableFuture<?>[] txFuts = txOps.futures.values().stream()
