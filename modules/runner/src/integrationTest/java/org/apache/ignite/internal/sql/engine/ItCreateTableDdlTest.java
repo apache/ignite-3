@@ -26,9 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -245,5 +248,15 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
         sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL");
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Decreasing the precision is not allowed",
                 () -> sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL(1)"));
+    }
+
+    @Test
+    public void testItIsNotPossibleToCreateTablesInSystemSchema() {
+        IgniteSql igniteSql = CLUSTER_NODES.get(0).sql();
+
+        try (Session session = igniteSql.sessionBuilder().defaultSchema(CatalogManager.SYSTEM_SCHEMA_NAME).build()) {
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Can not create table SYS_TABLE in SYSTEM schema",
+                    () -> session.execute(null, "CREATE TABLE SYS_TABLE (NAME VARCHAR PRIMARY KEY, SIZE BIGINT)"));
+        }
     }
 }

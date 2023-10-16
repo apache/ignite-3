@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -95,6 +96,11 @@ public class CreateTableCommand extends AbstractTableCommand {
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+
+        if (CatalogManager.SYSTEM_SCHEMA_NAME.equals(schema.name())) {
+            String mesage = format("Can not create table {} in {} schema.", tableName, CatalogManager.SYSTEM_SCHEMA_NAME);
+            throw new CatalogValidationException(mesage);
+        }
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 

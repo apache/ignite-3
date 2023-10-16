@@ -56,6 +56,7 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.apache.ignite.sql.ColumnType.NULL;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
@@ -1931,6 +1932,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void testNotCreateTableInTheSystemSchema() {
+        CatalogCommand createTable = createTableCommandBuilder(TABLE_NAME,
+                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                List.of("key1"),
+                List.of("key1"))
+                .schemaName(SYSTEM_SCHEMA_NAME)
+                .build();
+
+        assertThat(manager.execute(createTable), willCompleteSuccessfully());
+
+        Throwable err = assertThrowsWithCause(() -> manager.execute(createTable), CatalogValidationException.class);
+        assertThat(err.getMessage(), containsString("Can not create table test_view in SYSTEM schema."));
     }
 
     private CompletableFuture<Void> changeColumn(
