@@ -145,7 +145,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
-     * Gets the the copy of the configuration root.
+     * Returns a copy of the configuration root.
      *
      * @return Copy of the configuration root.
      */

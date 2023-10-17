@@ -47,7 +47,6 @@ class ConfigurationDefaultsPatcherImplTest {
     @AfterAll
     static void afterAll() {
         generator.close();
-        generator = null;
     }
 
     @Test

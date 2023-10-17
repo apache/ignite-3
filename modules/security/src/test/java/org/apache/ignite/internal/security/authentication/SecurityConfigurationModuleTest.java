@@ -64,7 +64,6 @@ class SecurityConfigurationModuleTest {
     @AfterEach
     void tearDown() {
         generator.close();
-        generator = null;
     }
 
     @Test
