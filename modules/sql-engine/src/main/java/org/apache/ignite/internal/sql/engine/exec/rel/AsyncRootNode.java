@@ -31,6 +31,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.CursorClosedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An async iterator over the execution tree.
@@ -150,6 +151,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 if (!closed) {
                     Throwable th = ex.get();
 
+                    completePrefetchFuture(th);
+
                     if (th == null) {
                         th = new QueryCancelledException();
                     }
@@ -172,8 +175,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                     }, source::onError);
 
                     closed = true;
-
-                    completePrefetchFuture();
                 }
             }
         }
@@ -203,7 +204,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     }
 
     private void flush() throws Exception {
-        completePrefetchFuture();
+        completePrefetchFuture(null);
 
         // flush may be triggered by prefetching, so let's do nothing in this case
         if (pendingRequests.isEmpty()) {
@@ -247,9 +248,13 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     /**
      * Completes prefetch future if it has not already been completed.
      */
-    private void completePrefetchFuture() {
+    private void completePrefetchFuture(@Nullable Throwable th) {
         if (!prefetchFut.isDone()) {
-            prefetchFut.complete(null);
+            if (th != null) {
+                prefetchFut.completeExceptionally(th);
+            } else {
+                prefetchFut.complete(null);
+            }
         }
     }
 

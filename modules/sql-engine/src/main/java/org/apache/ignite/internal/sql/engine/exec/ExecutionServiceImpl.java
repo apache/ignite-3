@@ -572,10 +572,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 QueryPrefetchCallback callback = ctx.prefetchCallback();
 
                 if (callback != null) {
-                    prefetchFut.thenRunAsync(
-                            callback::onPrefetched,
-                            taskExecutor
-                    );
+                    prefetchFut.whenCompleteAsync((res, err) -> {
+                        if (err == null) {
+                            callback.onPrefetched();
+                        }
+                    }, taskExecutor);
                 }
 
                 root.complete(rootNode);
