@@ -201,7 +201,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
         assertThrowsWithCause(
                 () -> builder.build().get(catalog),
                 CatalogValidationException.class,
-                "Deleting indexed column is not allowed"
+                "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
         );
     }
 }

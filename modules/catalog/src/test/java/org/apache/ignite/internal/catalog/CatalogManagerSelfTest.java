@@ -1754,7 +1754,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 manager.execute(dropColumnParams(TABLE_NAME, "VAL")),
                 willThrowFast(
                         CatalogValidationException.class,
-                        "Deleting indexed column is not allowed"
+                        "Deleting column 'VAL' used by index(es) [myIndex], it is not allowed>"
                 )
         );
     }
