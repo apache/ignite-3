@@ -90,7 +90,11 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      netClusterNodes: [ {}, \"localhost:3355\", \"localhost:3356\" ]\n"
                 + "    }\n"
                 + "  },\n"
-                + "  clientConnector: { port: {} }\n"
+                + "  clientConnector: { port: {} },\n"
+                + "  rest: {\n"
+                + "    port: {},\n"
+                + "    ssl.port: {}\n"
+                + "  }\n"
                 + "}";
 
         @BeforeAll
@@ -189,6 +193,10 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
                 + "      password: \"" + password + "\"\n"
                 + "    }\n"
+                + "  },\n"
+                + "  rest: {\n"
+                + "    port: {},\n"
+                + "    ssl.port: {}\n"
                 + "  }\n"
                 + "}";
 
@@ -405,6 +413,10 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      password: \"" + password + "\","
                 + "      path: \"" + escapeWindowsPath(trustStorePath) + "\""
                 + "      }\n"
+                + "  },\n"
+                + "  rest: {\n"
+                + "    port: {}, \n"
+                + "    ssl.port: {} \n"
                 + "  }\n"
                 + "}";
 
@@ -503,30 +515,32 @@ public class ItSslTest extends IgniteIntegrationTest {
     @Test
     @DisplayName("Cluster is not initialized when nodes are configured with incompatible ciphers")
     void incompatibleCiphersNodes(TestInfo testInfo) {
-        Cluster cluster = new Cluster(testInfo, WORK_DIR);
+        Cluster incompatibleTestCluster = new Cluster(testInfo, WORK_DIR);
 
-        String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
-        String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
+        try {
+            String sslEnabledWithCipher1BoostrapConfig = createBoostrapConfig("TLS_AES_256_GCM_SHA384");
+            String sslEnabledWithCipher2BoostrapConfig = createBoostrapConfig("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
 
-        CompletableFuture<IgniteImpl> node1 = cluster.startNodeAsync(0, sslEnabledWithCipher1BoostrapConfig);
+            CompletableFuture<IgniteImpl> node1 = incompatibleTestCluster.startNodeAsync(10, sslEnabledWithCipher1BoostrapConfig);
 
-        String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
+            String metaStorageAndCmgNodeName = testNodeName(testInfo, 10);
 
-        InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageAndCmgNodeName)
-                .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
-                .clusterName("cluster")
-                .build();
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(metaStorageAndCmgNodeName)
+                    .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
+                    .clusterName("cluster")
+                    .build();
 
-        TestIgnitionManager.init(initParameters);
+            TestIgnitionManager.init(initParameters);
 
-        // First node will initialize the cluster with single node successfully since the second node can't connect to it.
-        assertThat(node1, willCompleteSuccessfully());
+            // First node will initialize the cluster with single node successfully since the second node can't connect to it.
+            assertThat(node1, willCompleteSuccessfully());
 
-        CompletableFuture<IgniteImpl> node2 = cluster.startNodeAsync(1, sslEnabledWithCipher2BoostrapConfig);
-        assertThat(node2, willTimeoutIn(1, TimeUnit.SECONDS));
-
-        cluster.shutdown();
+            CompletableFuture<IgniteImpl> node2 = incompatibleTestCluster.startNodeAsync(11, sslEnabledWithCipher2BoostrapConfig);
+            assertThat(node2, willTimeoutIn(1, TimeUnit.SECONDS));
+        } finally {
+            incompatibleTestCluster.shutdown();
+        }
     }
 
     @Language("JSON")
@@ -559,6 +573,10 @@ public class ItSslTest extends IgniteIntegrationTest {
                 + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
                 + "      password: \"" + password + "\"\n"
                 + "    }\n"
+                + "  },\n"
+                + "  rest: {\n"
+                + "    port: {},\n"
+                + "    ssl.port: {}\n"
                 + "  }\n"
                 + "}";
     }

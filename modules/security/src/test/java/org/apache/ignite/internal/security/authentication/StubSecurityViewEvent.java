@@ -18,22 +18,22 @@
 package org.apache.ignite.internal.security.authentication;
 
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.jetbrains.annotations.Nullable;
 
 /** Stub of {@link ConfigurationNotificationEvent} for tests. */
-public class StubAuthenticationViewEvent implements ConfigurationNotificationEvent<AuthenticationView> {
-    private final AuthenticationView oldValue;
-    private final AuthenticationView newValue;
+public class StubSecurityViewEvent implements ConfigurationNotificationEvent<SecurityView> {
+    private final SecurityView oldValue;
+    private final SecurityView newValue;
 
-    public StubAuthenticationViewEvent(AuthenticationView oldValue, AuthenticationView newValue) {
+    public StubSecurityViewEvent(SecurityView oldValue, SecurityView newValue) {
         this.oldValue = oldValue;
         this.newValue = newValue;
     }
 
     @Override
     @Nullable
-    public AuthenticationView oldValue() {
+    public SecurityView oldValue() {
         return oldValue;
     }
 
@@ -44,7 +44,7 @@ public class StubAuthenticationViewEvent implements ConfigurationNotificationEve
 
     @Override
     @Nullable
-    public AuthenticationView newValue() {
+    public SecurityView newValue() {
         return newValue;
     }
 

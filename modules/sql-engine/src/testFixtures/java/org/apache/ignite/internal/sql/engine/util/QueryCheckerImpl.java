@@ -248,7 +248,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
 
-        QueryContext context = QueryContext.create(SqlQueryType.ALL, tx);
+        QueryContext context = QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES, tx);
 
         String qry = queryTemplate.createQuery();
 

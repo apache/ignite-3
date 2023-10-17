@@ -220,7 +220,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.authentication.enabled:true "
+                + "         security.enabled:true "
                 + "     }\"\n"
                 + "  }";
 
@@ -235,7 +235,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(
                         initProblem.detail(),
                         containsString("Validation did not pass for keys: "
-                                + "[security.authentication.providers, Providers must be present, if auth is enabled]")
+                                + "[security.authentication.providers, Providers must be present, if security is enabled]")
                 )
         );
 

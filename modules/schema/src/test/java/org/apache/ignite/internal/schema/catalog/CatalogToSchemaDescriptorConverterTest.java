@@ -131,6 +131,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 1,
                 -1,
+                -1,
                 "test",
                 0,
                 1,

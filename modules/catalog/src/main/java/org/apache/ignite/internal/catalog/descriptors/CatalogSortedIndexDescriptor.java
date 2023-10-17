@@ -45,7 +45,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             boolean unique,
             List<CatalogIndexColumnDescriptor> columns
     ) {
-        this(id, name, tableId, unique, columns, true);
+        this(id, name, tableId, unique, columns, false);
     }
 
     /**
@@ -56,7 +56,8 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param columns A list of columns descriptors.
-     * @param writeOnly State of the index, {@code true} when index is building, {@code false} when the index is built.
+     * @param available Availability flag, {@code true} means it is available (the index has been built), otherwise it is registered
+     *      (the index has not yet been built).
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
      */
     public CatalogSortedIndexDescriptor(
@@ -65,9 +66,9 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             int tableId,
             boolean unique,
             List<CatalogIndexColumnDescriptor> columns,
-            boolean writeOnly
+            boolean available
     ) {
-        super(id, name, tableId, unique, writeOnly);
+        super(id, name, tableId, unique, available);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }

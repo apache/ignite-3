@@ -40,8 +40,10 @@ public class NodeConfig {
             + "    },\n"
             + "  },\n"
             + "  clientConnector.port: {} ,\n"
-            + "  rest: {"
+            + "  rest: {\n"
+            + "    port: {}\n"
             + "    ssl: {\n"
+            + "      port: {},\n"
             + "      enabled: true,\n"
             + "      keyStore: {\n"
             + "        path: \"" +  escapeWindowsPath(resolvedKeystorePath) + "\",\n"
@@ -77,6 +79,10 @@ public class NodeConfig {
             + "        password: " + trustStorePassword + "\n"
             + "      }\n"
             + "    }\n"
+            + "  },\n"
+            + "  rest: {\n"
+            + "    port: {},\n"
+            + "    ssl.port: {}\n"
             + "  }\n"
             + "}";
 }

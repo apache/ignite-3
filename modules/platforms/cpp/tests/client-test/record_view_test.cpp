@@ -101,7 +101,6 @@ struct extra_mapping_value {
     std::string val;
 };
 
-
 namespace ignite {
 
 template<>
@@ -267,8 +266,8 @@ TEST_F(record_view_test, extra_mapping_value_throws) {
             try {
                 wrong_view.upsert(nullptr, val);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::MatchesRegex(
-                    "Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
+                EXPECT_THAT(e.what_str(),
+                    testing::MatchesRegex("Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
                 throw;
             }
         },

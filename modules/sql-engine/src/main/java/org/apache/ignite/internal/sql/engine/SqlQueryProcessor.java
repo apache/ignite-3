@@ -91,7 +91,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.systemview.SystemViewManager;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -570,6 +570,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
+
+        if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+            String message = "Transaction control statement can not be executed as an independent statement";
+
+            throw new SqlException(STMT_VALIDATION_ERR, message);
+        }
 
         if (!allowedTypes.contains(queryType)) {
             String message = format("Invalid SQL statement type. Expected {} but got {}", allowedTypes, queryType);
