@@ -2685,8 +2685,12 @@ public class PartitionReplicaListener implements ReplicaListener {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
         } else if (request instanceof BuildIndexReplicaRequest) {
-            return placementDriver.awaitPrimaryReplica(replicationGroupId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+            return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(replicaMeta -> {
+                        if (replicaMeta == null) {
+                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), null));
+                        }
+
                         if (isLocalPeer(replicaMeta.getLeaseholder())) {
                             return completedFuture(null);
                         } else {

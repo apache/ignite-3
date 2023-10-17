@@ -61,7 +61,7 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
      * @param expectedLeaseholder Expected leaseholder.
      * @param currentLeaseholder Current leaseholder.
      */
-    public PrimaryReplicaMissException(String expectedLeaseholder, String currentLeaseholder) {
+    public PrimaryReplicaMissException(String expectedLeaseholder, @Nullable String currentLeaseholder) {
         super(
                 REPLICA_MISS_ERR,
                 "The primary replica has changed [expectedLeaseholder={}, currentLeaseholder={}]",
