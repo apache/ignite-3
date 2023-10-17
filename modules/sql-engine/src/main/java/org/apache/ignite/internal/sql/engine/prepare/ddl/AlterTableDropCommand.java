@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import java.util.Collections;
 import java.util.Set;
 
 /**
