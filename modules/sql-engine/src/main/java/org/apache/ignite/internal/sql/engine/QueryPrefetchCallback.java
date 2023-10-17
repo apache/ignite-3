@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Callback that is invoked when the query finishes prefetching. It is designed
@@ -38,6 +39,8 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 public interface QueryPrefetchCallback {
     /**
      * Called when the query finishes prefetching.
+     *
+     * @param ex Exceptional completion cause, or {@code null} if prefetch completed successfully.
      */
-    void onPrefetched();
+    void onPrefetchComplete(@Nullable Throwable ex);
 }

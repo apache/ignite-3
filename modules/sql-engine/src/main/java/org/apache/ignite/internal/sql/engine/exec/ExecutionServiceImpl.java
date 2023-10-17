@@ -297,11 +297,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 });
 
         if (callback != null) {
-            ret.whenCompleteAsync((res, err) -> {
-                if (err == null) {
-                    callback.onPrefetched();
-                }
-            }, taskExecutor);
+            ret.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
         }
 
         return new AsyncWrapper<>(ret, Runnable::run);
@@ -328,7 +324,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         List<List<Object>> res = List.of(List.of(plan.plan()));
 
         if (callback != null) {
-            taskExecutor.execute(callback::onPrefetched);
+            taskExecutor.execute(() -> callback.onPrefetchComplete(null));
         }
 
         return new AsyncWrapper<>(res.iterator());
@@ -572,11 +568,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 QueryPrefetchCallback callback = ctx.prefetchCallback();
 
                 if (callback != null) {
-                    prefetchFut.whenCompleteAsync((res, err) -> {
-                        if (err == null) {
-                            callback.onPrefetched();
-                        }
-                    }, taskExecutor);
+                    prefetchFut.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
                 }
 
                 root.complete(rootNode);

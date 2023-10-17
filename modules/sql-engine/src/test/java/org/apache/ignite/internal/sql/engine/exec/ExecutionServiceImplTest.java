@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -614,8 +615,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
             @Override
-            public void onPrefetched() {
+            public void onPrefetchComplete(@Nullable Throwable err) {
                 try {
+                    assertThat(err, nullValue());
+
                     String sql = queriesQueue.poll();
 
                     assertThat(sql, notNullValue());
@@ -636,7 +639,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         };
 
         // Start statements execution.
-        prefetchListener.onPrefetched();
+        prefetchListener.onPrefetchComplete(null);
 
         if (errHolder.get() != null) {
             throw errHolder.get();
