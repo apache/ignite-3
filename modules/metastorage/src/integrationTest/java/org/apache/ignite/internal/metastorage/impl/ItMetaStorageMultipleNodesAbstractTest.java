@@ -47,6 +47,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -104,6 +105,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
 
+    @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
+
     /**
      * Large interval to effectively disable idle safe time propagation.
      */
@@ -156,7 +160,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    new NodeAttributesCollector(nodeAttributes),
+                    new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                     new TestConfigurationValidator());
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

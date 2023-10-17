@@ -36,6 +36,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -80,6 +81,9 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -133,7 +137,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes),
+                    new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                     new TestConfigurationValidator());
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

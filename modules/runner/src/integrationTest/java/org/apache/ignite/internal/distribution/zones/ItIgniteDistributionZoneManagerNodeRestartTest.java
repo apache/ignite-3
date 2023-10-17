@@ -329,7 +329,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B, C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.attributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
