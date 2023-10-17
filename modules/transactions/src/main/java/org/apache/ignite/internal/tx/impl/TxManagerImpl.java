@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -47,6 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -55,7 +57,6 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -131,6 +132,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final PlacementDriver placementDriver;
 
+    private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
+
     /**
      * The constructor.
      *
@@ -147,12 +150,42 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Supplier<String> localNodeIdSupplier,
             PlacementDriver placementDriver
     ) {
+        this(
+                replicaService,
+                lockManager,
+                clock,
+                transactionIdGenerator,
+                localNodeIdSupplier,
+                placementDriver,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+        );
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param replicaService Replica service.
+     * @param lockManager Lock manager.
+     * @param clock A hybrid logical clock.
+     * @param transactionIdGenerator Used to generate transaction IDs.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     */
+    public TxManagerImpl(
+            ReplicaService replicaService,
+            LockManager lockManager,
+            HybridClock clock,
+            TransactionIdGenerator transactionIdGenerator,
+            Supplier<String> localNodeIdSupplier,
+            PlacementDriver placementDriver,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier
+    ) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
         this.placementDriver = placementDriver;
+        this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -220,7 +253,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         HybridTimestamp now = clock.now();
 
         return new HybridTimestamp(now.getPhysical()
-                - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                - idleSafeTimePropagationPeriodMsSupplier.getAsLong()
                 - HybridTimestamp.CLOCK_SKEW,
                 0
         );
