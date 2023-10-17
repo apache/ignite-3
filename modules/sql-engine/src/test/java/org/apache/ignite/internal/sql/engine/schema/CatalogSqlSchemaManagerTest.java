@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.RelCollations;
@@ -74,6 +75,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -333,8 +335,9 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
     /**
      * Hash index.
      */
-    @Test
-    public void testHashIndex() {
+    @ParameterizedTest(name = "available: {0}")
+    @ValueSource(booleans = {true, false})
+    public void testHashIndex(boolean available) {
         TestTable testTable = new TestTable("TEST");
 
         testTable.addColumn("c1", ColumnType.INT32);
@@ -342,6 +345,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         testTable.addColumn("c3", ColumnType.INT32);
 
         TestIndex testIndex = new TestIndex("TEST_IDX");
+        testIndex.available = available;
         testIndex.table = testTable.name;
         testIndex.hashColumns = Arrays.asList("c1", "c2");
 
@@ -357,21 +361,22 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
-        IgniteIndex testIdx = table.indexes().get(testIndex.name);
-
-        assertEquals(testIndex.name, testIdx.name());
-        assertEquals(Type.HASH, testIdx.type());
-        assertEquals(RelCollations.of(
-                new RelFieldCollation(0, Direction.CLUSTERED, NullDirection.UNSPECIFIED),
-                new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
-        ), testIdx.collation());
+        testIndex.check(available, table, (testIdx) -> {
+            assertEquals(testIndex.name, testIdx.name());
+            assertEquals(Type.HASH, testIdx.type());
+            assertEquals(RelCollations.of(
+                    new RelFieldCollation(0, Direction.CLUSTERED, NullDirection.UNSPECIFIED),
+                    new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
+            ), testIdx.collation());
+        });
     }
 
     /**
      * Sorted index.
      */
-    @Test
-    public void testSortedIndex() {
+    @ParameterizedTest(name = "available: {0}")
+    @ValueSource(booleans = {true, false})
+    public void testSortedIndex(boolean available) {
         TestTable testTable = new TestTable("TEST");
 
         testTable.addColumn("c1", ColumnType.INT32);
@@ -381,6 +386,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         testTable.addColumn("c5", ColumnType.INT32);
 
         TestIndex testIndex = new TestIndex("TEST_IDX");
+        testIndex.available = available;
         testIndex.table = testTable.name;
         testIndex.sortedColumns = Arrays.asList(
                 Map.entry("c1", CatalogColumnCollation.ASC_NULLS_LAST),
@@ -401,16 +407,16 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
-        IgniteIndex testIdx = table.indexes().get(testIndex.name);
-
-        assertEquals(testIndex.name, testIdx.name());
-        assertEquals(Type.SORTED, testIdx.type());
-        assertEquals(RelCollations.of(
-                new RelFieldCollation(0, Direction.ASCENDING, NullDirection.LAST),
-                new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
-                new RelFieldCollation(2, Direction.DESCENDING, NullDirection.LAST),
-                new RelFieldCollation(3, Direction.DESCENDING, NullDirection.FIRST)
-        ), testIdx.collation());
+        testIndex.check(available, table, (testIdx) -> {
+            assertEquals(testIndex.name, testIdx.name());
+            assertEquals(Type.SORTED, testIdx.type());
+            assertEquals(RelCollations.of(
+                    new RelFieldCollation(0, Direction.ASCENDING, NullDirection.LAST),
+                    new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
+                    new RelFieldCollation(2, Direction.DESCENDING, NullDirection.LAST),
+                    new RelFieldCollation(3, Direction.DESCENDING, NullDirection.FIRST)
+            ), testIdx.collation());
+        });
     }
 
     /**
@@ -582,7 +588,6 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
             for (TestIndex testIndex : indexes) {
                 CatalogTableDescriptor tableDescriptor = tableDescriptors.get(testIndex.table);
-                testIndex.version = version;
 
                 int tableId = tableDescriptor.id();
                 String name = testIndex.name;
@@ -713,13 +718,13 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         private int id = ID.incrementAndGet();
 
-        private int version;
-
         private List<String> hashColumns;
 
         private List<Map.Entry<String, CatalogColumnCollation>> sortedColumns;
 
         private String table;
+
+        private boolean available;
 
         private TestIndex(String name) {
             this.name = name;
@@ -727,15 +732,25 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         CatalogIndexDescriptor newDescriptor(int tableId) {
             if (hashColumns != null) {
-                return new CatalogHashIndexDescriptor(id, name, tableId, false, hashColumns, true);
+                return new CatalogHashIndexDescriptor(id, name, tableId, false, hashColumns, available);
             } else if (sortedColumns != null) {
                 List<CatalogIndexColumnDescriptor> indexColumns = sortedColumns.stream()
                         .map((e) -> new CatalogIndexColumnDescriptor(e.getKey(), e.getValue()))
                         .collect(Collectors.toList());
 
-                return new CatalogSortedIndexDescriptor(id, name, tableId, false, indexColumns, true);
+                return new CatalogSortedIndexDescriptor(id, name, tableId, false, indexColumns, available);
             } else {
                 throw new IllegalStateException("Unable to create index");
+            }
+        }
+
+        private void check(boolean available, IgniteTable table, Consumer<IgniteIndex> check) {
+            IgniteIndex igniteIndex = table.indexes().get(name);
+            if (available) {
+                assertNotNull(igniteIndex, "index does not exist");
+                check.accept(igniteIndex);
+            } else {
+                assertNull(igniteIndex, "index is not available but present in a table: " + table.indexes());
             }
         }
     }
