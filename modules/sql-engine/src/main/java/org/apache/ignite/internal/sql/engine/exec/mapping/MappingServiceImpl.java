@@ -52,13 +52,19 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener {
     private static final int MAPPING_ATTEMPTS = 3;
 
-    private final LogicalTopologyHolder topologySnapshot = new LogicalTopologyHolder();
+    private final LogicalTopologyHolder topologyHolder = new LogicalTopologyHolder();
 
     private final String localNodeName;
     private final ExecutionTargetProvider targetProvider;
-    /** Initialization future, which prevents {@link #map(MultiStepPlan)} method call on stale topology. */
     private final CompletableFuture<Void> initialTopologyFuture;
 
+    /**
+     * Constructor.
+     *
+     * @param localNodeName Name of the current Ignite node.
+     * @param targetProvider Execution target provider.
+     * @param topologyReadyFuture Topology ready future.
+     */
     public MappingServiceImpl(
             String localNodeName,
             ExecutionTargetProvider targetProvider,
@@ -66,7 +72,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     ) {
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
-        this.initialTopologyFuture = topologyReadyFuture.thenAccept(topologySnapshot::onTopologyChange);
+        this.initialTopologyFuture = topologyReadyFuture.thenAccept(topologyHolder::update);
     }
 
     @Override
@@ -77,7 +83,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
         List<Fragment> fragments = multiStepPlan.fragments();
 
-        MappingContext context = new MappingContext(localNodeName, topologySnapshot.nodes());
+        MappingContext context = new MappingContext(localNodeName, topologyHolder.nodes());
 
         List<Fragment> fragments0 = Commons.transform(fragments, fragment -> fragment.attach(context.cluster()));
 
@@ -204,17 +210,17 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
     @Override
     public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-        topologySnapshot.onTopologyChange(newTopology);
+        topologyHolder.update(newTopology);
     }
 
     @Override
     public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-        topologySnapshot.onTopologyChange(newTopology);
+        topologyHolder.update(newTopology);
     }
 
     @Override
     public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-        topologySnapshot.onTopologyChange(newTopology);
+        topologyHolder.update(newTopology);
     }
 
 
@@ -265,7 +271,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         private volatile List<String> nodes = List.of();
         private long ver = Long.MIN_VALUE;
 
-        synchronized void onTopologyChange(LogicalTopologySnapshot topologySnapshot) {
+        synchronized void update(LogicalTopologySnapshot topologySnapshot) {
             if (ver < topologySnapshot.version()) {
                 nodes = deriveNodeNames(topologySnapshot);
                 ver = topologySnapshot.version();
