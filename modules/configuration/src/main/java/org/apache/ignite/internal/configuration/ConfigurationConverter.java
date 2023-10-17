@@ -35,6 +35,7 @@ public final class ConfigurationConverter {
     /**
      * Converts configuration subtree into a user-defined representation.
      *
+     * @param superRoot Super root of the configuration.
      * @param path    Path to configuration subtree. Can be empty, can't be {@code null}.
      * @param visitor Visitor that will be applied to the subtree and build the representation.
      * @param <T>     Type of the representation.
