@@ -23,16 +23,18 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.hasProperty;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -53,6 +55,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -63,6 +66,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
@@ -550,8 +554,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 return completedFuture(null);
             } else {
                 // On other nodes, simulate that the node has already gone.
-                return CompletableFuture.failedFuture(new IgniteInternalException(Common.INTERNAL_ERR,
-                        "Connection refused to " + node.nodeName + ", message " + msg));
+                return CompletableFuture.failedFuture(new NodeLeftException(node.nodeName));
             }
         }));
 
@@ -559,7 +562,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
-        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Unable to send fragment")), 10, TimeUnit.SECONDS));
+        ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.closeAsync().get(10, TimeUnit.SECONDS));
+        assertThat(eex.getCause(), instanceOf(NodeLeftException.class));
+        assertThat(eex.getCause().getMessage(), containsString("cause=Node left the cluster"));
+        assertThat(((NodeLeftException) eex.getCause()).code(), equalTo(NODE_LEFT_ERR));
 
         // Let the root fragment be executed.
         queryFailedLatch.countDown();

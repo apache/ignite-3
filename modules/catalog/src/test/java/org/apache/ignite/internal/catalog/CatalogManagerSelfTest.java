@@ -101,6 +101,7 @@ import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -119,6 +120,7 @@ import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -960,7 +962,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
-        assertFalse(index.writeOnly());
+        assertFalse(index.available());
     }
 
     @Test
@@ -1001,7 +1003,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
-        assertFalse(index.writeOnly());
+        assertFalse(index.available());
     }
 
     @Test
@@ -1856,6 +1858,81 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(versionAfter, is(versionBefore));
     }
 
+    @Test
+    void testMakeHashIndexAvailable() {
+        createSomeTable(TABLE_NAME);
+
+        assertThat(
+                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("key1"))),
+                willBe(nullValue())
+        );
+
+        assertThat(
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
+                willBe(nullValue())
+        );
+
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
+
+        assertTrue(index.available());
+    }
+
+    @Test
+    void testMakeSortedIndexAvailable() {
+        createSomeTable(TABLE_NAME);
+
+        assertThat(
+                manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("key1"), List.of(ASC_NULLS_LAST))),
+                willBe(nullValue())
+        );
+
+        assertThat(
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
+                willBe(nullValue())
+        );
+
+        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
+
+        assertTrue(index.available());
+    }
+
+    @Test
+    void testAvailableIndexEvent() {
+        createSomeTable(TABLE_NAME);
+
+        assertThat(
+                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("key1"))),
+                willBe(nullValue())
+        );
+
+        int indexId = index(manager.latestCatalogVersion(), INDEX_NAME).id();
+
+        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
+            if (exception != null) {
+                fireEventFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    assertEquals(indexId, ((MakeIndexAvailableEventParameters) parameters).indexId());
+
+                    fireEventFuture.complete(null);
+                } catch (Throwable t) {
+                    fireEventFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        assertThat(
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
+                willBe(nullValue())
+        );
+
+        assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,
@@ -1923,5 +2000,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     private @Nullable CatalogIndexDescriptor index(int catalogVersion, String indexName) {
         return manager.schema(catalogVersion).index(indexName);
+    }
+
+    private int indexId(String indexName) {
+        CatalogIndexDescriptor index = manager.index(indexName, clock.nowLong());
+
+        assertNotNull(index, indexName);
+
+        return index.id();
     }
 }

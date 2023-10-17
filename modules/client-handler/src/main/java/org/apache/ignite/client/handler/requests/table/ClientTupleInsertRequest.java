@@ -48,11 +48,11 @@ public class ClientTupleInsertRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var tuple = readTuple(in, table, false);
-
-            return table.recordView().insertAsync(tx, tuple).thenAccept(res -> {
-                out.packInt(table.schemaView().lastSchemaVersion());
-                out.packBoolean(res);
+            return readTuple(in, table, false).thenCompose(tuple -> {
+                return table.recordView().insertAsync(tx, tuple).thenAccept(res -> {
+                    out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    out.packBoolean(res);
+                });
             });
         });
     }

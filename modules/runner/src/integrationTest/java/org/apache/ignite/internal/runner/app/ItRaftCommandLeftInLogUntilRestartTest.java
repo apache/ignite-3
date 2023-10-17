@@ -222,7 +222,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
     private static Row marshalKey(TableImpl table, Tuple tuple) throws TupleMarshallerException {
         SchemaRegistry schemaReg = table.schemaView();
-        var marshaller = new TupleMarshallerImpl(schemaReg.schema(schemaReg.lastSchemaVersion()));
+        var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 
         return marshaller.marshalKey(tuple);
     }
@@ -308,7 +308,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
                 assertNotNull(readOnlyBinaryRow);
 
-                Row readOnlyRow = Row.wrapBinaryRow(table.schemaView().schema(), readOnlyBinaryRow);
+                Row readOnlyRow = Row.wrapBinaryRow(table.schemaView().lastKnownSchema(), readOnlyBinaryRow);
 
                 assertEquals(row[1], readOnlyRow.stringValue(2));
                 assertEquals(row[2], readOnlyRow.doubleValue(1));

@@ -79,7 +79,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                 "{\n"
                         + "  network.port: 3344,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  clientConnector.port: 10800\n"
+                        + "  clientConnector.port: 10800,\n"
+                        + "  rest.port: 10300\n"
                         + "}"
         );
 
@@ -90,7 +91,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                         + "  clientConnector.metricsEnabled: true\n"
-                        + "  clientConnector.port: 10801\n"
+                        + "  clientConnector.port: 10801,\n"
+                        + "  rest.port: 10301\n"
                         + "}"
         );
 
@@ -180,25 +182,6 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
     protected Ignite server(int idx) {
         return startedNodes.get(idx);
-    }
-
-    void waitForTableOnAllNodes(String tableName) throws InterruptedException {
-        // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
-        // Currently newly created table is not immediately available on all nodes.
-        boolean res = IgniteTestUtils.waitForCondition(() -> {
-            var nodeCount = client().clusterNodes().size();
-
-            // Do N checks - they will go to different nodes becase of request balancing.
-            for (int i = 0; i < nodeCount; i++) {
-                if (client().tables().table(tableName) == null) {
-                    return false;
-                }
-            }
-
-            return true;
-        }, 3000);
-
-        assertTrue(res);
     }
 
     /**

@@ -174,7 +174,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                TABLE_ID, -1, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN
+                TABLE_ID, -1, -1, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN
         );
 
         CompletableFuture<Boolean> future = tableCreatedListener()
@@ -244,7 +244,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
+        return new CatalogTableDescriptor(TABLE_ID, -1, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     private void completeCausalityToken(long causalityToken) {
@@ -280,7 +280,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("k2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
+        return new CatalogTableDescriptor(TABLE_ID, -1, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     @Test
@@ -318,7 +318,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT64, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
+        return new CatalogTableDescriptor(TABLE_ID, -1, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     @Test
@@ -360,7 +360,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
-        assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
         assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
@@ -382,7 +382,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = future.join();
 
-        assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
         assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
@@ -422,17 +422,6 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
         assertThat(future, willBe(false));
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
-    }
-
-    @Test
-    void waitLatestSchemaReturnsLatestSchema() {
-        create2TableVersions();
-
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
-
-        SchemaDescriptor schemaDescriptor = schemaRegistry.waitLatestSchema();
-
-        assertThat(schemaDescriptor.version(), is(2));
     }
 
     @Test

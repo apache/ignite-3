@@ -112,6 +112,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
 
+    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(LOCAL_NODE.name());
+
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.
     // We subtract (ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + HybridTimestamp.CLOCK_SKEW) = (1000 + 7) = 1007
@@ -216,6 +218,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *         ReplicaService by itself.
      * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
+     * @param tracker Observable timestamp tracker.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -238,9 +241,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK,
                 tracker,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                TEST_PLACEMENT_DRIVER
         );
-        RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
+        RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
@@ -384,7 +387,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                TEST_PLACEMENT_DRIVER
         );
 
         partitionListener = new PartitionListener(
@@ -430,7 +433,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service to use.
      */
     public static TxManagerImpl txManager(ReplicaService replicaSvc) {
-        return new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), LOCAL_NODE::id);
+        return new TxManagerImpl(
+                replicaSvc,
+                new HeapLockManager(),
+                CLOCK,
+                new TransactionIdGenerator(0xdeadbeef),
+                LOCAL_NODE::id,
+                TEST_PLACEMENT_DRIVER
+        );
     }
 
     /** {@inheritDoc} */

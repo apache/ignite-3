@@ -29,8 +29,10 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -362,5 +364,39 @@ public class CatalogUtils {
      */
     public static String pkIndexName(String tableName) {
         return tableName + "_PK";
+    }
+
+    /**
+     * Returns index descriptor.
+     *
+     * @param schema Schema to look up index in.
+     * @param name Name of the index of interest.
+     * @throws IndexNotFoundValidationException If index does not exist.
+     */
+    static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+        CatalogIndexDescriptor index = schema.index(name);
+
+        if (index == null) {
+            throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return index;
+    }
+
+    /**
+     * Returns index descriptor.
+     *
+     * @param catalog Catalog to look up index in.
+     * @param indexId ID of the index of interest.
+     * @throws IndexNotFoundValidationException If index does not exist.
+     */
+    static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
+        CatalogIndexDescriptor index = catalog.index(indexId);
+
+        if (index == null) {
+            throw new IndexNotFoundValidationException(format("Index with ID '{}' not found", indexId));
+        }
+
+        return index;
     }
 }

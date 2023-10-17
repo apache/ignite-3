@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.systemview;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.systemview.utils.SystemViewUtils.tupleSchemaForView;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
@@ -37,12 +39,20 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.systemview.api.NodeSystemView;
+import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.systemview.api.SystemViewColumn;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.utils.SystemViewUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
@@ -77,6 +87,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     /** Future which is completed when system views are registered in the catalog. */
     private final CompletableFuture<Void> viewsRegistrationFuture = new CompletableFuture<>();
 
+    private volatile Map<String, ScannableView<?>> scannableViews = Map.of();
+
     private volatile Map<String, List<String>> owningNodesByViewName = Map.of();
 
     /** Creates a system view manager. */
@@ -97,6 +109,8 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
 
                 return;
             }
+
+            scannableViews = toScannableViews(localNodeName, views);
 
             List<CatalogCommand> commands = views.values().stream()
                     .map(SystemViewUtils::toSystemViewCreateCommand)
@@ -134,30 +148,23 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
 
     @Override
     public Publisher<InternalTuple> scanView(String name) {
-        if (views.get(name) == null) {
+        ScannableView<?> scannableView = scannableViews.get(name);
+
+        if (scannableView == null) {
             throw new IgniteInternalException(
                     Common.INTERNAL_ERR,
                     format("View with name '{}' not found on node '{}'", name, localNodeName)
             );
         }
 
-        throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-20578");
+        return scannableView.scan();
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void register(SystemView<?> view) {
-        if (views.containsKey(view.name())) {
-            throw new IllegalArgumentException(format("The view with name '{}' already registered", view.name()));
-        }
+    public void register(SystemViewProvider viewProvider) {
+        List<SystemView<?>> views = viewProvider.systemViews();
 
-        inBusyLock(busyLock, () -> {
-            if (startGuard.get()) {
-                throw new IllegalStateException(format("Unable to register view '{}', manager already started", view.name()));
-            }
-
-            views.put(view.name(), view);
-        });
+        views.forEach(this::registerView);
     }
 
     /** {@inheritDoc} */
@@ -188,6 +195,20 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         return viewsRegistrationFuture;
     }
 
+    private void registerView(SystemView<?> view) {
+        if (views.containsKey(view.name())) {
+            throw new IllegalArgumentException(format("The view with name '{}' already registered", view.name()));
+        }
+
+        inBusyLock(busyLock, () -> {
+            if (startGuard.get()) {
+                throw new IllegalStateException(format("Unable to register view '{}', manager already started", view.name()));
+            }
+
+            views.put(view.name(), view);
+        });
+    }
+
     private void processNewTopology(LogicalTopologySnapshot topology) {
         Map<String, List<String>> owningNodesByViewName = new HashMap<>();
 
@@ -214,5 +235,45 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
         }
 
         this.owningNodesByViewName = Map.copyOf(owningNodesByViewName);
+    }
+
+    private static Map<String, ScannableView<?>> toScannableViews(String localNodeName, Map<String, SystemView<?>> views) {
+        Map<String, ScannableView<?>> scannableViews = new HashMap<>();
+
+        for (SystemView<?> view : views.values()) {
+            scannableViews.put(view.name(), new ScannableView<>(localNodeName, (SystemView<Object>) view));
+        }
+
+        return Map.copyOf(scannableViews);
+    }
+
+    private static class ScannableView<T> {
+        private final Publisher<InternalTuple> publisher;
+
+        private ScannableView(String localNodeName, SystemView<T> view) {
+            BinaryTupleSchema schema = tupleSchemaForView(view);
+
+            this.publisher = new TransformingPublisher<>(view.dataProvider(), object -> {
+                BinaryTupleBuilder builder = new BinaryTupleBuilder(schema.elementCount());
+
+                int offset = 0;
+                if (view instanceof NodeSystemView) {
+                    builder.appendString(localNodeName);
+                    offset++;
+                }
+
+                for (int i = 0; i < view.columns().size(); i++) {
+                    SystemViewColumn<T, ?> column = view.columns().get(i);
+
+                    schema.appendValue(builder, i + offset, column.value().apply(object));
+                }
+
+                return new BinaryTuple(schema.elementCount(), builder.build());
+            });
+        }
+
+        Publisher<InternalTuple> scan() {
+            return publisher;
+        }
     }
 }

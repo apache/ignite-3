@@ -30,7 +30,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -119,17 +118,16 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
      * Check invalid colocation columns configuration: - not PK columns; - duplicates colocation columns.
      */
     @Test
-    @Disabled("IGNITE-20149")
     public void invalidColocationColumns() {
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Colocation columns must be subset of primary key",
+                "Failed to validate query. Colocation column 'VAL' is not part of PK",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
         );
 
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Colocation columns contains duplicates: [duplicates=[ID1]]]",
+                "Failed to validate query. Colocation column 'ID1' specified more that once",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
         );
     }
@@ -141,7 +139,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void implicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(2, colocationColumns.length);
         assertEquals("ID1", colocationColumns[0].name());
@@ -208,7 +206,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void explicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("ID0", colocationColumns[0].name());
@@ -221,7 +219,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void explicitColocationColumnsCaseSensitive() {
         sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("Id0", colocationColumns[0].name());

@@ -48,13 +48,13 @@ public class ClientTupleContainsKeyRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var keyTuple = readTuple(in, table, true);
-
-            return table.recordView().getAsync(tx, keyTuple)
-                    .thenAccept(t -> {
-                        out.packInt(table.schemaView().lastSchemaVersion());
-                        out.packBoolean(t != null);
-                    });
+            return readTuple(in, table, true).thenCompose(keyTuple -> {
+                return table.recordView().getAsync(tx, keyTuple)
+                        .thenAccept(t -> {
+                            out.packInt(table.schemaView().lastKnownSchemaVersion());
+                            out.packBoolean(t != null);
+                        });
+            });
         });
     }
 }

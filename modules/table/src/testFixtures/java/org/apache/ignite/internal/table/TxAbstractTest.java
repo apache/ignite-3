@@ -76,7 +76,6 @@ import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -448,7 +447,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
     public void testBatchPutConcurrently() {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
@@ -477,7 +475,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
     public void testBatchReadPutConcurrently() throws InterruptedException {
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
@@ -1332,7 +1329,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             @Override
             public void onNext(BinaryRow item) {
                 SchemaRegistry registry = accounts.schemaView();
-                Row row = registry.resolve(item, registry.schema(registry.lastSchemaVersion()));
+                Row row = registry.resolve(item, registry.lastKnownSchema());
 
                 rows.add(TableRow.tuple(row));
             }
@@ -1743,7 +1740,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param t The table.
      * @return TX manager.
      */
-    protected abstract TxManager txManager(Table t);
+    protected abstract TxManager txManager(TableImpl t);
 
     /**
      * Get a lock manager on a partition leader.
@@ -1751,7 +1748,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param t The table.
      * @return Lock manager.
      */
-    protected LockManager lockManager(Table t) {
+    protected LockManager lockManager(TableImpl t) {
         return txManager(t).lockManager();
     }
 
@@ -2041,7 +2038,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testBatchSinglePartitionGet() throws Exception {
         var accountRecordsView = accounts.recordView();
 
-        var marshaller = new TupleMarshallerImpl(accounts.schemaView().schema(accounts.schemaView().lastSchemaVersion()));
+        SchemaRegistry schemaRegistry = accounts.schemaView();
+        var marshaller = new TupleMarshallerImpl(schemaRegistry.lastKnownSchema());
 
         int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
 

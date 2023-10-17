@@ -49,10 +49,10 @@ public class ClientTupleGetAndDeleteRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var tuple = readTuple(in, table, true);
-
-            return table.recordView().getAndDeleteAsync(tx, tuple).thenAccept(
-                    resTuple -> ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView()));
+            return readTuple(in, table, true).thenCompose(tuple -> {
+                return table.recordView().getAndDeleteAsync(tx, tuple).thenAccept(
+                        resTuple -> ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView()));
+            });
         });
     }
 }

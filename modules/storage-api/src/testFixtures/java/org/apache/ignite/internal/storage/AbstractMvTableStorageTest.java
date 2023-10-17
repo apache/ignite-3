@@ -763,6 +763,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static void createTestTableAndIndexes(CatalogService catalogService) {
         int id = 0;
 
+        int schemaId = id++;
         int tableId = id++;
         int zoneId = id++;
         int sortedIndexId = id++;
@@ -770,6 +771,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 tableId,
+                schemaId,
                 hashIndexId,
                 TABLE_NAME,
                 zoneId,
@@ -790,7 +792,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 SORTED_INDEX_NAME,
                 tableId,
                 false,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                true
         );
 
         CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
@@ -798,7 +801,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 HASH_INDEX_NAME,
                 tableId,
                 true,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                true
         );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);

@@ -156,7 +156,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
         HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "security.authentication.enabled=true"),
+                patch("/management/v1/configuration/cluster", "security.enabled=true"),
                 BodyHandlers.ofString()
         );
 

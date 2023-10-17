@@ -483,8 +483,8 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> systemViewDistributions() {
         return Stream.of(
-                Arguments.of(SystemViewType.LOCAL, IgniteDistributions.identity(0)),
-                Arguments.of(SystemViewType.GLOBAL, IgniteDistributions.single())
+                Arguments.of(SystemViewType.NODE, IgniteDistributions.identity(0)),
+                Arguments.of(SystemViewType.CLUSTER, IgniteDistributions.single())
         );
     }
 
@@ -695,6 +695,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
             return new CatalogTableDescriptor(
                     id,
                     -1,
+                    -1,
                     name,
                     zoneId,
                     CatalogTableDescriptor.INITIAL_TABLE_VERSION,
@@ -726,13 +727,13 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         CatalogIndexDescriptor newDescriptor(int tableId) {
             if (hashColumns != null) {
-                return new CatalogHashIndexDescriptor(id, name, tableId, false, hashColumns);
+                return new CatalogHashIndexDescriptor(id, name, tableId, false, hashColumns, true);
             } else if (sortedColumns != null) {
                 List<CatalogIndexColumnDescriptor> indexColumns = sortedColumns.stream()
                         .map((e) -> new CatalogIndexColumnDescriptor(e.getKey(), e.getValue()))
                         .collect(Collectors.toList());
 
-                return new CatalogSortedIndexDescriptor(id, name, tableId, false, indexColumns);
+                return new CatalogSortedIndexDescriptor(id, name, tableId, false, indexColumns, true);
             } else {
                 throw new IllegalStateException("Unable to create index");
             }
