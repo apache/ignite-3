@@ -178,7 +178,7 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
+            QueryContext ctx = QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES, transaction);
 
             result = qryProc.querySingleAsync(sessionId, ctx, transactions, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
