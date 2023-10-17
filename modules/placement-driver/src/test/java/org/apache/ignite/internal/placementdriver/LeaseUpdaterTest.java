@@ -77,6 +77,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
+ * TODO: IGNITE-20485 Configure the lease interval as less as possible to decrease the duration of tests.
  * The class contains unit tests for {@link LeaseUpdater}.
  */
 @ExtendWith({MockitoExtension.class})
@@ -211,13 +212,13 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
             t.join();
         }
 
-        if (leaseUpdater.active()) {
-            assertTrue(IgniteTestUtils.waitForCondition(() -> getUpdaterThread() != null, 10_000));
+        leaseUpdater.activate();
 
-            awaitForLease();
+        assertTrue(IgniteTestUtils.waitForCondition(() -> getUpdaterThread() != null, 10_000));
 
-            leaseUpdater.deactivate();
-        }
+        awaitForLease();
+
+        leaseUpdater.deactivate();
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> getUpdaterThread() == null, 10_000));
     }
