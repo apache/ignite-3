@@ -108,7 +108,8 @@ public class ItClusterInitTest extends IgniteAbstractTest {
             String config = "{"
                     + " network.port: " + port + ","
                     + " clientConnector.port: " + (port + 8000) + ","
-                    + " network.nodeFinder.netClusterNodes: " + nodeFinderConfig
+                    + " network.nodeFinder.netClusterNodes: " + nodeFinderConfig + ","
+                    + " rest.port: " + (port + 10000)
                     + "}";
 
             String nodeName = testNodeName(testInfo, port);

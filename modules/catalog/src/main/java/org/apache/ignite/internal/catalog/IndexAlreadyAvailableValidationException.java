@@ -20,8 +20,7 @@ package org.apache.ignite.internal.catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 
 /**
- * This exception is thrown when an attempt is made to make an index available a second time
- * ({@link CatalogIndexDescriptor#writeOnly() read-write} state).
+ * This exception is thrown when an attempt is made to make an index {@link CatalogIndexDescriptor#available() available} a second time.
  */
 public class IndexAlreadyAvailableValidationException extends CatalogValidationException {
     private static final long serialVersionUID = 5482919822886169473L;

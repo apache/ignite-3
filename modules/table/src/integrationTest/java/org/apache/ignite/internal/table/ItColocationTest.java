@@ -63,6 +63,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -183,7 +184,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 });
 
                 if (cmd instanceof UpdateAllCommand) {
-                    return completedFuture(List.of());
+                    return completedFuture(((UpdateAllCommand) cmd).rowsToUpdate().keySet().stream()
+                            .map(uuid -> new NullBinaryRow())
+                            .collect(Collectors.toList()));
                 } else {
                     return completedFuture(true);
                 }

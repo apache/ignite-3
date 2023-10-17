@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.storage.RowBatch;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
@@ -251,34 +253,23 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         RowHandler<RowT> handler = ectx.rowHandler();
 
-        Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
+        Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(handler, rows);
 
-        for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx.rowHandler());
+        for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
+            int partitionId = partitionRowBatch.getIntKey();
+            RowBatch rowBatch = partitionRowBatch.getValue();
 
-            rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
-        }
-
-        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
-
-        int batchNum = 0;
-
-        IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.insertRowType(typeFactory)));
-        RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
-
-        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
             ColocationGroup group = ectx.group(MODIFY_NODE_SOURCE_ID);
 
             assert group != null;
 
-            NodeWithTerm nodeWithTerm = group.assignments().get(partToRows.getIntKey());
+            NodeWithTerm nodeWithTerm = group.assignments().get(partitionId);
 
             ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
-                    .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
+                    .binaryRowMessages(serializeBinaryRows(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_INSERT_ALL)
@@ -286,25 +277,30 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .skipDelayedAck(true)
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request)
-                    .thenApply(result -> {
-                        Collection<BinaryRow> binaryRows = (Collection<BinaryRow>) result;
-
-                        if (binaryRows.isEmpty()) {
-                            return List.of();
-                        }
-
-                        List<RowT> conflictRows = new ArrayList<>(binaryRows.size());
-
-                        for (BinaryRow row : binaryRows) {
-                            conflictRows.add(rowConverter.toRow(ectx, row, rowFactory));
-                        }
-
-                        return conflictRows;
-                    });
+            rowBatch.resultFuture = replicaService.invoke(nodeWithTerm.name(), request);
         }
 
-        return handleInsertResults(handler, futures);
+        return handleInsertResults(ectx, rowBatchByPartitionId.values());
+    }
+
+    /**
+     * Creates batches of rows for processing, grouped by partition ID.
+     *
+     * @param rowHandler Row handler.
+     * @param rows Rows.
+     */
+    private <T> Int2ObjectMap<RowBatch> toRowBatchByPartitionId(RowHandler<T> rowHandler, List<T> rows) {
+        Int2ObjectMap<RowBatch> rowBatchByPartitionId = new Int2ObjectOpenHashMap<>();
+
+        int i = 0;
+
+        for (T row : rows) {
+            BinaryRowEx binaryRow = convertRow(row, rowHandler);
+
+            rowBatchByPartitionId.computeIfAbsent(partitionExtractor.fromRow(binaryRow), partitionId -> new RowBatch()).add(binaryRow, i++);
+        }
+
+        return rowBatchByPartitionId;
     }
 
     /** {@inheritDoc} */
@@ -387,35 +383,28 @@ public final class UpdatableTableImpl implements UpdatableTable {
         rowAssembler.appendValue(val);
     }
 
-    private static <RowT> CompletableFuture<List<RowT>> handleInsertResults(
-            RowHandler<RowT> handler,
-            CompletableFuture<List<RowT>>[] futs
+    private <RowT> CompletableFuture<List<RowT>> handleInsertResults(
+            ExecutionContext<RowT> ectx,
+            Collection<RowBatch> batches
     ) {
-        return CompletableFuture.allOf(futs)
+        return collectRejectedRowsResponsesWithRestoreOrder(batches)
                 .thenApply(response -> {
-                    List<String> conflictRows = null;
-
-                    for (CompletableFuture<List<RowT>> future : futs) {
-                        List<RowT> values = future.join();
-
-                        if (nullOrEmpty(values)) {
-                            continue;
-                        }
-
-                        if (conflictRows == null) {
-                            conflictRows = new ArrayList<>(values.size());
-                        }
-
-                        for (RowT row : values) {
-                            conflictRows.add(handler.toString(row));
-                        }
+                    if (nullOrEmpty(response)) {
+                        return null;
                     }
 
-                    if (conflictRows != null) {
-                        throw conflictKeysException(conflictRows);
+                    RowHandler<RowT> handler = ectx.rowHandler();
+                    IgniteTypeFactory typeFactory = ectx.getTypeFactory();
+                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.insertRowType(typeFactory)));
+                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
+
+                    ArrayList<String> conflictRows = new ArrayList<>(response.size());
+
+                    for (BinaryRow row : response) {
+                        conflictRows.add(handler.toString(rowConverter.toRow(ectx, row, rowFactory)));
                     }
 
-                    return null;
+                    throw conflictKeysException(conflictRows);
                 });
     }
 

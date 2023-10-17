@@ -101,7 +101,6 @@ struct extra_mapping_value {
     std::string val;
 };
 
-
 namespace ignite {
 
 template<>
@@ -267,8 +266,8 @@ TEST_F(record_view_test, extra_mapping_value_throws) {
             try {
                 wrong_view.upsert(nullptr, val);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::MatchesRegex(
-                    "Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
+                EXPECT_THAT(e.what_str(),
+                    testing::MatchesRegex("Key tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
                 throw;
             }
         },
@@ -921,9 +920,8 @@ TEST_F(record_view_test, remove_all_nonexisting_keys_return_all) {
 
     EXPECT_EQ(res.size(), 2);
 
-    // TODO: Key order should be preserved by the server (IGNITE-20435).
-    EXPECT_EQ(2, res[0].key);
-    EXPECT_EQ(1, res[1].key);
+    EXPECT_EQ(1, res[0].key);
+    EXPECT_EQ(2, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_only_existing) {
@@ -953,9 +951,8 @@ TEST_F(record_view_test, remove_all_overlapped) {
 
     EXPECT_EQ(res.size(), 2);
 
-    // TODO: Key order should be preserved by the server (IGNITE-20435).
-    EXPECT_EQ(12, res[0].key);
-    EXPECT_EQ(11, res[1].key);
+    EXPECT_EQ(11, res[0].key);
+    EXPECT_EQ(12, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_empty) {
@@ -966,8 +963,10 @@ TEST_F(record_view_test, remove_all_empty) {
 TEST_F(record_view_test, remove_all_exact_nonexisting) {
     auto res = view.remove_all_exact(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
 
-    // TODO: Key order should be preserved by the server (IGNITE-20435).
     ASSERT_EQ(2, res.size());
+
+    EXPECT_EQ(1, res[0].key);
+    EXPECT_EQ(2, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_exact_overlapped) {

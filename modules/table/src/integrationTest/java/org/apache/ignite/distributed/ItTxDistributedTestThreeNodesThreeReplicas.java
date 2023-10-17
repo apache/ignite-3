@@ -30,7 +30,6 @@ import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -57,13 +56,6 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
     @Override
     protected int replicas() {
         return 3;
-    }
-
-    /** {@inheritDoc} */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20116")
-    @Override
-    public void testBalance() throws InterruptedException {
-        super.testBalance();
     }
 
     @Override
