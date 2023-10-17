@@ -364,6 +364,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
                 });
 
+        // The future returned by this event handler can't wait for all cleanups because it's not necessary and it can block
+        // meta storage notification thread for a while, preventing it from delivering further updates (including leases) and therefore
+        // causing deadlock on primary replica waiting.
         return completedFuture(false);
     }
 
