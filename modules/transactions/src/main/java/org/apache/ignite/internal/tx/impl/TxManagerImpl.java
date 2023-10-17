@@ -55,6 +55,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -216,14 +217,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp() {
-        return clock.now();
+        HybridTimestamp now = clock.now();
 
-        // TODO: IGNITE-20378 Fix it
-        // return new HybridTimestamp(now.getPhysical()
-        //         - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
-        //         - HybridTimestamp.CLOCK_SKEW,
-        //         0
-        // );
+        return new HybridTimestamp(now.getPhysical()
+                - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                - HybridTimestamp.CLOCK_SKEW,
+                0
+        );
     }
 
     @Override
