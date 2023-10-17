@@ -30,14 +30,14 @@ import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
- * Makes the index available for read-write, switches from the write-only to the read-write state in the catalog.
+ * Makes the index available, switches from the registered to the available state in the catalog.
  *
- * @see CatalogIndexDescriptor#writeOnly()
+ * @see CatalogIndexDescriptor#available()
  * @see IndexNotFoundValidationException
  * @see IndexAlreadyAvailableValidationException
  */
 public class MakeIndexAvailableCommand implements CatalogCommand {
-    /** Returns builder to make an index available for read-write. */
+    /** Returns builder to make an index available. */
     public static MakeIndexAvailableCommandBuilder builder() {
         return new Builder();
     }
@@ -53,7 +53,7 @@ public class MakeIndexAvailableCommand implements CatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
 
-        if (!index.writeOnly()) {
+        if (index.available()) {
             throw new IndexAlreadyAvailableValidationException(format("Index is already available '{}'", indexId));
         }
 

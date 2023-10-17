@@ -69,7 +69,7 @@ public class MakeIndexAvailableCommandValidationTest extends AbstractCommandVali
                         table(tableId, id++, id++, id++, columnName)
                 },
                 new CatalogIndexDescriptor[]{
-                        new CatalogHashIndexDescriptor(indexId, "TEST_INDEX", tableId, false, List.of(columnName), false)
+                        new CatalogHashIndexDescriptor(indexId, "TEST_INDEX", tableId, false, List.of(columnName), true)
                 },
                 new CatalogSystemViewDescriptor[]{}
         );

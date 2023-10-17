@@ -172,7 +172,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             assertPartitionBuildIndexKeyExists(indexId, partitionId);
         }
 
-        assertTrue(indexDescriptor(INDEX_NAME).writeOnly());
+        assertFalse(indexDescriptor(INDEX_NAME).available());
     }
 
     @Test
@@ -196,7 +196,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
         }
 
-        assertFalse(indexDescriptor(INDEX_NAME).writeOnly());
+        assertTrue(indexDescriptor(INDEX_NAME).available());
     }
 
     @Test

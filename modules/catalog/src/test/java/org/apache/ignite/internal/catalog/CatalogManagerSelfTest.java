@@ -962,7 +962,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
-        assertTrue(index.writeOnly());
+        assertFalse(index.available());
     }
 
     @Test
@@ -1003,7 +1003,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
-        assertTrue(index.writeOnly());
+        assertFalse(index.available());
     }
 
     @Test
@@ -1874,7 +1874,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
-        assertFalse(index.writeOnly());
+        assertTrue(index.available());
     }
 
     @Test
@@ -1893,7 +1893,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
-        assertFalse(index.writeOnly());
+        assertTrue(index.available());
     }
 
     @Test

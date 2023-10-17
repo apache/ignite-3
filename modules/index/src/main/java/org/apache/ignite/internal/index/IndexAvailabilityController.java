@@ -69,9 +69,9 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * This component is responsible for ensuring that an index, upon completion of a distributed index building for all partitions, becomes
- * available for read-write.
+ * available.
  *
- * <p>An approximate algorithm for making an index available for read-write:</p>
+ * <p>An approximate algorithm for making an index available:</p>
  * <ul>
  *     <li>On {@link CatalogEvent#INDEX_CREATE}, keys are created in the metastore: {@code indexBuild.inProgress.<indexId>} and
  *     {@code indexBuild.partition.<indexId>.<partitionId_0>}...{@code indexBuild.partition.<indexId>.<partitionId_N>}.</li>
@@ -93,7 +93,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     {@link IndexBuildCompletionListener#onBuildCompletion} (form {@link IndexBuilder#listen}) event.</li>
  * </ul>
  *
- * @see CatalogIndexDescriptor#writeOnly()
+ * @see CatalogIndexDescriptor#available()
  */
 // TODO: IGNITE-20637 Recovery needs to be implemented
 // TODO: IGNITE-20637 Need integration with the IgniteImpl

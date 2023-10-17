@@ -727,13 +727,13 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         CatalogIndexDescriptor newDescriptor(int tableId) {
             if (hashColumns != null) {
-                return new CatalogHashIndexDescriptor(id, name, tableId, false, hashColumns, false);
+                return new CatalogHashIndexDescriptor(id, name, tableId, false, hashColumns, true);
             } else if (sortedColumns != null) {
                 List<CatalogIndexColumnDescriptor> indexColumns = sortedColumns.stream()
                         .map((e) -> new CatalogIndexColumnDescriptor(e.getKey(), e.getValue()))
                         .collect(Collectors.toList());
 
-                return new CatalogSortedIndexDescriptor(id, name, tableId, false, indexColumns, false);
+                return new CatalogSortedIndexDescriptor(id, name, tableId, false, indexColumns, true);
             } else {
                 throw new IllegalStateException("Unable to create index");
             }
