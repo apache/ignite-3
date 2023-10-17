@@ -71,6 +71,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -182,7 +183,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(() -> getUpdaterThread() == null, 10_000));
     }
 
-    @Test
+    @RepeatedTest(20)
     public void testActiveDeactivateMultiThread() throws InterruptedException {
         Thread[] threads = new Thread[10];
         CyclicBarrier barrier = new CyclicBarrier(threads.length);
