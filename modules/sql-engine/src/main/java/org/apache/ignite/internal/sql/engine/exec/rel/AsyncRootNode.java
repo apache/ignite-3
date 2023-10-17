@@ -247,11 +247,13 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     /**
      * Completes prefetch future if it has not already been completed.
+     *
+     * @param ex Exceptional completion cause or {@code null} if the future must complete successfully.
      */
-    private void completePrefetchFuture(@Nullable Throwable th) {
+    private void completePrefetchFuture(@Nullable Throwable ex) {
         if (!prefetchFut.isDone()) {
-            if (th != null) {
-                prefetchFut.completeExceptionally(th);
+            if (ex != null) {
+                prefetchFut.completeExceptionally(ex);
             } else {
                 prefetchFut.complete(null);
             }
