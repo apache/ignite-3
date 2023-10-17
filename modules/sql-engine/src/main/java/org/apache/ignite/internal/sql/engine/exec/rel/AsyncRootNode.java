@@ -203,7 +203,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     }
 
     private void flush() throws Exception {
-        // Prefetch has been completed.
         completePrefetchFuture();
 
         // flush may be triggered by prefetching, so let's do nothing in this case

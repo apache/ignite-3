@@ -32,7 +32,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
  *     command has completed (see {@link DdlCommandHandler#handle(DdlCommand)}.</li>
  * </ol>
  *
- * <p>This callback is invoked asynchronously in the "{@code execution pool}" using current query ID.
+ * <p>This callback is invoked asynchronously in the "{@code execution pool}".
  */
 @FunctionalInterface
 public interface QueryPrefetchCallback {

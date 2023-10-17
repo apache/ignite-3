@@ -269,9 +269,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             case QUERY:
                 return executeQuery(tx, ctx, (MultiStepPlan) plan);
             case EXPLAIN:
-                return executeExplain(ctx, (ExplainPlan) plan);
+                return executeExplain((ExplainPlan) plan, ctx.prefetchCallback());
             case DDL:
-                return executeDdl(ctx, (DdlPlan) plan);
+                return executeDdl((DdlPlan) plan, ctx.prefetchCallback());
 
             default:
                 throw new AssertionError("Unexpected query type: " + plan);
@@ -289,21 +289,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return mgr.close(true);
     }
 
-    private AsyncCursor<List<Object>> executeDdl(BaseQueryContext ctx, DdlPlan plan) {
+    private AsyncCursor<List<Object>> executeDdl(DdlPlan plan, @Nullable QueryPrefetchCallback callback) {
         CompletableFuture<Iterator<List<Object>>> ret = ddlCmdHnd.handle(plan.command())
                 .thenApply(applied -> List.of(List.<Object>of(applied)).iterator())
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });
 
-        QueryPrefetchCallback callback = ctx.prefetchCallback();
-
         if (callback != null) {
             ret.whenCompleteAsync((res, err) -> {
                 if (err == null) {
                     callback.onPrefetched();
                 }
-            }, (task) -> taskExecutor.execute(ctx.queryId(), ThreadLocalRandom.current().nextLong(1024), task));
+            }, taskExecutor);
         }
 
         return new AsyncWrapper<>(ret, Runnable::run);
@@ -326,13 +324,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
-    private AsyncCursor<List<Object>> executeExplain(BaseQueryContext ctx, ExplainPlan plan) {
+    private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
         List<List<Object>> res = List.of(List.of(plan.plan()));
 
-        QueryPrefetchCallback callback = ctx.prefetchCallback();
-
         if (callback != null) {
-            taskExecutor.execute(ctx.queryId(), ThreadLocalRandom.current().nextLong(1024), callback::onPrefetched);
+            taskExecutor.execute(callback::onPrefetched);
         }
 
         return new AsyncWrapper<>(res.iterator());
@@ -578,7 +574,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 if (callback != null) {
                     prefetchFut.thenRunAsync(
                             callback::onPrefetched,
-                            (task) -> taskExecutor.execute(ectx.queryId(), ectx.fragmentId(), task)
+                            taskExecutor
                     );
                 }
 
