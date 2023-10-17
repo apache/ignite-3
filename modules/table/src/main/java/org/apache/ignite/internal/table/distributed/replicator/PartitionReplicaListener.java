@@ -2659,16 +2659,45 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
+    /**
+     *  Wait for the async cleanup of the provided row to finish.
+     *
+     * @param rowId Row Ids of existing row that the transaction affects.
+     * @param result The value that the returned future will wrap.
+     *
+     * @param <T> Type of the {@code result}.
+     */
     private <T> CompletableFuture<T> checkCleanup(@Nullable RowId rowId, T result) {
         return (rowId == null ? COMPLETED_EMPTY : rowCleanupMap.getOrDefault(rowId, COMPLETED_EMPTY))
                 .thenApply(ignored -> result);
     }
 
+    /**
+     * Wait for the async cleanup of the provided rows to finish.
+     *
+     * @param rowIds Row Ids of existing rows that the transaction affects.
+     * @param result The value that the returned future will wrap.
+     *
+     * @param <T> Type of the {@code result}.
+     */
     private <T> CompletableFuture<T> checkCleanup(Collection<RowId> rowIds, T result) {
-        return allOf(rowIds.stream()
-                .map(rowCleanupMap::get)
-                .filter(Objects::nonNull)
-                .toArray(CompletableFuture[]::new))
+        if (rowCleanupMap.isEmpty()) {
+            return completedFuture(result);
+        }
+
+        List<CompletableFuture<?>> list = new ArrayList<>(rowIds.size());
+
+        for (RowId rowId : rowIds) {
+            CompletableFuture<?> completableFuture = rowCleanupMap.get(rowId);
+            if (completableFuture != null) {
+                list.add(completableFuture);
+            }
+        }
+        if (list.isEmpty()) {
+            return completedFuture(result);
+        }
+
+        return allOf(list.toArray(new CompletableFuture[0]))
                 .thenApply(unused -> result);
     }
 
@@ -3070,18 +3099,21 @@ public class PartitionReplicaListener implements ReplicaListener {
         // Both normal cleanup and single row cleanup are using txsPendingRowIds map to store write intents.
         // So we don't need a separate method to handle single row case.
         CompletableFuture<?> future = rowCleanupMap.compute(rowId, (k, v) -> {
-            CompletableFuture<Void> rowCleanup = txManager.executeCleanupAsync(() ->
+            // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
+            // and a concurrent RO transaction resolves the same row.
+            // If the cleanup is already running - return it.
+            // If the cleanup ended with an exception - give it another try.
+            if (v != null && (!v.isDone() || !v.isCompletedExceptionally())) {
+                return v;
+            }
+
+            return txManager.executeCleanupAsync(() ->
                     inBusyLock(busyLock, () -> storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp))
-            ).exceptionally(e -> {
-                LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
-
-                return null;
-            });
-
-            return v != null ? v.thenCompose(ignored -> rowCleanup) : rowCleanup;
+            ).whenComplete((unused, e) -> LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e));
         });
 
-        future.whenComplete((v, e) -> rowCleanupMap.remove(rowId));
+        // Remove only when the cleanup was successful.
+        future.thenRun(() -> rowCleanupMap.remove(rowId));
     }
 
     /**
