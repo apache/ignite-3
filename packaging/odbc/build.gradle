@@ -45,11 +45,10 @@ def tokens = [
 ]
 
 task replacePackageScriptVars(type: Copy) {
-    doFirst {
-        if (!project.hasProperty('odbc.enable')) {
-            throw new GradleException("Property 'odbc.enable' is not defined. Please re-invoke command with `-Podbc.enable` flag.")
-        }
+    onlyIf {
+        project.hasProperty('odbc.enable')
     }
+
     from "$rootDir/packaging/odbc/ignite3-odbc.ini"
 
     from "$rootDir/packaging/odbc/scripts"
@@ -73,10 +72,26 @@ distributions {
     }
 }
 
-distZip.dependsOn replacePackageScriptVars
-distTar.dependsOn replacePackageScriptVars
+distZip {
+    onlyIf {
+        project.hasProperty('odbc.enable')
+    }
+
+    dependsOn replacePackageScriptVars
+}
+
+distTar{
+    onlyIf {
+        project.hasProperty('odbc.enable')
+    }
+
+    dependsOn replacePackageScriptVars
+}
 
 buildRpm {
+    onlyIf {
+        project.hasProperty('odbc.enable')
+    }
     dependsOn replacePackageScriptVars
     requires("unixODBC")
 
@@ -87,6 +102,9 @@ buildRpm {
 }
 
 buildDeb {
+    onlyIf {
+        project.hasProperty('odbc.enable')
+    }
     dependsOn replacePackageScriptVars
     requires("unixodbc")
     requires("odbcinst")
