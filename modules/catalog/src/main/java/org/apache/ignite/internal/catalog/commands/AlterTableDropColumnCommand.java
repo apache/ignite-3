@@ -101,8 +101,8 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
                                 ? ((CatalogHashIndexDescriptor) index).columns().contains(columnName)
                                 : ((CatalogSortedIndexDescriptor) index).columns().stream().map(CatalogIndexColumnDescriptor::name)
                                         .anyMatch(column -> column.equals(columnName))
-
                 ).map(CatalogIndexDescriptor::name).collect(Collectors.toList());
+
                 throw new CatalogValidationException(format(
                         "Deleting column '{}' used by index(es) {}, it is not allowed", columnName, indexesNames));
             }
