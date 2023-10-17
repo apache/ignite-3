@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -304,7 +305,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 original.onMessage(nodeName, msg);
             }
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
@@ -487,11 +488,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     original.onMessage(senderNodeName, msg);
                 });
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             } else {
                 original.onMessage(senderNodeName, msg);
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
         }));
 
@@ -546,7 +547,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     original.onMessage(senderNodeName, msg);
                 });
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             } else {
                 // On other nodes, simulate that the node has already gone.
                 return CompletableFuture.failedFuture(new IgniteInternalException(Common.INTERNAL_ERR,
@@ -604,7 +605,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(CompletableFuture.completedFuture(null));
+        when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(completedFuture(null));
 
         NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
 
@@ -623,7 +624,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     return CompletableFuture.failedFuture(mappingException);
                 }
 
-                return CompletableFuture.completedFuture(factory.allOf(nodeNames));
+                return completedFuture(factory.allOf(nodeNames));
             }
 
             @Override
@@ -632,13 +633,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider);
-
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
                 .collect(Collectors.toList());
+        LogicalTopologySnapshot initialTopology = new LogicalTopologySnapshot(1, logicalNodes);
 
-        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes));
+        var mappingService = new MappingServiceImpl(nodeName, targetProvider, completedFuture(initialTopology), taskExecutor);
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
@@ -866,7 +866,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
                 original.onMessage(senderNodeName, message);
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
         }
 

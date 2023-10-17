@@ -29,9 +29,8 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -54,26 +53,34 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener {
     private static final int MAPPING_ATTEMPTS = 3;
 
-    private final AtomicReference<Set<String>> nodesSetRef = new AtomicReference<>(Set.of());
+    private final LogicalTopologyHolder topologySnapshot = new LogicalTopologyHolder();
 
     private final String localNodeName;
     private final ExecutionTargetProvider targetProvider;
+    /** Initialization future, which prevents {@link #map(MultiStepPlan)} method call on stale topology. */
+    private final CompletableFuture<Void> initialTopologyFuture;
 
     public MappingServiceImpl(
             String localNodeName,
-            ExecutionTargetProvider targetProvider
+            ExecutionTargetProvider targetProvider,
+            CompletableFuture<LogicalTopologySnapshot> topologyReadyFuture,
+            Executor taskExecutor
     ) {
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
+        // Run awaiting tasks in taskExecutor forcibly.
+        this.initialTopologyFuture = topologyReadyFuture.thenAcceptAsync(this::onTopologyLeap, taskExecutor);
     }
 
     @Override
     public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan) {
+        return initialTopologyFuture.thenCompose(ignore -> map0(multiStepPlan));
+    }
+
+    private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
         List<Fragment> fragments = multiStepPlan.fragments();
 
-        List<String> nodes = List.copyOf(nodesSetRef.get());
-
-        MappingContext context = new MappingContext(localNodeName, nodes);
+        MappingContext context = new MappingContext(localNodeName, topologySnapshot.nodes());
 
         List<Fragment> fragments0 = Commons.transform(fragments, fragment -> fragment.attach(context.cluster()));
 
@@ -200,24 +207,19 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
     @Override
     public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-        nodesSetRef.set(deriveNodeNames(newTopology));
+        topologySnapshot.onTopologyChange(newTopology);
     }
 
     @Override
     public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-        nodesSetRef.set(deriveNodeNames(newTopology));
+        topologySnapshot.onTopologyChange(newTopology);
     }
 
     @Override
     public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-        nodesSetRef.set(deriveNodeNames(newTopology));
+        topologySnapshot.onTopologyChange(newTopology);
     }
 
-    private static Set<String> deriveNodeNames(LogicalTopologySnapshot topology) {
-        return topology.nodes().stream()
-                .map(LogicalNode::name)
-                .collect(Collectors.toUnmodifiableSet());
-    }
 
     private static List<Fragment> replace(
             List<Fragment> originalFragments,
@@ -257,5 +259,30 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         newFragments.addAll(replacement.subList(1, replacement.size()));
 
         return newFragments;
+    }
+
+    /**
+     * Holder for topology snapshots that guarantees monotonically increasing versions.
+     */
+    static class LogicalTopologyHolder {
+        private volatile List<String> nodes = List.of();
+        private long ver = Long.MIN_VALUE;
+
+        synchronized void onTopologyChange(LogicalTopologySnapshot topologySnapshot) {
+            if (ver < topologySnapshot.version()) {
+                nodes = deriveNodeNames(topologySnapshot);
+                ver = topologySnapshot.version();
+            }
+        }
+
+        List<String> nodes() {
+            return nodes;
+        }
+
+        private static List<String> deriveNodeNames(LogicalTopologySnapshot topology) {
+            return topology.nodes().stream()
+                    .map(LogicalNode::name)
+                    .collect(Collectors.toUnmodifiableList());
+        }
     }
 }

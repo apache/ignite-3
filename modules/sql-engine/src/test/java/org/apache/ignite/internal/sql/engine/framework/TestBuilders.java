@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -373,7 +374,7 @@ public class TestBuilders {
                         throw new AssertionError("DataProvider is not configured for table " + table.name());
                     }
 
-                    return CompletableFuture.completedFuture(factory.allOf(List.copyOf(dataProviders.keySet())));
+                    return completedFuture(factory.allOf(List.copyOf(dataProviders.keySet())));
                 }
 
                 @Override
@@ -388,9 +389,9 @@ public class TestBuilders {
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
-                        var mappingService = new MappingServiceImpl(name, targetProvider);
+                        LogicalTopologySnapshot initialTopology = new LogicalTopologySnapshot(1L, logicalNodes);
 
-                        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1L, logicalNodes));
+                        var mappingService = new MappingServiceImpl(name, targetProvider, completedFuture(initialTopology), Runnable::run);
 
                         return new TestNode(
                                 name, clusterService.forNode(name), schemaManager, mappingService

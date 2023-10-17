@@ -41,6 +41,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -298,7 +299,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider);
+        CompletableFuture<LogicalTopologySnapshot> initialTopologyFuture = logicalTopologyService.logicalTopologyOnLeader();
+
+        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider, initialTopologyFuture, taskExecutor);
 
         logicalTopologyService.addEventListener(mappingService);
 
