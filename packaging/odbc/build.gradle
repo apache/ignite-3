@@ -47,7 +47,7 @@ def tokens = [
 task replacePackageScriptVars(type: Copy) {
     doFirst {
         if (!project.hasProperty('odbc.enable')) {
-            throw new GradleException("Property 'odbc.enable' is not initiated. Please re-invoke command with `-Podbc.enable` flag.")
+            throw new GradleException("Property 'odbc.enable' is not defined. Please re-invoke command with `-Podbc.enable` flag.")
         }
     }
     from "$rootDir/packaging/odbc/ignite3-odbc.ini"
