@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -179,12 +181,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /** {@inheritDoc} */
     @Override
     protected TxManager txManager(TableImpl t) {
-
-        CompletableFuture<ReplicaMeta> primaryReplica = txTestCluster.placementDriver.getPrimaryReplica(
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver.getPrimaryReplica(
                 new TablePartitionId(t.tableId(), 0),
                 txTestCluster.clocks.get(txTestCluster.localNodeName).now());
 
-        TxManager manager = txTestCluster.txManagers.get(primaryReplica.join().getLeaseholder());
+        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
+
+        TxManager manager = txTestCluster.txManagers.get(primaryReplicaFuture.join().getLeaseholder());
 
         assertNotNull(manager);
 
