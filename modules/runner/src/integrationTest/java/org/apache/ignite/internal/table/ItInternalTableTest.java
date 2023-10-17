@@ -27,23 +27,26 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -71,12 +74,10 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests for the read-only API.
+ * Tests for the internal table API.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItRoReadsTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItRoReadsTest.class);
-
+public class ItInternalTableTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "SOME_TABLE";
 
     private static final SchemaDescriptor SCHEMA_1 = new SchemaDescriptor(
@@ -133,13 +134,9 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     @AfterAll
     static void stopNode(TestInfo testInfo) throws Exception {
-        LOG.info("Start tearDown()");
-
         NODE = null;
 
         IgniteUtils.closeAll(() -> IgnitionManager.stop(testNodeName(testInfo, 0)));
-
-        LOG.info("End tearDown()");
     }
 
     @BeforeEach
@@ -235,34 +232,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         tx2.commit();
 
-        Publisher<BinaryRow> res = internalTable.scan(0, node.clock().now(), node.node());
-
-        CountDownLatch latch = new CountDownLatch(1);
-
-        List<BinaryRow> list = new ArrayList<>();
-
-        res.subscribe(new Subscriber<>() {
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscription.request(100);
-            }
-
-            @Override
-            public void onNext(BinaryRow item) {
-                list.add(item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-            }
-
-            @Override
-            public void onComplete() {
-                latch.countDown();
-            }
-        });
-
-        latch.await();
+        List<BinaryRow> list = scanAllPartitions(node);
 
         assertThat(list, contains(equalToRow(keyValueRow2)));
     }
@@ -384,76 +354,204 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         roScanAll(false);
     }
 
+    @Test
+    public void getAllOrderTest() {
+        List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
+
+        InternalTable internalTable = ((TableImpl) table).internalTable();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
+
+        CompletableFuture<List<BinaryRow>> getAllFut = internalTable.getAll(keyRows, null);
+
+        assertThat(getAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = getAllFut.join();
+
+        assertEquals(keyRows.size(), res.size());
+
+        Iterator<BinaryRow> resIter = res.iterator();
+
+        for (BinaryRowEx key : keyRows) {
+            int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+
+            BinaryRow resRow = resIter.next();
+
+            if (i % 2 == 1) {
+                assertNull(resRow);
+            } else {
+                assertNotNull(resRow);
+
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resRow));
+
+                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+                assertEquals(i, rowTuple.<Integer>value("valInt"));
+                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            }
+        }
+    }
+
+    @Test
+    public void deleteAllOrderTest() {
+        List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
+
+        InternalTable internalTable = ((TableImpl) table).internalTable();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
+
+        CompletableFuture<List<BinaryRow>> deleteAllFut = internalTable.deleteAll(keyRows, null);
+
+        assertThat(deleteAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = deleteAllFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
+
+        for (BinaryRowEx key : keyRows) {
+            int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+
+            if (i % 2 == 1) {
+                Tuple rowTuple = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, resIter.next()));
+
+                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+            }
+        }
+    }
+
+    @Test
+    public void deleteAllExactOrderTest() {
+        List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
+
+        InternalTable internalTable = ((TableImpl) table).internalTable();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
+
+        CompletableFuture<List<BinaryRow>> deleteAllExactFut = internalTable.deleteAllExact(rowsToLookup, null);
+
+        assertThat(deleteAllExactFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = deleteAllExactFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
+
+        for (BinaryRowEx key : rowsToLookup) {
+            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+
+            if (i % 2 == 1) {
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
+
+                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+                assertEquals(i, rowTuple.<Integer>value("valInt"));
+                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            }
+        }
+    }
+
+    @Test
+    public void insertAllOrderTest() {
+        List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
+
+        InternalTable internalTable = ((TableImpl) table).internalTable();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
+
+        CompletableFuture<List<BinaryRow>> insertAllFut = internalTable.insertAll(rowsToLookup, null);
+
+        assertThat(insertAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = insertAllFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
+
+        for (BinaryRowEx key : rowsToLookup) {
+            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+
+            if (i % 2 == 0) {
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
+
+                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+                assertEquals(i, rowTuple.<Integer>value("valInt"));
+                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            }
+        }
+    }
+
+    private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        var keyRows = new ArrayList<BinaryRowEx>();
+
+        for (int i = 0; i < 15; i++) {
+            keyRows.add(keyOnly ? createKeyRow(i) : createKeyValueRow(i, i, "some string row" + i));
+
+            if (i % 2 == 0) {
+                putValue(keyValueView, i);
+            }
+        }
+
+        Collections.shuffle(keyRows);
+
+        return keyRows;
+    }
+
     private void roScanAll(boolean implicit) throws InterruptedException {
         IgniteImpl node = node();
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
-
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
-        Publisher<BinaryRow> res = internalTable.scan(0, node.clock().now(), node.node());
-
-        var subscriberAllDataAwaitLatch = new CountDownLatch(1);
-
-        var retrievedItems = new ArrayList<BinaryRow>();
-
-        res.subscribe(new Subscriber<>() {
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscription.request(10000);
-            }
-
-            @Override
-            public void onNext(BinaryRow item) {
-                retrievedItems.add(item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                fail("onError call is not expected.");
-            }
-
-            @Override
-            public void onComplete() {
-                subscriberAllDataAwaitLatch.countDown();
-            }
-        });
-
-        subscriberAllDataAwaitLatch.await();
+        List<BinaryRow> retrievedItems = scanAllPartitions(node);
 
         assertEquals(0, retrievedItems.size());
 
         populateData(node, keyValueView, implicit);
 
-        res = internalTable.scan(0, node.clock().now(), node.node());
-
-        var subscriberAllDataAwaitLatch2 = new CountDownLatch(1);
-
-        res.subscribe(new Subscriber<>() {
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscription.request(10000);
-            }
-
-            @Override
-            public void onNext(BinaryRow item) {
-                retrievedItems.add(item);
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                fail("onError call is not expected.");
-            }
-
-            @Override
-            public void onComplete() {
-                subscriberAllDataAwaitLatch2.countDown();
-            }
-        });
-
-        subscriberAllDataAwaitLatch2.await();
+        retrievedItems = scanAllPartitions(node);
 
         assertEquals(15, retrievedItems.size());
+    }
+
+
+    /**
+     * Scans all table entries.
+     *
+     * @param node Ignite instance.
+     * @return Collection with all rows.
+     * @throws InterruptedException If fail.
+     */
+    private static List<BinaryRow> scanAllPartitions(IgniteImpl node) throws InterruptedException {
+        InternalTable internalTable = ((TableImpl) node.tables().table(TABLE_NAME)).internalTable();
+
+        List<BinaryRow> retrievedItems = new CopyOnWriteArrayList<>();
+
+        int parts = internalTable.partitions();
+
+        var subscriberAllDataAwaitLatch = new CountDownLatch(parts);
+
+        for (int i = 0; i < parts; i++) {
+            Publisher<BinaryRow> res = internalTable.scan(i, node.clock().now(), node.node());
+
+            res.subscribe(new Subscriber<>() {
+                @Override
+                public void onSubscribe(Subscription subscription) {
+                    subscription.request(10000);
+                }
+
+                @Override
+                public void onNext(BinaryRow item) {
+                    retrievedItems.add(item);
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    fail("onError call is not expected.");
+                }
+
+                @Override
+                public void onComplete() {
+                    subscriberAllDataAwaitLatch.countDown();
+                }
+            });
+        }
+
+        assertTrue(subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS));
+
+        return retrievedItems;
     }
 
     private static Row createKeyValueRow(long id, int value, String str) {
@@ -506,7 +604,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         String zoneName = zoneNameForTable(tableName);
 
         try (Session session = node.sql().createSession()) {
-            session.execute(null, String.format("create zone \"%s\" with partitions=1, replicas=%d", zoneName, DEFAULT_REPLICA_COUNT));
+            session.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d", zoneName, DEFAULT_REPLICA_COUNT));
 
             session.execute(null,
                     String.format(

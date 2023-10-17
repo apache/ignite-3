@@ -1777,6 +1777,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return allOf(deleteExactLockFuts).thenCompose(ignore -> {
                     Map<UUID, BinaryRowMessage> rowIdsToDelete = new HashMap<>();
+                    // TODO:IGNITE-20669 Replace the result to BitSet.
                     Collection<BinaryRow> result = new ArrayList<>();
                     List<RowId> rows = new ArrayList<>();
 
@@ -1786,9 +1787,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (lockedRowId != null) {
                             rowIdsToDelete.put(lockedRowId.uuid(), null);
 
+                            result.add(new NullBinaryRow());
+
                             rows.add(lockedRowId);
                         } else {
-                            result.add(searchRows.get(i));
+                            result.add(null);
                         }
                     }
 
@@ -1824,6 +1827,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(pkReadLockFuts).thenCompose(ignore -> {
+                    // TODO:IGNITE-20669 Replace the result to BitSet.
                     Collection<BinaryRow> result = new ArrayList<>();
                     Map<RowId, BinaryRow> rowsToInsert = new HashMap<>();
                     Set<ByteBuffer> uniqueKeys = new HashSet<>();
@@ -1834,8 +1838,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         if (lockedRow == null && uniqueKeys.add(pks.get(i).byteBuffer())) {
                             rowsToInsert.put(new RowId(partId(), UUID.randomUUID()), row);
+
+                            result.add(new NullBinaryRow());
                         } else {
-                            result.add(row);
+                            result.add(null);
                         }
                     }
 
@@ -2020,6 +2026,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return allOf(rowIdLockFuts).thenCompose(ignore -> {
                     Map<UUID, BinaryRowMessage> rowIdsToDelete = new HashMap<>();
+                    // TODO:IGNITE-20669 Replace the result to BitSet.
                     Collection<BinaryRow> result = new ArrayList<>();
                     List<RowId> rows = new ArrayList<>();
 

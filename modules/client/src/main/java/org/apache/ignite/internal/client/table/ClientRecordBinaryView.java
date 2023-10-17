@@ -178,17 +178,17 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> insertAll(@Nullable Transaction tx, Collection<Tuple> recs) {
+    public List<Tuple> insertAll(@Nullable Transaction tx, Collection<Tuple> recs) {
         return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
+    public CompletableFuture<List<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return completedFuture(Collections.emptyList());
         }
 
         return tbl.doSchemaOutInOpAsync(
@@ -315,13 +315,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> deleteAll(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
+    public List<Tuple> deleteAll(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
+    public CompletableFuture<List<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
@@ -338,13 +338,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> deleteAllExact(@Nullable Transaction tx, Collection<Tuple> recs) {
+    public List<Tuple> deleteAllExact(@Nullable Transaction tx, Collection<Tuple> recs) {
         return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
+    public CompletableFuture<List<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
