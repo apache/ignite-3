@@ -342,6 +342,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         return new RangeIterableImpl(ranges, comparator);
     }
 
+    /**
+     * Transforms input bound, stores only sequential non null elements.
+     * i.e. (literal1, literal2, null, literal3) -> (literal1, literal2).
+     * Return transformed bound and appropriate type.
+     */
     private static Map.Entry<List<RexNode>, RelDataType> shrinkBounds(IgniteTypeFactory factory, List<RexNode> bound, RelDataType rowType) {
         ImmutableList.Builder<RexNode> lowerBuilder = ImmutableList.builder();
         ImmutableList.Builder<RelDataType> typesBuilder = ImmutableList.builder();
@@ -349,10 +354,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         int i = 0;
         for (RexNode node : bound) {
             if (node != null) {
-                typesBuilder.add(types.get(i));
+                typesBuilder.add(types.get(i++));
                 lowerBuilder.add(node);
+            } else {
+                break;
             }
-            ++i;
         }
         bound = lowerBuilder.build();
         rowType = TypeUtils.createRowType(factory, typesBuilder.build());
@@ -395,6 +401,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowFactory<RowT> upperFactory = rowFactory;
 
             if (containNull) {
+                // we need to shrink bounds here due to the recursive logic for processing lower and upper bounds,
+                // after division this logic into upper and lower calculation such approach need to be removed.
                 Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), curLower, rowType);
                 curLower = res.getKey();
                 lowerType = res.getValue();
@@ -826,13 +834,13 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT lower() {
-            return lowerRow != null ? lowerRow : getRow(lowerBound, lowerFactory);
+            return lowerRow != null ? lowerRow : (lowerRow = getRow(lowerBound, lowerFactory));
         }
 
         /** {@inheritDoc} */
         @Override
         public @Nullable RowT upper() {
-            return upperRow != null ? upperRow : getRow(upperBound, upperFactory);
+            return upperRow != null ? upperRow : (upperRow = getRow(upperBound, upperFactory));
         }
 
         /** {@inheritDoc} */
