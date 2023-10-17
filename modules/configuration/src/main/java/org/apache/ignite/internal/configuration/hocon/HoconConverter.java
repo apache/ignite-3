@@ -21,7 +21,7 @@ import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
 import java.util.List;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.ConfigurationConverter;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -34,23 +34,20 @@ public class HoconConverter {
     /**
      * Converts configuration subtree to a HOCON {@link ConfigValue} instance.
      *
-     * @param registry Configuration registry instance.
-     * @param path     Path to the configuration subtree. Can be empty, can't be {@code null}.
+     * @param superRoot Super root instance.
+     * @param path Path to the configuration subtree. Can be empty, can't be {@code null}.
      * @return {@link ConfigValue} instance that represents configuration subtree.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
     public static ConfigValue represent(
-            ConfigurationRegistry registry,
+            SuperRoot superRoot,
             List<String> path
-    ) throws IllegalArgumentException {
-        Object res = registry.represent(
-                path,
-                ConverterToMapVisitor.builder()
-                        .includeInternal(false)
-                        .maskSecretValues(true)
-                        .build());
-
-        return ConfigImpl.fromAnyRef(res, null);
+    ) {
+        ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
+                .includeInternal(false)
+                .maskSecretValues(true)
+                .build();
+        return represent(superRoot, path, visitor);
     }
 
     /**
@@ -67,7 +64,7 @@ public class HoconConverter {
             List<String> path,
             ConfigurationVisitor<?> visitor
     ) {
-        Object res = superRoot.represent(path, visitor);
+        Object res = ConfigurationConverter.convert(superRoot, path, visitor);
         return ConfigImpl.fromAnyRef(res, null);
     }
 

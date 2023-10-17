@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -146,16 +145,12 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
-     * Convert configuration subtree into a user-defined representation.
+     * Gets the the copy of the configuration root.
      *
-     * @param path    Path to configuration subtree. Can be empty, can't be {@code null}.
-     * @param visitor Visitor that will be applied to the subtree and build the representation.
-     * @param <T>     Type of the representation.
-     * @return User-defined representation constructed by {@code visitor}.
-     * @throws IllegalArgumentException If {@code path} is not found in current configuration.
+     * @return Copy of the configuration root.
      */
-    public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
-        return changer.superRoot().represent(path, visitor);
+    public SuperRoot superRoot() {
+        return changer.superRoot().copy();
     }
 
     /**

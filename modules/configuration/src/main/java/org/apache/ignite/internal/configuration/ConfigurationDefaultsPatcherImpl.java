@@ -66,7 +66,9 @@ public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPa
                 .skipEmptyValues(true)
                 .build();
 
-        return HoconConverter.represent(superRoot, List.of(), visitor).render(ConfigRenderOptions.concise());
+        ConfigRenderOptions renderOptions = ConfigRenderOptions.concise()
+                .setJson(false);
+        return HoconConverter.represent(superRoot, List.of(), visitor).render(renderOptions);
     }
 
     private SuperRoot convertToSuperRoot(String hocon) {

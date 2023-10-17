@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.SortedMap;
@@ -28,10 +26,6 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
-import org.apache.ignite.internal.configuration.util.NodeValue;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,34 +82,6 @@ public final class SuperRoot extends InnerNode {
         assertMutability();
 
         roots.put(rootKey.key(), new RootInnerNode(rootKey, root));
-    }
-
-    /**
-     * Convert configuration subtree into a user-defined representation.
-     *
-     * @param path    Path to configuration subtree. Can be empty, can't be {@code null}.
-     * @param visitor Visitor that will be applied to the subtree and build the representation.
-     * @param <T>     Type of the representation.
-     * @return User-defined representation constructed by {@code visitor}.
-     * @throws IllegalArgumentException If {@code path} is not found in current configuration.
-     */
-
-    public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
-        NodeValue<?> node;
-        try {
-            node = ConfigurationUtil.find(path, this, false);
-        } catch (KeyNotFoundException e) {
-            throw new IllegalArgumentException(e.getMessage());
-        }
-
-        Object value = node.value();
-        if (value instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) value).accept(node.field(), null, visitor);
-        }
-
-        assert value == null || value instanceof Serializable;
-
-        return visitor.visitLeafNode(node.field(), null, (Serializable) value);
     }
 
     /**
