@@ -381,6 +381,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(topologySrv.localMember()).thenReturn(localNode);
 
         when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
+        when(safeTimeClock.current()).thenReturn(HybridTimestamp.MIN_VALUE);
 
         when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
         when(schemas.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
