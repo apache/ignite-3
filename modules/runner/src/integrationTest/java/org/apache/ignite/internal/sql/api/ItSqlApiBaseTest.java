@@ -91,7 +91,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20096")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20671")
     public void ddl() throws Exception {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();

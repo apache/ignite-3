@@ -26,10 +26,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 
-/**
- * Utils to manage tables inside tests.
- */
-// TODO: IGNITE-19502 - remove after switching to the Catalog.
+/** Utils to manage tables inside tests. */
 public class TableTestUtils {
     /**
      * Creates table in the catalog.
