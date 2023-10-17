@@ -371,7 +371,7 @@ public class CatalogUtils {
      *
      * @param schema Schema to look up index in.
      * @param name Name of the index of interest.
-     * @throws IndexNotFoundValidationException If index is not exists.
+     * @throws IndexNotFoundValidationException If index does not exist.
      */
     static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.index(name);
@@ -388,7 +388,7 @@ public class CatalogUtils {
      *
      * @param catalog Catalog to look up index in.
      * @param indexId ID of the index of interest.
-     * @throws IndexNotFoundValidationException If index is not exists.
+     * @throws IndexNotFoundValidationException If index does not exist.
      */
     static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = catalog.index(indexId);
