@@ -3103,13 +3103,17 @@ public class PartitionReplicaListener implements ReplicaListener {
             // and a concurrent RO transaction resolves the same row.
             // If the cleanup is already running - return it.
             // If the cleanup ended with an exception - give it another try.
-            if (v != null && (!v.isDone() || !v.isCompletedExceptionally())) {
+            if (v != null && !v.isCompletedExceptionally()) {
                 return v;
             }
 
             return txManager.executeCleanupAsync(() ->
                     inBusyLock(busyLock, () -> storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp))
-            ).whenComplete((unused, e) -> LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e));
+            ).whenComplete((unused, e) -> {
+                if (e != null) {
+                    LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
+                }
+            });
         });
 
         // Remove only when the cleanup was successful.
