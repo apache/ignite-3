@@ -2653,6 +2653,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             expectedTerm = ((ReadOnlyDirectReplicaRequest) request).enlistmentConsistencyToken();
 
             assert expectedTerm != null;
+        } else if (request instanceof BuildIndexReplicaRequest) {
+            expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
         } else {
             expectedTerm = null;
         }
@@ -2684,19 +2686,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
-        } else if (request instanceof BuildIndexReplicaRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, now)
-                    .thenCompose(replicaMeta -> {
-                        if (replicaMeta == null) {
-                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), null));
-                        }
-
-                        if (isLocalPeer(replicaMeta.getLeaseholder())) {
-                            return completedFuture(null);
-                        } else {
-                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), replicaMeta.getLeaseholder()));
-                        }
-                    });
         } else {
             return completedFuture(null);
         }

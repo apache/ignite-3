@@ -75,6 +75,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     private static final String INDEX_NAME = "test-index";
 
+    private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 100500;
+
     private final HybridClock clock = new HybridClockImpl();
 
     private int partitions;
@@ -339,7 +341,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage,
                 mock(MvPartitionStorage.class),
-                mock(ClusterNode.class)
+                mock(ClusterNode.class),
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
         );
 
         CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
