@@ -359,7 +359,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().lastKnownSchema();
 
         CompletableFuture<List<BinaryRow>> getAllFut = internalTable.getAll(keyRows, null);
 
@@ -395,7 +395,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().lastKnownSchema();
 
         CompletableFuture<List<BinaryRow>> deleteAllFut = internalTable.deleteAll(keyRows, null);
 
@@ -421,7 +421,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().lastKnownSchema();
 
         CompletableFuture<List<BinaryRow>> deleteAllExactFut = internalTable.deleteAllExact(rowsToLookup, null);
 
@@ -449,7 +449,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().schema();
+        SchemaDescriptor schemaDescriptor = ((TableImpl) table).schemaView().lastKnownSchema();
 
         CompletableFuture<List<BinaryRow>> insertAllFut = internalTable.insertAll(rowsToLookup, null);
 
