@@ -151,8 +151,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 if (!closed) {
                     Throwable th = ex.get();
 
-                    completePrefetchFuture(th);
-
                     if (th == null) {
                         th = new QueryCancelledException();
                     }
@@ -173,6 +171,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                             throw t;
                         }
                     }, source::onError);
+
+                    completePrefetchFuture(th);
 
                     closed = true;
                 }
