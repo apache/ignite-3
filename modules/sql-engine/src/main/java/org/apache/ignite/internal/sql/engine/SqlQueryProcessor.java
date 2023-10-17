@@ -299,9 +299,11 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         };
 
-        CompletableFuture<LogicalTopologySnapshot> initialTopologyFuture = logicalTopologyService.logicalTopologyOnLeader();
+        // Mapping service tasks, which may await for topology, must be run in taskExecutor pool.
+        CompletableFuture<LogicalTopologySnapshot> initialTopologyFuture = logicalTopologyService.logicalTopologyOnLeader()
+                .thenApplyAsync(t -> t, taskExecutor);
 
-        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider, initialTopologyFuture, taskExecutor);
+        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider, initialTopologyFuture);
 
         logicalTopologyService.addEventListener(mappingService);
 

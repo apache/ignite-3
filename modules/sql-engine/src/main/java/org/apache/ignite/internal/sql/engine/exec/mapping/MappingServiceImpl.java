@@ -30,7 +30,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -63,13 +62,11 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     public MappingServiceImpl(
             String localNodeName,
             ExecutionTargetProvider targetProvider,
-            CompletableFuture<LogicalTopologySnapshot> topologyReadyFuture,
-            Executor taskExecutor
+            CompletableFuture<LogicalTopologySnapshot> topologyReadyFuture
     ) {
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
-        // Run awaiting tasks in taskExecutor forcibly.
-        this.initialTopologyFuture = topologyReadyFuture.thenAcceptAsync(this::onTopologyLeap, taskExecutor);
+        this.initialTopologyFuture = topologyReadyFuture.thenAccept(topologySnapshot::onTopologyChange);
     }
 
     @Override

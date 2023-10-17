@@ -391,7 +391,7 @@ public class TestBuilders {
                     .map(name -> {
                         LogicalTopologySnapshot initialTopology = new LogicalTopologySnapshot(1L, logicalNodes);
 
-                        var mappingService = new MappingServiceImpl(name, targetProvider, completedFuture(initialTopology), Runnable::run);
+                        var mappingService = new MappingServiceImpl(name, targetProvider, completedFuture(initialTopology));
 
                         return new TestNode(
                                 name, clusterService.forNode(name), schemaManager, mappingService

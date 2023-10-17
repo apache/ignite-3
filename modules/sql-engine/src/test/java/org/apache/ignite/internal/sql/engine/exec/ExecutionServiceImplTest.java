@@ -638,7 +638,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .collect(Collectors.toList());
         LogicalTopologySnapshot initialTopology = new LogicalTopologySnapshot(1, logicalNodes);
 
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider, completedFuture(initialTopology), taskExecutor);
+        var mappingService = new MappingServiceImpl(nodeName, targetProvider, completedFuture(initialTopology));
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
