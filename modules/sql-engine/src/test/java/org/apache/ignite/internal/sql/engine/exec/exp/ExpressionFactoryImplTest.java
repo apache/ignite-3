@@ -213,27 +213,34 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .add("C3", SqlTypeName.INTEGER)
                 .build();
 
+        // build bounds for two sequential columns also belongs to index
         List<SearchBounds> bounds = RexUtils.buildSortedSearchBounds(Commons.cluster(),
                 RelCollations.of(ImmutableIntList.of(1, 2)), andCondition, rowType, ImmutableBitSet.of(0, 1, 2));
 
         if (!conditionSatisfyIdx) {
             assertNull(bounds);
             return;
+        } else {
+            assertNotNull(bounds);
         }
 
-        assertNotNull(bounds);
+        RangeIterable<Object[]> ranges = expFactory.ranges(bounds, rowType, null);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-13568 seems length predicate bounds
+        //  for sequential columns also belong to index need to be 2
+        assertEquals(1, ranges.iterator().next().lower().length);
 
         // condition expression is not used
         RexLiteral condition = rexBuilder.makeLiteral(true);
 
+        // assembly bounds
         List<SearchBounds> boundsList = List.of(
                 new RangeBounds(condition, val1, val2, true, true)
         );
 
-        RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, null);
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-13568 seems length predicate bounds
-        //  for sequential columns also belong to index need to be 2
+        ranges = expFactory.ranges(boundsList, rowType, null);
         assertEquals(1, ranges.iterator().next().lower().length);
+        assertEquals(1, ranges.iterator().next().upper().length);
+
     }
 
     static final class TestRange {
