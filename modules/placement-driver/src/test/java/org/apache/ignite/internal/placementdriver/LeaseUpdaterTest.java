@@ -183,6 +183,11 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(() -> getUpdaterThread() == null, 10_000));
     }
 
+    /**
+     * The test repeats to attempt to reproduce a race.
+     *
+     * @throws InterruptedException If failed.
+     */
     @RepeatedTest(20)
     public void testActiveDeactivateMultiThread() throws InterruptedException {
         Thread[] threads = new Thread[10];
