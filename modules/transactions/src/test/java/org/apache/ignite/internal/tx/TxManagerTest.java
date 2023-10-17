@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 
 import static java.lang.Math.abs;
+import static org.apache.ignite.internal.Hacks.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.ReplicaManager.idleSafeTimePropagationPeriodMs;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -269,6 +271,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "1000")
     public void testObservableTimestamp() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
@@ -307,6 +310,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "1000")
     public void testObservableTimestampLocally() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
