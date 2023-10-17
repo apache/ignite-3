@@ -349,7 +349,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state)
                 .whenComplete((ignored, ex) -> {
                     if (ex != null) {
-                        IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                        IgniteInternalException wrapperEx = ExceptionUtils.withCause(
                                 IgniteInternalException::new,
                                 Common.INTERNAL_ERR,
                                 "Unable to request next batch: " + ex.getMessage(),
