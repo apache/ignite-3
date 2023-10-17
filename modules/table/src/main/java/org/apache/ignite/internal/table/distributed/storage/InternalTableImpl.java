@@ -32,7 +32,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRI
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
-import io.opentelemetry.context.Context;
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
@@ -464,10 +464,10 @@ public class InternalTableImpl implements InternalTable {
     @WithSpan
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
-            int partId,
+            @SpanAttribute("partId") int partId,
             Function<Long, ReplicaRequest> mapFunc,
-            int attempts,
-            boolean full,
+            @SpanAttribute("attempts") int attempts,
+            @SpanAttribute("full") boolean full,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
         CompletableFuture<R> result = new CompletableFuture<>();
@@ -1681,7 +1681,7 @@ public class InternalTableImpl implements InternalTable {
                 SECONDS
         );
 
-        return primaryReplicaFuture.handle(Context.current().wrapFunction((primaryReplica, e) -> {
+        return primaryReplicaFuture.handle((primaryReplica, e) -> {
             if (e != null) {
                 throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
                         + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
@@ -1697,7 +1697,7 @@ public class InternalTableImpl implements InternalTable {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
             return tx.enlist(partGroupId, new IgniteBiTuple<>(node, primaryReplica.getStartTime().longValue()));
-        }));
+        });
     }
 
     /**

@@ -467,6 +467,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 
+    @WithSpan
     @Override
     public boolean addInflight(UUID txId) {
         boolean[] res = {true};

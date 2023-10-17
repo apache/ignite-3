@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import org.apache.ignite.internal.future.TracingFuture;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,7 +55,7 @@ public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, 
 
     @Override
     protected CompletableFuture<R> addNewWaiter(T valueToWait) {
-        CompletableFuture<R> future = new CompletableFuture<>();
+        CompletableFuture<R> future = TracingFuture.create();
 
         valueFutures.compute(valueToWait, (k, v) -> {
             if (v == null) {

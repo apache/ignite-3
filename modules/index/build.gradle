@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
+    implementation libs.opentelemetry.instrumentation.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-core')))

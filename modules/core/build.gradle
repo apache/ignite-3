@@ -29,6 +29,7 @@ description = 'ignite-core'
 dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.opentelemetry.instrumentation.annotations
     implementation project(':ignite-api')
 
     testAnnotationProcessor libs.auto.service

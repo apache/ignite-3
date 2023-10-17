@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.future.TracingFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -172,7 +173,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     }
 
     protected CompletableFuture<R> addNewWaiter(T valueToWait) {
-        CompletableFuture<R> future = valueFutures.computeIfAbsent(valueToWait, k -> new CompletableFuture<>());
+        CompletableFuture<R> future = valueFutures.computeIfAbsent(valueToWait, k -> TracingFuture.create());
 
         Map.Entry<T, R> currentEntry = current;
 
@@ -182,7 +183,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
             valueFutures.remove(valueToWait);
         }
 
-        return future;
+        return TracingFuture.wrap(future);
     }
 
     protected void cleanupWaitersOnClose(TrackerClosedException trackerClosedException) {

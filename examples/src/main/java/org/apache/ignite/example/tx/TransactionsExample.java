@@ -20,7 +20,6 @@ package org.apache.ignite.example.tx;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -127,21 +126,21 @@ public class TransactionsExample {
             //
             //--------------------------------------------------------------------------------------
 
-            CompletableFuture<Void> fut = client.transactions().beginAsync().thenCompose(tx ->
-                    accounts
-                        .getAsync(tx, key)
-                        .thenCompose(account -> {
-                            account.balance += 300.0d;
+//            CompletableFuture<Void> fut = client.transactions().beginAsync().thenCompose(tx ->
+//                    accounts
+//                        .getAsync(tx, key)
+//                        .thenCompose(account -> {
+//                            account.balance += 300.0d;
+//
+//                            return accounts.putAsync(tx, key, account);
+//                        })
+//                        .thenCompose(ignored -> tx.commitAsync())
+//            );
+//
+//            // Wait for completion.
+//            fut.join();
 
-                            return accounts.putAsync(tx, key, account);
-                        })
-                        .thenCompose(ignored -> tx.commitAsync())
-            );
-
-            // Wait for completion.
-            fut.join();
-
-            System.out.println("\nBalance after the async transaction: " + accounts.get(null, key).balance);
+//            System.out.println("\nBalance after the async transaction: " + accounts.get(null, key).balance);
         } finally {
             System.out.println("\nDropping the table...");
 
