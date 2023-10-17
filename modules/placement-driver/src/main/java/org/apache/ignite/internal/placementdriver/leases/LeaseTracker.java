@@ -184,12 +184,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                             }
                         }
 
-                        firePrimaryReplicaExpiredEventIfNeed(event.revision(), lease);
+                        firePrimaryReplicaExpiredEventIfNeeded(event.revision(), lease);
                     }
 
                     for (ReplicationGroupId grpId : leases.leaseByGroupId().keySet()) {
                         if (!leasesMap.containsKey(grpId)) {
                             tryRemoveTracker(grpId);
+
+                            firePrimaryReplicaExpiredEvent(event.revision(), grpId, leases.leaseByGroupId().get(grpId));
                         }
                     }
 
@@ -304,18 +306,22 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param causalityToken Causality token.
      * @param lease Lease to check on expiration.
      */
-    private void firePrimaryReplicaExpiredEventIfNeed(long causalityToken, Lease lease) {
+    private void firePrimaryReplicaExpiredEventIfNeeded(long causalityToken, Lease lease) {
         ReplicationGroupId grpId = lease.replicationGroupId();
         Lease currentLease = leases.leaseByGroupId().get(grpId);
 
         if (currentLease != null && currentLease.isAccepted() && !currentLease.getStartTime().equals(lease.getStartTime())) {
-            CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
-                    PRIMARY_REPLICA_EXPIRED,
-                    new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder())
-            ));
-
-            assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
+            firePrimaryReplicaExpiredEvent(causalityToken, grpId, currentLease);
         }
+    }
+
+    private void firePrimaryReplicaExpiredEvent(long causalityToken, ReplicationGroupId grpId, Lease currentLease) {
+        CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
+                PRIMARY_REPLICA_EXPIRED,
+                new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder())
+        ));
+
+        assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
     }
 
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
