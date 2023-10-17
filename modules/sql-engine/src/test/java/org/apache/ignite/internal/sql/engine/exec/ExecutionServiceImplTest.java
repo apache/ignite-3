@@ -23,11 +23,8 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -587,13 +584,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Test checks the ability to run script with multiple statements using {@link QueryPrefetchCallback}.
-     * Each next statement starts executing after the first page for the previous statement has been prefetched.
+     * Tests the ability to run multiple statements using {@link QueryPrefetchCallback}. Each subsequent
+     * statement begins execution after the prefetching for the previous statement is completed.
      *
      * @throws Exception If failed.
      */
     @Test
-    public void testPrefetchCallback() throws Exception {
+    public void testPrefetchCallbackInvocation() throws Exception {
         String query = "SELECT * FROM test_tbl";
         int totalStatements = 20;
         Collection<AsyncCursor<List<Object>>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
@@ -650,6 +647,49 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertEquals(queries.size(), resultCursors.size());
 
         resultCursors.forEach(AsyncCursor::closeAsync);
+    }
+
+    /**
+     * Test ensures that an exception during data prefetching is propagated to the callback.
+     */
+    @Test
+    public void testErrorIsPropagatedToPrefetchCallback() {
+        ExecutionService execService = executionServices.get(0);
+        CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
+        IgniteInternalException expectedException = new IgniteInternalException(Common.INTERNAL_ERR, "Expected exception");
+
+        BaseQueryContext ctx = BaseQueryContext.builder()
+                .cancel(new QueryCancel())
+                .prefetchCallback(prefetchFut::completeExceptionally)
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(wrap(schema))
+                                .build()
+                )
+                .logger(log)
+                .build();
+
+        testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(((QueryStartRequest) msg).queryId())
+                        .fragmentId(((QueryStartRequest) msg).fragmentId())
+                        .error(expectedException)
+                        .build()
+                );
+            } else {
+                original.onMessage(nodeName, msg);
+            }
+
+            return CompletableFuture.completedFuture(null);
+        });
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+        AsyncCursor<List<Object>> cursor = execService.executePlan(new NoOpTransaction(nodeNames.get(0)), plan, ctx);
+
+        assertThat(prefetchFut, willThrow(equalTo(expectedException)));
+
+        cursor.closeAsync();
     }
 
     /** Creates an execution service instance for the node with given consistent id. */
