@@ -28,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -42,13 +43,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
@@ -57,7 +59,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -68,6 +73,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -579,6 +585,70 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(stopFuture, willSucceedIn(10, TimeUnit.SECONDS));
     }
 
+    /**
+     * Test checks the ability to run script with multiple statements using {@link QueryPrefetchCallback}.
+     * Each next statement starts executing after the first page for the previous statement has been prefetched.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testPrefetchCallback() throws Exception {
+        String query = "SELECT * FROM test_tbl";
+        int totalStatements = 20;
+        Collection<AsyncCursor<List<Object>>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
+        List<String> queries = IntStream.range(0, totalStatements).boxed().map(n -> query).collect(Collectors.toList());
+        ArrayBlockingQueue<String> queriesQueue = new ArrayBlockingQueue<>(totalStatements, false, queries);
+        AtomicReference<AssertionError> errHolder = new AtomicReference<>();
+        ExecutionService execService = executionServices.get(0);
+
+        Function<QueryPrefetchCallback, BaseQueryContext> createCtx = (callback) -> BaseQueryContext.builder()
+                .cancel(new QueryCancel())
+                .prefetchCallback(callback)
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(wrap(schema))
+                                .build()
+                )
+                .logger(log)
+                .build();
+
+        QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
+            @Override
+            public void onPrefetched() {
+                try {
+                    String sql = queriesQueue.poll();
+
+                    assertThat(sql, notNullValue());
+
+                    BaseQueryContext ctx = createCtx.apply(queriesQueue.isEmpty() ? null : this);
+                    InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+                    QueryPlan plan = prepare(sql, ctx);
+
+                    resultCursors.add(
+                            execService.executePlan(tx, plan, ctx)
+                    );
+                } catch (AssertionError e) {
+                    errHolder.set(e);
+                } catch (Throwable t) {
+                    errHolder.set(new AssertionError(t));
+                }
+            }
+        };
+
+        // Start statements execution.
+        prefetchListener.onPrefetched();
+
+        if (errHolder.get() != null) {
+            throw errHolder.get();
+        }
+
+        waitForCondition(() -> resultCursors.size() == queries.size(), TIMEOUT_IN_MS);
+
+        assertEquals(queries.size(), resultCursors.size());
+
+        resultCursors.forEach(AsyncCursor::closeAsync);
+    }
+
     /** Creates an execution service instance for the node with given consistent id. */
     public ExecutionServiceImpl<Object[]> create(String nodeName) {
         if (!nodeNames.contains(nodeName)) {
@@ -918,8 +988,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private static class CapturingMailboxRegistry implements MailboxRegistry {
         private final MailboxRegistry delegate;
 
-        private final Set<Inbox<?>> inboxes = Collections.newSetFromMap(new IdentityHashMap<>());
-        private final Set<Outbox<?>> outboxes = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<Inbox<?>> inboxes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        private final Set<Outbox<?>> outboxes = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
         CapturingMailboxRegistry(MailboxRegistry delegate) {
             this.delegate = delegate;

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -268,9 +269,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             case QUERY:
                 return executeQuery(tx, ctx, (MultiStepPlan) plan);
             case EXPLAIN:
-                return executeExplain((ExplainPlan) plan);
+                return executeExplain(ctx, (ExplainPlan) plan);
             case DDL:
-                return executeDdl((DdlPlan) plan);
+                return executeDdl(ctx, (DdlPlan) plan);
 
             default:
                 throw new AssertionError("Unexpected query type: " + plan);
@@ -288,12 +289,22 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return mgr.close(true);
     }
 
-    private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
+    private AsyncCursor<List<Object>> executeDdl(BaseQueryContext ctx, DdlPlan plan) {
         CompletableFuture<Iterator<List<Object>>> ret = ddlCmdHnd.handle(plan.command())
                 .thenApply(applied -> List.of(List.<Object>of(applied)).iterator())
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });
+
+        QueryPrefetchCallback callback = ctx.prefetchCallback();
+
+        if (callback != null) {
+            ret.whenCompleteAsync((res, err) -> {
+                if (err == null) {
+                    callback.onPrefetched();
+                }
+            }, (task) -> taskExecutor.execute(ctx.queryId(), ThreadLocalRandom.current().nextLong(1024), task));
+        }
 
         return new AsyncWrapper<>(ret, Runnable::run);
     }
@@ -315,8 +326,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
-    private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
+    private AsyncCursor<List<Object>> executeExplain(BaseQueryContext ctx, ExplainPlan plan) {
         List<List<Object>> res = List.of(List.of(plan.plan()));
+
+        QueryPrefetchCallback callback = ctx.prefetchCallback();
+
+        if (callback != null) {
+            taskExecutor.execute(ctx.queryId(), ThreadLocalRandom.current().nextLong(1024), callback::onPrefetched);
+        }
 
         return new AsyncWrapper<>(res.iterator());
     }
@@ -555,7 +572,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 });
                 node.onRegister(rootNode);
 
-                rootNode.prefetch();
+                CompletableFuture<Void> prefetchFut = rootNode.startPrefetch();
+                QueryPrefetchCallback callback = ctx.prefetchCallback();
+
+                if (callback != null) {
+                    prefetchFut.thenRunAsync(
+                            callback::onPrefetched,
+                            (task) -> taskExecutor.execute(ectx.queryId(), ectx.fragmentId(), task)
+                    );
+                }
 
                 root.complete(rootNode);
             }

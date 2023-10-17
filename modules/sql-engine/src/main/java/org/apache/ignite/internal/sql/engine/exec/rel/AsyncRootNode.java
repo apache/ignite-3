@@ -56,6 +56,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     private final Queue<PendingRequest<OutRowT>> pendingRequests = new ConcurrentLinkedQueue<>();
 
+    private final CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
+
     private volatile boolean closed = false;
 
     /**
@@ -170,6 +172,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                     }, source::onError);
 
                     closed = true;
+
+                    completePrefetchFuture();
                 }
             }
         }
@@ -181,8 +185,10 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      * Starts the execution of the fragment and keeps the result in the intermediate buffer.
      *
      * <p>Note: this method must be called by the same thread that will execute the whole fragment.
+     *
+     * @return Future representing pending completion of the prefetch operation.
      */
-    public void prefetch() {
+    public CompletableFuture<Void> startPrefetch() {
         assert source.context().description().prefetch();
 
         if (waiting == 0) {
@@ -192,9 +198,14 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 onError(ex);
             }
         }
+
+        return prefetchFut;
     }
 
     private void flush() throws Exception {
+        // Prefetch has been completed.
+        completePrefetchFuture();
+
         // flush may be triggered by prefetching, so let's do nothing in this case
         if (pendingRequests.isEmpty()) {
             return;
@@ -231,6 +242,15 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
             source.context().execute(this::flush, source::onError);
+        }
+    }
+
+    /**
+     * Completes prefetch future if it has not already been completed.
+     */
+    private void completePrefetchFuture() {
+        if (!prefetchFut.isDone()) {
+            prefetchFut.complete(null);
         }
     }
 
