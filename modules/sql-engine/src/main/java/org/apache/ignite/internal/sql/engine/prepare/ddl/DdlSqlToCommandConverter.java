@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -465,9 +466,8 @@ public class DdlSqlToCommandConverter {
         alterTblCmd.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
         alterTblCmd.ifTableExists(alterTblNode.ifExists());
 
-        Set<String> cols = new HashSet<>(alterTblNode.columns().size());
+        Set<String> cols = new LinkedHashSet<>(alterTblNode.columns().size());
         alterTblNode.columns().forEach(c -> cols.add(((SqlIdentifier) c).getSimple()));
-
         alterTblCmd.columns(cols);
 
         return alterTblCmd;

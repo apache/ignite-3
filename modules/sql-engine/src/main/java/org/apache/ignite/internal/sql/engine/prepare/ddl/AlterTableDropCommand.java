@@ -29,7 +29,7 @@ public class AlterTableDropCommand extends AbstractTableDdlCommand {
     private Set<String> cols;
 
     public Set<String> columns() {
-        return Collections.unmodifiableSet(cols);
+        return cols;
     }
 
     /**

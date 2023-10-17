@@ -33,6 +33,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -95,7 +96,15 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             }
 
             if (indexedColumns.contains(columnName)) {
-                throw new CatalogValidationException("Deleting indexed column is not allowed");
+                List<String> indexesNames = Arrays.stream(schema.indexes()).filter(
+                        index -> index instanceof CatalogHashIndexDescriptor
+                                ? ((CatalogHashIndexDescriptor) index).columns().contains(columnName)
+                                : ((CatalogSortedIndexDescriptor) index).columns().stream().map(CatalogIndexColumnDescriptor::name)
+                                        .anyMatch(column -> column.equals(columnName))
+
+                ).map(CatalogIndexDescriptor::name).collect(Collectors.toList());
+                throw new CatalogValidationException(format(
+                        "Deleting column '{}' used by index(es) {}, it is not allowed", columnName, indexesNames));
             }
         }
 

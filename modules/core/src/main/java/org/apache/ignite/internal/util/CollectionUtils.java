@@ -519,6 +519,6 @@ public final class CollectionUtils {
             return null;
         }
 
-        return Set.copyOf(set);
+        return unmodifiableSet(set);
     }
 }
