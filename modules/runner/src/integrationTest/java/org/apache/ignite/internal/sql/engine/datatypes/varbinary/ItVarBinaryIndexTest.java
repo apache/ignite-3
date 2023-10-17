@@ -18,8 +18,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -28,7 +28,7 @@ import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseIndexDataTypeTe
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.util.VarBinary;
-import org.apache.ignite.internal.util.HexStringUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -59,8 +59,8 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
     @ParameterizedTest
     @MethodSource("indexChecks")
     public void testKeyLookUp2(String table, ValueMode mode) {
-        VarBinary value1 = values.get(0);
-        String value1str = mode.toSql(testTypeSpec, value1);
+        byte[] value1 = values.get(0).get();
+        String value1str = mode.toSql(testTypeSpec, VarBinary.varBinary(value1));
 
         // TODO Disable for VARBINARY, remove after https://issues.apache.org/jira/browse/IGNITE-19931 is fixed
         Assumptions.assumeFalse(mode == ValueMode.CAST);
@@ -121,11 +121,11 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
                 case LITERAL:
                     return spec.toLiteral(value);
                 case CAST: {
-                    String str = HexStringUtils.toHexString(value.get());
+                    String str = StringUtils.toHexString(value.get());
                     return format("x'{}'::VARBINARY", str);
                 }
                 case CAST_WITH_PRECISION: {
-                    String str = HexStringUtils.toHexString(value.get());
+                    String str = StringUtils.toHexString(value.get());
                     return format("x'{}'::VARBINARY(8)", str);
                 }
                 default:

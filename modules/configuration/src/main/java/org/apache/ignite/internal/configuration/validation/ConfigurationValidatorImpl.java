@@ -47,7 +47,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.internal.configuration.util.KeysTrackingConfigurationVisitor;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,7 +61,8 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
             new OneOfValidator(),
             new ExceptKeysValidator(),
             new PowerOfTwoValidator(),
-            new RangeValidator()
+            new RangeValidator(),
+            new NotBlankValidator()
     );
 
     /** Lazy annotations cache for configuration schema fields. */

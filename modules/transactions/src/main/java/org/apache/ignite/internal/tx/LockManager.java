@@ -33,7 +33,6 @@ public interface LockManager {
      * @param lockKey The key.
      * @param lockMode Lock mode, for example shared, exclusive, intention-shared etc.
      * @return The future with gained lock that will be completed when a lock is successfully acquired.
-     * @throws LockException When a lock can't be taken due to possible deadlock.
      */
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode);
 

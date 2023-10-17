@@ -18,8 +18,20 @@
 package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
+import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -309,6 +321,47 @@ public class BinaryTupleSchema {
             case TIME: return tuple.timeValue(index);
             case DATETIME: return tuple.dateTimeValue(index);
             case TIMESTAMP: return tuple.timestampValue(index);
+            default: throw new InvalidTypeException("Unknown element type: " + element.typeSpec);
+        }
+    }
+
+    /**
+     * Helper method that adds value to the binary tuple builder.
+     *
+     * @param builder Binary tuple builder.
+     * @param index Field index to write.
+     * @param value Value to add.
+     * @return Binary tuple builder.
+     */
+    public BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, int index, @Nullable Object value) {
+        Element element = element(index);
+
+        if (value == null) {
+            if (!element.nullable()) {
+                throw new BinaryTupleFormatException("NULL value for non-nullable column in binary tuple builder.");
+            }
+
+            return builder.appendNull();
+        }
+
+        switch (element.typeSpec()) {
+            case BOOLEAN: return builder.appendBoolean((boolean) value);
+            case INT8: return builder.appendByte((byte) value);
+            case INT16: return builder.appendShort((short) value);
+            case INT32: return builder.appendInt((int) value);
+            case INT64: return builder.appendLong((long) value);
+            case FLOAT: return builder.appendFloat((float) value);
+            case DOUBLE: return builder.appendDouble((double) value);
+            case NUMBER: return builder.appendNumberNotNull((BigInteger) value);
+            case DECIMAL: return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
+            case UUID: return builder.appendUuidNotNull((UUID) value);
+            case BYTES: return builder.appendBytesNotNull((byte[]) value);
+            case STRING: return builder.appendStringNotNull((String) value);
+            case BITMASK: return builder.appendBitmaskNotNull((BitSet) value);
+            case DATE: return builder.appendDateNotNull((LocalDate) value);
+            case TIME: return builder.appendTimeNotNull((LocalTime) value);
+            case DATETIME: return builder.appendDateTimeNotNull((LocalDateTime) value);
+            case TIMESTAMP: return builder.appendTimestampNotNull((Instant) value);
             default: throw new InvalidTypeException("Unknown element type: " + element.typeSpec);
         }
     }

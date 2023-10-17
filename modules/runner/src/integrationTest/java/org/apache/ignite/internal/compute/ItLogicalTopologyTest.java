@@ -71,7 +71,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: " + NODE_ATTRIBUTES
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest.port: {}\n"
             + "}";
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
@@ -162,7 +163,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.VALIDATED));
         assertThat(event.node.name(), is(secondIgnite.name()));
-        assertThat(event.node.nodeAttributes(), is(NODE_ATTRIBUTES_MAP));
+        assertThat(event.node.attributes(), is(NODE_ATTRIBUTES_MAP));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
@@ -170,7 +171,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.eventType, is(EventType.JOINED));
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(2L));
-        assertThat(event.node.nodeAttributes(), is(NODE_ATTRIBUTES_MAP));
+        assertThat(event.node.attributes(), is(NODE_ATTRIBUTES_MAP));
 
         assertThat(events, is(empty()));
 
@@ -183,7 +184,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat(event.eventType, is(EventType.LEFT));
         assertThat(event.node.name(), is(secondIgnite.name()));
         assertThat(event.topologyVersion, is(3L));
-        assertThat(event.node.nodeAttributes(), is(Collections.emptyMap()));
+        assertThat(event.node.attributes(), is(Collections.emptyMap()));
 
         assertThat(events, is(empty()));
     }
@@ -206,7 +207,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         assertTrue(secondNode.isPresent());
 
-        assertThat(secondNode.get().nodeAttributes(), is(NODE_ATTRIBUTES_MAP));
+        assertThat(secondNode.get().attributes(), is(NODE_ATTRIBUTES_MAP));
     }
 
     @Test

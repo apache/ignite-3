@@ -19,8 +19,11 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOError;
@@ -40,8 +43,9 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.client.ClientClusterNode;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -53,7 +57,9 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -113,7 +119,7 @@ public class TestServer implements AutoCloseable {
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId,
-            @Nullable AuthenticationConfiguration authenticationConfiguration,
+            @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port
     ) {
         this(
@@ -123,7 +129,7 @@ public class TestServer implements AutoCloseable {
                 responseDelay,
                 nodeName,
                 clusterId,
-                authenticationConfiguration,
+                securityConfiguration,
                 port,
                 null
         );
@@ -142,7 +148,7 @@ public class TestServer implements AutoCloseable {
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId,
-            @Nullable AuthenticationConfiguration authenticationConfiguration,
+            @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
             @Nullable HybridClock clock
     ) {
@@ -185,9 +191,9 @@ public class TestServer implements AutoCloseable {
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
 
-        AuthenticationConfiguration authenticationConfigToApply = authenticationConfiguration == null
-                ? mock(AuthenticationConfiguration.class)
-                : authenticationConfiguration;
+        SecurityConfiguration securityConfigurationOnInit = securityConfiguration == null
+                ? mock(SecurityConfiguration.class)
+                : securityConfiguration;
 
         if (clock == null) {
             clock = new HybridClockImpl();
@@ -204,7 +210,7 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterId,
                         metrics,
-                        authenticationConfigToApply,
+                        securityConfigurationOnInit,
                         clock)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
@@ -218,12 +224,26 @@ public class TestServer implements AutoCloseable {
                         () -> CompletableFuture.completedFuture(clusterId),
                         mock(MetricManager.class),
                         metrics,
-                        authenticationManager(authenticationConfigToApply),
-                        authenticationConfigToApply,
-                        clock
-                        );
+                        authenticationManager(securityConfigurationOnInit),
+                        securityConfigurationOnInit,
+                        clock,
+                        new AlwaysSyncedSchemaSyncService(),
+                        mockCatalogService()
+                );
 
         module.start();
+    }
+
+    /**
+     * Creates a minimal mock-based {@link CatalogService}.
+     */
+    public static CatalogService mockCatalogService() {
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.tableVersion()).thenReturn(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
+
+        CatalogService catalogService = mock(CatalogService.class);
+        when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        return catalogService;
     }
 
     /**
@@ -300,9 +320,9 @@ public class TestServer implements AutoCloseable {
         }
     }
 
-    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+    private AuthenticationManager authenticationManager(SecurityConfiguration securityConfiguration) {
         AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(authenticationManager);
+        securityConfiguration.listen(authenticationManager);
         return authenticationManager;
     }
 }

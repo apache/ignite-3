@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 import static org.mockito.Mockito.mock;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -50,6 +50,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
@@ -97,9 +98,10 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     @BeforeEach
     void setUp(@InjectConfiguration GcConfiguration gcConfig) {
-        int pkIndexId = 1;
-        int sortedIndexId = 2;
-        int hashIndexId = 3;
+        int tableId = 1;
+        int pkIndexId = 2;
+        int sortedIndexId = 3;
+        int hashIndexId = 4;
 
         pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(pkIndexId, List.of(
                 new StorageHashIndexColumnDescriptor("INTKEY", NativeTypes.INT32, false),
@@ -142,7 +144,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 hashIndexId, hashIndexStorage
         );
 
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(storage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes));
 
@@ -169,9 +171,13 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
+        addWrite(handler, rowUuid, row, null);
+    }
+
+    static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null);
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime);
     }
 
     static BinaryRow defaultRow() {
@@ -231,7 +237,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         USE_UPDATE {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null);
+                // TODO: perhaps need to pass last commit time as a param
+                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null);
             }
         },
         /** Uses updateAll api. */
@@ -251,7 +258,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                         partitionId,
                         true,
                         null,
-                        null
+                        null,
+                        emptyMap()
                 );
             }
         };

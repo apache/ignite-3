@@ -16,15 +16,15 @@
  */
 package org.apache.ignite.raft.jraft.storage.io;
 
-import java.io.File;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.File;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter;
+import org.junit.jupiter.api.Test;
 
 public class MessageFileTest {
     @Test
@@ -37,7 +37,7 @@ public class MessageFileTest {
         LocalFileMetaOutter.LocalFileMeta msg = new RaftMessagesFactory()
             .localFileMeta()
             .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_REFERENCE.getNumber())
             .build();
         assertTrue(file.save(msg, true));
 

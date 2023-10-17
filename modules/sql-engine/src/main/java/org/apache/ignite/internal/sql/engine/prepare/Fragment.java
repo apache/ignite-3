@@ -22,10 +22,11 @@ import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.to
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -43,9 +44,9 @@ public class Fragment {
     @IgniteToStringExclude
     private final String rootSer;
 
-    private final FragmentMapping mapping;
-
     private final List<IgniteReceiver> remotes;
+    private final List<IgniteTable> tables;
+    private final List<IgniteSystemView> systemViews;
 
     private final boolean correlated;
 
@@ -56,30 +57,34 @@ public class Fragment {
      * @param correlated Whether some correlated variables should be set prior to fragment execution.
      * @param root Root node of the fragment.
      * @param remotes Remote sources of the fragment.
+     * @param tables A list of tables containing by this fragment.
+     * @param systemViews A list of system views containing by this fragment.
      */
-    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes) {
-        this(id, root, correlated, remotes, null, null);
+    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes,
+            List<IgniteTable> tables, List<IgniteSystemView> systemViews) {
+        this(id, correlated, root, null, remotes, tables, systemViews);
     }
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param id An identifier of this fragment.
+     * @param correlated Whether some correlated variables should be set prior to fragment execution.
+     * @param root Root node of the fragment.
+     * @param rootSer Serialised representation of a root. Optional.
+     * @param remotes Remote sources of the fragment.
+     * @param tables A list of tables containing by this fragment.
+     * @param systemViews A list of system views containing by this fragment.
      */
-    Fragment(long id, IgniteRel root, boolean correlated, List<IgniteReceiver> remotes,
-            @Nullable String rootSer, @Nullable FragmentMapping mapping) {
+    Fragment(long id, boolean correlated, IgniteRel root, @Nullable String rootSer, List<IgniteReceiver> remotes,
+            List<IgniteTable> tables, List<IgniteSystemView> systemViews) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
+        this.tables = List.copyOf(tables);
+        this.systemViews = List.copyOf(systemViews);
         this.rootSer = rootSer != null ? rootSer : toJson(root);
-        this.mapping = mapping;
         this.correlated = correlated;
-    }
-
-    /** Creates a copy of this fragment with mapping assigned to the given one. */
-    public Fragment withMapping(FragmentMapping mapping) {
-        assert mapping != null;
-
-        return new Fragment(id, root, correlated, remotes, rootSer, mapping);
     }
 
     /**
@@ -105,10 +110,6 @@ public class Fragment {
         return rootSer;
     }
 
-    public FragmentMapping mapping() {
-        return mapping;
-    }
-
     /**
      * Returns {@code true} if this fragment expecting some correlated variables being set from
      * outside (e.g. parent fragment).
@@ -126,6 +127,14 @@ public class Fragment {
         return remotes;
     }
 
+    public List<IgniteTable> tables() {
+        return tables;
+    }
+
+    public List<IgniteSystemView> systemViews() {
+        return systemViews;
+    }
+
     public boolean rootFragment() {
         return !(root instanceof IgniteSender);
     }
@@ -135,8 +144,8 @@ public class Fragment {
     }
 
     public boolean single() {
-        return root instanceof IgniteSender
-                && ((IgniteSender) root).sourceDistribution().satisfies(IgniteDistributions.single());
+        return rootFragment() || (root instanceof IgniteSender
+                && ((IgniteSender) root).sourceDistribution().satisfies(IgniteDistributions.single()));
     }
 
     /** {@inheritDoc} */

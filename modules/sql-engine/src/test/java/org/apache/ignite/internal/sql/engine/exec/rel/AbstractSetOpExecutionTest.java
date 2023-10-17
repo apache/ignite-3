@@ -36,13 +36,15 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.junit.jupiter.api.Test;
 
 /**
  * Abstract test for set operator (MINUS, INTERSECT) execution.
  */
-public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
+public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private static final int COLUMN_NUN = 2;
 
@@ -162,4 +164,9 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
 
     protected abstract AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
             AggregateType type, int columnCount, boolean all, int inputsCnt);
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
 }

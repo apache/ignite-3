@@ -23,14 +23,12 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.ReplicationGroupsUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -42,7 +40,6 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -72,7 +69,6 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
      * cannot execute without waiting for schemas). This method tests this scenario.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20410")
     void laggingSchemasPreventPartitionDataReplication() throws Exception {
         createTestTableWith3Replicas();
 
@@ -105,7 +101,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private void createTestTableWith3Replicas() throws InterruptedException {
+    private void createTestTableWith3Replicas() {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
@@ -114,22 +110,6 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
             executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
-
-        waitForTableToStart();
-    }
-
-    private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18733 - remove this wait because when a table creation query is executed, the table must be fully ready.
-
-        BooleanSupplier tableStarted = () -> {
-            int numberOfStartedRaftNodes = cluster.runningNodes()
-                    .map(ReplicationGroupsUtils::tablePartitionIds)
-                    .mapToInt(List::size)
-                    .sum();
-            return numberOfStartedRaftNodes == NODES_TO_START;
-        };
-
-        assertTrue(waitForCondition(tableStarted, 10_000), "Did not see all table RAFT nodes started");
     }
 
     private void transferLeadershipsTo(int nodeIndex) throws InterruptedException {
@@ -141,7 +121,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         CompletableFuture<?> rejectionTriggered = new CompletableFuture<>();
 
         appendEntriesInterceptorInspector.addHandler(
-                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available"),
+                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available, rejecting AppendEntriesRequest"),
                 () -> rejectionTriggered.complete(null)
         );
 
@@ -171,6 +151,8 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
         // We use this api because there is no waiting for schemas to sync.
         TableImpl table = ((TableManager) node.tables()).getTable(TABLE_NAME);
+
+        assertNotNull(table);
 
         MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getMvPartition(0);
 

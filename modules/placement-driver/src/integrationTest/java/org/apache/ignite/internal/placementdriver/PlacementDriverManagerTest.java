@@ -20,15 +20,16 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.lang.ByteArray.fromString;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.lang.ByteArray.fromString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -37,12 +38,15 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -53,10 +57,12 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -68,9 +74,9 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -127,7 +133,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private final AtomicInteger nextTableId = new AtomicInteger();
 
     @BeforeEach
-    public void beforeTest(TestInfo testInfo) throws NodeStoppingException {
+    public void beforeTest(TestInfo testInfo) {
         this.nodeName = testNodeName(testInfo, PORT);
         this.anotherNodeName = testNodeName(testInfo, PORT + 1);
         this.testInfo = testInfo;
@@ -207,7 +213,12 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         anotherClusterService.start();
         raftManager.start();
         metaStorageManager.start();
+
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
         placementDriverManager.start();
+
+        assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
@@ -247,18 +258,19 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     }
 
     private void stopPlacementDriverManager() throws Exception {
-        placementDriverManager.beforeNodeStop();
-        metaStorageManager.beforeNodeStop();
-        raftManager.beforeNodeStop();
-        clusterService.beforeNodeStop();
-        vaultManager.beforeNodeStop();
+        List<IgniteComponent> igniteComponents = List.of(
+                placementDriverManager,
+                metaStorageManager,
+                raftManager,
+                clusterService,
+                anotherClusterService,
+                vaultManager
+        );
 
-        placementDriverManager.stop();
-        metaStorageManager.stop();
-        raftManager.stop();
-        anotherClusterService.stop();
-        clusterService.stop();
-        vaultManager.stop();
+        IgniteUtils.closeAll(Stream.concat(
+                igniteComponents.stream().filter(Objects::nonNull).map(component -> component::beforeNodeStop),
+                Stream.of(() -> IgniteUtils.stopAll(igniteComponents.stream())))
+        );
     }
 
     @Test
@@ -323,6 +335,44 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             return lease.getExpirationTime().compareTo(nodeClock.now()) > 0;
         }, 10_000));
     }
+
+    @Test
+    public void testPrimaryReplicaExpired() throws Exception {
+        AtomicBoolean leaseExpired = new AtomicBoolean();
+
+        TablePartitionId grpPart0 = createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName));
+
+        placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (evt, e) -> {
+            log.info("Primary replica is expired [grp={}]", grpPart0);
+
+            leaseExpired.set(true);
+
+            return CompletableFuture.completedFuture(false);
+        });
+
+        Lease lease1 = checkLeaseCreated(grpPart0, true);
+
+        assertFalse(leaseExpired.get());
+
+        Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 1);
+
+        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
+
+        assertTrue(waitForCondition(() -> {
+            var fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
+
+            Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
+
+            return lease.getLeaseholder().equals(anotherNodeName);
+        }, 10_000));
+
+        Lease lease2 = checkLeaseCreated(grpPart0, true);
+
+        assertNotEquals(lease1.getLeaseholder(), lease2.getLeaseholder());
+
+        assertTrue(leaseExpired.get());
+    }
+
 
     @Test
     public void testLeaseAccepted() throws Exception {

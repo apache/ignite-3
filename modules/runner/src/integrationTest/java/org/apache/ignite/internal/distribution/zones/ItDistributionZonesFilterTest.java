@@ -41,13 +41,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.sql.Session;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
@@ -82,7 +82,8 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
                 + "  nodeAttributes: {\n"
                 + "    nodeAttributes: " + nodeAttributes
                 + "  },\n"
-                + "  clientConnector: { port:{} }\n"
+                + "  clientConnector: { port:{} },\n"
+                + "  rest.port: {}\n"
                 + "}";
     }
 
@@ -192,8 +193,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
-        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
@@ -252,8 +251,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
-        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
@@ -280,8 +277,6 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         waitDataNodeAndListenersAreHandled(metaStorageManager, 2, zoneId);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
-        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),

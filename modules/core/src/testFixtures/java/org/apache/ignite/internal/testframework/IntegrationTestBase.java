@@ -34,10 +34,10 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,8 +49,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @MicronautTest(rebuildContext = true)
 @ExtendWith(WorkDirectoryExtension.class)
 public class IntegrationTestBase extends BaseIgniteAbstractTest {
+    /** Base port network number. */
+    private static final int BASE_PORT = 3344;
+
+    /** Base client port. */
+    private static final int BASE_CLIENT_PORT = 10800;
+
+    /** Base HTTP port. */
+    private static final int BASE_HTTP_PORT = 10300;
+
+    /** Base HTTPS port. */
+    private static final int BASE_HTTPS_PORT = 10400;
+
     /** Correct ignite cluster url. */
-    protected static final String NODE_URL = "http://localhost:10300";
+    protected static final String NODE_URL = "http://localhost:" + BASE_HTTP_PORT;
 
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
@@ -65,12 +77,6 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
     private static final IgniteLogger LOG = Loggers.forClass(IntegrationTestBase.class);
 
-    /** Base port number. */
-
-    private static final int BASE_PORT = 3344;
-
-    private static final int BASE_CLIENT_PORT = 10800;
-
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network: {\n"
@@ -80,7 +86,11 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port: {} }\n"
+            + "  rest: {\n"
+            + "    port:{},\n"
+            + "    ssl: { port: {} }\n"
+            + "  }\n"
             + "}";
 
     /** Futures that are going to be completed when all nodes are started and the cluster is initialized. */
@@ -107,7 +117,9 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
                             nodeBootstrapConfigTemplate(),
                             BASE_PORT + i,
                             connectNodeAddr,
-                            BASE_CLIENT_PORT + i);
+                            BASE_CLIENT_PORT + i,
+                            BASE_HTTP_PORT + i,
+                            BASE_HTTPS_PORT + i);
 
                     NODE_CONFIGS.put(nodeName, config);
 

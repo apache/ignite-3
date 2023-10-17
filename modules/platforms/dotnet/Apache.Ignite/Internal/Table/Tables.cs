@@ -100,7 +100,7 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Table.</returns>
         internal async Task<Table?> GetTableInternalAsync(string name)
         {
-            IgniteArgumentCheck.NotNull(name, nameof(name));
+            IgniteArgumentCheck.NotNull(name);
 
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(name);

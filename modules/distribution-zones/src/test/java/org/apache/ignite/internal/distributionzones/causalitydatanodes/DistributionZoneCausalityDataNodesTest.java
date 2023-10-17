@@ -62,12 +62,12 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -575,8 +575,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create logical topology with NODE_0.
         topology.putNode(NODE_0);
-
-        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
         // Test steps.
 

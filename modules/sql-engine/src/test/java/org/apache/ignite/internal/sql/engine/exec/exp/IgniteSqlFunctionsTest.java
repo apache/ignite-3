@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -26,7 +27,7 @@ import java.math.BigDecimal;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -238,7 +239,7 @@ public class IgniteSqlFunctionsTest {
             BigDecimal expected = convert.get();
             assertEquals(new BigDecimal(result), expected);
         } else {
-            assertThrows(SqlException.class, convert::get);
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "Numeric field overflow", convert::get);
         }
     }
 }

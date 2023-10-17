@@ -42,6 +42,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
@@ -52,8 +54,6 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -157,6 +157,8 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
 
     private static final int BASE_CLIENT_PORT = 10800;
 
+    private static final int BASE_REST_PORT = 10300;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  \"network\": {\n"
@@ -165,7 +167,8 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
             + "      \"netClusterNodes\": [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  clientConnector.port: {}\n"
+            + "  clientConnector.port: {},\n"
+            + "  rest.port: {}\n"
             + "}";
 
     /** Cluster nodes. */
@@ -322,7 +325,9 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 .mapToObj(i -> {
                     String nodeName = NODE_NAME_PREFIX + i;
 
-                    String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i);
+                    String config = IgniteStringFormatter.format(
+                            NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i, BASE_REST_PORT + i
+                    );
 
                     return TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
                 })

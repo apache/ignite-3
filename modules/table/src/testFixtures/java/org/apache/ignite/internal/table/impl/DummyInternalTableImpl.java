@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -60,7 +63,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -76,14 +78,12 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
-import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -92,10 +92,10 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
@@ -111,6 +111,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
     public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
+
+    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(LOCAL_NODE.name());
 
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.
@@ -176,7 +178,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
-            TransactionStateResolver transactionStateResolver,
+            @Nullable TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
@@ -195,7 +197,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             MvPartitionStorage mvPartStorage,
             SchemaDescriptor schema
     ) {
-        this(replicaSvc, mvPartStorage, null, false, null, schema, new HybridTimestampTracker());
+        this(
+                replicaSvc,
+                mvPartStorage,
+                txManager(replicaSvc),
+                false,
+                null,
+                schema,
+                new HybridTimestampTracker()
+        );
     }
 
     /**
@@ -203,18 +213,19 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
-     * @param txManager Transaction manager, if {@code null}, then default one will be created.
+     * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
      *         ReplicaService by itself.
      * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
+     * @param tracker Observable timestamp tracker.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
-            @Nullable TxManager txManager,
+            TxManager txManager,
             boolean crossTableUsage,
-            TransactionStateResolver transactionStateResolver,
+            @Nullable TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
@@ -224,17 +235,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> LOCAL_NODE,
-                txManager == null
-                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), () -> "local")
-                        : txManager,
+                txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
                 CLOCK,
                 tracker,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                TEST_PLACEMENT_DRIVER
         );
-        RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
+        RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
@@ -249,9 +258,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     .doAnswer(invocationOnMock -> {
                         ClusterNode node = invocationOnMock.getArgument(0);
 
-                        return replicaListener.invoke(invocationOnMock.getArgument(1), node.id());
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), node.id()).thenApply(ReplicaResult::result);
                     })
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
+
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        String nodeId = invocationOnMock.getArgument(0);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId).thenApply(ReplicaResult::result);
+                    })
+                    .when(replicaSvc).invoke(anyString(), any());
         }
 
         AtomicLong raftIndex = new AtomicLong();
@@ -323,7 +340,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         safeTime = new PendingIndependentComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
 
-        PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
+        PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
         GcConfiguration gcConfig = mock(GcConfiguration.class);
@@ -344,10 +361,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
-        CatalogTables catalogTables = mock(CatalogTables.class);
+        CatalogService catalogService = mock(CatalogService.class);
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
-        lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
         lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
 
         replicaListener = new PartitionReplicaListener(
@@ -368,17 +385,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
                 LOCAL_NODE,
-                mock(MvTableStorage.class),
-                mock(IndexBuilder.class),
-                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                mock(CatalogService.class),
-                catalogTables,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                new AlwaysSyncedSchemaSyncService(),
+                catalogService,
+                TEST_PLACEMENT_DRIVER
         );
 
         partitionListener = new PartitionListener(
                 this.txManager,
-                new TestPartitionDataStorage(mvPartStorage),
+                new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
@@ -411,6 +425,22 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      */
     public TxManager txManager() {
         return txManager;
+    }
+
+    /**
+     * Creates a {@link TxManager}.
+     *
+     * @param replicaSvc Replica service to use.
+     */
+    public static TxManagerImpl txManager(ReplicaService replicaSvc) {
+        return new TxManagerImpl(
+                replicaSvc,
+                new HeapLockManager(),
+                CLOCK,
+                new TransactionIdGenerator(0xdeadbeef),
+                LOCAL_NODE::id,
+                TEST_PLACEMENT_DRIVER
+        );
     }
 
     /** {@inheritDoc} */

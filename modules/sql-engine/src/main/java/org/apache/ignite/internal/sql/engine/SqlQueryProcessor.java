@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,22 +31,20 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.event.Event;
-import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.index.event.IndexEvent;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -58,10 +57,15 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -69,6 +73,8 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.CatalogSqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
@@ -79,19 +85,20 @@ import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.event.TableEvent;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
@@ -143,9 +150,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ClusterService clusterSrvc;
 
-    private final TableManager tableManager;
+    private final LogicalTopologyService logicalTopologyService;
 
-    private final IndexManager indexManager;
+    private final TableManager tableManager;
 
     private final CatalogSchemaManager schemaManager;
 
@@ -156,10 +163,11 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Event listeners to close. */
-    private final List<Pair<Event, EventListener>> evtLsnrs = new ArrayList<>();
-
     private final ReplicaService replicaService;
+
+    private final SqlSchemaManager sqlSchemaManager;
+
+    private final SystemViewManager systemViewManager;
 
     private volatile SessionManager sessionManager;
 
@@ -169,10 +177,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile PrepareService prepareSvc;
 
-    private volatile SqlSchemaManager sqlSchemaManager;
-
     /** Clock. */
     private final HybridClock clock;
+
+    private final SchemaSyncService schemaSyncService;
 
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
@@ -187,26 +195,30 @@ public class SqlQueryProcessor implements QueryProcessor {
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
+            LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
-            IndexManager indexManager,
             CatalogSchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
+            SchemaSyncService schemaSyncService,
             CatalogManager catalogManager,
-            MetricManager metricManager
+            MetricManager metricManager,
+            SystemViewManager systemViewManager
     ) {
         this.clusterSrvc = clusterSrvc;
+        this.logicalTopologyService = logicalTopologyService;
         this.tableManager = tableManager;
-        this.indexManager = indexManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
+        this.schemaSyncService = schemaSyncService;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
+        this.systemViewManager = systemViewManager;
 
         sqlSchemaManager = new CatalogSqlSchemaManager(
                 catalogManager,
@@ -236,7 +248,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
-                clusterSrvc.topologyService(),
+                nodeName,
                 clusterSrvc.messagingService(),
                 taskExecutor,
                 busyLock
@@ -253,7 +265,47 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
 
-        var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
+        var dependencyResolver = new ExecutionDependencyResolverImpl(
+                executableTableRegistry,
+                view -> () -> systemViewManager.scanView(view.name())
+        );
+
+        var executionTargetProvider = new ExecutionTargetProvider() {
+            @Override
+            public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
+                return tableManager.tableAsync(table.id())
+                        .thenCompose(tbl -> tbl.internalTable().primaryReplicas())
+                        .thenApply(replicas -> {
+                            List<NodeWithTerm> assignments = replicas.stream()
+                                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
+                                    .collect(Collectors.toList());
+
+                            return factory.partitioned(assignments);
+                        });
+            }
+
+            @Override
+            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                List<String> nodes = systemViewManager.owningNodes(view.name());
+
+                if (nullOrEmpty(nodes)) {
+                    return CompletableFuture.failedFuture(
+                            new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                                    + " any active nodes in the cluster", view.name()))
+                    );
+                }
+
+                return CompletableFuture.completedFuture(
+                        view.distribution() == IgniteDistributions.single()
+                                ? factory.oneOf(nodes)
+                                : factory.allOf(nodes)
+                );
+            }
+        };
+
+        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider);
+
+        logicalTopologyService.addEventListener(mappingService);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -264,6 +316,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 SqlRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
+                mappingService,
                 dependencyResolver
         ));
 
@@ -317,18 +370,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         Collections.reverse(services);
 
-        Stream<AutoCloseable> closableComponents = services.stream().map(s -> s::stop);
-
-        Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
-                .map((p) -> () -> {
-                    if (p.left instanceof TableEvent) {
-                        tableManager.removeListener((TableEvent) p.left, p.right);
-                    } else {
-                        indexManager.removeListener((IndexEvent) p.left, p.right);
-                    }
-                });
-
-        IgniteUtils.closeAll(Stream.concat(closableComponents, closableListeners).collect(Collectors.toList()));
+        IgniteUtils.closeAll(services.stream().map(s -> s::stop));
     }
 
     /** {@inheritDoc} */
@@ -404,12 +446,13 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                                 .logger(LOG)
                                 .cancel(queryCancel)
-                                .parameters(params).build();
+                                .parameters(params)
+                                .build();
 
                         return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(session, txWrapper, ctx, plan));
                     }).whenComplete((res, ex) -> {
                         if (ex != null) {
-                            txWrapper.rollbackImplicit();
+                            txWrapper.rollback();
                         }
                     });
         });
@@ -428,14 +471,15 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, HybridTimestamp timestamp) {
         try {
-            // TODO IGNITE-18733: wait for actual metadata for TX.
-            SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
+            return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(unused -> {
+                SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
 
-            if (schema == null) {
-                return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
-            }
+                if (schema == null) {
+                    throw new SchemaNotFoundException(schemaName);
+                }
 
-            return CompletableFuture.completedFuture(schema);
+                return schema;
+            });
         } catch (Throwable t) {
             return CompletableFuture.failedFuture(t);
         }
@@ -459,6 +503,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 plan.metadata(),
                 txWrapper,
                 new AsyncCursor<>() {
+                    private AtomicBoolean finished = new AtomicBoolean(false);
+
                     @Override
                     public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                         session.touch();
@@ -469,9 +515,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                     @Override
                     public CompletableFuture<Void> closeAsync() {
                         session.touch();
-                        numberOfOpenCursors.decrementAndGet();
 
-                        return dataCursor.closeAsync();
+                        if (finished.compareAndSet(false, true)) {
+                            numberOfOpenCursors.decrementAndGet();
+
+                            return dataCursor.closeAsync();
+                        } else {
+                            return CompletableFuture.completedFuture(null);
+                        }
                     }
                 }
         );
@@ -486,6 +537,7 @@ public class SqlQueryProcessor implements QueryProcessor {
      * @return Wrapper for an active transaction.
      * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
      */
+    // TODO: IGNITE-20539 - unify creation of implicit transactions.
     static QueryTransactionWrapper wrapTxOrStartImplicit(
             SqlQueryType queryType,
             IgniteTransactions transactions,
@@ -518,6 +570,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
+
+        if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+            String message = "Transaction control statement can not be executed as an independent statement";
+
+            throw new SqlException(STMT_VALIDATION_ERR, message);
+        }
 
         if (!allowedTypes.contains(queryType)) {
             String message = format("Invalid SQL statement type. Expected {} but got {}", allowedTypes, queryType);

@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -34,25 +33,31 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
-import org.apache.ignite.internal.sql.engine.exec.TestExecutableTableRegistry.ColocationGroupProvider;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -250,7 +255,7 @@ public class TestBuilders {
     }
 
     private static class ExecutionContextBuilderImpl implements ExecutionContextBuilder {
-        private FragmentDescription description = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
+        private FragmentDescription description = new FragmentDescription(0, true, null, null, null);
 
         private UUID queryId = null;
         private QueryTaskExecutor executor = null;
@@ -339,6 +344,7 @@ public class TestBuilders {
         public TestCluster build() {
             var clusterService = new ClusterServiceFactory(nodeNames);
 
+            Map<String, Map<String, DataProvider<?>>> dataProvidersByTableName = new HashMap<>();
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
                 validateDataSourceBuilder(tableBuilder);
                 injectDefaultDataProvidersIfNeeded(tableBuilder);
@@ -348,6 +354,8 @@ public class TestBuilders {
                     validateDataSourceBuilder(indexBuilder);
                     injectDataProvidersIfNeeded(indexBuilder);
                 }
+
+                dataProvidersByTableName.put(tableBuilder.name, tableBuilder.dataProviders);
             }
 
             Map<String, IgniteTable> tableByName = tableBuilders.stream()
@@ -356,10 +364,38 @@ public class TestBuilders {
 
             IgniteSchema schema = new IgniteSchema(DEFAULT_SCHEMA_NAME, SCHEMA_VERSION, tableByName.values());
             var schemaManager = new PredefinedSchemaManager(schema);
-            var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableByName, nodeNames);
+            var targetProvider = new ExecutionTargetProvider() {
+                @Override
+                public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
+                    Map<String, DataProvider<?>> dataProviders = dataProvidersByTableName.get(table.name());
+
+                    if (nullOrEmpty(dataProviders)) {
+                        throw new AssertionError("DataProvider is not configured for table " + table.name());
+                    }
+
+                    return CompletableFuture.completedFuture(factory.allOf(List.copyOf(dataProviders.keySet())));
+                }
+
+                @Override
+                public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+                    return CompletableFuture.failedFuture(new AssertionError("Not supported"));
+                }
+            };
+
+            List<LogicalNode> logicalNodes = nodeNames.stream()
+                    .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
+                    .collect(Collectors.toList());
 
             Map<String, TestNode> nodes = nodeNames.stream()
-                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager, colocationGroupProvider))
+                    .map(name -> {
+                        var mappingService = new MappingServiceImpl(name, targetProvider);
+
+                        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1L, logicalNodes));
+
+                        return new TestNode(
+                                name, clusterService.forNode(name), schemaManager, mappingService
+                        );
+                    })
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(nodes);
@@ -874,44 +910,5 @@ public class TestBuilders {
          * @return An instance of the parent builder.
          */
         ParentT end();
-    }
-
-    static class TestColocationGroupProvider implements ColocationGroupProvider {
-
-        private final Map<Integer, CompletableFuture<ColocationGroup>> groups = new HashMap<>();
-
-        TestColocationGroupProvider(
-                List<ClusterTableBuilderImpl> tableBuilders,
-                Map<String, IgniteTable> tableByName,
-                List<String> nodeNames
-        ) {
-
-            for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
-                IgniteTable table = tableByName.get(tableBuilder.name);
-                CompletableFuture<ColocationGroup> f;
-
-                if (!tableBuilder.dataProviders.isEmpty()) {
-                    List<String> tableNodes = new ArrayList<>(tableBuilder.dataProviders.keySet());
-                    tableNodes.sort(Comparator.naturalOrder());
-
-                    f = CompletableFuture.completedFuture(ColocationGroup.forNodes(tableNodes));
-                } else {
-                    f = CompletableFuture.completedFuture(ColocationGroup.forNodes(nodeNames));
-                }
-
-                groups.put(table.id(), f);
-            }
-        }
-
-        @Override
-        public CompletableFuture<ColocationGroup> getGroup(int tableId) {
-            CompletableFuture<ColocationGroup> f = groups.get(tableId);
-            if (f != null) {
-                return f;
-            } else {
-                IllegalStateException err = new IllegalStateException("Colocation group has not been specified. Table#" + tableId);
-                return CompletableFuture.failedFuture(err);
-            }
-        }
     }
 }

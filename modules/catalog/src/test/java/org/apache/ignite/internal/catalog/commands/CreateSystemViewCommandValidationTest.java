@@ -58,35 +58,6 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
         expectValidationError(builder::build, "System view should have at least one column");
     }
 
-    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
-    @MethodSource("nullAndBlankStrings")
-    void columnNameMustNotBeNullOrBlank(String name) {
-        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
-
-        builder = fillProperties(builder);
-
-        builder.columns(List.of(
-                ColumnParams.builder().name(name).build()
-        ));
-
-        expectValidationError(builder::build, "Name of the column can't be null or blank");
-    }
-
-    @Test
-    void columnShouldHaveType() {
-        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
-
-        builder = fillProperties(builder)
-                .columns(List.of(
-                        ColumnParams.builder()
-                                .name("C")
-                                .type(null)
-                                .build()
-                ));
-
-        expectValidationError(builder::build, "Missing column type: C");
-    }
-
     @Test
     void columnShouldNotHaveDuplicates() {
         CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
@@ -136,6 +107,6 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
         ColumnParams column = ColumnParams.builder().name("C").type(ColumnType.INT8).build();
         List<ColumnParams> columns = List.of(column);
 
-        return builder.name("view").columns(columns).type(SystemViewType.LOCAL);
+        return builder.name("view").columns(columns).type(SystemViewType.NODE);
     }
 }

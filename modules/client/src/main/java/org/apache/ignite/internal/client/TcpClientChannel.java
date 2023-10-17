@@ -327,7 +327,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-19539
+            // TODO https://issues.apache.org/jira/browse/IGNITE-20436
             throw ExceptionUtils.wrap(t);
         }
     }
@@ -468,7 +468,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         try {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-19539
+            // TODO https://issues.apache.org/jira/browse/IGNITE-20436
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
             if (IgniteException.class.isAssignableFrom(errCls) || IgniteCheckedException.class.isAssignableFrom(errCls)) {
                 return copyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);

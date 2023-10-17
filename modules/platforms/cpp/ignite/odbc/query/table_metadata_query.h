@@ -40,34 +40,34 @@ public:
      * @param table Table search pattern.
      * @param table_type Table type search pattern.
      */
-    table_metadata_query(diagnosable_adapter &diag, sql_connection &connection, const std::string &catalog,
-        const std::string &schema, const std::string &table, const std::string &table_type);
+    table_metadata_query(diagnosable_adapter &diag, sql_connection &connection, std::string catalog, std::string schema,
+        std::string table, std::string table_type);
 
     /**
      * Destructor.
      */
-    virtual ~table_metadata_query() = default;
+    ~table_metadata_query() override = default;
 
     /**
      * Execute query.
      *
      * @return True on success.
      */
-    virtual sql_result execute();
+    sql_result execute() override;
 
     /**
      * Get column metadata.
      *
      * @return Column metadata.
      */
-    virtual const column_meta_vector *get_meta();
+    const column_meta_vector *get_meta() override;
 
     /**
      * Fetch next result row to application buffers.
      *
      * @return Operation result.
      */
-    virtual sql_result fetch_next_row(column_binding_map &column_bindings);
+    sql_result fetch_next_row(column_binding_map &column_bindings) override;
 
     /**
      * Get data of the specified column in the result set.
@@ -76,39 +76,39 @@ public:
      * @param buffer Buffer to put column data to.
      * @return Operation result.
      */
-    virtual sql_result get_column(std::uint16_t column_idx, application_data_buffer &buffer);
+    sql_result get_column(std::uint16_t column_idx, application_data_buffer &buffer) override;
 
     /**
      * Close query.
      *
      * @return True on success.
      */
-    virtual sql_result close();
+    sql_result close() override;
 
     /**
      * Check if data is available.
      *
      * @return True if data is available.
      */
-    virtual bool is_data_available() const;
+    bool is_data_available() const override;
 
     /**
      * Get number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
-    virtual std::int64_t affected_rows() const;
+    [[nodiscard]] std::int64_t affected_rows() const override;
 
     /**
      * Move to the next result set.
      *
      * @return Operation result.
      */
-    virtual sql_result next_result_set();
+    sql_result next_result_set() override;
 
 private:
     /**
-     * Make get columns metadata requets and use response to set internal state.
+     * Make get columns metadata requests and use response to set internal state.
      *
      * @return True on success.
      */

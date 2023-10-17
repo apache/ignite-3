@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.emptyMap;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -48,6 +49,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class StorageUpdateHandlerTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     private static final int PARTITION_ID = 0;
 
     @InjectConfiguration
@@ -110,9 +113,10 @@ public class StorageUpdateHandlerTest extends BaseIgniteAbstractTest {
         storageUpdateHandler.handleUpdate(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                new TablePartitionId(1, PARTITION_ID),
+                new TablePartitionId(TABLE_ID, PARTITION_ID),
                 null,
                 false,
+                null,
                 null,
                 null
         );
@@ -133,10 +137,11 @@ public class StorageUpdateHandlerTest extends BaseIgniteAbstractTest {
         storageUpdateHandler.handleUpdateAll(
                 UUID.randomUUID(),
                 Map.of(),
-                new TablePartitionId(1, PARTITION_ID),
+                new TablePartitionId(TABLE_ID, PARTITION_ID),
                 false,
                 null,
-                null
+                null,
+                emptyMap()
         );
 
         verify(partitionStorage).peek(lwm);
@@ -156,7 +161,9 @@ public class StorageUpdateHandlerTest extends BaseIgniteAbstractTest {
     }
 
     private static PartitionDataStorage createPartitionDataStorage() {
-        PartitionDataStorage partitionStorage = spy(new TestPartitionDataStorage(new TestMvPartitionStorage(PARTITION_ID)));
+        PartitionDataStorage partitionStorage = spy(
+                new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, new TestMvPartitionStorage(PARTITION_ID))
+        );
 
         return partitionStorage;
     }

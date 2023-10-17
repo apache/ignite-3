@@ -129,7 +129,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And rocksDb.defaultRegion.cache can be read
-        assertThat(config.getString("rocksDb.defaultRegion.cache"), is(equalTo("lru")));
+        assertThat(config.getInt("gc.onUpdateBatchSize"), is(equalTo(5)));
     }
 
     @Test
@@ -137,7 +137,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster
         HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "rocksDb.defaultRegion.writeBufferSize=1024"),
+                patch("/management/v1/configuration/cluster", "gc.onUpdateBatchSize=1"),
                 BodyHandlers.ofString()
         );
 
@@ -148,7 +148,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         assertThat(getResponse.statusCode(), is(200));
         // And
         Config config = ConfigFactory.parseString(getResponse.body());
-        assertThat(config.getInt("rocksDb.defaultRegion.writeBufferSize"), is(1024));
+        assertThat(config.getInt("gc.onUpdateBatchSize"), is(equalTo(1)));
     }
 
     @Test
@@ -156,7 +156,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
         HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "rocksDb.defaultRegion.cache=invalid"),
+                patch("/management/v1/configuration/cluster", "security.enabled=true"),
                 BodyHandlers.ofString()
         );
 
@@ -171,7 +171,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/cluster and path selector is "rocksDb.defaultRegion"
         HttpResponse<String> response = client.send(
-                get("/management/v1/configuration/cluster/rocksDb.defaultRegion"),
+                get("/management/v1/configuration/cluster/gc"),
                 BodyHandlers.ofString()
         );
 
@@ -180,7 +180,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And rocksDb.defaultRegion.cache can be read
-        assertThat(config.getString("cache"), is(equalTo("lru")));
+        assertThat(config.getInt("onUpdateBatchSize"), is(equalTo(5)));
     }
 
     @Test

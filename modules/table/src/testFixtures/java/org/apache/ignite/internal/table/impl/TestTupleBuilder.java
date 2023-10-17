@@ -26,8 +26,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
 
@@ -80,20 +78,6 @@ public class TestTupleBuilder implements Tuple {
     @Override
     public int columnIndex(String columnName) {
         throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(String columnName) {
-        byte[] data = value(columnName);
-
-        return BinaryObjects.wrap(data);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
-        return null;
     }
 
     /** {@inheritDoc} */

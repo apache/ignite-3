@@ -32,10 +32,9 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
- * Provides access to MV (multi-version) data of a partition.
+ * Provides access to MV (multi-version) data of a table partition.
  *
  * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, int, int)}, {@link #abortWrite(RowId)}
  * and {@link #commitWrite(RowId, HybridTimestamp)}) and TX data storage MUST be invoked under a lock acquired using
@@ -47,6 +46,12 @@ import org.jetbrains.annotations.TestOnly;
  * @see MvPartitionStorage
  */
 public interface PartitionDataStorage extends ManuallyCloseable {
+    /** Returns table ID. */
+    int tableId();
+
+    /** Returns partition ID. */
+    int partitionId();
+
     /**
      * Executes {@link WriteClosure} atomically, meaning that partial result of an incomplete closure will never be written to the
      * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
@@ -179,7 +184,6 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *
      * @return Underlying {@link MvPartitionStorage}.
      */
-    @TestOnly
     MvPartitionStorage getStorage();
 
     /**

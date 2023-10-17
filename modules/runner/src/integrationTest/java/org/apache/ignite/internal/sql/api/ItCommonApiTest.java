@@ -109,8 +109,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19162 Trim all less than millisecond information from timestamp
         //String tsStr = "2023-03-29T08:22:33.005007Z";
-        // TODO: IGNITE-20105 it should be "2023-03-29T08:22:33.005Z";
-        String tsStr = "2023-03-29T08:22:33Z";
+        String tsStr = "2023-03-29T08:22:33.005Z";
 
         Instant ins = Instant.parse(tsStr);
 
@@ -123,7 +122,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         Tuple rec = Tuple.create()
                 .set("KEY", 1)
-                .set("TIMESTAMP", LocalDateTime.of(2023, 3, 29, 8, 22, 33));
+                .set("TIMESTAMP", LocalDateTime.of(2023, 3, 29, 8, 22, 33, 5000000));
 
         tbl.recordView().insert(null, rec);
 
@@ -152,6 +151,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
     /** Check transaction change status with erroneous statements. */
     @Test
+    // TODO should be removed after https://issues.apache.org/jira/browse/IGNITE-20534  is fixed.
     public void testTxStateChangedOnErroneousOp() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
@@ -169,9 +169,9 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(1, txManager.pending());
+        assertEquals(0, txManager.pending());
         InternalTransaction tx0 = (InternalTransaction) tx;
-        assertEquals(TxState.PENDING, tx0.state());
+        assertEquals(TxState.ABORTED, tx0.state());
 
         tx.rollback();
         assertEquals(0, txManager.pending());

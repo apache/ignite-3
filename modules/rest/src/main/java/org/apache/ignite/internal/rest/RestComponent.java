@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.rest.configuration.RestSslView;
 import org.apache.ignite.internal.rest.configuration.RestView;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -91,44 +91,17 @@ public class RestComponent implements IgniteComponent {
 
         boolean sslEnabled = sslConfigurationView.enabled();
         boolean dualProtocol = restConfiguration.dualProtocol().value();
-        int desiredHttpPort = restConfigurationView.port();
-        int portRange = restConfigurationView.portRange();
-        int desiredHttpsPort = sslConfigurationView.port();
-        int httpsPortRange = sslConfigurationView.portRange();
-        int httpPortCandidate = desiredHttpPort;
-        int httpsPortCandidate = desiredHttpsPort;
 
-        while (httpPortCandidate <= desiredHttpPort + portRange
-                && httpsPortCandidate <= desiredHttpsPort + httpsPortRange) {
-            if (startServer(httpPortCandidate, httpsPortCandidate)) {
-                return;
-            }
-
-            LOG.debug("Got exception during node start, going to try again [httpPort={}, httpsPort={}]",
-                    httpPortCandidate,
-                    httpsPortCandidate);
-
-            if (sslEnabled && dualProtocol) {
-                httpPortCandidate++;
-                httpsPortCandidate++;
-            } else if (sslEnabled) {
-                httpsPortCandidate++;
-            } else {
-                httpPortCandidate++;
-            }
+        if (startServer(restConfigurationView.port(), sslConfigurationView.port(), sslEnabled, dualProtocol)) {
+            return;
         }
-
-        LOG.debug("Unable to start REST endpoint."
-                        + " Couldn't find available port for HTTP or HTTPS"
-                        + " [HTTP ports=[{}, {}]],"
-                        + " [HTTPS ports=[{}, {}]]",
-                desiredHttpPort, (desiredHttpPort + portRange),
-                desiredHttpsPort, (desiredHttpsPort + httpsPortRange));
 
         String msg = "Cannot start REST endpoint."
                 + " Couldn't find available port for HTTP or HTTPS"
-                + " [HTTP ports=[" + desiredHttpPort + ", " + desiredHttpPort + portRange + "]],"
-                + " [HTTPS ports=[" + desiredHttpsPort + ", " + desiredHttpsPort + httpsPortRange + "]]";
+                + " [HTTP port=" + httpPort + "],"
+                + " [HTTPS port=" + httpsPort + "]";
+
+        LOG.error(msg);
 
         throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, msg);
     }
@@ -137,9 +110,11 @@ public class RestComponent implements IgniteComponent {
      *
      * @param httpPortCandidate HTTP port candidate.
      * @param httpsPortCandidate HTTPS port candidate.
+     * @param sslEnabled SSL enabled flag.
+     * @param dualProtocol Dual protocol flag.
      * @return {@code True} if server was started successfully, {@code False} if couldn't bind one of the ports.
      */
-    private boolean startServer(int httpPortCandidate, int httpsPortCandidate) {
+    private synchronized boolean startServer(int httpPortCandidate, int httpsPortCandidate, boolean sslEnabled, boolean dualProtocol) {
         try {
             httpPort = httpPortCandidate;
             httpsPort = httpsPortCandidate;
@@ -147,7 +122,8 @@ public class RestComponent implements IgniteComponent {
                     .deduceEnvironment(false)
                     .environments(BARE_METAL)
                     .start();
-            LOG.info("REST protocol started successfully");
+
+            logSuccessRestStart(sslEnabled, dualProtocol);
             return true;
         } catch (ApplicationStartupException e) {
             BindException bindException = findBindException(e);
@@ -156,6 +132,20 @@ public class RestComponent implements IgniteComponent {
             }
             throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
         }
+    }
+
+    private void logSuccessRestStart(boolean sslEnabled, boolean dualProtocol) {
+        String successReportMsg = null;
+
+        if (sslEnabled && dualProtocol) {
+            successReportMsg = "[httpPort=" + httpPort + "], [httpsPort=" + httpsPort + "]";
+        } else if (sslEnabled) {
+            successReportMsg = "[httpsPort=" + httpsPort + "]";
+        } else {
+            successReportMsg = "[httpPort=" + httpPort + "]";
+        }
+
+        LOG.info("REST server started successfully: " + successReportMsg);
     }
 
     @Nullable

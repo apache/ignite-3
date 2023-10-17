@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -90,7 +92,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
 
         assertThrowsWithCause(
                 () -> command.get(catalog),
-                CatalogValidationException.class,
+                IndexNotFoundValidationException.class,
                 "Index with name 'PUBLIC.TEST' not found"
         );
     }
@@ -109,7 +111,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
 
         CatalogCommand command = DropIndexCommand.builder()
                 .schemaName(SCHEMA_NAME)
-                .indexName(TABLE_NAME + "_PK")
+                .indexName(pkIndexName(TABLE_NAME))
                 .build();
 
         assertThrowsWithCause(

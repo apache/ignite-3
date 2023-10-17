@@ -20,12 +20,12 @@ package org.apache.ignite.internal.table.distributed.raft;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -39,6 +39,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
@@ -70,7 +71,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -147,6 +147,8 @@ public class PartitionListener implements RaftGroupListener {
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
+
+            // LOG.info("CMD {}", command.getClass().getName());
 
             long commandIndex = clo.index();
             long commandTerm = clo.term();
@@ -236,7 +238,8 @@ public class PartitionListener implements RaftGroupListener {
                 storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null
+                        cmd.full() ? cmd.safeTime() : null,
+                        cmd.lastCommitTimestamp()
                 );
             }
 
@@ -264,7 +267,8 @@ public class PartitionListener implements RaftGroupListener {
                 storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null
+                        cmd.full() ? cmd.safeTime() : null,
+                        cmd.lastCommitTimestamps()
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
@@ -489,7 +493,7 @@ public class PartitionListener implements RaftGroupListener {
         if (cmd.finish()) {
             LOG.info(
                     "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
-                    cmd.tablePartitionId().tableId(), cmd.tablePartitionId().partitionId(), cmd.indexId()
+                    storage.tableId(), storage.partitionId(), cmd.indexId()
             );
         }
     }

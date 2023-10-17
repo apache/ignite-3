@@ -19,8 +19,8 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 
-import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Indicates that thin client feature is not supported by the server.
@@ -30,21 +30,12 @@ public class IgniteClientFeatureNotSupportedByServerException extends IgniteExce
     private static final long serialVersionUID = 0L;
 
     /**
-     * Constructs a new exception with the specified detail message.
-     *
-     * @param msg the detail message.
-     */
-    public IgniteClientFeatureNotSupportedByServerException(String msg) {
-        this(msg, null);
-    }
-
-    /**
      * Constructs a new exception with the specified missing feature.
      *
      * @param feature Feature.
      */
-    public IgniteClientFeatureNotSupportedByServerException(ProtocolBitmaskFeature feature) {
-        this("Feature " + feature.name() + " is not supported by the server");
+    public IgniteClientFeatureNotSupportedByServerException(String feature) {
+        this("Feature " + feature + " is not supported by the server", null);
     }
 
     /**
@@ -53,7 +44,7 @@ public class IgniteClientFeatureNotSupportedByServerException extends IgniteExce
      * @param msg   the detail message.
      * @param cause the cause.
      */
-    public IgniteClientFeatureNotSupportedByServerException(String msg, Throwable cause) {
+    public IgniteClientFeatureNotSupportedByServerException(String msg, @Nullable Throwable cause) {
         super(PROTOCOL_COMPATIBILITY_ERR, msg, cause);
     }
 }

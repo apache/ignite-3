@@ -19,10 +19,18 @@ package org.apache.ignite.distributed;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -50,13 +58,6 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
         return 3;
     }
 
-    /** {@inheritDoc} */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20116")
-    @Override
-    public void testBalance() throws InterruptedException {
-        super.testBalance();
-    }
-
     @Override
     @AfterEach
     public void after() throws Exception {
@@ -66,5 +67,37 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
         } finally {
             super.after();
         }
+    }
+
+    @Test
+    public void testPrimaryReplicaDirectUpdateForExplicitTxn() throws InterruptedException {
+        Peer leader = txTestCluster.getLeaderId(accounts.name());
+        JraftServerImpl server = (JraftServerImpl) txTestCluster.raftServers.get(leader.consistentId()).server();
+        var groupId = new TablePartitionId(accounts.tableId(), 0);
+
+        // BLock replication messages to both replicas.
+        server.blockMessages(new RaftNodeId(groupId, leader), (msg, peerId) -> {
+            if (msg instanceof RpcRequests.AppendEntriesRequest) {
+                RpcRequests.AppendEntriesRequest tmp = (AppendEntriesRequest) msg;
+
+                if (tmp.entriesList() != null && !tmp.entriesList().isEmpty()) {
+                    return true;
+                }
+            }
+            return false;
+        });
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> server.blockedMessages(new RaftNodeId(groupId, leader)).size() == 2, 10000),
+                "Failed to wait for blocked messages");
+
+        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) igniteTransactions.begin();
+        CompletableFuture<Void> fut = accounts.recordView().upsertAsync(tx, makeValue(1, 100.));
+        // Update must complete now despite the blocked replication protocol.
+        assertTrue(IgniteTestUtils.waitForCondition(fut::isDone, 5_000), "The update future is not completed within timeout");
+
+        server.stopBlockMessages(new RaftNodeId(groupId, leader));
+
+        CompletableFuture<Void> commitFut = tx.commitAsync();
+        assertTrue(IgniteTestUtils.waitForCondition(commitFut::isDone, 5_000), "The commit future is not completed within timeout");
     }
 }

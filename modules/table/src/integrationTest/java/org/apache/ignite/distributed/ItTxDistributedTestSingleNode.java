@@ -17,31 +17,39 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -50,6 +58,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 
 /**
  * Distributed transaction test using a single partition table.
@@ -66,10 +75,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
-    private static RaftConfiguration raftConfiguration;
+    protected static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static GcConfiguration gcConfig;
+    protected static GcConfiguration gcConfig;
 
     /**
      * Returns a count of nodes.
@@ -98,7 +107,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return true;
     }
 
-    private final TestInfo testInfo;
+    protected final TestInfo testInfo;
 
     protected ItTxTestCluster txTestCluster;
 
@@ -171,14 +180,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     /** {@inheritDoc} */
     @Override
-    protected TxManager txManager(Table t) {
-        var clients = txTestCluster.raftClients.get(t.name());
+    protected TxManager txManager(TableImpl t) {
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver.getPrimaryReplica(
+                new TablePartitionId(t.tableId(), 0),
+                txTestCluster.clocks.get(txTestCluster.localNodeName).now());
 
-        Peer leader = clients.get(0).leader();
+        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
 
-        assertNotNull(leader);
-
-        TxManager manager = txTestCluster.txManagers.get(leader.consistentId());
+        TxManager manager = txTestCluster.txManagers.get(primaryReplicaFuture.join().getLeaseholder());
 
         assertNotNull(manager);
 
@@ -186,8 +195,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     }
 
     /**
-     * Check the storage of partition is the same across all nodes.
-     * The checking is based on {@link MvPartitionStorage#lastAppliedIndex()} that is increased on all update storage operation.
+     * Check the storage of partition is the same across all nodes. The checking is based on {@link MvPartitionStorage#lastAppliedIndex()}
+     * that is increased on all update storage operation.
      * TODO: IGNITE-18869 The method must be updated when a proper way to compare storages will be implemented.
      *
      * @param table The table.
@@ -223,6 +232,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         }
 
         return true;
+    }
+
+    @Override
+    protected void injectFailureOnNextOperation(TableImpl accounts) {
+        InternalTable internalTable = accounts.internalTable();
+        ReplicaService replicaService = IgniteTestUtils.getFieldValue(internalTable, "replicaSvc");
+        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((ClusterNode) any(), any());
     }
 
     @Override

@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarsha
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -115,6 +115,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
 
         this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
+        // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
+        // TODO asch This invariant should be preserved while working on IGNITE-20373
         this.inboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-inbound-", LOG));
     }
 

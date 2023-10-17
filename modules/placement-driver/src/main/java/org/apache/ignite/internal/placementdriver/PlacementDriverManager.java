@@ -28,6 +28,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -39,8 +41,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.TestOnly;
@@ -76,9 +76,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
 
-    /**
-     * Raft client future. Can contain null, if this node is not in placement driver group.
-     */
+    /** Raft client future. Can contain null, if this node is not in placement driver group. */
     private final CompletableFuture<TopologyAwareRaftGroupService> raftClientFuture;
 
     /** Lease tracker. */
@@ -87,11 +85,14 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Lease updater. */
     private final LeaseUpdater leaseUpdater;
 
+    /** Meta Storage manager. */
+    private final MetaStorageManager metastore;
+
     /**
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param metaStorageMgr Meta Storage manager.
+     * @param metastore Meta Storage manager.
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
      * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
@@ -102,7 +103,7 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     public PlacementDriverManager(
             String nodeName,
-            MetaStorageManager metaStorageMgr,
+            MetaStorageManager metastore,
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
             Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
@@ -116,14 +117,16 @@ public class PlacementDriverManager implements IgniteComponent {
         this.placementDriverNodesNamesProvider = placementDriverNodesNamesProvider;
         this.raftManager = raftManager;
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
+        this.metastore = metastore;
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(metaStorageMgr);
+        this.leaseTracker = new LeaseTracker(metastore);
+
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,
-                metaStorageMgr,
+                metastore,
                 logicalTopologyService,
                 leaseTracker,
                 clock
@@ -163,7 +166,7 @@ public class PlacementDriverManager implements IgniteComponent {
                         }
                     });
 
-            leaseTracker.startTrack();
+            recoverInternalComponentsBusy();
         });
     }
 
@@ -230,12 +233,18 @@ public class PlacementDriverManager implements IgniteComponent {
         return leaseUpdater.active();
     }
 
-    /**
-     * Returns placement driver service.
-     *
-     * @return Placement driver service.
-     */
+    /** Returns placement driver service. */
     public PlacementDriver placementDriver() {
         return leaseTracker;
+    }
+
+    private void recoverInternalComponentsBusy() {
+        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+
+        assert recoveryFinishedFuture.isDone();
+
+        long recoveryRevision = recoveryFinishedFuture.join();
+
+        leaseTracker.startTrack(recoveryRevision);
     }
 }

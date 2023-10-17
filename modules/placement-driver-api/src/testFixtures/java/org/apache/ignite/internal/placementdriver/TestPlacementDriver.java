@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.jetbrains.annotations.TestOnly;
 
@@ -28,7 +34,6 @@ import org.jetbrains.annotations.TestOnly;
  */
 @TestOnly
 public class TestPlacementDriver implements PlacementDriver {
-
     private final TestReplicaMetaImpl primaryReplica;
 
     public TestPlacementDriver(String leaseholder) {
@@ -36,12 +41,34 @@ public class TestPlacementDriver implements PlacementDriver {
     }
 
     @Override
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
-        return CompletableFuture.completedFuture(primaryReplica);
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        return completedFuture(primaryReplica);
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        return CompletableFuture.completedFuture(primaryReplica);
+        return completedFuture(primaryReplica);
+    }
+
+    @Override
+    public void listen(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
+        if (evt != PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    @Override
+    public void removeListener(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
+        return completedFuture(null);
     }
 }

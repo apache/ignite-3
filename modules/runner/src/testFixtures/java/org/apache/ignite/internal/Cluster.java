@@ -50,6 +50,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -83,6 +83,10 @@ public class Cluster {
 
     private static final int BASE_CLIENT_PORT = 10800;
 
+    private static final int BASE_HTTP_PORT = 10300;
+
+    private static final int BASE_HTTPS_PORT = 10400;
+
     private static final String CONNECT_NODE_ADDR = "\"localhost:" + BASE_PORT + '\"';
 
     /** Timeout for SQL queries (in milliseconds). */
@@ -97,6 +101,10 @@ public class Cluster {
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }\n"
+            + "  rest: {\n"
+            + "    port: {},\n"
+            + "    ssl.port: {}\n"
+            + "  }\n"
             + "}";
 
     private final TestInfo testInfo;
@@ -237,7 +245,10 @@ public class Cluster {
                 nodeBootstrapConfigTemplate,
                 BASE_PORT + nodeIndex,
                 CONNECT_NODE_ADDR,
-                BASE_CLIENT_PORT + nodeIndex);
+                BASE_CLIENT_PORT + nodeIndex,
+                BASE_HTTP_PORT + nodeIndex,
+                BASE_HTTPS_PORT + nodeIndex
+        );
 
         return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)

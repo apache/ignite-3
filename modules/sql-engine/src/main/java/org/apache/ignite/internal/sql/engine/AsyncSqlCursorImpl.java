@@ -19,9 +19,9 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -71,7 +71,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
             if (t != null) {
-                txWrapper.rollbackImplicit();
+                // Always rollback a transaction in case of an error.
+                txWrapper.rollback();
 
                 throw new CompletionException(wrapIfNecessary(t));
             }
@@ -97,6 +98,6 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private static Throwable wrapIfNecessary(Throwable t) {
         Throwable err = ExceptionUtils.unwrapCause(t);
 
-        return IgniteExceptionMapperUtil.mapToPublicException(err);
+        return SqlExceptionMapperUtil.mapToPublicSqlException(err);
     }
 }

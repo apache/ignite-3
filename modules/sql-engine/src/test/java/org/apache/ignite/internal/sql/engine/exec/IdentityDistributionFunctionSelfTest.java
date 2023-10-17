@@ -26,14 +26,14 @@ import static org.hamcrest.Matchers.is;
 import java.util.Collection;
 import java.util.List;
 import org.apache.calcite.rel.RelDistribution.Type;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Identity;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -54,7 +54,7 @@ public class IdentityDistributionFunctionSelfTest {
             .addField(NativeTypes.STRING)
             .build();
 
-    private final ColocationGroup colocationGroup = ColocationGroup.forNodes(List.of(NODE_1, NODE_2, NODE_3));
+    private final ColocationGroup colocationGroup = new ColocationGroup(List.of(1L), List.of(NODE_1, NODE_2, NODE_3), List.of());
     private final DestinationFactory<Object[]> destinationFactory = new DestinationFactory<>(rowHandler, null, null);
 
     @Test

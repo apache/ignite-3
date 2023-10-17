@@ -138,7 +138,8 @@ public class ItGeneratedRestClientTest {
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
                 + "  },\n"
-                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + "\n"
+                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + ",\n"
+                + "  rest.port: " + (BASE_REST_PORT + nodeIdx) + "\n"
                 + "}";
     }
 
@@ -201,7 +202,7 @@ public class ItGeneratedRestClientTest {
     @Test
     void getClusterConfigurationByPath() {
         assertDoesNotThrow(() -> {
-            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("rocksDb.defaultRegion");
+            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("gc.onUpdateBatchSize");
 
             assertNotNull(configuration);
             assertFalse(configuration.isEmpty());
@@ -283,10 +284,10 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void updateNodeConfigurationWithInvalidParam() throws JsonProcessingException {
+    void updateClusterConfigurationWithInvalidParam() throws JsonProcessingException {
         ApiException thrown = assertThrows(
                 ApiException.class,
-                () -> clusterConfigurationApi.updateClusterConfiguration("rocksDb.defaultRegion.cache=invalid")
+                () -> clusterConfigurationApi.updateClusterConfiguration("security.enabled=true")
         );
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);

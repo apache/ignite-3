@@ -21,10 +21,10 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
@@ -154,11 +154,6 @@ public final class NoOpTransaction implements InternalTransaction {
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         return nodeAndTerm;
-    }
-
-    @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        resultFuture.complete(null);
     }
 
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */

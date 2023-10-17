@@ -28,9 +28,7 @@ import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Schema definition contains database schema objects.
- */
+/** Schema definition contains database schema objects. */
 public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -233494425779955410L;
 
@@ -56,8 +54,9 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     public CatalogSchemaDescriptor(int id, String name,
             CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
-            CatalogSystemViewDescriptor[] systemViews) {
-        super(id, Type.SCHEMA, name);
+            CatalogSystemViewDescriptor[] systemViews,
+            long causalityToken) {
+        super(id, Type.SCHEMA, name, causalityToken);
         this.tables = Objects.requireNonNull(tables, "tables");
         this.indexes = Objects.requireNonNull(indexes, "indexes");
         this.systemViews = Objects.requireNonNull(systemViews, "systemViews");
@@ -102,7 +101,6 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
                 .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

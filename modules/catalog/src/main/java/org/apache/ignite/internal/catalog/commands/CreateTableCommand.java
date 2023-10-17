@@ -19,13 +19,14 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.HashSet;
 import java.util.List;
@@ -105,16 +106,18 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         CatalogTableDescriptor table = new CatalogTableDescriptor(
                 tableId,
+                schema.id(),
                 pkIndexId,
                 tableName,
                 zone.id(),
                 CatalogTableDescriptor.INITIAL_TABLE_VERSION,
                 columns.stream().map(CatalogUtils::fromParams).collect(toList()),
                 primaryKeyColumns,
-                colocationColumns
+                colocationColumns,
+                INITIAL_CAUSALITY_TOKEN
         );
 
-        String indexName = tableName + "_PK";
+        String indexName = pkIndexName(tableName);
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
@@ -141,8 +144,6 @@ public class CreateTableCommand extends AbstractTableCommand {
         Set<String> columnNames = new HashSet<>();
 
         for (ColumnParams column : columns) {
-            validateColumnParams(column);
-
             if (!columnNames.add(column.name())) {
                 throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
             }

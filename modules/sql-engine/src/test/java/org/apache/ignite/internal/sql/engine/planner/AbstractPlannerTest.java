@@ -73,7 +73,7 @@ import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.HashIndexBuilder;
@@ -84,10 +84,11 @@ import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.prepare.QuerySplitter;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
@@ -103,7 +104,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -518,6 +519,24 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
+     * Predicate builder for "Table scan with given name" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteSystemViewScan> isSystemViewScan(String viewName) {
+        return isInstanceOf(IgniteSystemViewScan.class).and(
+                n -> {
+                    String scanViewName = Util.last(n.getTable().getQualifiedName());
+
+                    if (viewName.equalsIgnoreCase(scanViewName)) {
+                        return true;
+                    }
+
+                    lastErrorMsg = "Unexpected system view name [exp=" + viewName + ", act=" + scanViewName + ']';
+
+                    return false;
+                });
+    }
+
+    /**
      * Predicate builder for "Operator has distribution" condition.
      */
     protected <T extends IgniteRel> Predicate<IgniteRel> hasDistribution(IgniteDistribution distribution) {
@@ -627,7 +646,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         rel = Cloner.clone(rel);
 
-        List<Fragment> fragments = new Splitter().go(rel);
+        List<Fragment> fragments = new QuerySplitter().go(rel);
         List<String> serialized = new ArrayList<>(fragments.size());
 
         for (Fragment fragment : fragments) {

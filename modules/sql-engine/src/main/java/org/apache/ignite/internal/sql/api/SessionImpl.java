@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
-import static org.apache.ignite.lang.IgniteExceptionMapperUtil.mapToPublicException;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlBatchException;
@@ -178,7 +178,7 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
+            QueryContext ctx = QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES, transaction);
 
             result = qryProc.querySingleAsync(sessionId, ctx, transactions, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
@@ -192,7 +192,7 @@ public class SessionImpl implements AbstractSession {
                             )
             );
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(mapToPublicException(e));
+            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         } finally {
             busyLock.leaveBusy();
         }
@@ -205,7 +205,7 @@ public class SessionImpl implements AbstractSession {
                 closeInternal();
             }
 
-            throw new CompletionException(mapToPublicException(cause));
+            throw new CompletionException(mapToPublicSqlException(cause));
         });
     }
 
@@ -282,7 +282,7 @@ public class SessionImpl implements AbstractSession {
                             throw (CancellationException) cause;
                         }
 
-                        Throwable t = mapToPublicException(cause);
+                        Throwable t = mapToPublicSqlException(cause);
 
                         if (t instanceof TraceableException) {
                             throw new SqlBatchException(
@@ -305,7 +305,7 @@ public class SessionImpl implements AbstractSession {
 
             return resFut;
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(mapToPublicException(e));
+            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         } finally {
             busyLock.leaveBusy();
         }
@@ -367,7 +367,7 @@ public class SessionImpl implements AbstractSession {
 
             return qryProc.closeSession(sessionId);
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(mapToPublicException(e));
+            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
     }
 

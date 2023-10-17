@@ -40,6 +40,7 @@ import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -58,7 +58,6 @@ import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -68,7 +67,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
  */
-public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
+public class PrepareServiceImpl implements PrepareService {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
 
     /** DML metadata holder. */
@@ -193,7 +192,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                                 "Planning of a query aborted due to planner timeout threshold is reached");
                     }
 
-                    throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicException(th));
+                    throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
     }
@@ -211,12 +210,6 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             default:
                 throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onSchemaUpdated() {
-        cache.clear();
     }
 
     private CompletableFuture<QueryPlan> prepareDdl(ParsedResult parsedResult, PlanningContext ctx) {
@@ -272,7 +265,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
             // Split query plan to query fragments.
-            List<Fragment> fragments = new Splitter().go(igniteRel);
+            List<Fragment> fragments = new QuerySplitter().go(igniteRel);
 
             return new MultiStepPlan(SqlQueryType.QUERY, fragments,
                     resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
@@ -298,7 +291,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
             // Split query plan to query fragments.
-            List<Fragment> fragments = new Splitter().go(igniteRel);
+            List<Fragment> fragments = new QuerySplitter().go(igniteRel);
 
             return new MultiStepPlan(SqlQueryType.DML, fragments, DML_METADATA);
         }, planningPool));

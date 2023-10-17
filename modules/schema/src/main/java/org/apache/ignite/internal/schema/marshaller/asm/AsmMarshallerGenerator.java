@@ -38,31 +38,34 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.processing.Generated;
 import jdk.jfr.Experimental;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.marshaller.BinaryMode;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**
- * {@link org.apache.ignite.internal.schema.marshaller.reflection.Marshaller} code generator.
+ * {@link Marshaller} code generator.
  */
 @Experimental
 public class AsmMarshallerGenerator implements MarshallerFactory {
@@ -125,7 +128,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                             MarshallerUtil.factoryForClass(keyClass),
                             MarshallerUtil.factoryForClass(valClass));
 
-        } catch (Exception | LinkageError e) {
+        } catch (LinkageError | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new IllegalArgumentException("Failed to create marshaller for key-value pair: schemaVer=" + schema.version()
                     + ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName(), e);
         }
@@ -209,10 +212,12 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
             Columns columns,
             int firstColIdx
     ) {
-        final BinaryMode mode = MarshallerUtil.mode(cls);
+        BinaryMode mode = BinaryMode.forClass(cls);
 
         if (mode == BinaryMode.POJO) {
-            return new ObjectMarshallerCodeGenerator(columns, cls, firstColIdx);
+            MarshallerColumn[] marshallerColumns = MarshallerUtil.toMarshallerColumns(columns.columns());
+
+            return new ObjectMarshallerCodeGenerator(marshallerColumns, cls, firstColIdx);
         } else {
             return new IdentityMarshallerCodeGenerator(ColumnAccessCodeGenerator.createAccessor(mode, null, firstColIdx));
         }

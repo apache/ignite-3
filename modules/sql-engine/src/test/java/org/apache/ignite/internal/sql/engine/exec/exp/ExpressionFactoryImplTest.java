@@ -40,10 +40,8 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
@@ -73,7 +71,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         typeFactory = Commons.typeFactory();
 
         FragmentDescription fragmentDescription = new FragmentDescription(1, true,
-                FragmentMapping.create(1), ColocationGroup.forSourceId(1), Long2ObjectMaps.EMPTY_MAP);
+                Long2ObjectMaps.emptyMap(), null, null);
 
         ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
                 .queryId(UUID.randomUUID())

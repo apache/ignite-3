@@ -17,17 +17,15 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -85,6 +83,14 @@ public interface TxManager extends IgniteComponent {
     public LockManager lockManager();
 
     /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param runnable Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
+
+    /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
      *
      * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
@@ -104,7 +110,7 @@ public interface TxManager extends IgniteComponent {
      * @param recipientNode Recipient node.
      * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups with raft terms.
+     * @param enlistedGroups Enlisted partition groups with consistency token.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
@@ -113,23 +119,23 @@ public interface TxManager extends IgniteComponent {
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     );
 
     /**
      * Sends cleanup request to the specified primary replica.
      *
-     * @param recipientNode Primary replica to process given cleanup request.
-     * @param tablePartitionIds Table partition ids with raft terms.
+     * @param primaryConsistentId  A consistent id of the primary replica node.
+     * @param tablePartitionId Table partition id.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ClusterNode recipientNode,
-            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -160,4 +166,19 @@ public interface TxManager extends IgniteComponent {
      * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
      */
     CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
+
+    /**
+     * Registers the infligh update for a transaction.
+     *
+     * @param txId The transaction id.
+     * @return {@code True} if the inflight was registered. The update must be failed on false.
+     */
+    boolean addInflight(UUID txId);
+
+    /**
+     * Unregisters the inflight for a transaction.
+     *
+     * @param txId The transction id
+     */
+    void removeInflight(UUID txId);
 }

@@ -27,7 +27,9 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -36,6 +38,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.core.State;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
@@ -45,6 +49,9 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -74,11 +81,16 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     private final RaftOptions raftOptions = new RaftOptions();
 
+    private final PeerId leaderId = new PeerId("leader");
+
     @BeforeEach
     void initMocks() {
         when(rpcContext.getNodeManager()).thenReturn(nodeManager);
         when(nodeManager.get(anyString(), any())).thenReturn(node);
+
         lenient().when(node.getRaftOptions()).thenReturn(raftOptions);
+        lenient().when(node.getNodeState()).thenReturn(State.STATE_LEADER);
+        lenient().when(node.getLeaderId()).thenReturn(leaderId);
     }
 
     @Test
@@ -134,6 +146,53 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
         ErrorResponse errorResponse = (ErrorResponse) result;
         assertThat(errorResponse.errorCode(), is(RaftError.EBUSY.getNumber()));
         assertThat(errorResponse.errorMsg(),
-                is("Metadata not yet available, group 'test', required level 6; rejecting ActionRequest with EBUSY."));
+                is("Metadata not yet available, rejecting ActionRequest with EBUSY [group=test, requiredLevel=6]."));
+    }
+
+    @ParameterizedTest
+    @MethodSource("notLeaderNotTransferringStates")
+    void checksLeadershipBeforeCheckingMetadataWhenNotLeaderAndNotTransferring(State state) {
+        when(node.getNodeState()).thenReturn(state);
+
+        ActionRequest request = raftMessagesFactory.actionRequest()
+                .groupId("test")
+                .command(commandWithRequiredCatalogVersion(6))
+                .build();
+
+        Message result = interceptor.intercept(rpcContext, request);
+
+        assertThat(result, is(notNullValue()));
+        assertThat(result, instanceOf(ErrorResponse.class));
+
+        ErrorResponse errorResponse = (ErrorResponse) result;
+        assertThat(errorResponse.errorCode(), is(RaftError.EPERM.getNumber()));
+        assertThat(errorResponse.errorMsg(), is("Is not leader."));
+        assertThat(errorResponse.leaderId(), is(leaderId.toString()));
+    }
+
+    private static Stream<Arguments> notLeaderNotTransferringStates() {
+        return Arrays.stream(State.values())
+                .filter(state -> state != State.STATE_LEADER && state != State.STATE_TRANSFERRING)
+                .map(Arguments::of);
+    }
+
+    @Test
+    void checksLeadershipBeforeCheckingMetadataWhenTransferring() {
+        when(node.getNodeState()).thenReturn(State.STATE_TRANSFERRING);
+
+        ActionRequest request = raftMessagesFactory.actionRequest()
+                .groupId("test")
+                .command(commandWithRequiredCatalogVersion(6))
+                .build();
+
+        Message result = interceptor.intercept(rpcContext, request);
+
+        assertThat(result, is(notNullValue()));
+        assertThat(result, instanceOf(ErrorResponse.class));
+
+        ErrorResponse errorResponse = (ErrorResponse) result;
+        assertThat(errorResponse.errorCode(), is(RaftError.EBUSY.getNumber()));
+        assertThat(errorResponse.errorMsg(), is("Is transferring leadership."));
+        assertThat(errorResponse.leaderId(), is(nullValue()));
     }
 }

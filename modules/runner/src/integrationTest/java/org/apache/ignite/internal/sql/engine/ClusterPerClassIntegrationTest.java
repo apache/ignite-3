@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.table.TableTestUtils.getTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -49,17 +48,16 @@ import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
-import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
@@ -68,7 +66,6 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
@@ -101,6 +98,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Base client port number. */
     private static final int BASE_CLIENT_PORT = 10800;
 
+    /** Base rest port number. */
+    protected static final int BASE_REST_PORT = 10300;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  \"network\": {\n"
@@ -109,7 +109,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "      \"netClusterNodes\": [ {} ]\n"
             + "    }\n"
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest.port: {}\n"
             + "}";
 
     /** Cluster nodes. */
@@ -152,7 +153,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         for (int i = 0; i < nodes(); i++) {
             String nodeName = testNodeName(testInfo, i);
 
-            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i);
+            String config = IgniteStringFormatter.format(
+                    NODE_BOOTSTRAP_CFG,
+                    BASE_PORT + i, connectNodeAddr, BASE_CLIENT_PORT + i, BASE_REST_PORT + i
+            );
 
             futures.add(TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
         }
@@ -414,19 +418,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
-        var queryEngine = new TestQueryProcessor(CLUSTER_NODES.get(0));
+        Ignite ignite = CLUSTER_NODES.get(0);
 
-        SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
-
-        try {
-            var context = QueryContext.create(SqlQueryType.ALL, tx);
-
-            return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, CLUSTER_NODES.get(0).transactions(), sql, args))
-            );
-        } finally {
-            queryEngine.closeSession(sessionId);
-        }
+        return SqlTestUtils.sql(ignite, tx, sql, args);
     }
 
     protected static void checkMetadata(ColumnMetadata expectedMeta, ColumnMetadata actualMeta) {
@@ -463,7 +457,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) throws Exception {
         Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
 
-        // TODO: IGNITE-18733 We are waiting for the synchronization of schemes
         for (Ignite clusterNode : CLUSTER_NODES) {
             TableImpl tableImpl = getTableImpl(clusterNode, tableName);
 

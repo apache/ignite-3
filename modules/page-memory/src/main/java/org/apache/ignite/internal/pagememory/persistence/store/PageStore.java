@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
  * Persistent store of pages.

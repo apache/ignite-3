@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
 import java.util.EnumMap;
@@ -29,12 +29,15 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -71,26 +74,8 @@ public class CatalogUtils {
     /** Max number of distribution zone partitions. */
     public static final int MAX_PARTITION_COUNT = 65_000;
 
-    /**
-     * Default TIMESTAMP type precision: microseconds.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 36
-     */
-    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
-
-    /**
-     * Default TIME type precision: seconds.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 36
-     */
-    public static final int DEFAULT_TIME_PRECISION = 0;
-
-    /**
-     * Default DECIMAL precision is implementation-defined.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 20
-     */
-    public static final int DEFAULT_DECIMAL_PRECISION = 19;
+    /** Precision if not specified. */
+    public static final int DEFAULT_PRECISION = 0;
 
     /**
      * Default scale is 0.
@@ -104,7 +89,7 @@ public class CatalogUtils {
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 38
      */
-    public static final int MAX_TIME_PRECISION = 9;
+    public static final int MAX_TIME_PRECISION = NativeTypes.MAX_TIME_PRECISION;
 
     /**
      * Max DECIMAL precision is implementation-defined.
@@ -197,14 +182,13 @@ public class CatalogUtils {
     /**
      * Converts AlterTableAdd command columns parameters to column descriptor.
      *
-     * @param params Parameters.
+     * @param params Column description.
      * @return Column descriptor.
      */
-    // FIXME: IGNITE-20105 Default values should be taken from the SQL standard
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
-        int precision = Objects.requireNonNullElse(params.precision(), defaultPrecision(params.type()));
+        int precision = Objects.requireNonNullElse(params.precision(), DEFAULT_PRECISION);
         int scale = Objects.requireNonNullElse(params.scale(), DEFAULT_SCALE);
-        int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type()));
+        int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type(), precision));
 
         DefaultValue defaultValue = params.defaultValueDefinition();
 
@@ -244,31 +228,21 @@ public class CatalogUtils {
         }).collect(toList());
     }
 
-    private static int defaultPrecision(ColumnType columnType) {
-        //TODO IGNITE-19938: Add REAL,FLOAT and DOUBLE precision. See SQL`16 part 2 section 6.1 syntax rule 29-31
-        switch (columnType) {
-            case NUMBER:
-            case DECIMAL:
-                return DEFAULT_DECIMAL_PRECISION;
-            case TIME:
-                return DEFAULT_TIME_PRECISION;
-            case TIMESTAMP:
-            case DATETIME:
-                return DEFAULT_TIMESTAMP_PRECISION;
-            default:
-                return 0;
-        }
-    }
-
-    private static int defaultLength(ColumnType columnType) {
-        //TODO IGNITE-19938: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
+    /**
+     * Return default length according to supplied type.
+     *
+     * @param columnType Column type.
+     * @param precision Type precision.
+     */
+    public static int defaultLength(ColumnType columnType, int precision) {
+        //TODO IGNITE-20432: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
         switch (columnType) {
             case BITMASK:
             case STRING:
             case BYTE_ARRAY:
                 return DEFAULT_VARLEN_LENGTH;
             default:
-                return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
+                return Math.max(DEFAULT_LENGTH, precision);
         }
     }
 
@@ -381,5 +355,48 @@ public class CatalogUtils {
         }
 
         return zone;
+    }
+
+    /**
+     * Returns the primary key index name for table.
+     *
+     * @param tableName Table name.
+     */
+    public static String pkIndexName(String tableName) {
+        return tableName + "_PK";
+    }
+
+    /**
+     * Returns index descriptor.
+     *
+     * @param schema Schema to look up index in.
+     * @param name Name of the index of interest.
+     * @throws IndexNotFoundValidationException If index does not exist.
+     */
+    static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+        CatalogIndexDescriptor index = schema.index(name);
+
+        if (index == null) {
+            throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return index;
+    }
+
+    /**
+     * Returns index descriptor.
+     *
+     * @param catalog Catalog to look up index in.
+     * @param indexId ID of the index of interest.
+     * @throws IndexNotFoundValidationException If index does not exist.
+     */
+    static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
+        CatalogIndexDescriptor index = catalog.index(indexId);
+
+        if (index == null) {
+            throw new IndexNotFoundValidationException(format("Index with ID '{}' not found", indexId));
+        }
+
+        return index;
     }
 }

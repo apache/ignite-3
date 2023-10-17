@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
@@ -57,16 +58,17 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.subscription.ListAccumulator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -172,7 +174,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                TABLE_ID, -1, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null
+                TABLE_ID, -1, -1, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN
         );
 
         CompletableFuture<Boolean> future = tableCreatedListener()
@@ -242,7 +244,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     private void completeCausalityToken(long causalityToken) {
@@ -278,7 +280,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("k2", ColumnType.STRING, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     @Test
@@ -316,7 +318,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT64, false, 0, 0, 0, null)
         );
 
-        return new CatalogTableDescriptor(TABLE_ID, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null);
+        return new CatalogTableDescriptor(TABLE_ID, -1, -1, TABLE_NAME, 0, 2, columns, List.of("k1", "k2"), null, INITIAL_CAUSALITY_TOKEN);
     }
 
     @Test
@@ -358,7 +360,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
-        assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
         assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
@@ -380,7 +382,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaRegistry schemaRegistry = future.join();
 
-        assertThat(schemaRegistry.schema().version(), is(1));
+        assertThat(schemaRegistry.lastKnownSchemaVersion(), is(1));
         assertThat(schemaRegistry.schema(1).version(), is(1));
     }
 
@@ -420,17 +422,6 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
         assertThat(future, willBe(false));
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
-    }
-
-    @Test
-    void waitLatestSchemaReturnsLatestSchema() {
-        create2TableVersions();
-
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
-
-        SchemaDescriptor schemaDescriptor = schemaRegistry.waitLatestSchema();
-
-        assertThat(schemaDescriptor.version(), is(2));
     }
 
     @Test

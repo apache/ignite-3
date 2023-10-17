@@ -254,6 +254,16 @@ public class ErrorGroups {
 
         /** Session closed error. Operation is rejected because SQL session was closed. */
         public static final int SESSION_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 11);
+
+        /**
+         * SQL engine was unable to map query on current cluster topology.
+         *
+         * <p>This may be due to a variety of reasons, but most probably because of all nodes hosting certain system view
+         * or a table partition went offline.
+         *
+         * <p>See error message for details.
+         */
+        public static final int MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
     }
 
     /** Meta storage error group. */
@@ -335,6 +345,9 @@ public class ErrorGroups {
 
         /** Failure due to an abandoned transaction. */
         public static final int TX_ABANDONED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Failure due to primary replica expiration. */
+        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Replicator error group. */
@@ -473,8 +486,11 @@ public class ErrorGroups {
         /** Authentication error group. */
         public static final ErrorGroup AUTHENTICATION_ERR_GROUP = registerGroup("AUTHENTICATION", (short) 15);
 
-        /** General authentication error. */
-        public static final int COMMON_AUTHENTICATION_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 1);
+        /** Authentication error caused by unsupported authentication type. */
+        public static final int UNSUPPORTED_AUTHENTICATION_TYPE_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Authentication error caused by invalid credentials. */
+        public static final int INVALID_CREDENTIALS_ERR = AUTHENTICATION_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /**
@@ -498,5 +514,17 @@ public class ErrorGroups {
 
         /** Command to the catalog has not passed the validation. See exception message for details. */
         public static final int VALIDATION_ERR = CATALOG_ERR_GROUP.registerErrorCode((short) 1);
+    }
+
+    /** Placement driver error group. */
+    public static class PlacementDriver {
+        /** Placement driver error group. */
+        public static final ErrorGroup PLACEMENT_DRIVER_ERR_GROUP = registerGroup("PLACEMENTDRIVER", (short) 18);
+
+        /** Primary replica await timeout error. */
+        public static final int PRIMARY_REPLICA_AWAIT_TIMEOUT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Primary replica await error. */
+        public static final int PRIMARY_REPLICA_AWAIT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 2);
     }
 }

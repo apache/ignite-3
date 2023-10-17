@@ -36,9 +36,9 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -312,11 +312,11 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
+    static List<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
         return readTuples(schema, in, false);
     }
 
-    static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
+    static List<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 

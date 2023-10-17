@@ -28,8 +28,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -39,7 +41,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
 
@@ -86,6 +87,8 @@ public class Replica {
     // TODO: IGNITE-20063 Maybe get rid of it
     private final ExecutorService executor;
 
+    private final PlacementDriver placementDriver;
+
     /**
      * The constructor of a replica server.
      *
@@ -96,6 +99,7 @@ public class Replica {
      * @param raftClient Topology aware Raft client.
      * @param localNode Instance of the local node.
      * @param executor External executor.
+     * @param placementDriver Placement driver.
      */
     public Replica(
             ReplicationGroupId replicaGrpId,
@@ -104,7 +108,8 @@ public class Replica {
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode,
-            ExecutorService executor
+            ExecutorService executor,
+            PlacementDriver placementDriver
     ) {
         this.replicaGrpId = replicaGrpId;
         this.whenReplicaReady = replicaReady;
@@ -113,6 +118,7 @@ public class Replica {
         this.raftClient = raftClient;
         this.localNode = localNode;
         this.executor = executor;
+        this.placementDriver = placementDriver;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -124,7 +130,7 @@ public class Replica {
      * @param senderId Sender id.
      * @return Response.
      */
-    public CompletableFuture<?> processRequest(ReplicaRequest request, String senderId) {
+    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
@@ -157,8 +163,6 @@ public class Replica {
         if (!leaderFuture.isDone()) {
             leaderFuture.complete(leaderRef);
         }
-
-        listener.onBecomePrimary(clusterNode);
     }
 
     private CompletableFuture<ClusterNode> leaderFuture() {
@@ -189,7 +193,7 @@ public class Replica {
     public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
 
-        return leaderFuture().thenCompose(leader -> {
+        return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
             if (leaseExpirationTime != null) {
@@ -220,7 +224,7 @@ public class Replica {
                     return proposeLeaseRedirect(leader);
                 }
             }
-        });
+        }));
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(

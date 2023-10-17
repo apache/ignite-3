@@ -38,6 +38,9 @@ public enum CatalogEvent implements Event {
     /** This event is fired, when an index was dropped in Catalog. */
     INDEX_DROP,
 
+    /** This event is fired when the index becomes available, i.e. the index has been built. */
+    INDEX_AVAILABLE,
+
     /** This event is fired, when a distribution zone was created in Catalog. */
     ZONE_CREATE,
 

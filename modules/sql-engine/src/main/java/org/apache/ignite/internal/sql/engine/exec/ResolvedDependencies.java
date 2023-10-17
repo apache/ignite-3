@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /**
@@ -30,9 +27,15 @@ public class ResolvedDependencies {
 
     private final Map<Integer, ExecutableTable> tableMap;
 
+    private final Map<Integer, ScannableDataSource> dataSourceMap;
+
     /** Constructor. */
-    public ResolvedDependencies(Map<Integer, ExecutableTable> tableMap) {
+    public ResolvedDependencies(
+            Map<Integer, ExecutableTable> tableMap,
+            Map<Integer, ScannableDataSource> dataSourceMap
+    ) {
         this.tableMap = tableMap;
+        this.dataSourceMap = dataSourceMap;
     }
 
     /**
@@ -52,14 +55,6 @@ public class ResolvedDependencies {
     }
 
     /**
-     * Retrieves colocation group for a table with the given id.
-     */
-    public CompletableFuture<ColocationGroup> fetchColocationGroup(int tableId) {
-        ExecutableTable executableTable = getTable(tableId);
-        return executableTable.fetchColocationGroup();
-    }
-
-    /**
      * Returns a descriptor for a table with the given id.
      */
     public TableDescriptor tableDescriptor(int tableId) {
@@ -67,8 +62,13 @@ public class ResolvedDependencies {
         return executableTable.tableDescriptor();
     }
 
-    public Set<Integer> tableIds() {
-        return tableMap.keySet();
+    /** Returns data source instance by given id. */
+    public ScannableDataSource dataSource(int dataSourceId) {
+        ScannableDataSource dataSource = dataSourceMap.get(dataSourceId);
+
+        assert dataSource != null : "DataSource does not exist: " + dataSourceId;
+
+        return dataSource;
     }
 
     private ExecutableTable getTable(int tableId) {

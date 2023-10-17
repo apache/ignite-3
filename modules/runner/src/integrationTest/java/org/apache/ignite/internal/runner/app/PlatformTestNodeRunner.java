@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
@@ -62,19 +63,18 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.configuration.SecurityChange;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
@@ -121,7 +121,8 @@ public class PlatformTestNodeRunner {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10300\n"
                     + "}",
 
             NODE_NAME2, "{\n"
@@ -132,7 +133,8 @@ public class PlatformTestNodeRunner {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10301\n"
                     + "}",
 
             NODE_NAME3, "{\n"
@@ -153,7 +155,8 @@ public class PlatformTestNodeRunner {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10303\n"
                     + "}",
 
             NODE_NAME4, "{\n"
@@ -179,7 +182,8 @@ public class PlatformTestNodeRunner {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10304\n"
                     + "}"
     );
 
@@ -284,12 +288,12 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("VAL").type(STRING).nullable(true).build()
+                        ColumnParams.builder().name("VAL").type(STRING).length(1000).nullable(true).build()
                 ),
                 List.of(keyCol)
         );
 
-        int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
+        int maxTimePrecision = MAX_TIME_PRECISION;
 
         createTable(
                 ignite.catalogManager(),
@@ -298,7 +302,7 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME_ALL_COLUMNS,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
+                        ColumnParams.builder().name("STR").type(STRING).nullable(true).length(1000).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
@@ -307,14 +311,14 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
                         ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
                         ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
-                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(64).nullable(true).build(),
+                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(3).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(4).nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
@@ -329,7 +333,7 @@ public class PlatformTestNodeRunner {
                 TABLE_NAME_ALL_COLUMNS_SQL,
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
-                        ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
+                        ColumnParams.builder().name("STR").type(STRING).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
@@ -344,7 +348,7 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
@@ -395,8 +399,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.UUID).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.UUID).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(UUID).build(),
+                ColumnParams.builder().name("VAL").type(UUID).nullable(true).build()
         );
 
         createTwoColumnTable(
@@ -407,8 +411,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(STRING).build(),
-                ColumnParams.builder().name("VAL").type(STRING).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(STRING).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(STRING).length(1000).nullable(true).build()
         );
 
         createTwoColumnTable(
@@ -437,20 +441,20 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(NUMBER).precision(Integer.MAX_VALUE).build(),
-                ColumnParams.builder().name("VAL").type(NUMBER).precision(Integer.MAX_VALUE).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(NUMBER).precision(15).build(),
+                ColumnParams.builder().name("VAL").type(NUMBER).precision(15).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(BYTE_ARRAY).build(),
-                ColumnParams.builder().name("VAL").type(BYTE_ARRAY).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(BYTE_ARRAY).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(BYTE_ARRAY).length(1000).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(BITMASK).length(32).build(),
-                ColumnParams.builder().name("VAL").type(BITMASK).length(32).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(BITMASK).length(1000).build(),
+                ColumnParams.builder().name("VAL").type(BITMASK).length(1000).nullable(true).build()
         );
     }
 
@@ -654,7 +658,7 @@ public class PlatformTestNodeRunner {
             var colocationColumns = Arrays.stream(columns).map(Column::name).toArray(String[]::new);
             var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
 
-            var marsh = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+            var marsh = new TupleMarshallerImpl(schema);
 
             try {
                 Row row = marsh.marshal(tuple);
@@ -680,7 +684,7 @@ public class PlatformTestNodeRunner {
             @SuppressWarnings("resource")
             Table table = context.ignite().tables().table(tableName);
             RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
-            TupleMarshallerImpl marsh = IgniteTestUtils.getFieldValue(view, "marsh");
+            TupleMarshaller marsh = view.marshaller(1);
 
             try {
                 return marsh.marshal(key).colocationHash();
@@ -701,20 +705,23 @@ public class PlatformTestNodeRunner {
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
-                    root -> root.changeRoot(SecurityConfiguration.KEY).changeAuthentication(
-                            change -> {
-                                change.changeEnabled(enable);
-                                change.changeProviders().delete("basic");
+                    root -> {
+                        SecurityChange securityChange = root.changeRoot(SecurityConfiguration.KEY);
+                        securityChange.changeEnabled(enable);
+                        securityChange.changeAuthentication(
+                                change -> {
+                                    change.changeProviders().delete("basic");
 
-                                if (enable) {
-                                    change.changeProviders().create("basic", authenticationProviderChange -> {
-                                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                                .changeUsername("user-1")
-                                                .changePassword("password-1");
-                                    });
+                                    if (enable) {
+                                        change.changeProviders().create("basic", authenticationProviderChange -> {
+                                            authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
+                                                    .changeUsername("user-1")
+                                                    .changePassword("password-1");
+                                        });
+                                    }
                                 }
-                            }
-                    ));
+                        );
+                    });
 
             assertThat(changeFuture, willCompleteSuccessfully());
 

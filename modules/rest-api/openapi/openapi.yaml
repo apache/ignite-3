@@ -677,6 +677,25 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/node/info:
+    get:
+      tags:
+      - nodeManagement
+      description: Gets node info.
+      operationId: nodeInfo
+      responses:
+        "200":
+          description: Node info.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeInfo'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/node/state:
     get:
       tags:
@@ -862,6 +881,20 @@ components:
           description: Port the node runs on.
           format: int32
       description: Node network address information.
+    NodeInfo:
+      required:
+      - jdbcPort
+      - name
+      type: object
+      properties:
+        name:
+          type: string
+          description: Unique node name.
+        jdbcPort:
+          type: integer
+          description: Node JDBC port.
+          format: int32
+      description: Node info.
     NodeMetadata:
       type: object
       properties:

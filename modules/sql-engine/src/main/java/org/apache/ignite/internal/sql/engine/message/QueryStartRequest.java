@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -56,7 +56,7 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     TxAttributes txAttributes();
 
     /**
-     * Return last schema version, just a stub, need to be removed after IGNITE-18733.
+     * Return last schema version, just a stub, need to be removed after IGNITE-20633.
      */
     int schemaVersion();
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -52,7 +53,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
@@ -63,9 +63,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -78,6 +76,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -89,11 +88,14 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -110,8 +112,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     /** Keys count to check. */
     private static final int KEYS = 100;
 
+    private static final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+
     /** Dummy internal table for tests. */
-    private static final InternalTable INT_TABLE;
+    private static InternalTable intTable;
+
+    private static TxManager txManager;
 
     /** Map of the Raft commands are set by table operation. */
     private static final Int2ObjectMap<Set<Command>> CMDS_MAP = new Int2ObjectOpenHashMap<>();
@@ -127,7 +133,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private TupleMarshallerImpl marshaller;
 
-    static {
+    @BeforeAll
+    static void beforeAllTests() {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
@@ -135,22 +142,24 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-        TxManager txManager = new TxManagerImpl(
+        txManager = new TxManagerImpl(
                 replicaService,
                 new HeapLockManager(),
                 new HybridClockImpl(),
                 new TransactionIdGenerator(0xdeadbeef),
-                clusterNode::id
+                clusterNode::id,
+                new TestPlacementDriver(clusterNode.name())
         ) {
             @Override
             public CompletableFuture<Void> finish(
-                    HybridTimestampTracker timestampTracker,
+                    HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
                     ClusterNode recipientNode,
                     Long term,
                     boolean commit,
-                    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
-                    UUID txId) {
+                    Map<TablePartitionId, Long> enlistedGroups,
+                    UUID txId
+            ) {
                 return completedFuture(null);
             }
         };
@@ -175,7 +184,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 });
 
                 if (cmd instanceof UpdateAllCommand) {
-                    return completedFuture(List.of());
+                    return completedFuture(((UpdateAllCommand) cmd).rowsToUpdate().keySet().stream()
+                            .map(uuid -> new NullBinaryRow())
+                            .collect(Collectors.toList()));
                 } else {
                     return completedFuture(true);
                 }
@@ -225,7 +236,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }
         });
 
-        INT_TABLE = new InternalTableImpl(
+        intTable = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
                 partRafts,
@@ -235,56 +246,22 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 Mockito.mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                Mockito.mock(HybridClock.class),
-                new HybridTimestampTracker(),
+                new HybridClockImpl(),
+                observableTimestampTracker,
                 new TestPlacementDriver(clusterNode.name())
         );
+    }
+
+    @AfterAll
+    static void afterAllTests() throws Exception {
+        if (txManager != null) {
+            txManager.stop();
+        }
     }
 
     @BeforeEach
     public void beforeTest() {
         CMDS_MAP.clear();
-    }
-
-    private static NativeType nativeType(NativeTypeSpec type) {
-        switch (type) {
-            case BOOLEAN:
-                return NativeTypes.BOOLEAN;
-            case INT8:
-                return NativeTypes.INT8;
-            case INT16:
-                return NativeTypes.INT16;
-            case INT32:
-                return NativeTypes.INT32;
-            case INT64:
-                return NativeTypes.INT64;
-            case FLOAT:
-                return NativeTypes.FLOAT;
-            case DOUBLE:
-                return NativeTypes.DOUBLE;
-            case DECIMAL:
-                return NativeTypes.decimalOf(10, 3);
-            case UUID:
-                return NativeTypes.UUID;
-            case STRING:
-                return NativeTypes.STRING;
-            case BYTES:
-                return NativeTypes.BYTES;
-            case BITMASK:
-                return NativeTypes.bitmaskOf(16);
-            case NUMBER:
-                return NativeTypes.numberOf(10);
-            case DATE:
-                return NativeTypes.DATE;
-            case TIME:
-                return NativeTypes.time();
-            case DATETIME:
-                return NativeTypes.datetime();
-            case TIMESTAMP:
-                return NativeTypes.timestamp();
-            default:
-                throw new IllegalStateException("Unexpected type: " + type);
-        }
     }
 
     private static Object generateValueByType(int i, NativeTypeSpec type) {
@@ -363,7 +340,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
             BinaryRowEx r = marshaller.marshal(t);
 
-            int part = INT_TABLE.partition(r);
+            int part = intTable.partition(r);
 
             assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommand.class)));
         }
@@ -389,7 +366,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
             BinaryRowEx r = marshaller.marshal(t);
 
-            int part = INT_TABLE.partition(r);
+            int part = intTable.partition(r);
 
             partsMap.merge(part, 1, (cnt, ignore) -> ++cnt);
         }
@@ -403,7 +380,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             cmd.rowsToUpdate().values().forEach(rowMessage -> {
                 Row r = Row.wrapBinaryRow(schema, rowMessage.asBinaryRow());
 
-                assertEquals(INT_TABLE.partition(r), p);
+                assertEquals(intTable.partition(r), p);
             });
         });
     }
@@ -412,8 +389,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         schema = new SchemaDescriptor(1,
                 new Column[]{
                         new Column("ID", NativeTypes.INT64, false),
-                        new Column("ID0", nativeType(t0), false),
-                        new Column("ID1", nativeType(t1), false)
+                        new Column("ID0", specToType(t0), false),
+                        new Column("ID1", specToType(t1), false)
                 },
                 new String[]{"ID1", "ID0"},
                 new Column[]{
@@ -423,9 +400,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
+        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1));
 
-        marshaller = new TupleMarshallerImpl(schemaRegistry);
+        marshaller = new TupleMarshallerImpl(schema);
     }
 
     private Tuple createTuple(int k, NativeTypeSpec t0, NativeTypeSpec t1) {

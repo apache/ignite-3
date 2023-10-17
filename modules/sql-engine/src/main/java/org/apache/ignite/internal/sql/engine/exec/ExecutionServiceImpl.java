@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
@@ -39,9 +39,11 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -49,6 +51,9 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
@@ -59,19 +64,11 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
-import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
-import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
-import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -90,11 +87,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.internal.util.TransformingIterator;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
@@ -125,7 +117,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final QueryTaskExecutor taskExecutor;
 
-    private final MappingService mappingSrvc;
+    private final MappingService mappingService;
 
     private final RowHandler<RowT> handler;
 
@@ -160,6 +152,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
+            MappingService mappingService,
             ExecutionDependencyResolver dependencyResolver
     ) {
         HashFunctionFactoryImpl<RowT> rowHashFunctionFactory = new HashFunctionFactoryImpl<>(handler);
@@ -167,7 +160,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return new ExecutionServiceImpl<>(
                 msgSrvc,
                 topSrvc,
-                new MappingServiceImpl(topSrvc),
+                mappingService,
                 sqlSchemaManager,
                 ddlCommandHandler,
                 taskExecutor,
@@ -187,7 +180,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      *
      * @param messageService Message service.
      * @param topSrvc Topology service.
-     * @param mappingSrvc Nodes mapping calculation service.
+     * @param mappingService Nodes mapping calculation service.
      * @param sqlSchemaManager Schema manager.
      * @param ddlCmdHnd Handler of the DDL commands.
      * @param taskExecutor Task executor.
@@ -197,7 +190,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     public ExecutionServiceImpl(
             MessageService messageService,
             TopologyService topSrvc,
-            MappingService mappingSrvc,
+            MappingService mappingService,
             SqlSchemaManager sqlSchemaManager,
             DdlCommandHandler ddlCmdHnd,
             QueryTaskExecutor taskExecutor,
@@ -208,7 +201,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.localNode = topSrvc.localMember();
         this.handler = handler;
         this.messageService = messageService;
-        this.mappingSrvc = mappingSrvc;
+        this.mappingService = mappingService;
         this.topSrvc = topSrvc;
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
@@ -482,13 +475,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private CompletableFuture<Void> sendFragment(
-                String targetNodeName, Fragment fragment, FragmentDescription desc, TxAttributes txAttributes
+                String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes
         ) {
             QueryStartRequest request = FACTORY.queryStartRequest()
                     .queryId(ctx.queryId())
-                    .fragmentId(fragment.fragmentId())
+                    .fragmentId(desc.fragmentId())
                     .schema(ctx.schemaName())
-                    .root(fragment.serialized())
+                    .root(serialisedFragment)
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
@@ -498,7 +491,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             CompletableFuture<Void> remoteFragmentInitializationCompletionFuture = new CompletableFuture<>();
 
             remoteFragmentInitCompletion.put(
-                    new RemoteFragmentKey(targetNodeName, fragment.fragmentId()),
+                    new RemoteFragmentKey(targetNodeName, desc.fragmentId()),
                     remoteFragmentInitializationCompletionFuture
             );
 
@@ -644,16 +637,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan notMappedPlan) {
-            Iterable<IgniteRel> fragmentRoots = TransformingIterator.newIterable(notMappedPlan.fragments(), Fragment::root);
-
-            IgniteSchema igniteSchema = ctx.schema().unwrap(IgniteSchema.class);
-
-            CompletableFuture<ResolvedDependencies> depsFut = dependencyResolver.resolveDependencies(fragmentRoots, igniteSchema);
-
-            CompletableFuture<MultiStepPlan> f = depsFut.thenCompose(deps -> mapFragments(notMappedPlan, deps));
-
-            f.whenCompleteAsync((plan, mappingErr) -> {
+        private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan multiStepPlan) {
+            mappingService.map(multiStepPlan).whenCompleteAsync((mappedFragments, mappingErr) -> {
                 if (mappingErr != null) {
                     if (!root.completeExceptionally(mappingErr)) {
                         root.thenAccept(root -> root.onError(mappingErr));
@@ -662,16 +647,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
 
                 try {
-                    List<Fragment> fragments = plan.fragments();
-
                     // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
                     // the case when a non-root fragment will fail before the root is processed.
-                    assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
+                    assert !nullOrEmpty(mappedFragments) && mappedFragments.get(0).fragment().rootFragment()
+                            : mappedFragments;
 
                     // first let's enlist all tables to the transaction.
                     if (!tx.isReadOnly()) {
-                        for (Fragment fragment : fragments) {
-                            enlistPartitions(fragment, tx);
+                        for (MappedFragment mappedFragment : mappedFragments) {
+                            enlistPartitions(mappedFragment, tx);
                         }
                     }
 
@@ -682,7 +666,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     List<CompletableFuture<?>> resultsOfFragmentSending = new ArrayList<>();
 
                     // start remote execution
-                    for (Fragment fragment : fragments) {
+                    for (MappedFragment mappedFragment : mappedFragments) {
+                        Fragment fragment = mappedFragment.fragment();
+
                         if (fragment.rootFragment()) {
                             assert rootFragmentId == null;
 
@@ -692,13 +678,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         FragmentDescription fragmentDesc = new FragmentDescription(
                                 fragment.fragmentId(),
                                 !fragment.correlated(),
-                                plan.mapping(fragment),
-                                plan.target(fragment),
-                                plan.remotes(fragment)
+                                mappedFragment.groupsBySourceId(),
+                                mappedFragment.target(),
+                                mappedFragment.sourcesByExchangeId()
                         );
 
-                        for (String nodeName : fragmentDesc.nodeNames()) {
-                            CompletableFuture<Void> resultOfSending = sendFragment(nodeName, fragment, fragmentDesc, attributes);
+                        for (String nodeName : mappedFragment.nodes()) {
+                            CompletableFuture<Void> resultOfSending =
+                                    sendFragment(nodeName, fragment.serialized(), fragmentDesc, attributes);
 
                             resultsOfFragmentSending.add(
                                     resultOfSending.handle((ignored, t) -> {
@@ -717,8 +704,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                             completionFuture.complete(null);
                                         }
 
-                                        throw ExceptionUtils.withCauseAndCode(
-                                                IgniteInternalException::new,
+                                        throw ExceptionUtils.withCause(
+                                                t instanceof NodeLeftException ? NodeLeftException::new : IgniteInternalException::new,
                                                 INTERNAL_ERR,
                                                 format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
                                                         nodeName, fragment.fragmentId(), t.getMessage()), t
@@ -788,7 +775,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             };
         }
 
-        private void enlistPartitions(Fragment fragment, InternalTransaction tx) {
+        private void enlistPartitions(MappedFragment mappedFragment, InternalTransaction tx) {
             new IgniteRelShuttle() {
                 @Override
                 public IgniteRel visit(IgniteIndexScan rel) {
@@ -808,7 +795,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 public IgniteRel visit(IgniteTableModify rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    List<NodeWithTerm> assignments = fragment.mapping().updatingTableAssignments();
+                    List<NodeWithTerm> assignments = mappedFragment.groupsBySourceId()
+                            .get(UpdatableTableImpl.MODIFY_NODE_SOURCE_ID).assignments();
 
                     assert assignments != null : "Table assignments must be available";
 
@@ -837,22 +825,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    List<NodeWithTerm> assignments = fragment.mapping().findGroup(rel.sourceId()).assignments().stream()
-                            .map(l -> l.get(0))
-                            .collect(Collectors.toList());
+                    List<NodeWithTerm> assignments = mappedFragment.groupsBySourceId().get(rel.sourceId()).assignments();
 
                     enlist(tableId, assignments);
                 }
-            }.visit(fragment.root());
-        }
-
-        private CompletableFuture<MultiStepPlan> mapFragments(MultiStepPlan plan, ResolvedDependencies deps) {
-            return fetchColocationGroups(deps).thenApply(colocationGroups -> {
-                MappingQueryContext mappingCtx = new MappingQueryContext(localNode.name(), mappingSrvc);
-                List<Fragment> mappedFragments = FragmentMapping.mapFragments(mappingCtx, plan.fragments(), colocationGroups);
-
-                return plan.replaceFragments(mappedFragments);
-            });
+            }.visit(mappedFragment.fragment().root());
         }
 
         private CompletableFuture<Void> close(boolean cancel) {
@@ -973,22 +950,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
 
             return start;
-        }
-
-        private CompletableFuture<Map<Integer, ColocationGroup>> fetchColocationGroups(ResolvedDependencies deps) {
-            List<CompletableFuture<Pair<Integer, ColocationGroup>>> list = new ArrayList<>();
-
-            for (Integer tableId : deps.tableIds()) {
-                CompletableFuture<ColocationGroup> f = deps.fetchColocationGroup(tableId);
-                list.add(f.thenApply(c -> new Pair<>(tableId, c)));
-            }
-
-            CompletableFuture<Void> all = CompletableFuture.allOf(list.toArray(new CompletableFuture[0]));
-
-            return all.thenApply(
-                    v -> list.stream()
-                            .map(CompletableFuture::join)
-                            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
         }
     }
 

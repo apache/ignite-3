@@ -49,14 +49,15 @@ public class ClientTupleReplaceExactRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var schema = readSchema(in, table);
 
-            var oldTuple = readTuple(in, false, schema);
-            var newTuple = readTuple(in, false, schema);
+            return readSchema(in, table).thenCompose(schema -> {
+                var oldTuple = readTuple(in, false, schema);
+                var newTuple = readTuple(in, false, schema);
 
-            return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
-                out.packInt(table.schemaView().lastSchemaVersion());
-                out.packBoolean(res);
+                return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
+                    out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    out.packBoolean(res);
+                });
             });
         });
     }

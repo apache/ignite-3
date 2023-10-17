@@ -131,7 +131,7 @@ namespace Apache.Ignite.Internal.Sql
             RowReaderFactory<T> rowReaderFactory,
             ICollection<object?>? args)
         {
-            IgniteArgumentCheck.NotNull(statement, nameof(statement));
+            IgniteArgumentCheck.NotNull(statement);
 
             var tx = transaction.ToInternal();
 
@@ -144,7 +144,7 @@ namespace Apache.Ignite.Internal.Sql
                 // ResultSet will dispose the pooled buffer.
                 return new ResultSet<T>(socket, buf, rowReaderFactory);
             }
-            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtValidation || e.Code == ErrorGroups.Sql.StmtParse)
+            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
             {
                 throw new SqlException(
                     e.TraceId,

@@ -66,8 +66,8 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             params object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
-            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobClassName);
 
             return await ExecuteOnOneNode<T>(GetRandomNode(nodes), units, jobClassName, args).ConfigureAwait(false);
         }
@@ -112,9 +112,9 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             params object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
-            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
-            IgniteArgumentCheck.NotNull(units, nameof(units));
+            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobClassName);
+            IgniteArgumentCheck.NotNull(units);
 
             var res = new Dictionary<IClusterNode, Task<T>>();
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
@@ -156,15 +156,8 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(count);
                 foreach (var unit in units)
                 {
-                    if (string.IsNullOrEmpty(unit.Name))
-                    {
-                        throw new ArgumentException("Deployment unit name can't be null or empty.");
-                    }
-
-                    if (string.IsNullOrEmpty(unit.Version))
-                    {
-                        throw new ArgumentException("Deployment unit version can't be null or empty.");
-                    }
+                    IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
+                    IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
 
                     w.Write(unit.Name);
                     w.Write(unit.Version);
@@ -195,7 +188,7 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(node, nameof(node));
+            IgniteArgumentCheck.NotNull(node);
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
@@ -253,9 +246,9 @@ namespace Apache.Ignite.Internal.Compute
             params object?[]? args)
             where TKey : notnull
         {
-            IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
-            IgniteArgumentCheck.NotNull(key, nameof(key));
-            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+            IgniteArgumentCheck.NotNull(tableName);
+            IgniteArgumentCheck.NotNull(key);
+            IgniteArgumentCheck.NotNull(jobClassName);
 
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
             int? schemaVersion = null;

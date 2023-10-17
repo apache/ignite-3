@@ -20,8 +20,8 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -79,13 +79,6 @@ public interface InternalTransaction extends Transaction {
     IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
 
     /**
-     * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.
-     *
-     * @param resultFuture Operation result future.
-     */
-    void enlistResultFuture(CompletableFuture<?> resultFuture);
-
-    /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
      *
      * @return Read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
@@ -99,4 +92,15 @@ public interface InternalTransaction extends Transaction {
      * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
      */
     HybridTimestamp startTimestamp();
+
+    /**
+     * Finishes a read-only transaction with a specific execution timestamp.
+     *
+     * @param commit Commit flag. The flag is ignored for read-only transactions.
+     * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node.
+     * @return The future.
+     */
+    default CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
+        return commit ? commitAsync() : rollbackAsync();
+    }
 }

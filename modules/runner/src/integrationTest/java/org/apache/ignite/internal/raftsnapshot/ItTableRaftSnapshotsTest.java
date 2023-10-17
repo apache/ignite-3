@@ -45,7 +45,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
-import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -54,8 +53,10 @@ import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.ReplicationGroupsUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -75,10 +76,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -116,7 +114,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 @Timeout(90)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
 class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
@@ -134,7 +131,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             + "    }\n"
             + "  },\n"
             + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
-            + "  clientConnector.port: {}\n"
+            + "  clientConnector.port: {},\n"
+            + "  rest.port: {}\n"
             + "}";
 
     /**
@@ -361,7 +359,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         LOG.info("Node {} knocked out", nodeIndex);
     }
 
-    private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
+    private void createTestTableWith3Replicas(String storageEngine) {
         String zoneSql = "create zone test_zone"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3;";
@@ -372,22 +370,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
-
-        waitForTableToStart();
-    }
-
-    private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18733 - remove this wait because when a table creation query is executed, the table must be fully ready.
-
-        BooleanSupplier tableStarted = () -> {
-            int numberOfStartedRaftNodes = cluster.runningNodes()
-                    .map(ReplicationGroupsUtils::tablePartitionIds)
-                    .mapToInt(List::size)
-                    .sum();
-            return numberOfStartedRaftNodes == 3;
-        };
-
-        assertTrue(waitForCondition(tableStarted, 10_000), "Did not see all table RAFT nodes started");
     }
 
     /**

@@ -22,6 +22,7 @@ plugins {
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
@@ -40,8 +41,12 @@ dependencies {
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(":ignite-core"))
     integrationTestImplementation testFixtures(project(":ignite-sql-engine"))
+    integrationTestImplementation testFixtures(project(':ignite-jdbc'))
     integrationTestImplementation project(":ignite-runner")
     integrationTestImplementation project(":ignite-api")
+
+    testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation libs.hamcrest.core
 }
 
 description = 'ignite-jdbc'

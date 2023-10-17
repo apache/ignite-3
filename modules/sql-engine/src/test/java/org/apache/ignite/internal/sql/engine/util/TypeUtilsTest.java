@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -37,7 +37,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -246,17 +246,12 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
         testCaseList.add(new RelToExecTestCase(SqlTypeName.DATE, RowSchemaTypes.nativeType(NativeTypes.DATE)));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME, RowSchemaTypes.nativeType(NativeTypes.time())));
         testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME, 4, RowSchemaTypes.nativeType(NativeTypes.time(4))));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE, RowSchemaTypes.nativeType(NativeTypes.time())));
         testCaseList.add(new RelToExecTestCase(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE, 4, RowSchemaTypes.nativeType(NativeTypes.time(4))));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP, RowSchemaTypes.nativeType(NativeTypes.datetime())));
         testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP, 4, RowSchemaTypes.nativeType(NativeTypes.datetime(4))));
 
-        testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE,
-                RowSchemaTypes.nativeType(NativeTypes.timestamp())));
         testCaseList.add(new RelToExecTestCase(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, 4,
                 RowSchemaTypes.nativeType(NativeTypes.timestamp(4))));
 

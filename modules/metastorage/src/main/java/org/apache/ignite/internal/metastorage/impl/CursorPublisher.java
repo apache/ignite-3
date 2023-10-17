@@ -21,9 +21,9 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Publisher that streams data from a remote Meta Storage cursor.

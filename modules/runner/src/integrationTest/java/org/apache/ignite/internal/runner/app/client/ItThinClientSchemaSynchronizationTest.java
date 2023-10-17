@@ -39,7 +39,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("resource")
 public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientTest {
     @Test
-    void testClientUsesLatestSchemaOnWrite() throws InterruptedException {
+    void testClientUsesLatestSchemaOnWrite() {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -47,7 +47,6 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         String tableName = "testClientUsesLatestSchemaOnWrite";
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
 
-        waitForTableOnAllNodes(tableName);
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
         Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
@@ -63,7 +62,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
     }
 
     @Test
-    void testClientUsesLatestSchemaOnRead() throws InterruptedException {
+    void testClientUsesLatestSchemaOnRead() {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -71,7 +70,6 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         String tableName = "testClientUsesLatestSchemaOnRead";
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
-        waitForTableOnAllNodes(tableName);
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
         Tuple rec = Tuple.create().set("ID", 1);
@@ -84,7 +82,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
     }
 
     @Test
-    void testClientUsesLatestSchemaOnReadWithNotNullColumn() throws InterruptedException {
+    void testClientUsesLatestSchemaOnReadWithNotNullColumn() {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -92,7 +90,6 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         String tableName = "testClientUsesLatestSchemaOnReadWithNotNullColumn";
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
-        waitForTableOnAllNodes(tableName);
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
         Tuple rec = Tuple.create().set("ID", 1);
@@ -106,14 +103,13 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testClientReloadsTupleSchemaOnUnmappedColumnException(boolean useGetAndUpsert) throws InterruptedException {
+    void testClientReloadsTupleSchemaOnUnmappedColumnException(boolean useGetAndUpsert) {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
         String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException_" + useGetAndUpsert;
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
-        waitForTableOnAllNodes(tableName);
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
         Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
@@ -135,14 +131,13 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testClientReloadsKvTupleSchemaOnUnmappedColumnException(boolean useGetAndPut) throws InterruptedException {
+    void testClientReloadsKvTupleSchemaOnUnmappedColumnException(boolean useGetAndPut) {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
         String tableName = "testClientReloadsKvTupleSchemaOnUnmappedColumnException_" + useGetAndPut;
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
-        waitForTableOnAllNodes(tableName);
         KeyValueView<Tuple, Tuple> kvView = client.tables().table(tableName).keyValueView();
 
         // Insert fails, because there is no NAME column.
@@ -166,14 +161,13 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testClientReloadsPojoSchemaOnUnmappedColumnException(boolean useGetAndUpsert) throws InterruptedException {
+    void testClientReloadsPojoSchemaOnUnmappedColumnException(boolean useGetAndUpsert) {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
         String tableName = "testClientReloadsPojoSchemaOnUnmappedColumnException_" + useGetAndUpsert;
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
-        waitForTableOnAllNodes(tableName);
         RecordView<Pojo> recordView = client.tables().table(tableName).recordView(Mapper.of(Pojo.class));
 
         // Insert fails, because there is no NAME column.
@@ -185,7 +179,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         var ex = assertThrows(IgniteException.class, action::run);
         assertEquals(
                 "Fields [name] of type org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$Pojo "
-                        + "are not mapped to columns.",
+                        + "are not mapped to columns",
                 ex.getMessage());
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
@@ -198,14 +192,13 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testClientReloadsKvPojoSchemaOnUnmappedColumnException(boolean useGetAndPut) throws InterruptedException {
+    void testClientReloadsKvPojoSchemaOnUnmappedColumnException(boolean useGetAndPut) {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
         String tableName = "testClientReloadsKvPojoSchemaOnUnmappedColumnException_" + useGetAndPut;
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
-        waitForTableOnAllNodes(tableName);
         KeyValueView<Integer, ValPojo> kvView = client.tables().table(tableName)
                 .keyValueView(Mapper.of(Integer.class), Mapper.of(ValPojo.class));
 
@@ -221,7 +214,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         assertEquals(
                 "Fields [name] of type "
                         + "org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$ValPojo "
-                        + "are not mapped to columns.",
+                        + "are not mapped to columns",
                 ex.getMessage());
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,

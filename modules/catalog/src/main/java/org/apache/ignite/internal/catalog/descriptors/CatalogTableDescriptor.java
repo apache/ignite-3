@@ -39,6 +39,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     private final int zoneId;
 
+    private final int schemaId;
+
     private final int pkIndexId;
 
     private final int tableVersion;
@@ -64,16 +66,19 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      */
     public CatalogTableDescriptor(
             int id,
+            int schemaId,
             int pkIndexId,
             String name,
             int zoneId,
             int tableVersion,
             List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
-            @Nullable List<String> colocationCols
+            @Nullable List<String> colocationCols,
+            long causalityToken
     ) {
-        super(id, Type.TABLE, name);
+        super(id, Type.TABLE, name, causalityToken);
 
+        this.schemaId = schemaId;
         this.pkIndexId = pkIndexId;
         this.zoneId = zoneId;
         this.tableVersion = tableVersion;
@@ -95,6 +100,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      */
     public CatalogTableColumnDescriptor columnDescriptor(String columnName) {
         return columnsMap.get(columnName);
+    }
+
+    public int schemaId() {
+        return schemaId;
     }
 
     public int zoneId() {

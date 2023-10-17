@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
@@ -85,8 +85,10 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -100,6 +102,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -116,6 +119,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     private static final String NODE_NAME = "node1";
+
+    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(NODE_NAME);
 
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
@@ -157,7 +162,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** Map of node indexes to transaction managers. */
     private final Map<Integer, TxManager> txManagers = new ConcurrentHashMap<>();
 
-    private final ReplicaService replicaService = mock(ReplicaService.class);
+    private final ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
             -> new ClusterNodeImpl(NODE_NAME, NODE_NAME, new NetworkAddress(addr, 3333));
@@ -199,15 +204,33 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         for (int i = 0; i < nodes(); i++) {
             if (!txManagers.containsKey(i)) {
-                TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
-                        () -> "local");
+                TxManager txManager = new TxManagerImpl(
+                        replicaService,
+                        new HeapLockManager(),
+                        hybridClock,
+                        new TransactionIdGenerator(i),
+                        () -> NODE_NAME,
+                        TEST_PLACEMENT_DRIVER
+                );
+
+                txManager.start();
+
                 txManagers.put(i, txManager);
                 closeables.add(txManager::stop);
             }
         }
 
-        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1),
-                () -> "local");
+        TxManager txManager = new TxManagerImpl(
+                replicaService,
+                new HeapLockManager(),
+                hybridClock,
+                new TransactionIdGenerator(-1),
+                () -> NODE_NAME,
+                TEST_PLACEMENT_DRIVER
+        );
+
+        txManager.start();
+
         closeables.add(txManager::stop);
 
         table = new InternalTableImpl(
@@ -222,7 +245,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 replicaService,
                 hybridClock,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(NODE_NAME)
+                TEST_PLACEMENT_DRIVER
         );
 
         closeables.add(() -> table.close());
@@ -236,10 +259,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         when(partitionReplicaListener.invoke(any(), any())).thenAnswer(invocationOnMock -> {
             ReplicaRequest req = invocationOnMock.getArgument(0);
 
-            if (req instanceof ReadWriteSingleRowPkReplicaRequest) {
-                ReadWriteSingleRowPkReplicaRequest req0 = (ReadWriteSingleRowPkReplicaRequest) req;
+            if (req instanceof ReadWriteSingleRowPkReplicaRequest || req instanceof ReadOnlyDirectSingleRowReplicaRequest) {
+                SingleRowPkReplicaRequest req0 = (SingleRowPkReplicaRequest) req;
 
-                if (req0.requestType() == RequestType.RW_GET) {
+                if (req0.requestType() == RequestType.RW_GET || req0.requestType() == RequestType.RO_GET) {
                     List<JraftServerImpl> servers = servers();
 
                     JraftServerImpl leader = servers.stream()
@@ -268,8 +291,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     return completedFuture(row);
                 } else if (req0.requestType() == RequestType.RW_DELETE) {
+                    ReadWriteSingleRowPkReplicaRequest rwReq = (ReadWriteSingleRowPkReplicaRequest) req0;
+
                     UpdateCommand cmd = msgFactory.updateCommand()
-                            .txId(req0.transactionId())
+                            .txId(rwReq.transactionId())
                             .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                             .rowUuid(new RowId(0).uuid())
                             .safeTimeLong(hybridClock.nowLong())
@@ -410,18 +435,22 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     RocksDbStorageEngine storageEngine = new RocksDbStorageEngine("test", engineConfig, path);
                     storageEngine.start();
 
+                    int tableId = 1;
+
                     MvTableStorage mvTableStorage = storageEngine.createMvTable(
-                            new StorageTableDescriptor(1, 1, DEFAULT_DATA_REGION_NAME),
+                            new StorageTableDescriptor(tableId, 1, DEFAULT_DATA_REGION_NAME),
                             new StorageIndexDescriptorSupplier(mock(CatalogService.class))
                     );
                     mvTableStorage.start();
 
                     mvTableStorages.put(index, mvTableStorage);
 
-                    MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, 0);
+                    int partitionId = 0;
+
+                    MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, partitionId);
                     mvPartitionStorages.put(index, mvPartitionStorage);
 
-                    PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
+                    PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partitionId, mvPartitionStorage);
 
                     PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(
                             new HybridTimestamp(1, 0)
@@ -432,7 +461,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     );
 
                     StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
-                            0,
+                            partitionId,
                             partitionDataStorage,
                             gcConfig,
                             mock(LowWatermark.class),
@@ -441,8 +470,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     );
 
                     TxManager txManager = txManagers.computeIfAbsent(index, k -> {
-                        TxManager txMgr = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock,
-                                new TransactionIdGenerator(index), () -> "local");
+                        TxManager txMgr = new TxManagerImpl(
+                                replicaService,
+                                new HeapLockManager(),
+                                hybridClock,
+                                new TransactionIdGenerator(index),
+                                () -> NODE_NAME,
+                                TEST_PLACEMENT_DRIVER
+                        );
                         txMgr.start();
                         closeables.add(txMgr::stop);
 

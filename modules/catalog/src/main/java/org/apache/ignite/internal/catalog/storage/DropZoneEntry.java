@@ -58,7 +58,7 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog) {
+    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         return new Catalog(
                 catalog.version(),
                 catalog.time(),

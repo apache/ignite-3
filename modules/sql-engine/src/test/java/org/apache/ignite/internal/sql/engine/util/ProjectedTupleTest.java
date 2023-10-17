@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -28,17 +29,15 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -70,7 +69,7 @@ class ProjectedTupleTest {
         for (int i = 0; i < ALL_TYPES_SCHEMA.elementCount(); i++) {
             Element e = ALL_TYPES_SCHEMA.element(i);
 
-            BinaryRowConverter.appendValue(builder, e, SchemaTestUtils.generateRandomValue(RND, fromElement(e)));
+            BinaryRowConverter.appendValue(builder, e, SchemaTestUtils.generateRandomValue(RND, specToType(e.typeSpec())));
         }
 
         TUPLE = new BinaryTuple(ALL_TYPES_SCHEMA.elementCount(), builder.build());
@@ -134,46 +133,5 @@ class ProjectedTupleTest {
         assertThat(projectedSchema.value(restored, 0), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f1)));
         assertThat(projectedSchema.value(restored, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
         assertThat(projectedSchema.value(restored, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
-    }
-
-    private static NativeType fromElement(Element element) {
-        switch (element.typeSpec()) {
-            case BOOLEAN:
-                return NativeTypes.BOOLEAN;
-            case INT8:
-                return NativeTypes.INT8;
-            case INT16:
-                return NativeTypes.INT16;
-            case INT32:
-                return NativeTypes.INT32;
-            case INT64:
-                return NativeTypes.INT64;
-            case FLOAT:
-                return NativeTypes.FLOAT;
-            case DOUBLE:
-                return NativeTypes.DOUBLE;
-            case DECIMAL:
-                return NativeTypes.decimalOf(20, element.decimalScale());
-            case NUMBER:
-                return NativeTypes.numberOf(20);
-            case DATE:
-                return NativeTypes.DATE;
-            case TIME:
-                return NativeTypes.time();
-            case DATETIME:
-                return NativeTypes.datetime();
-            case TIMESTAMP:
-                return NativeTypes.timestamp();
-            case UUID:
-                return NativeTypes.UUID;
-            case BITMASK:
-                return NativeTypes.bitmaskOf(256);
-            case STRING:
-                return NativeTypes.stringOf(256);
-            case BYTES:
-                return NativeTypes.blobOf(256);
-            default:
-                throw new IllegalArgumentException("Unknown type: " + element.typeSpec());
-        }
     }
 }

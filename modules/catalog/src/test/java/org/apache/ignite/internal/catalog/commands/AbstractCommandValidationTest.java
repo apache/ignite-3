@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
@@ -115,16 +116,18 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
         for (CatalogCommand command : commandsToApply) {
             for (UpdateEntry updates : command.get(catalog)) {
-                catalog = updates.applyUpdate(catalog);
+                catalog = updates.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
             }
         }
 
         return catalog;
     }
 
-    private static Catalog catalog(CatalogTableDescriptor[] tables,
+    static Catalog catalog(
+            CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
-            CatalogSystemViewDescriptor[] systemViews) {
+            CatalogSystemViewDescriptor[] systemViews
+    ) {
         return new Catalog(
                 1,
                 0L,
@@ -135,7 +138,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         SCHEMA_NAME,
                         tables,
                         indexes,
-                        systemViews
+                        systemViews,
+                        INITIAL_CAUSALITY_TOKEN
                 ))
         );
     }
