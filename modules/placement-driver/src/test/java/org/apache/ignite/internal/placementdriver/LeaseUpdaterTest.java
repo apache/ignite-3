@@ -199,8 +199,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
                 if (active) {
                     leaseUpdater.activate();
-                }
-                else {
+                } else {
                     leaseUpdater.deactivate();
                 }
             });
