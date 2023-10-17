@@ -70,7 +70,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
-                    + "  }\n"
+                    + "  },\n"
+                    + "  rest.port: 10300\n"
                     + "}",
 
             "node1", "{\n"
@@ -80,7 +81,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  },\n"
-                    + "  clientConnector: { port:10801 }\n"
+                    + "  clientConnector: { port:10801 },\n"
+                    + "  rest.port: 10301\n"
                     + "}",
 
             "node2", "{\n"
@@ -90,7 +92,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  },\n"
-                    + "  clientConnector: { port:10802 }\n"
+                    + "  clientConnector: { port:10802 },\n"
+                    + "  rest.port: 10302\n"
                     + "}"
     );
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.systemview;
+package org.apache.ignite.internal.systemview.api;
 
 import java.util.function.Function;
 import org.apache.ignite.internal.tostring.S;

@@ -21,6 +21,7 @@
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/query/column_metadata_query.h"
 #include "ignite/odbc/query/data_query.h"
+#include "ignite/odbc/query/foreign_keys_query.h"
 #include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"
@@ -588,19 +589,14 @@ void sql_statement::execute_get_foreign_keys_query(const std::string &primary_ca
 sql_result sql_statement::internal_execute_get_foreign_keys_query(const std::string &primary_catalog,
     const std::string &primary_schema, const std::string &primary_table, const std::string &foreign_catalog,
     const std::string &foreign_schema, const std::string &foreign_table) {
-    UNUSED_VALUE primary_catalog;
-    UNUSED_VALUE primary_schema;
-    UNUSED_VALUE primary_table;
-    UNUSED_VALUE foreign_catalog;
-    UNUSED_VALUE foreign_schema;
-    UNUSED_VALUE foreign_table;
 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19217 Implement foreign keys query
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Foreign keys query is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<foreign_keys_query>(
+        *this, primary_catalog, primary_schema, primary_table, foreign_catalog, foreign_schema, foreign_table);
+
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_get_primary_keys_query(

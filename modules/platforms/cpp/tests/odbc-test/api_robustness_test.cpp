@@ -489,9 +489,7 @@ TEST_F(api_robustness_test, sql_foreign_keys) {
         tableName, sizeof(tableName), catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
         sizeof(tableName));
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19217: Uncomment once foreign keys query is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 

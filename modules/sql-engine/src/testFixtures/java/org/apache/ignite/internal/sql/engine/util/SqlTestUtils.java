@@ -34,9 +34,12 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
@@ -89,6 +92,11 @@ public class SqlTestUtils {
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
         return ex;
+    }
+
+    public static <T> Stream<T> asStream(Iterator<T> sourceIterator) {
+        Iterable<T> iterable = () -> sourceIterator;
+        return StreamSupport.stream(iterable.spliterator(), false);
     }
 
     /**

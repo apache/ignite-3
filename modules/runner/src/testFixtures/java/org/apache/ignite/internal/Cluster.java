@@ -83,6 +83,10 @@ public class Cluster {
 
     private static final int BASE_CLIENT_PORT = 10800;
 
+    private static final int BASE_HTTP_PORT = 10300;
+
+    private static final int BASE_HTTPS_PORT = 10400;
+
     private static final String CONNECT_NODE_ADDR = "\"localhost:" + BASE_PORT + '\"';
 
     /** Timeout for SQL queries (in milliseconds). */
@@ -97,6 +101,10 @@ public class Cluster {
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }\n"
+            + "  rest: {\n"
+            + "    port: {},\n"
+            + "    ssl.port: {}\n"
+            + "  }\n"
             + "}";
 
     private final TestInfo testInfo;
@@ -237,7 +245,10 @@ public class Cluster {
                 nodeBootstrapConfigTemplate,
                 BASE_PORT + nodeIndex,
                 CONNECT_NODE_ADDR,
-                BASE_CLIENT_PORT + nodeIndex);
+                BASE_CLIENT_PORT + nodeIndex,
+                BASE_HTTP_PORT + nodeIndex,
+                BASE_HTTPS_PORT + nodeIndex
+        );
 
         return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)
