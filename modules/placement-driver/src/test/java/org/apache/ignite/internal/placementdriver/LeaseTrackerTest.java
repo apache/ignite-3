@@ -77,9 +77,10 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         });
 
         TablePartitionId partId0 = new TablePartitionId(0, 0);
-        Lease lease0 = new Lease("a", new HybridTimestamp(1, 0), new HybridTimestamp(1000, 0), partId0);
+        Lease lease0 = new Lease("notAccepted", new HybridTimestamp(1, 0), new HybridTimestamp(1000, 0), partId0);
         TablePartitionId partId1 = new TablePartitionId(0, 1);
-        Lease lease1 = new Lease("b", new HybridTimestamp(1, 0), new HybridTimestamp(1000, 0), partId1);
+        Lease lease1 = new Lease("accepted", new HybridTimestamp(1, 0), new HybridTimestamp(1000, 0), partId1)
+                .acceptLease(new HybridTimestamp(2000, 0));
 
         // In entry0, there are leases for partition ids partId0 and partId1. In entry1, there is only partId0, so partId1 is expired.
         Entry entry0 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, 0);
@@ -88,9 +89,14 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
 
         assertNull(parametersRef.get());
 
+        // Check that the absence of accepted lease triggers the event.
         listenerRef.get().onUpdate(new WatchEvent(new EntryEvent(emptyEntry, entry1)));
-
         assertNotNull(parametersRef.get());
         assertEquals(partId1, parametersRef.get().groupId());
+
+        // Check that the absence of not accepted lease doesn't trigger the event.
+        parametersRef.set(null);
+        listenerRef.get().onUpdate(new WatchEvent(new EntryEvent(emptyEntry, emptyEntry)));
+        assertNull(parametersRef.get());
     }
 }

@@ -44,6 +44,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -184,14 +185,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                             }
                         }
 
-                        firePrimaryReplicaExpiredEventIfNeeded(event.revision(), lease);
+                        firePrimaryReplicaExpiredEventIfNeeded(grpId, event.revision(), lease);
                     }
 
                     for (ReplicationGroupId grpId : leases.leaseByGroupId().keySet()) {
                         if (!leasesMap.containsKey(grpId)) {
                             tryRemoveTracker(grpId);
 
-                            firePrimaryReplicaExpiredEvent(event.revision(), grpId, leases.leaseByGroupId().get(grpId));
+                            firePrimaryReplicaExpiredEventIfNeeded(grpId, event.revision(), null);
                         }
                     }
 
@@ -306,22 +307,24 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param causalityToken Causality token.
      * @param lease Lease to check on expiration.
      */
-    private void firePrimaryReplicaExpiredEventIfNeeded(long causalityToken, Lease lease) {
-        ReplicationGroupId grpId = lease.replicationGroupId();
+    private void firePrimaryReplicaExpiredEventIfNeeded(ReplicationGroupId grpId, long causalityToken, @Nullable Lease lease) {
+        assert lease == null || lease.replicationGroupId().equals(grpId)
+                : IgniteStringFormatter.format("Group id mismatch [groupId={}, lease={}]", grpId, lease);
+
         Lease currentLease = leases.leaseByGroupId().get(grpId);
 
-        if (currentLease != null && currentLease.isAccepted() && !currentLease.getStartTime().equals(lease.getStartTime())) {
-            firePrimaryReplicaExpiredEvent(causalityToken, grpId, currentLease);
+        if (currentLease != null && currentLease.isAccepted()) {
+            boolean sameLease = lease != null && currentLease.getStartTime().equals(lease.getStartTime());
+
+            if (!sameLease) {
+                CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
+                        PRIMARY_REPLICA_EXPIRED,
+                        new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder())
+                ));
+
+                assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
+            }
         }
-    }
-
-    private void firePrimaryReplicaExpiredEvent(long causalityToken, ReplicationGroupId grpId, Lease currentLease) {
-        CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
-                PRIMARY_REPLICA_EXPIRED,
-                new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder())
-        ));
-
-        assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
     }
 
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
