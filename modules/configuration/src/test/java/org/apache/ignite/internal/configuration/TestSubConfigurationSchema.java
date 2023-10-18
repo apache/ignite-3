@@ -15,34 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
+package org.apache.ignite.internal.configuration;
 
-import java.util.Set;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Secret;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Message for initializing the Cluster Management Group.
+ * Test sub configuration schema.
  */
-@Transferable(CmgMessageGroup.CMG_INIT)
-public interface CmgInitMessage extends NetworkMessage {
-    /**
-     * Consistent IDs of nodes that host the CMG.
-     */
-    Set<String> cmgNodes();
+@Config
+public class TestSubConfigurationSchema {
+    @Value(hasDefault = true)
+    public String testString;
 
-    /**
-     * Consistent IDs of nodes that host the Meta Storage.
-     */
-    Set<String> metaStorageNodes();
+    @Secret
+    @Value(hasDefault = true)
+    public String testSecret;
 
-    /**
-     * Name of the cluster that will be a part of the generated cluster tag.
-     */
-    String clusterName();
-
-    /**
-     * Cluster configuration that should be applied after init.
-     */
-    String initialClusterConfiguration();
+    @Value(hasDefault = true)
+    public int testInt;
 }

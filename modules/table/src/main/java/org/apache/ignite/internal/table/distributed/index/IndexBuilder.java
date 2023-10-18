@@ -113,6 +113,8 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param indexStorage Index storage to build.
      * @param partitionStorage Multi-versioned partition storage.
      * @param node Node to which requests to build the index will be sent.
+     * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
+     *      to the replica.
      */
     // TODO: IGNITE-19498 Perhaps we need to start building the index only once
     public void scheduleBuildIndex(
@@ -121,7 +123,8 @@ public class IndexBuilder implements ManuallyCloseable {
             int indexId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
-            ClusterNode node
+            ClusterNode node,
+            long enlistmentConsistencyToken
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -139,7 +142,8 @@ public class IndexBuilder implements ManuallyCloseable {
                     busyLock,
                     BATCH_SIZE,
                     node,
-                    listeners
+                    listeners,
+                    enlistmentConsistencyToken
             );
 
             IndexBuildTask previousTask = indexBuildTaskById.putIfAbsent(taskId, newTask);

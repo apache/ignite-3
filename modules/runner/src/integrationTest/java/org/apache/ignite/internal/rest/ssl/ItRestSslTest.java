@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.rest.ssl;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.File;
@@ -25,7 +27,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.file.Path;
 import java.security.KeyManagementException;
@@ -180,14 +181,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest request = HttpRequest.newBuilder(uri).build();
 
         // Then response code is 200
-        assertResponseCodeIs(200, request, sslClient);
-    }
-
-    private static void assertResponseCodeIs(int code, HttpRequest request, HttpClient client) throws IOException, InterruptedException {
-        HttpResponse<String> response = client.send(request, BodyHandlers.ofString());
-        if (response.statusCode() != code) {
-            throw new AssertionError("Expected response code " + code + " but was " + response.statusCode() + ", body: " + response.body());
-        }
+        assertThat(sslClient.send(request, BodyHandlers.ofString()), hasStatusCode(200));
     }
 
     @Test
@@ -197,7 +191,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest request = HttpRequest.newBuilder(uri).build();
 
         // Then response code is 200
-        assertResponseCodeIs(200, request, client);
+        assertThat(client.send(request, BodyHandlers.ofString()), hasStatusCode(200));
     }
 
     @Test
@@ -210,10 +204,10 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest httpsRequest = HttpRequest.newBuilder(httpsUri).build();
 
         // Then HTTP response code is 200
-        assertResponseCodeIs(200, httpRequest, client);
+        assertThat(client.send(httpRequest, BodyHandlers.ofString()), hasStatusCode(200));
 
         // And HTTPS response code is 200
-        assertResponseCodeIs(200, httpsRequest, sslClient);
+        assertThat(sslClient.send(httpsRequest, BodyHandlers.ofString()), hasStatusCode(200));
     }
 
     @Test
@@ -243,7 +237,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest request = HttpRequest.newBuilder(uri).build();
 
         // Then response code is 200
-        assertResponseCodeIs(200, request, sslClientWithClientAuth);
+        assertThat(sslClientWithClientAuth.send(request, BodyHandlers.ofString()), hasStatusCode(200));
     }
 
     @Test
@@ -263,7 +257,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest request = HttpRequest.newBuilder(uri).build();
 
         // Then response code is 200
-        assertResponseCodeIs(200, request, sslClient);
+        assertThat(sslClient.send(request, BodyHandlers.ofString()), hasStatusCode(200));
     }
 
     @Test
