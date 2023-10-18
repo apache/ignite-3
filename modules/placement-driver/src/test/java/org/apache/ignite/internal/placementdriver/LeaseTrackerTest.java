@@ -43,12 +43,13 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for lease tracker.
  */
-public class LeaseTrackerTest {
+public class LeaseTrackerTest extends BaseIgniteAbstractTest {
     @Test
     public void testLeaseCleanup() {
         AtomicReference<WatchListener> listenerRef = new AtomicReference<>();
