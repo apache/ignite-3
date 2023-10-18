@@ -157,7 +157,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
                 .metaStorageNodes(Set.copyOf(Set.of("bar")))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(clusterTag)
-                .clusterConfigurationToApply("config")
+                .initialClusterConfiguration("config")
                 .build();
 
         listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(clusterState).build()));
@@ -176,7 +176,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
         ClusterState updatedClusterState = listener.storage().getClusterState();
         assertAll(
-                () -> assertNull(updatedClusterState.clusterConfigurationToApply()),
+                () -> assertNull(updatedClusterState.initialClusterConfiguration()),
                 () -> assertEquals(updatedClusterState.cmgNodes(), clusterState.cmgNodes()),
                 () -> assertEquals(updatedClusterState.metaStorageNodes(), clusterState.metaStorageNodes()),
                 () -> assertEquals(updatedClusterState.version(), clusterState.version()),
