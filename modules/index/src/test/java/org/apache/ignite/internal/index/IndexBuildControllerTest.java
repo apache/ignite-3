@@ -215,7 +215,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
-                eq(localNode)
+                eq(localNode),
+                anyLong()
         );
 
         verify(indexBuilder).scheduleBuildIndex(
@@ -224,7 +225,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
-                eq(localNode)
+                eq(localNode),
+                anyLong()
         );
     }
 
