@@ -2894,26 +2894,26 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (expectedTerm != null) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
-                    .thenCompose(primaryReplica -> {
-                                if (primaryReplica == null) {
-                                    return failedFuture(new PrimaryReplicaMissException(localNode.name(), null));
-                                }
+                    .thenCompose(primaryReplicaMeta -> {
+                        if (primaryReplicaMeta == null) {
+                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, expectedTerm, null, null));
+                        }
 
-                                long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
+                        long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
-                                if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
-                                    if (primaryReplica.getExpirationTime().before(now)) {
-                                        // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
-                                        return failedFuture(
-                                                new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
-                                    } else {
-                                        return completedFuture(null);
-                                    }
-                                } else {
-                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
-                                }
-                            }
-                    );
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
+                        if (expectedTerm != currentEnlistmentConsistencyToken || primaryReplicaMeta.getExpirationTime().before(now)) {
+                            return failedFuture(new PrimaryReplicaMissException(
+                                    localNode.name(),
+                                    primaryReplicaMeta.getLeaseholder(),
+                                    expectedTerm,
+                                    currentEnlistmentConsistencyToken,
+                                    null
+                            ));
+                        }
+
+                        return completedFuture(null);
+                    });
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
