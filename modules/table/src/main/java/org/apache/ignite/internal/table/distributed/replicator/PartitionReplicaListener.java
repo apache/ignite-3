@@ -3102,7 +3102,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row.
             if (v != null) {
-                return v.isDone() ? null : v;
+                return (v.isCompletedExceptionally() || !v.isDone()) ? v : null;
             }
 
             return txManager.executeCleanupAsync(() ->
