@@ -90,6 +90,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /** Safe time to wait before new Catalog version activation. */
     private static final int DEFAULT_DELAY_DURATION = 0;
 
+    private static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
+
     /** Initial update token for a catalog descriptor, this token is valid only before the first call of
      * {@link UpdateEntry#applyUpdate(Catalog, long)}.
      *
@@ -115,27 +117,35 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final LongSupplier delayDurationMsSupplier;
 
+    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
+
     /**
      * Constructor.
      */
     public CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter) {
-        this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION);
+        this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION, DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
     }
 
     /**
      * Constructor.
      */
-    CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, long delayDurationMs) {
-        this(updateLog, clockWaiter, () -> delayDurationMs);
+    CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, long delayDurationMs, long partitionIdleSafeTimePropagationPeriod) {
+        this(updateLog, clockWaiter, () -> delayDurationMs, () -> partitionIdleSafeTimePropagationPeriod);
     }
 
     /**
      * Constructor.
      */
-    public CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
+    public CatalogManagerImpl(
+            UpdateLog updateLog,
+            ClockWaiter clockWaiter,
+            LongSupplier delayDurationMsSupplier,
+            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
+    ) {
         this.updateLog = updateLog;
         this.clockWaiter = clockWaiter;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
+        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
     }
 
     @Override
@@ -415,8 +425,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     HybridTimestamp clusterWideEnsuredActivationTs = activationTs.addPhysicalTime(
                             HybridTimestamp.maxClockSkew()
                     );
+                    // TODO: this addition has to be removed when IGNITE-20378 is implemented.
+                    HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTs.addPhysicalTime(
+                            partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong()
+                    );
 
-                    return clockWaiter.waitFor(clusterWideEnsuredActivationTs);
+                    return clockWaiter.waitFor(tsSafeForRoReadingInPastOptimization);
                 });
     }
 

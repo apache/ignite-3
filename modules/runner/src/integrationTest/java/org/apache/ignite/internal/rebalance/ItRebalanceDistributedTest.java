@@ -821,13 +821,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new NodeAttributesCollector(nodeAttributes),
                     new TestConfigurationValidator());
 
+            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
+
             replicaManager = spy(new ReplicaManager(
                     name,
                     clusterService,
                     cmgManager,
                     hybridClock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                    placementDriver
+                    placementDriver,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
             ));
 
             ReplicaService replicaSvc = new ReplicaService(
@@ -841,7 +844,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     new TransactionIdGenerator(addr.port()),
                     () -> clusterService.topologyService().localMember().id(),
-                    placementDriver
+                    placementDriver,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
             String nodeName = clusterService.nodeName();
@@ -915,7 +919,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
                     clockWaiter,
-                    delayDurationMsSupplier
+                    delayDurationMsSupplier,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
             schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageManager);

@@ -15,29 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.leases;
+package org.apache.ignite.internal;
 
-import java.util.Map;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-
-/** Leases received from the metastore. */
-public class Leases {
-    private final Map<ReplicationGroupId, Lease> leaseByGroupId;
-
-    private final byte[] leasesBytes;
-
-    public Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
-        this.leaseByGroupId = leaseByGroupId;
-        this.leasesBytes = leasesBytes;
-    }
-
-    /** Returns leases grouped by replication group. */
-    public Map<ReplicationGroupId, Lease> leaseByGroupId() {
-        return leaseByGroupId;
-    }
-
-    /** Returns an array of byte leases from the metastore. */
-    public byte[] leasesBytes() {
-        return leasesBytes;
-    }
+/**
+ * Contains hacks needed for the whole codebase. Should be removed as quickly as possible.
+ */
+public class Hacks {
+    // TODO: Remove after IGNITE-20499 is fixed.
+    /** Name of the property overriding idle safe time propagation period (in milliseconds). */
+    public static final String IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY = "IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS";
 }
