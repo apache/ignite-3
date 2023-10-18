@@ -30,6 +30,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -53,31 +54,37 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private static final int MAPPING_ATTEMPTS = 3;
 
     private final LogicalTopologyHolder topologyHolder = new LogicalTopologyHolder();
+    private final CompletableFuture<Void> initialTopologyFuture = new CompletableFuture<>();
 
     private final String localNodeName;
     private final ExecutionTargetProvider targetProvider;
-    private final CompletableFuture<Void> initialTopologyFuture;
+    private final Executor taskExecutor;
+
 
     /**
      * Constructor.
      *
      * @param localNodeName Name of the current Ignite node.
      * @param targetProvider Execution target provider.
-     * @param topologyReadyFuture Topology ready future.
+     * @param taskExecutor Mapper service task executor.
      */
     public MappingServiceImpl(
             String localNodeName,
             ExecutionTargetProvider targetProvider,
-            CompletableFuture<LogicalTopologySnapshot> topologyReadyFuture
+            Executor taskExecutor
     ) {
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
-        this.initialTopologyFuture = topologyReadyFuture.thenAccept(topologyHolder::update);
+        this.taskExecutor = taskExecutor;
     }
 
     @Override
     public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan) {
-        return initialTopologyFuture.thenCompose(ignore -> map0(multiStepPlan));
+        if (initialTopologyFuture.isDone()) {
+            return map0(multiStepPlan);
+        }
+
+        return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan), taskExecutor);
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
@@ -223,6 +230,10 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         topologyHolder.update(newTopology);
     }
 
+    @Override
+    public void onNodeInvalidated(LogicalNode invalidatedNode) {
+        LogicalTopologyEventListener.super.onNodeInvalidated(invalidatedNode);
+    }
 
     private static List<Fragment> replace(
             List<Fragment> originalFragments,
@@ -267,7 +278,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     /**
      * Holder for topology snapshots that guarantees monotonically increasing versions.
      */
-    static class LogicalTopologyHolder {
+    class LogicalTopologyHolder {
         private volatile List<String> nodes = List.of();
         private long ver = Long.MIN_VALUE;
 
@@ -276,13 +287,17 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                 nodes = deriveNodeNames(topologySnapshot);
                 ver = topologySnapshot.version();
             }
+
+            if (!initialTopologyFuture.isDone() && nodes.contains(localNodeName)) {
+                initialTopologyFuture.complete(null);
+            }
         }
 
         List<String> nodes() {
             return nodes;
         }
 
-        private static List<String> deriveNodeNames(LogicalTopologySnapshot topology) {
+        private List<String> deriveNodeNames(LogicalTopologySnapshot topology) {
             return topology.nodes().stream()
                     .map(LogicalNode::name)
                     .collect(Collectors.toUnmodifiableList());
