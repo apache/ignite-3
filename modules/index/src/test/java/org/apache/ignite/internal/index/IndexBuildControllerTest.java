@@ -135,7 +135,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartBuildIndexesOnIndexCreate() {
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
 
         clearInvocations(indexBuilder);
 
@@ -148,7 +148,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     void testStartBuildIndexesOnPrimaryReplicaElected() {
         createIndex(INDEX_NAME);
 
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
 
         verify(indexBuilder).scheduleBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
 
@@ -175,8 +175,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStopBuildIndexesOnChangePrimaryReplica() {
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME + "_other", clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", clock.now());
 
         verify(indexBuilder).stopBuildingIndexes(tableId(), PARTITION_ID);
     }
@@ -189,7 +189,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         makeIndexAvailable(indexId);
 
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
 
         verify(indexBuilder, never()).scheduleBuildIndex(
                 eq(tableId()),
@@ -222,7 +222,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
-    private void setPrimaryReplicaWitchExpireInOneSecond(int partitionId, String leaseholder, HybridTimestamp startTime) {
+    private void setPrimaryReplicaWhichExpiresInOneSecond(int partitionId, String leaseholder, HybridTimestamp startTime) {
         CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(leaseholder, startTime));
 
         assertThat(placementDriver.setPrimaryReplicaMeta(0, replicaId(partitionId), replicaMetaFuture), willCompleteSuccessfully());
