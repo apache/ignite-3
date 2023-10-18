@@ -1411,9 +1411,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp commitTimestamp,
             String txCoordinatorId
     ) {
-        HybridTimestamp currentTimestamp = hybridClock.now();
+        assert commit == (commitTimestamp != null);
 
-        return reliableCatalogVersionFor(currentTimestamp)
+        HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : hybridClock.now();
+
+        return reliableCatalogVersionFor(tsForCatalogVersion)
                 .thenCompose(catalogVersion -> {
                     synchronized (commandProcessingLinearizationMutex) {
                         FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
