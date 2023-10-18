@@ -26,7 +26,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -1504,9 +1503,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return allOffFuturesExceptionIgnored(txUpdateFutures, request).thenCompose(v -> {
-            long commandTimestamp = hybridClock.nowLong();
+            HybridTimestamp commandTimestamp = hybridClock.now();
 
-            return reliableCatalogVersionFor(hybridTimestamp(commandTimestamp))
+            return reliableCatalogVersionFor(commandTimestamp)
                     .thenCompose(catalogVersion -> {
                         synchronized (commandProcessingLinearizationMutex) {
                             TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
