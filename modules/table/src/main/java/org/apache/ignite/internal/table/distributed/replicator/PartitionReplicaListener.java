@@ -3098,13 +3098,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         // Both normal cleanup and single row cleanup are using txsPendingRowIds map to store write intents.
         // So we don't need a separate method to handle single row case.
-        CompletableFuture<?> future = rowCleanupMap.compute(rowId, (k, v) -> {
+        CompletableFuture<?> future = rowCleanupMap.computeIfAbsent(rowId, k -> {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
-            // and a concurrent RO transaction resolves the same row.
-            if (v != null) {
-                return (v.isCompletedExceptionally() || !v.isDone()) ? v : null;
-            }
-
+            // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
             return txManager.executeCleanupAsync(() ->
                     inBusyLock(busyLock, () -> storageUpdateHandler.handleTransactionCleanup(txId, txState == COMMITED, commitTimestamp))
             ).whenComplete((unused, e) -> {
@@ -3114,10 +3110,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             });
         });
 
-        // Remove only when the cleanup was successful.
-        if (future != null) {
-            future.thenRun(() -> rowCleanupMap.remove(rowId));
-        }
+        future.handle((v, e) -> rowCleanupMap.remove(rowId, future));
     }
 
     /**
