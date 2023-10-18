@@ -632,7 +632,6 @@ public class RexImpTable {
       defineMethod(DEGREES, "degrees", NullPolicy.STRICT);
       defineMethod(POW, "power", NullPolicy.STRICT);
       defineMethod(RADIANS, "radians", NullPolicy.STRICT);
-      defineIgniteMethod(ROUND, "sround", NullPolicy.STRICT);
       defineMethod(SEC, "sec", NullPolicy.STRICT);
       defineMethod(SECH, "sech", NullPolicy.STRICT);
       defineMethod(SIGN, "sign", NullPolicy.STRICT);
@@ -1027,6 +1026,7 @@ public class RexImpTable {
       defineMethod(IgniteSqlOperatorTable.LEAST2, LEAST2.method(), NullPolicy.NONE);
       defineMethod(IgniteSqlOperatorTable.LENGTH, LENGTH.method(), NullPolicy.STRICT);
       defineMethod(SUBSTR, IgniteMethod.SUBSTR.method(), NullPolicy.STRICT);
+      defineIgniteMethod(ROUND, "sround", NullPolicy.STRICT);
 
       map.put(TYPEOF, systemFunctionImplementor);
       map.put(NULL_BOUND, systemFunctionImplementor);
@@ -4364,18 +4364,11 @@ public class RexImpTable {
     }
   }
 
-  private static class IgniteMethodNameImplementor extends AbstractRexCallImplementor {
-    private final String methodName;
+  private static class IgniteMethodNameImplementor extends MethodNameImplementor {
 
     IgniteMethodNameImplementor(String methodName, NullPolicy nullPolicy,
             boolean harmonize) {
-      this("method_name_call", methodName, nullPolicy, harmonize);
-    }
-
-    IgniteMethodNameImplementor(String variableName, String methodName,
-            NullPolicy nullPolicy, boolean harmonize) {
-      super(variableName, nullPolicy, harmonize);
-      this.methodName = requireNonNull(methodName, "methodName");
+      super(methodName, nullPolicy, harmonize);
     }
 
     @Override Expression implementSafe(RexToLixTranslator translator,
