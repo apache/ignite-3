@@ -240,7 +240,6 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         ranges = expFactory.ranges(boundsList, rowType, null);
         assertEquals(1, ranges.iterator().next().lower().length);
         assertEquals(1, ranges.iterator().next().upper().length);
-
     }
 
     static final class TestRange {
