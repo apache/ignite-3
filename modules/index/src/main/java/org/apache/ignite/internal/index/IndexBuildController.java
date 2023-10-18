@@ -220,10 +220,9 @@ public class IndexBuildController implements IgniteComponent {
                 return;
             }
 
-            // TODO: IGNITE-20530 We only need to get write-only indexes
             for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
-                if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
-                    scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
+                if (!indexDescriptor.available() && primaryReplicaId.tableId() == indexDescriptor.tableId()) {
+                    scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
                 }
             }
         });
@@ -242,7 +241,7 @@ public class IndexBuildController implements IgniteComponent {
                 return;
             }
 
-            scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
+            scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
         });
     }
 
@@ -284,7 +283,12 @@ public class IndexBuildController implements IgniteComponent {
     }
 
     /** Shortcut to schedule index building. */
-    private void scheduleBuildIndex(TablePartitionId replicaId, CatalogIndexDescriptor indexDescriptor, MvTableStorage mvTableStorage) {
+    private void scheduleBuildIndex(
+            TablePartitionId replicaId,
+            CatalogIndexDescriptor indexDescriptor,
+            MvTableStorage mvTableStorage,
+            long enlistmentConsistencyToken
+    ) {
         int partitionId = replicaId.partitionId();
 
         MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partitionId);
@@ -297,7 +301,15 @@ public class IndexBuildController implements IgniteComponent {
 
         assert indexStorage != null : "replicaId=" + replicaId + ", indexId=" + indexId;
 
-        indexBuilder.scheduleBuildIndex(replicaId.tableId(), partitionId, indexId, indexStorage, mvPartition, localNode());
+        indexBuilder.scheduleBuildIndex(
+                replicaId.tableId(),
+                partitionId,
+                indexId,
+                indexStorage,
+                mvPartition,
+                localNode(),
+                enlistmentConsistencyToken
+        );
     }
 
     private boolean isLocalNode(String nodeConsistentId) {
@@ -310,5 +322,9 @@ public class IndexBuildController implements IgniteComponent {
 
     private boolean isLeaseExpire(ReplicaMeta replicaMeta) {
         return !isLocalNode(replicaMeta.getLeaseholder()) || clock.now().after(replicaMeta.getExpirationTime());
+    }
+
+    private static long enlistmentConsistencyToken(ReplicaMeta replicaMeta) {
+        return replicaMeta.getStartTime().longValue();
     }
 }

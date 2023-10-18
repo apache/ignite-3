@@ -962,7 +962,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
-        assertTrue(index.writeOnly());
+        assertFalse(index.available());
     }
 
     @Test
@@ -1003,7 +1003,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
-        assertTrue(index.writeOnly());
+        assertFalse(index.available());
     }
 
     @Test
@@ -1046,7 +1046,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogActivationTime() throws Exception {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, 0);
 
         manager.start();
 
@@ -1444,7 +1444,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         HybridTimestamp startTs = clock.now();
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, 0);
 
         manager.start();
 
@@ -1741,7 +1741,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(dropColumnParams(TABLE_NAME, "ID")),
-                willThrowFast(CatalogValidationException.class, "Deleting column belonging to primary key is not allowed")
+                willThrowFast(CatalogValidationException.class, "Deleting column `ID` belonging to primary key is not allowed")
         );
     }
 
@@ -1754,7 +1754,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 manager.execute(dropColumnParams(TABLE_NAME, "VAL")),
                 willThrowFast(
                         CatalogValidationException.class,
-                        "Deleting indexed column is not allowed"
+                        "Deleting column 'VAL' used by index(es) [myIndex], it is not allowed"
                 )
         );
     }
@@ -1868,13 +1868,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
-        assertFalse(index.writeOnly());
+        assertTrue(index.available());
     }
 
     @Test
@@ -1887,13 +1887,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
-        assertFalse(index.writeOnly());
+        assertTrue(index.available());
     }
 
     @Test
@@ -1926,7 +1926,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         });
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
@@ -2000,5 +2000,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     private @Nullable CatalogIndexDescriptor index(int catalogVersion, String indexName) {
         return manager.schema(catalogVersion).index(indexName);
+    }
+
+    private int indexId(String indexName) {
+        CatalogIndexDescriptor index = manager.index(indexName, clock.nowLong());
+
+        assertNotNull(index, indexName);
+
+        return index.id();
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -28,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -47,7 +50,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -178,14 +180,14 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     /** {@inheritDoc} */
     @Override
-    protected TxManager txManager(Table t) {
-        var clients = txTestCluster.raftClients.get(t.name());
+    protected TxManager txManager(TableImpl t) {
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver.getPrimaryReplica(
+                new TablePartitionId(t.tableId(), 0),
+                txTestCluster.clocks.get(txTestCluster.localNodeName).now());
 
-        Peer leader = clients.get(0).leader();
+        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
 
-        assertNotNull(leader);
-
-        TxManager manager = txTestCluster.txManagers.get(leader.consistentId());
+        TxManager manager = txTestCluster.txManagers.get(primaryReplicaFuture.join().getLeaseholder());
 
         assertNotNull(manager);
 

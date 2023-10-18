@@ -248,7 +248,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                         return;
                     }
 
-                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                    IgniteInternalException wrapperEx = ExceptionUtils.withCause(
                             IgniteInternalException::new,
                             Common.INTERNAL_ERR,
                             "Unable to send batch: " + ex.getMessage(),
@@ -270,7 +270,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                         return;
                     }
 
-                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                    IgniteInternalException wrapperEx = ExceptionUtils.withCause(
                             IgniteInternalException::new,
                             Common.INTERNAL_ERR,
                             "Unable to send error: " + ex.getMessage(),

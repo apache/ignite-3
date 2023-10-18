@@ -56,6 +56,8 @@ public class MockNode {
 
     private ClusterService clusterService;
 
+    private ClusterInitializer clusterInitializer;
+
     private final TestInfo testInfo;
 
     private final NodeFinder nodeFinder;
@@ -111,15 +113,22 @@ public class MockNode {
 
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
+        this.clusterInitializer = new ClusterInitializer(
+                clusterService,
+                hocon -> hocon,
+                new TestConfigurationValidator()
+        );
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
+                clusterInitializer,
                 raftManager,
                 clusterStateStorage,
                 logicalTopologyService,
                 cmgConfiguration,
-                nodeAttributes,
-                new TestConfigurationValidator());
+                nodeAttributes
+        );
 
         components.add(vaultManager);
         components.add(clusterService);
@@ -190,6 +199,10 @@ public class MockNode {
 
     public String name() {
         return localMember().name();
+    }
+
+    public ClusterInitializer clusterInitializer() {
+        return clusterInitializer;
     }
 
     public ClusterManagementGroupManager clusterManager() {

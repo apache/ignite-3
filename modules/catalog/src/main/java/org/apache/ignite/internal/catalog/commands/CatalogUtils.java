@@ -367,18 +367,34 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns index with given name.
+     * Returns index descriptor.
      *
      * @param schema Schema to look up index in.
      * @param name Name of the index of interest.
-     * @return Table with given name.
-     * @throws IndexNotFoundValidationException If index with given name is not exists.
+     * @throws IndexNotFoundValidationException If index does not exist.
      */
     static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.index(name);
 
         if (index == null) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return index;
+    }
+
+    /**
+     * Returns index descriptor.
+     *
+     * @param catalog Catalog to look up index in.
+     * @param indexId ID of the index of interest.
+     * @throws IndexNotFoundValidationException If index does not exist.
+     */
+    static CatalogIndexDescriptor indexOrThrow(Catalog catalog, int indexId) throws IndexNotFoundValidationException {
+        CatalogIndexDescriptor index = catalog.index(indexId);
+
+        if (index == null) {
+            throw new IndexNotFoundValidationException(format("Index with ID '{}' not found", indexId));
         }
 
         return index;

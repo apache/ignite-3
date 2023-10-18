@@ -38,7 +38,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
     public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        this(id, name, tableId, unique, columns, true);
+        this(id, name, tableId, unique, columns, false);
     }
 
     /**
@@ -49,11 +49,12 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param tableId Id of the table index belongs to.
      * @param unique Unique flag.
      * @param columns A list of indexed columns. Must not contains duplicates.
-     * @param writeOnly State of the index, {@code true} when index is building, {@code false} when the index is built.
+     * @param available Availability flag, {@code true} means it is available (the index has been built), otherwise it is registered
+     *      (the index has not yet been built).
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns, boolean writeOnly) {
-        super(id, name, tableId, unique, writeOnly);
+    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns, boolean available) {
+        super(id, name, tableId, unique, available);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }

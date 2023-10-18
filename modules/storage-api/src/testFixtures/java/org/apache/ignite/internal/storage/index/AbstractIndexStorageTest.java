@@ -148,11 +148,13 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     private static void createTestTable(CatalogService catalogService, AtomicInteger catalogId) {
         ColumnParams pkColumn = ColumnParams.builder().name("pk").type(ColumnType.INT32).nullable(false).build();
 
+        int schemaId = catalogId.getAndIncrement();
         int tableId = catalogId.getAndIncrement();
         int zoneId = catalogId.getAndIncrement();
 
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 tableId,
+                schemaId,
                 1,
                 TABLE_NAME,
                 zoneId,
