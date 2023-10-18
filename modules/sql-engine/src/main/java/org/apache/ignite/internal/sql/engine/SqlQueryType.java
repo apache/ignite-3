@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 /**
@@ -33,7 +34,15 @@ public enum SqlQueryType {
     DDL,
 
     /** Explain. */
-    EXPLAIN;
+    EXPLAIN,
+
+    /** Transaction control statements such as {@code START TRANSACTION}, {@code COMMIT},  etc. */
+    TX_CONTROL,
+
+    ;
+
+    /** A set of statement types that can run only in single statement mode. **/
+    public static final Set<SqlQueryType> SINGLE_STMT_TYPES = EnumSet.complementOf(EnumSet.of(TX_CONTROL));
 
     /** A set of all query types. **/
     public static final Set<SqlQueryType> ALL = Set.of(values());

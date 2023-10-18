@@ -23,6 +23,8 @@ package org.apache.ignite.internal.catalog;
  * <p>Example: This exception is used to properly handle IF EXISTS flag in ddl command handler.</p>
  */
 public class IndexNotFoundValidationException extends CatalogValidationException {
+    private static final long serialVersionUID = -9202116446922771598L;
+
     public IndexNotFoundValidationException(String message) {
         super(message);
     }

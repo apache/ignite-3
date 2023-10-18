@@ -88,8 +88,10 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -794,6 +796,12 @@ public final class Commons {
     @Nullable
     public static SqlQueryType getQueryType(SqlNode sqlNode) {
         SqlKind sqlKind = sqlNode.getKind();
+
+        // Check for tx control types earlier, because COMMIT, ROLLBACK belongs to SqlKind.DDL
+        if (sqlNode instanceof IgniteSqlStartTransaction || sqlNode instanceof IgniteSqlCommitTransaction) {
+            return SqlQueryType.TX_CONTROL;
+        }
+
         if (SqlKind.DDL.contains(sqlKind)) {
             return SqlQueryType.DDL;
         }

@@ -78,7 +78,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector: { port:10901 }\n"
+                        + "  clientConnector: { port:10901 },\n"
+                        + "  rest.port: 10300\n"
                         + "}"
         );
 
@@ -91,7 +92,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector: { port:10902 }\n"
+                        + "  clientConnector: { port:10902 },\n"
+                        + "  rest.port: 10301\n"
                         + "}"
         );
 
@@ -104,7 +106,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector: { port:10903 }\n"
+                        + "  clientConnector: { port:10903 },\n"
+                        + "  rest.port: 10302\n"
                         + "}"
         );
     }

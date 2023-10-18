@@ -7,8 +7,7 @@
     }
   },
   "rest": {
-    "port": <REST_PORT>,
-    "portRange": 0
+    "port": <REST_PORT>
   },
   "clientConnector": {
     "port": <CLIENT_PORT>
