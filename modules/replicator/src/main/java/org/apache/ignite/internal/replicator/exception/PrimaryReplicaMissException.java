@@ -29,43 +29,27 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
     private static final long serialVersionUID = 8755220779942651494L;
 
     /**
-     * The constructor.
-     *
-     * @param expectedPrimaryReplicaTerm Expected term from.
-     * @param currentPrimaryReplicaTerm Current raft term.
-     */
-    public PrimaryReplicaMissException(long expectedPrimaryReplicaTerm, long currentPrimaryReplicaTerm) {
-        this(expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm, null);
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param expectedPrimaryReplicaTerm Expected term from.
-     * @param currentPrimaryReplicaTerm Current raft term.
-     * @param cause Cause exception.
-     */
-    public PrimaryReplicaMissException(long expectedPrimaryReplicaTerm, long currentPrimaryReplicaTerm, @Nullable Throwable cause) {
-        super(
-                REPLICA_MISS_ERR,
-                "The primary replica has changed because the term has been changed "
-                        + "[expectedPrimaryReplicaTerm={}, currentPrimaryReplicaTerm={}]",
-                cause,
-                expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm
-        );
-    }
-
-    /**
-     * The constructor.
+     * Constructor.
      *
      * @param expectedLeaseholder Expected leaseholder.
-     * @param currentLeaseholder Current leaseholder.
+     * @param currentLeaseholder Current leaseholder, {@code null} if absent.
+     * @param expectedPrimaryReplicaTerm Expected term from, {@code null} if absent.
+     * @param currentPrimaryReplicaTerm Current raft term, {@code null} if absent.
+     * @param cause Cause exception, {@code null} if absent.
      */
-    public PrimaryReplicaMissException(String expectedLeaseholder, String currentLeaseholder) {
+    public PrimaryReplicaMissException(
+            String expectedLeaseholder,
+            @Nullable String currentLeaseholder,
+            @Nullable Long expectedPrimaryReplicaTerm,
+            @Nullable Long currentPrimaryReplicaTerm,
+            @Nullable Throwable cause
+    ) {
         super(
                 REPLICA_MISS_ERR,
-                "The primary replica has changed [expectedLeaseholder={}, currentLeaseholder={}]",
-                expectedLeaseholder, currentLeaseholder
+                "The primary replica has changed "
+                        + "[expectedLeaseholder={}, currentLeaseholder={}, expectedPrimaryReplicaTerm={}, currentPrimaryReplicaTerm={}]",
+                cause,
+                expectedLeaseholder, currentLeaseholder, expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm
         );
     }
 }

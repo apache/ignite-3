@@ -15,34 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
-
-import java.util.Set;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal;
 
 /**
- * Message for initializing the Cluster Management Group.
+ * Contains hacks needed for the whole codebase. Should be removed as quickly as possible.
  */
-@Transferable(CmgMessageGroup.CMG_INIT)
-public interface CmgInitMessage extends NetworkMessage {
-    /**
-     * Consistent IDs of nodes that host the CMG.
-     */
-    Set<String> cmgNodes();
-
-    /**
-     * Consistent IDs of nodes that host the Meta Storage.
-     */
-    Set<String> metaStorageNodes();
-
-    /**
-     * Name of the cluster that will be a part of the generated cluster tag.
-     */
-    String clusterName();
-
-    /**
-     * Cluster configuration that should be applied after init.
-     */
-    String initialClusterConfiguration();
+public class Hacks {
+    // TODO: Remove after IGNITE-20499 is fixed.
+    /** Name of the property overriding idle safe time propagation period (in milliseconds). */
+    public static final String IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY = "IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS";
 }

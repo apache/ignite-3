@@ -15,34 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
-
-import java.util.Set;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.configuration;
 
 /**
- * Message for initializing the Cluster Management Group.
+ * Patcher for the configuration. This patcher is used to patch the configuration with the dynamic default values that are not known at the
+ * compile time.
  */
-@Transferable(CmgMessageGroup.CMG_INIT)
-public interface CmgInitMessage extends NetworkMessage {
+public interface ConfigurationDynamicDefaultsPatcher {
     /**
-     * Consistent IDs of nodes that host the CMG.
+     * Patches the configuration with the dynamic default values that are not known at the compile time.
+     *
+     * @param hocon The configuration in HOCON format.
+     * @return The patched configuration in HOCON format.
      */
-    Set<String> cmgNodes();
-
-    /**
-     * Consistent IDs of nodes that host the Meta Storage.
-     */
-    Set<String> metaStorageNodes();
-
-    /**
-     * Name of the cluster that will be a part of the generated cluster tag.
-     */
-    String clusterName();
-
-    /**
-     * Cluster configuration that should be applied after init.
-     */
-    String initialClusterConfiguration();
+    public String patchWithDynamicDefaults(String hocon);
 }
