@@ -304,6 +304,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /**
      * Fires the primary replica expire event if it needs.
      *
+     * @param grpId Group id, used for the cases when the {@code lease} parameter is null. Should be always not null.
      * @param causalityToken Causality token.
      * @param lease Lease to check on expiration.
      */
