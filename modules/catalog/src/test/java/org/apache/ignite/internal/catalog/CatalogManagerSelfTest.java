@@ -1741,7 +1741,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(dropColumnParams(TABLE_NAME, "ID")),
-                willThrowFast(CatalogValidationException.class, "Deleting column belonging to primary key is not allowed")
+                willThrowFast(CatalogValidationException.class, "Deleting column `ID` belonging to primary key is not allowed")
         );
     }
 

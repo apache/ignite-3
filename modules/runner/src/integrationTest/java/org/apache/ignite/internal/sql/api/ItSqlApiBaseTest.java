@@ -159,7 +159,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
-                "Deleting column belonging to primary key is not allowed",
+                "Deleting column `ID` belonging to primary key is not allowed",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN id"
         );

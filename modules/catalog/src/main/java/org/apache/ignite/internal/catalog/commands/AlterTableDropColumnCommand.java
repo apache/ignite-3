@@ -85,14 +85,16 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
                         : ((CatalogSortedIndexDescriptor) index).columns().stream().map(CatalogIndexColumnDescriptor::name))
                 .collect(Collectors.toSet());
 
-        for (String columnName : columns) {
+        //To validate always in the same order let's sort given columns
+        List<String> sortedColumns = columns.stream().sorted().collect(Collectors.toUnmodifiableList());
+        for (String columnName : sortedColumns) {
             if (table.column(columnName) == null) {
                 throw new CatalogValidationException(format(
                         "Column with name '{}' not found in table '{}.{}'", columnName, schemaName, tableName));
             }
 
             if (table.isPrimaryKeyColumn(columnName)) {
-                throw new CatalogValidationException("Deleting column belonging to primary key is not allowed");
+                throw new CatalogValidationException(format("Deleting column `{}` belonging to primary key is not allowed", columnName));
             }
 
             if (indexedColumns.contains(columnName)) {
