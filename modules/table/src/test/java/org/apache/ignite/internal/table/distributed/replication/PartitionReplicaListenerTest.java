@@ -235,7 +235,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 }
             }
 
-            lockManager.locks(cmd.txId()).forEachRemaining(lockManager::release);
+            lockManager.releaseAll(cmd.txId());
         } else if (cmd instanceof UpdateCommand) {
             pendingRows.compute(cmd.txId(), (txId, v) -> {
                 if (v == null) {

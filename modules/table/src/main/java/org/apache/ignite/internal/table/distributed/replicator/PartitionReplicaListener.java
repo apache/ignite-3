@@ -1418,7 +1418,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private void releaseTxLocks(UUID txId) {
-        lockManager.locks(txId).forEachRemaining(lockManager::release);
+        lockManager.releaseAll(txId);
     }
 
     /**

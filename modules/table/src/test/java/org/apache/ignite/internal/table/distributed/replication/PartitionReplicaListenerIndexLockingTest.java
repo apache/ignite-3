@@ -249,7 +249,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();
         TEST_MV_PARTITION_STORAGE.clear();
 
-        locks().forEach(LOCK_MANAGER::release);
+        LOCK_MANAGER.releaseAll(TRANSACTION_ID);
     }
 
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */

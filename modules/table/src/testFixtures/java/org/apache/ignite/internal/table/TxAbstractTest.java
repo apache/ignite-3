@@ -68,6 +68,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Pair;
@@ -510,10 +511,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
             boolean lockUpgraded = false;
 
-            for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
-                Lock lock = it.next();
+            for (Iterator<Waiter> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
+                Waiter waiter = it.next();
 
-                lockUpgraded = txManager(accounts).lockManager().waiter(lock.lockKey(), tx1.id()).intendedLockMode() == LockMode.X;
+                lockUpgraded = waiter.intendedLockMode() == LockMode.X;
 
                 if (lockUpgraded) {
                     break;

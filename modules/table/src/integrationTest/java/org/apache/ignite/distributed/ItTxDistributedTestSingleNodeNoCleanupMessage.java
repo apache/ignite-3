@@ -267,6 +267,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
     }
 
     private static void releaseTxLocks(UUID txId, LockManager lockManager) {
-        lockManager.locks(txId).forEachRemaining(lockManager::release);
+        lockManager.releaseAll(txId);
     }
 }
