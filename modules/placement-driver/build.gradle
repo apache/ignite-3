@@ -68,6 +68,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
 }
 
 description = 'ignite-placement-driver'

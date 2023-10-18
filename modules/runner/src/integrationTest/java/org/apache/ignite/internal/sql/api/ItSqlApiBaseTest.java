@@ -68,6 +68,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -91,7 +92,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20096")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20671")
     public void ddl() throws Exception {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
@@ -368,7 +369,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         Session ses = sql.createSession();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+            executeForRead(ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         List<Boolean> booleanList = List.of(Boolean.TRUE, Boolean.FALSE);
@@ -834,11 +835,11 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
-    protected ResultSet<SqlRow> executeForRead(Session ses, String query) {
-        return executeForRead(ses, null, query);
+    protected ResultSet<SqlRow> executeForRead(Session ses, String query, Object... args) {
+        return executeForRead(ses, null, query, args);
     }
 
-    protected abstract ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query, Object... args);
+    protected abstract ResultSet<SqlRow> executeForRead(Session ses, @Nullable Transaction tx, String query, Object... args);
 
     protected <T extends IgniteException> T checkError(Class<T> expCls, Integer code, String msg, Session ses, String sql,
             Object... args) {

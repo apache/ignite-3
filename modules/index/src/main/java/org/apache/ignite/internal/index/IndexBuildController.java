@@ -220,9 +220,8 @@ public class IndexBuildController implements IgniteComponent {
                 return;
             }
 
-            // TODO: IGNITE-20530 We only need to get write-only indexes
             for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
-                if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
+                if (!indexDescriptor.available() && primaryReplicaId.tableId() == indexDescriptor.tableId()) {
                     scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage);
                 }
             }
