@@ -133,7 +133,6 @@ public class ItGeneratedRestClientTest {
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + (BASE_PORT + nodeIdx) + ",\n"
-                + "    portRange: 1,\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
