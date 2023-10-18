@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -335,7 +334,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 Arrays.asList(new RexNode[rowType.getFieldCount()]),
                 Arrays.asList(new RexNode[rowType.getFieldCount()]),
                 true,
-                true,
                 true
         );
 
@@ -348,20 +346,20 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * Return transformed bound and appropriate type.
      */
     private static Map.Entry<List<RexNode>, RelDataType> shrinkBounds(IgniteTypeFactory factory, List<RexNode> bound, RelDataType rowType) {
-        ImmutableList.Builder<RexNode> lowerBuilder = ImmutableList.builder();
-        ImmutableList.Builder<RelDataType> typesBuilder = ImmutableList.builder();
+        List<RexNode> newBound = new ArrayList<>();
+        List<RelDataType> newTypes = new ArrayList<>();
         List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
         int i = 0;
         for (RexNode node : bound) {
             if (node != null) {
-                typesBuilder.add(types.get(i++));
-                lowerBuilder.add(node);
+                newTypes.add(types.get(i++));
+                newBound.add(node);
             } else {
                 break;
             }
         }
-        bound = lowerBuilder.build();
-        rowType = TypeUtils.createRowType(factory, typesBuilder.build());
+        bound = Collections.unmodifiableList(newBound);
+        rowType = TypeUtils.createRowType(factory, newTypes);
 
         return Map.entry(bound, rowType);
     }
@@ -388,8 +386,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             List<RexNode> curLower,
             List<RexNode> curUpper,
             boolean lowerInclude,
-            boolean upperInclude,
-            boolean containNull
+            boolean upperInclude
     ) {
         if ((fieldIdx >= searchBounds.size())
                 || (!lowerInclude && !upperInclude)
@@ -400,23 +397,21 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowFactory<RowT> lowerFactory = rowFactory;
             RowFactory<RowT> upperFactory = rowFactory;
 
-            if (containNull) {
-                // we need to shrink bounds here due to the recursive logic for processing lower and upper bounds,
-                // after division this logic into upper and lower calculation such approach need to be removed.
-                Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), curLower, rowType);
-                curLower = res.getKey();
-                lowerType = res.getValue();
+            // we need to shrink bounds here due to the recursive logic for processing lower and upper bounds,
+            // after division this logic into upper and lower calculation such approach need to be removed.
+            Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), curLower, rowType);
+            curLower = res.getKey();
+            lowerType = res.getValue();
 
-                res = shrinkBounds(ctx.getTypeFactory(), curUpper, rowType);
-                curUpper = res.getKey();
-                upperType = res.getValue();
+            res = shrinkBounds(ctx.getTypeFactory(), curUpper, rowType);
+            curUpper = res.getKey();
+            upperType = res.getValue();
 
-                lowerFactory = ctx.rowHandler()
-                        .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(lowerType)));
+            lowerFactory = ctx.rowHandler()
+                    .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(lowerType)));
 
-                upperFactory = ctx.rowHandler()
-                        .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(upperType)));
-            }
+            upperFactory = ctx.rowHandler()
+                    .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(upperType)));
 
             ranges.add(new RangeConditionImpl(
                     curLower,
@@ -460,16 +455,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
             if (lowerInclude) {
                 curLower.set(fieldIdx, fieldLowerBound);
-                if (fieldLowerBound == null) {
-                    containNull = true;
-                }
             }
 
             if (upperInclude) {
                 curUpper.set(fieldIdx, fieldUpperBound);
-                if (fieldLowerBound == null) {
-                    containNull = true;
-                }
             }
 
             expandBounds(
@@ -481,8 +470,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     curLower,
                     curUpper,
                     lowerInclude && fieldLowerInclude,
-                    upperInclude && fieldUpperInclude,
-                    containNull
+                    upperInclude && fieldUpperInclude
             );
         }
 

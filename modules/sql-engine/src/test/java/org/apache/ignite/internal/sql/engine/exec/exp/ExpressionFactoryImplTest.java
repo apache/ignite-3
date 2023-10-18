@@ -211,6 +211,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .add("C1", SqlTypeName.INTEGER)
                 .add("C2", SqlTypeName.INTEGER)
                 .add("C3", SqlTypeName.INTEGER)
+                .add("C4", SqlTypeName.INTEGER)
                 .build();
 
         // build bounds for two sequential columns also belongs to index
