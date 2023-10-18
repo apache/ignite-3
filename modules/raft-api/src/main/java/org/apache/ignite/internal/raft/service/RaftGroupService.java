@@ -245,4 +245,9 @@ public interface RaftGroupService {
      * @return Cluster service.
      */
     ClusterService clusterService();
+
+
+    default CompletableFuture<Void> updateConfiguration(PeersAndLearners configuration) {
+        return CompletableFuture.completedFuture(null);
+    }
 }

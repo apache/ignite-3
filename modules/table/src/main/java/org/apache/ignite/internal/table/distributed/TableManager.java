@@ -2164,21 +2164,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         try {
                             LOG.info("Updating raft group {} with the assignments {} to assignments {}",
                                     tablePartitionId, ByteUtils.fromBytes(evt.entryEvent().oldEntry().value()), stableAssignments);
-                            fut = raftMgr.startRaftGroupService(
-                                            tablePartitionId,
-                                            configurationFromAssignments(stableAssignments),
-                                            raftGroupServiceFactory)
-                                    .thenAccept(raftGroupService -> {
-                                        try {
-                                            ((InternalTableImpl) table(tableId).internalTable())
-                                                    .updateInternalTableRaftGroupService(
-                                                            tablePartitionId.partitionId(),
-                                                            raftGroupService
-                                                    );
-                                        } catch (NodeStoppingException e) {
-                                            // No-op
-                                        }
-                                    });
+                            fut = table(tableId).internalTable()
+                                    .partitionRaftGroupService(tablePartitionId.partitionId())
+                                    .updateConfiguration(configurationFromAssignments(stableAssignments));
+
+//                            fut = raftMgr.startRaftGroupService(
+//                                            tablePartitionId,
+//                                            configurationFromAssignments(stableAssignments),
+//                                            raftGroupServiceFactory)
+//                                    .thenAccept(raftGroupService -> {
+//                                        try {
+//
+////                                            replicaMgr.updateReplicaClient(tablePartitionId, raftGroupService);
+////                                                    ((InternalTableImpl) table(tableId).internalTable())
+////                                                    .updateInternalTableRaftGroupService(
+////                                                            tablePartitionId.partitionId(),
+////                                                            raftGroupService
+////                                                    );
+//                                        } catch (NodeStoppingException e) {
+//                                            // No-op
+//                                        }
+//                                    });
                         } catch (NodeStoppingException e) {
                             // No-op
                         }
