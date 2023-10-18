@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -113,7 +115,11 @@ class IndexBuildTask {
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            if (unwrapCause(throwable) instanceof PrimaryReplicaMissException) {
+                                LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            } else {
+                                LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            }
 
                             taskFuture.completeExceptionally(throwable);
                         } else {

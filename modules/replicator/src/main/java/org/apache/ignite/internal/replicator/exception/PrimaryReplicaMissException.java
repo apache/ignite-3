@@ -29,32 +29,18 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
     private static final long serialVersionUID = 8755220779942651494L;
 
     /**
-     * The constructor.
-     *
-     * @param expectedLeaseholder Expected leaseholder.
-     * @param currentLeaseholder Current leaseholder.
-     */
-    public PrimaryReplicaMissException(String expectedLeaseholder, @Nullable String currentLeaseholder) {
-        super(
-                REPLICA_MISS_ERR,
-                "The primary replica has changed [expectedLeaseholder={}, currentLeaseholder={}]",
-                expectedLeaseholder, currentLeaseholder
-        );
-    }
-
-    /**
      * Constructor.
      *
      * @param expectedLeaseholder Expected leaseholder.
      * @param currentLeaseholder Current leaseholder, {@code null} if absent.
-     * @param expectedPrimaryReplicaTerm Expected term from.
+     * @param expectedPrimaryReplicaTerm Expected term from, {@code null} if absent.
      * @param currentPrimaryReplicaTerm Current raft term, {@code null} if absent.
      * @param cause Cause exception, {@code null} if absent.
      */
     public PrimaryReplicaMissException(
             String expectedLeaseholder,
             @Nullable String currentLeaseholder,
-            long expectedPrimaryReplicaTerm,
+            @Nullable Long expectedPrimaryReplicaTerm,
             @Nullable Long currentPrimaryReplicaTerm,
             @Nullable Throwable cause
     ) {

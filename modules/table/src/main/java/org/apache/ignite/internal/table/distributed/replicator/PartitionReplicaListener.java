@@ -484,22 +484,22 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<LeaderOrTxState> processTxStateCommitPartitionRequest(TxStateCommitPartitionRequest request) {
         return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
-                .thenCompose(primaryReplica -> {
-                    if (primaryReplica == null) {
-                        return failedFuture(new PrimaryReplicaMissException(localNode.name(), null));
+                .thenCompose(primaryReplicaMeta -> {
+                    if (primaryReplicaMeta == null) {
+                        return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, null, null, null));
                     }
 
-                    if (isLocalPeer(primaryReplica.getLeaseholder())) {
-                        TransactionMeta txMeta = txManager.stateMeta(request.txId());
-
-                        if (txMeta == null) {
-                            txMeta = txStateStorage.get(request.txId());
-                        }
-
-                        return completedFuture(new LeaderOrTxState(null, txMeta));
-                    } else {
-                        return completedFuture(new LeaderOrTxState(primaryReplica.getLeaseholder(), null));
+                    if (!isLocalPeer(primaryReplicaMeta.getLeaseholder())) {
+                        return completedFuture(new LeaderOrTxState(primaryReplicaMeta.getLeaseholder(), null));
                     }
+
+                    TransactionMeta txMeta = txManager.stateMeta(request.txId());
+
+                    if (txMeta == null) {
+                        txMeta = txStateStorage.get(request.txId());
+                    }
+
+                    return completedFuture(new LeaderOrTxState(null, txMeta));
                 });
     }
 
