@@ -467,6 +467,7 @@ public class DdlSqlToCommandConverter {
 
         Set<String> cols = new HashSet<>(alterTblNode.columns().size());
         alterTblNode.columns().forEach(c -> cols.add(((SqlIdentifier) c).getSimple()));
+
         alterTblCmd.columns(cols);
 
         return alterTblCmd;
