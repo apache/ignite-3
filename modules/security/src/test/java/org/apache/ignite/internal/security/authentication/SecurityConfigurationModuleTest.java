@@ -96,7 +96,7 @@ class SecurityConfigurationModuleTest {
 
     @Test
     void setDefaultUserIfProvidersIsEmpty() {
-        module.patchConfigurationWithDefaults(rootChange);
+        module.patchConfigurationWithDynamicDefaults(rootChange);
 
         SecurityView securityView = rootChange.viewRoot(SecurityConfiguration.KEY);
 
@@ -122,7 +122,7 @@ class SecurityConfigurationModuleTest {
             });
         });
 
-        module.patchConfigurationWithDefaults(rootChange);
+        module.patchConfigurationWithDynamicDefaults(rootChange);
 
         SecurityView securityView = rootChange.viewRoot(SecurityConfiguration.KEY);
 

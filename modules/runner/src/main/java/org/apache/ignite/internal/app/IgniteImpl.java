@@ -63,7 +63,7 @@ import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.loader.JobClassLoaderFactory;
 import org.apache.ignite.internal.compute.loader.JobContextManager;
-import org.apache.ignite.internal.configuration.ConfigurationDefaultsPatcherImpl;
+import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -238,7 +238,7 @@ public class IgniteImpl implements Ignite {
     private final ConfigurationManager clusterCfgMgr;
 
     /** Cluster configuration defaults setter. */
-    private final ConfigurationDefaultsPatcherImpl clusterConfigurationDefaultsSetter;
+    private final ConfigurationDynamicDefaultsPatcherImpl clusterConfigurationDefaultsSetter;
 
     /** Cluster initializer. */
     private final ClusterInitializer clusterInitializer;
@@ -414,7 +414,7 @@ public class IgniteImpl implements Ignite {
 
 
         clusterConfigurationDefaultsSetter =
-                new ConfigurationDefaultsPatcherImpl(modules.distributed(), distributedConfigurationGenerator);
+                new ConfigurationDynamicDefaultsPatcherImpl(modules.distributed(), distributedConfigurationGenerator);
 
         clusterInitializer = new ClusterInitializer(
                 clusterSvc,

@@ -24,12 +24,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-class ConfigurationDefaultsPatcherImplTest {
+class ConfigurationDynamicDefaultsPatcherImplTest {
     private static final TestConfigurationModule MODULE = new TestConfigurationModule();
 
     private static ConfigurationTreeGenerator generator;
 
-    private static ConfigurationDefaultsPatcherImpl patcher;
+    private static ConfigurationDynamicDefaultsPatcherImpl patcher;
 
     @BeforeAll
     static void beforeAll() {
@@ -38,7 +38,7 @@ class ConfigurationDefaultsPatcherImplTest {
                 MODULE.schemaExtensions(),
                 MODULE.polymorphicSchemaExtensions()
         );
-        patcher = new ConfigurationDefaultsPatcherImpl(
+        patcher = new ConfigurationDynamicDefaultsPatcherImpl(
                 MODULE,
                 generator
         );
@@ -51,7 +51,7 @@ class ConfigurationDefaultsPatcherImplTest {
 
     @Test
     void patchedHoconDoesNotContainNullValues() {
-        String patchedHocon = patcher.patchWithDefaults("");
+        String patchedHocon = patcher.patchWithDynamicDefaults("");
         assertThat(patchedHocon, equalTo("testRoot{testSubConfiguration{testInt=42,testSecret=secret}}"));
     }
 }

@@ -81,7 +81,7 @@ public class CompoundModule implements ConfigurationModule {
     }
 
     @Override
-    public void patchConfigurationWithDefaults(SuperRootChange rootChange) {
-        modules.forEach(module -> module.patchConfigurationWithDefaults(rootChange));
+    public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
+        modules.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
     }
 }

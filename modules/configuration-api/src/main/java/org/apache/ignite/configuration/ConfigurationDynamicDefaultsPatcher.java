@@ -18,14 +18,15 @@
 package org.apache.ignite.configuration;
 
 /**
- * Patcher for the configuration. This patcher is used to set the default values for the cluster configuration.
+ * Patcher for the configuration. This patcher is used to patch the configuration with the dynamic default values that are not known at the
+ * compile time.
  */
-public interface ConfigurationDefaultsPatcher {
+public interface ConfigurationDynamicDefaultsPatcher {
     /**
-     * Patches the configuration with the default values.
+     * Patches the configuration with the dynamic default values that are not known at the compile time.
      *
-     * @param hocon HOCON string.
-     * @return Patched HOCON string.
+     * @param hocon The configuration in HOCON format.
+     * @return The patched configuration in HOCON format.
      */
-    String patchWithDefaults(String hocon);
+    public String patchWithDynamicDefaults(String hocon);
 }

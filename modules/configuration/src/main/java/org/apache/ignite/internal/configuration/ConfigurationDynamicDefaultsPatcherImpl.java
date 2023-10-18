@@ -21,7 +21,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import java.util.List;
-import org.apache.ignite.configuration.ConfigurationDefaultsPatcher;
+import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -30,9 +30,9 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 
 /**
- * Implementation of {@link ConfigurationDefaultsPatcher}.
+ * Implementation of {@link ConfigurationDynamicDefaultsPatcher}.
  */
-public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPatcher {
+public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDynamicDefaultsPatcher {
     /**
      * Configuration module.
      */
@@ -44,7 +44,7 @@ public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPa
     private final ConfigurationTreeGenerator generator;
 
 
-    public ConfigurationDefaultsPatcherImpl(
+    public ConfigurationDynamicDefaultsPatcherImpl(
             ConfigurationModule configurationModule,
             ConfigurationTreeGenerator generator
     ) {
@@ -53,12 +53,12 @@ public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPa
     }
 
     @Override
-    public String patchWithDefaults(String hocon) {
+    public String patchWithDynamicDefaults(String hocon) {
         SuperRoot superRoot = convertToSuperRoot(hocon);
 
         SuperRootChange rootChange = new SuperRootChangeImpl(superRoot);
 
-        configurationModule.patchConfigurationWithDefaults(rootChange);
+        configurationModule.patchConfigurationWithDynamicDefaults(rootChange);
 
         ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
                 .includeInternal(true)
@@ -68,6 +68,7 @@ public class ConfigurationDefaultsPatcherImpl implements ConfigurationDefaultsPa
 
         ConfigRenderOptions renderOptions = ConfigRenderOptions.concise()
                 .setJson(false);
+
         return HoconConverter.represent(superRoot, List.of(), visitor).render(renderOptions);
     }
 

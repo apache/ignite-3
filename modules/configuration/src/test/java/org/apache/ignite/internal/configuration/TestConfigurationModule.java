@@ -44,7 +44,7 @@ public class TestConfigurationModule implements ConfigurationModule {
     }
 
     @Override
-    public void patchConfigurationWithDefaults(SuperRootChange rootChange) {
+    public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
         rootChange.changeRoot(TestConfiguration.KEY)
                 .changeTestSubConfiguration()
                 .changeTestSecret("secret")

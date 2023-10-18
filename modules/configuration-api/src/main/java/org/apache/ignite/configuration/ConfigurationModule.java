@@ -96,11 +96,22 @@ public interface ConfigurationModule {
     }
 
     /**
-     * Patches the provided configuration with default values.
+     * Patches the provided configuration with dynamic default values. This method is called
+     * only for cluster-wide configuration on cluster initialization.
+     *
+     * <p>Dynamic defaults are default values that are not specified in the configuration source,
+     * but are added to the configuration on-the-fly, based on some external conditions.
+     *
+     * <p>For example, if the configuration contains a list of caches, and the user specifies
+     * a list of caches in the source, then the defaults for the caches are not applied.
+     * But if the user does not specify a list of caches, then the configuration module may add
+     * a cache to the list based on some external conditions.
+     *
+     * <p>The default implementation of this method is a no-op.
      *
      * @param rootChange Root change.
      */
-    default void patchConfigurationWithDefaults(SuperRootChange rootChange) {
+    default void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
         // No-op.
     }
 }
