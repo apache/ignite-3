@@ -1800,7 +1800,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return validateOperationAgainstSchema(request.transactionId())
-                            .thenCompose(catalogVersion -> checkCleanup(rows, catalogVersion))
+                            .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
                                             request,
@@ -1931,7 +1931,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return validateOperationAgainstSchema(request.transactionId())
-                            .thenCompose(catalogVersion -> checkCleanup(rows, catalogVersion))
+                            .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
                                             request,
@@ -2049,7 +2049,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return validateOperationAgainstSchema(request.transactionId())
-                            .thenCompose(catalogVersion -> checkCleanup(rows, catalogVersion))
+                            .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
                                             rowIdsToDelete,
@@ -2406,7 +2406,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
 
                                 return validateOperationAgainstSchema(request.transactionId())
-                                        .thenCompose(catalogVersion -> checkCleanup(validatedRowId, catalogVersion))
+                                        .thenCompose(catalogVersion -> awaitCleanup(validatedRowId, catalogVersion))
                                         .thenCompose(
                                                 catalogVersion -> applyUpdateCommand(
                                                         request,
@@ -2462,7 +2462,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
-                                    .thenCompose(catalogVersion -> checkCleanup(rowId, catalogVersion))
+                                    .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request,
@@ -2494,7 +2494,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockFut
                             .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
-                                    .thenCompose(catalogVersion -> checkCleanup(rowId, catalogVersion))
+                                    .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request,
@@ -2522,7 +2522,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
-                                    .thenCompose(catalogVersion -> checkCleanup(rowId, catalogVersion))
+                                    .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request,
@@ -2550,7 +2550,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
-                                    .thenCompose(catalogVersion -> checkCleanup(rowId, catalogVersion))
+                                    .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request,
@@ -2612,7 +2612,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(rowLock -> validateOperationAgainstSchema(request.transactionId()))
-                            .thenCompose(catalogVersion -> checkCleanup(rowId, catalogVersion))
+                            .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
                                             request.commitPartitionId().asTablePartitionId(),
@@ -2636,7 +2636,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return takeLocksForDelete(row, rowId, txId)
                             .thenCompose(ignored -> validateOperationAgainstSchema(request.transactionId()))
-                            .thenCompose(catalogVersion -> checkCleanup(rowId, catalogVersion))
+                            .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
                                             request.commitPartitionId().asTablePartitionId(),
@@ -2667,7 +2667,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param <T> Type of the {@code result}.
      */
-    private <T> CompletableFuture<T> checkCleanup(@Nullable RowId rowId, T result) {
+    private <T> CompletableFuture<T> awaitCleanup(@Nullable RowId rowId, T result) {
         return (rowId == null ? COMPLETED_EMPTY : rowCleanupMap.getOrDefault(rowId, COMPLETED_EMPTY))
                 .thenApply(ignored -> result);
     }
@@ -2680,7 +2680,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param <T> Type of the {@code result}.
      */
-    private <T> CompletableFuture<T> checkCleanup(Collection<RowId> rowIds, T result) {
+    private <T> CompletableFuture<T> awaitCleanup(Collection<RowId> rowIds, T result) {
         if (rowCleanupMap.isEmpty()) {
             return completedFuture(result);
         }
@@ -2880,7 +2880,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             return validateOperationAgainstSchema(txId)
-                                    .thenCompose(catalogVersion -> checkCleanup(rowIdLock.get1(), catalogVersion))
+                                    .thenCompose(catalogVersion -> awaitCleanup(rowIdLock.get1(), catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     commitPartitionId.asTablePartitionId(),
@@ -3101,10 +3101,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<?> future = rowCleanupMap.compute(rowId, (k, v) -> {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row.
-            // If the cleanup is already running - return it.
-            // If the cleanup ended with an exception - give it another try.
-            if (v != null && !v.isCompletedExceptionally()) {
-                return v;
+            if (v != null) {
+                return v.isDone() ? null : v;
             }
 
             return txManager.executeCleanupAsync(() ->
@@ -3117,7 +3115,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
 
         // Remove only when the cleanup was successful.
-        future.thenRun(() -> rowCleanupMap.remove(rowId));
+        if (future != null) {
+            future.thenRun(() -> rowCleanupMap.remove(rowId));
+        }
     }
 
     /**
