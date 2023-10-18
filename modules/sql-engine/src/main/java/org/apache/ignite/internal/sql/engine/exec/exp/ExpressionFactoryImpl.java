@@ -522,14 +522,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
 
-        for (int i = 0; i < nodes.size(); i++) {
-            RexNode node = nodes.get(i);
+        for (RexNode node : nodes) {
+            assert node != null : "unexpected nullable node";
 
-            if (node != null) {
-                programBuilder.addProject(node, null);
-            } else {
-                assert false : "unexpected nullable node";
-            }
+            programBuilder.addProject(node, null);
         }
 
         RexProgram program = programBuilder.getProgram();

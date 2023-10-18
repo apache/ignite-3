@@ -189,7 +189,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         assertEquals(List.of(new TestRange(new Object[]{1})), list);
     }
 
-    @ParameterizedTest(name = "condition satisfies: [{0}] the index")
+    @ParameterizedTest(name = "condition satisfies the index: [{0}]")
     @ValueSource(booleans = {true, false})
     public void testConditionsNotContainsNulls(boolean conditionSatisfyIdx) {
         RexBuilder rexBuilder = Commons.rexBuilder();
