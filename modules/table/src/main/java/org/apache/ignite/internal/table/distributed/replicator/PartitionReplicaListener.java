@@ -360,7 +360,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Failure occurred while triggering cleanup on commit partition primary replica election "
-                                + "[commitPartition=" + replicationGroupId + ']', e);
+                                + "[commitPartition={}]", e, replicationGroupId);
                     }
                 });
 
@@ -381,8 +381,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 txMeta.commitTimestamp())
                         );
                     } else {
-                        LOG.warn("Failed to execute cleanup on commit partition primary replica switch [txId="
-                                + txId + ", commitPartition=" + replicationGroupId + ']', e);
+                        LOG.warn("Failed to execute cleanup on commit partition primary replica switch [txId={}, commitPartition={}]",
+                                e, txId, replicationGroupId);
 
                         if (hasCause(e, null, NodeStoppingException.class)) {
                             return completedFuture(null);
@@ -1324,6 +1324,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return cleanup(completedFuture(null), txMeta.enlistedPartitions(), txMeta.txState() == COMMITED, txMeta.commitTimestamp(), txId, 1);
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-20681 remove attempts count.
     private CompletableFuture<Void> cleanup(
             CompletableFuture<?> changeStateFuture,
             Collection<TablePartitionId> enlistedPartitions,

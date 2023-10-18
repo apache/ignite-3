@@ -41,7 +41,10 @@ public class TxMeta implements TransactionMeta {
     @Nullable
     private final HybridTimestamp commitTimestamp;
 
-    /** Whether the locks are released. */
+    /**
+     * Whether the locks are released. It is needed for tx recovery operations, to guarantee locks release, meanwhile the cleanup
+     * of write intents is not so important for recovery, because write intents can be resolved at any time while the tx state is known.
+     */
     private final boolean locksReleased;
 
     /**
