@@ -31,14 +31,17 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Unique constraint flag. */
     private final boolean unique;
 
-    /** Write only flag. {@code True} when the index is being built, {@code false} when it is built. */
-    private final boolean writeOnly;
+    /**
+     * Index availability flag, {@code true} means it is available (the index has been built), otherwise it is registered
+     * (the index has not yet been built).
+     */
+    private final boolean available;
 
-    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, boolean writeOnly) {
+    CatalogIndexDescriptor(int id, String name, int tableId, boolean unique, boolean available) {
         super(id, Type.INDEX, name, INITIAL_CAUSALITY_TOKEN);
         this.tableId = tableId;
         this.unique = unique;
-        this.writeOnly = writeOnly;
+        this.available = available;
     }
 
     /** Gets table id. */
@@ -51,9 +54,12 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return unique;
     }
 
-    /** Returns the state of the index, {@code true} when the index is being built, {@code false} when it is built. */
-    public boolean writeOnly() {
-        return writeOnly;
+    /**
+     * Returns index availability flag, {@code true} means it is available (the index has been built), otherwise it is
+     * registered (the index has not yet been built).
+     */
+    public boolean available() {
+        return available;
     }
 
     @Override

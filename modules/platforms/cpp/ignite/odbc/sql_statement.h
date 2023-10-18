@@ -628,7 +628,7 @@ private:
     sql_result update_params_meta();
 
     /**
-     * Convert SQLRESULT to SQL_ROW_RESULT.
+     * Convert sql_result to SQL_ROW_RESULT.
      *
      * @return Operation result.
      */

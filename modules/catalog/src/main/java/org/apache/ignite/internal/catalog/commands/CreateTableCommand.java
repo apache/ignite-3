@@ -106,6 +106,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         CatalogTableDescriptor table = new CatalogTableDescriptor(
                 tableId,
+                schema.id(),
                 pkIndexId,
                 tableName,
                 zone.id(),

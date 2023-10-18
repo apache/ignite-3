@@ -42,6 +42,9 @@ enum class query_type {
 
     /** Foreign keys. */
     FOREIGN_KEYS,
+
+    /** Primary keys. */
+    PRIMARY_KEYS,
 };
 
 /**

@@ -89,6 +89,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                         Arrays.stream(schema.tables())
                                 .map(table -> table.id() == tableId ? new CatalogTableDescriptor(
                                         table.id(),
+                                        table.schemaId(),
                                         table.primaryKeyIndexId(),
                                         table.name(),
                                         table.zoneId(),
