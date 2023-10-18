@@ -1284,9 +1284,15 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp commitTimestamp = request.commitTimestamp();
 
             return schemaCompatValidator.validateForward(txId, enlistedGroups, commitTimestamp)
-                    .thenCompose(validationResult ->
-                            finishAndCleanup(enlistedGroups, validationResult.isSuccessful(), commitTimestamp, txId, txCoordinatorId)
-                                    .thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult)));
+                    .thenCompose(validationResult -> {
+                        return finishAndCleanup(
+                                enlistedGroups,
+                                validationResult.isSuccessful(),
+                                validationResult.isSuccessful() ? commitTimestamp : null,
+                                txId,
+                                txCoordinatorId
+                        ).thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult));
+                    });
         } else {
             // Aborting.
             return finishAndCleanup(enlistedGroups, false, null, txId, txCoordinatorId);
@@ -3183,11 +3189,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
-                .thenApply(unused -> {
-                    failIfSchemaChangedSinceTxStart(txId, operationTimestamp);
-
-                    return null;
-                });
+                .thenRun(() -> failIfSchemaChangedSinceTxStart(txId, operationTimestamp));
     }
 
     /**
