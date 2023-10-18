@@ -467,13 +467,16 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
+        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier();
+
         replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
                 cmgMgr,
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
@@ -511,7 +514,8 @@ public class IgniteImpl implements Ignite {
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
@@ -544,7 +548,8 @@ public class IgniteImpl implements Ignite {
                 clock,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 () -> clusterSvc.topologyService().localMember().id(),
-                placementDriverMgr.placementDriver()
+                placementDriverMgr.placementDriver(),
+                partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
         distributedTblMgr = new TableManager(
@@ -650,6 +655,11 @@ public class IgniteImpl implements Ignite {
         );
 
         restComponent = createRestComponent(name);
+    }
+
+    private static LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier() {
+        // TODO: Replace with an immutable dynamic property set on cluster init after IGNITE-20499 is fixed.
+        return ReplicaManager::idleSafeTimePropagationPeriodMs;
     }
 
     private AuthenticationManager createAuthenticationManager() {
