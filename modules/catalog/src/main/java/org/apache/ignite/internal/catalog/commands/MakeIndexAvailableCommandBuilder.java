@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import org.apache.ignite.internal.catalog.CatalogCommand;
+
 /** Builder for {@link MakeIndexAvailableCommand}. */
-public interface MakeIndexAvailableCommandBuilder extends AbstractIndexCommandBuilder<MakeIndexAvailableCommandBuilder> {
+public interface MakeIndexAvailableCommandBuilder {
+    /** Index ID. */
+    MakeIndexAvailableCommandBuilder indexId(int indexId);
+
+    CatalogCommand build();
 }

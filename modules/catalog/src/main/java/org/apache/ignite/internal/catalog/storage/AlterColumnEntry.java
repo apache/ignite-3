@@ -93,6 +93,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                                         ? table
                                         : new CatalogTableDescriptor(
                                                 table.id(),
+                                                table.schemaId(),
                                                 table.primaryKeyIndexId(),
                                                 table.name(),
                                                 table.zoneId(),

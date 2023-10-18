@@ -180,7 +180,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     private QueryContext createQueryContext(JdbcStatementType stmtType, @Nullable Transaction tx) {
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
-                return QueryContext.create(SqlQueryType.ALL, tx);
+                return QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES, tx);
             case SELECT_STATEMENT_TYPE:
                 return QueryContext.create(SELECT_STATEMENT_QUERIES, tx);
             case UPDATE_STATEMENT_TYPE:

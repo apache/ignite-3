@@ -17,27 +17,31 @@
 
 #pragma once
 
+#include "ignite/odbc/meta/primary_key_meta.h"
 #include "ignite/odbc/query/query.h"
+#include "ignite/odbc/sql_connection.h"
 
 namespace ignite {
 
 /**
- * Type info query.
+ * Primary keys query.
  */
-class type_info_query : public query {
+class primary_keys_query : public query {
 public:
     /**
      * Constructor.
      *
      * @param diag Diagnostics collector.
-     * @param sql_type SQL type.
+     * @param connection Statement-associated connection.
+     * @param schema Schema name.
+     * @param table Table name.
      */
-    type_info_query(diagnosable_adapter &diag, std::int16_t sql_type);
+    primary_keys_query(diagnosable_adapter &diag, sql_connection &connection, std::string schema, std::string table);
 
     /**
      * Destructor.
      */
-    ~type_info_query() override = default;
+    ~primary_keys_query() override = default;
 
     /**
      * Execute query.
@@ -63,11 +67,11 @@ public:
     /**
      * Get data of the specified column in the result set.
      *
-     * @param column_idx Column index.
+     * @param columnIdx Column index.
      * @param buffer Buffer to put column data to.
      * @return Operation result.
      */
-    sql_result get_column(std::uint16_t column_idx, application_data_buffer &buffer) override;
+    sql_result get_column(std::uint16_t columnIdx, application_data_buffer &buffer) override;
 
     /**
      * Close query.
@@ -81,14 +85,14 @@ public:
      *
      * @return True if data is available.
      */
-    bool is_data_available() const override { return m_cursor != m_types.end(); }
+    bool is_data_available() const override { return m_cursor != m_meta.end(); }
 
     /**
      * Get number of rows affected by the statement.
      *
      * @return Number of rows affected by the statement.
      */
-    [[nodiscard]] std::int64_t affected_rows() const override { return 0; }
+    std::int64_t affected_rows() const override { return 0; }
 
     /**
      * Move to the next result set.
@@ -98,20 +102,36 @@ public:
     sql_result next_result_set() override { return sql_result::AI_NO_DATA; }
 
 private:
+    /**
+     * Make get primary keys requests and use response to set internal state.
+     *
+     * @return Operation result.
+     */
+    sql_result make_request_get_primary_keys();
+
+    /** Connection associated with the statement. */
+    sql_connection &m_connection;
+
+    /** Schema name. */
+    std::string m_schema;
+
+    /** Table name. */
+    std::string m_table;
+
+    /** Query executed. */
+    bool m_executed{false};
+
+    /** Result set fetched. */
+    bool m_fetched{false};
+
     /** Columns metadata. */
     column_meta_vector m_columns_meta;
 
-    /** Executed flag. */
-    bool m_executed{false};
+    /** Primary keys metadata. */
+    primary_key_meta_vector m_meta;
 
-    /** Fetched flag. */
-    bool m_fetched{false};
-
-    /** Requested types. */
-    std::vector<ignite_type> m_types;
-
-    /** Query cursor. */
-    std::vector<ignite_type>::const_iterator m_cursor{m_types.end()};
+    /** Result set cursor. */
+    primary_key_meta_vector::iterator m_cursor;
 };
 
 } // namespace ignite

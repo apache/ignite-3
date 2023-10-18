@@ -79,7 +79,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                 "{\n"
                         + "  network.port: 3344,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  clientConnector.port: 10800\n"
+                        + "  clientConnector.port: 10800,\n"
+                        + "  rest.port: 10300\n"
                         + "}"
         );
 
@@ -90,7 +91,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                         + "  clientConnector.metricsEnabled: true\n"
-                        + "  clientConnector.port: 10801\n"
+                        + "  clientConnector.port: 10801,\n"
+                        + "  rest.port: 10301\n"
                         + "}"
         );
 
