@@ -93,8 +93,8 @@ public class SqlTestUtils {
 
         int expectedErrorCode = ErrorGroup.extractErrorCode(expectedCode);
         ErrorGroup expectedErrorGroup = ErrorGroups.errorGroupByCode(expectedCode);
-        String expectedError = format("{}#{}", expectedErrorGroup.name(), expectedErrorCode);
-        String actualError = format("{}#{}", ex.groupName(), ex.errorCode());
+        String expectedError = format("{}-{}", expectedErrorGroup.name(), expectedErrorCode);
+        String actualError = format("{}-{}", ex.groupName(), ex.errorCode());
 
         assertEquals(expectedError, actualError, "Error does not match. " + ex);
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
