@@ -26,6 +26,8 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -37,6 +39,8 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final TableManager tableManager;
 
+    private final SqlSchemaManager sqlSchemaManager;
+
     private final CatalogSchemaManager schemaManager;
 
     private final ReplicaService replicaService;
@@ -47,9 +51,10 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
     final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
-    public ExecutableTableRegistryImpl(TableManager tableManager, CatalogSchemaManager schemaManager,
+    public ExecutableTableRegistryImpl(TableManager tableManager, CatalogSchemaManager schemaManager, SqlSchemaManager sqlSchemaManager,
             ReplicaService replicaService, HybridClock clock, int cacheSize) {
 
+        this.sqlSchemaManager = sqlSchemaManager;
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.replicaService = replicaService;
@@ -61,15 +66,19 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableId, tableVersion, tableDescriptor));
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId) {
+        IgniteTable sqlTable = sqlSchemaManager.table(schemaVersion, tableId);
+
+        return tableCache.computeIfAbsent(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
     }
 
-    private CompletableFuture<ExecutableTable> loadTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
-        return tableManager.tableAsync(tableId)
+    private CompletableFuture<ExecutableTable> loadTable(IgniteTable sqlTable) {
+        return tableManager.tableAsync(sqlTable.id())
                 .thenApply((table) -> {
-                    SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
-                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(tableVersion);
+                    TableDescriptor tableDescriptor = sqlTable.descriptor();
+
+                    SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
                     TableRowConverterFactory converterFactory = requiredColumns -> new TableRowConverterImpl(
                             schemaRegistry, schemaDescriptor, tableDescriptor, requiredColumns
                     );
@@ -77,7 +86,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     InternalTable internalTable = table.internalTable();
                     ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory, tableDescriptor);
 
-                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
+                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(sqlTable.id(), tableDescriptor, internalTable.partitions(),
                             replicaService, clock, converterFactory.create(null), schemaDescriptor);
 
                     return new ExecutableTableImpl(scannableTable, updatableTable);

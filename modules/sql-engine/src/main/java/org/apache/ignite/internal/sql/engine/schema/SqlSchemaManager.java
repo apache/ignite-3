@@ -19,21 +19,29 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql schemas operations interface.
  */
 public interface SqlSchemaManager {
     /**
-     * Returns schema with given name and by the given version, if name is not specified, returns default schema of the given version.
+     * Returns root schema of the given version.
      */
-    SchemaPlus schema(@Nullable String name, int version);
+    SchemaPlus schema(int version);
 
     /**
-     * Returns schema with given name and by the given timestamp, if name is not specified, returns default schema of the given version.
+     * Returns root schema by the given timestamp.
      */
-    SchemaPlus schema(@Nullable String name, long timestamp);
+    SchemaPlus schema(long timestamp);
+
+    /**
+     * Returns table by given id, which version correspond to the one from schema of given version.
+     *
+     * @param schemaVersion Version of the schema.
+     * @param tableId A identifier of a table of interest.
+     * @return A table.
+     */
+    IgniteTable table(int schemaVersion, int tableId);
 
     /**
      * Returns a future to wait for given SQL schema version readiness.

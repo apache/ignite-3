@@ -24,7 +24,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 public final class NoOpExecutableTableRegistry implements ExecutableTableRegistry {
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId) {
         return CompletableFuture.completedFuture(new NoOpExecutableTable(tableId));
     }
 

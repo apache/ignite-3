@@ -76,7 +76,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -235,13 +234,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schema, schemaVersion))
+                                .defaultSchema(sqlSchemaManager.schema(schemaVersion))
                                 .build()
                 )
                 .logger(LOG)
@@ -414,7 +413,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void submitFragment(String nodeName, QueryStartRequest msg) {
         DistributedQueryManager queryManager = getOrCreateQueryManager(msg);
 
-        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
+        queryManager.submitFragment(nodeName, msg.schemaVersion(), msg.root(), msg.fragmentDescription(), msg.txAttributes());
     }
 
     private void handleError(Throwable ex, String nodeName, QueryStartRequest msg) {
@@ -425,7 +424,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), msg.schema(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), msg.parameters());
 
             return new DistributedQueryManager(ctx);
         });
@@ -480,7 +479,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             QueryStartRequest request = FACTORY.queryStartRequest()
                     .queryId(ctx.queryId())
                     .fragmentId(desc.fragmentId())
-                    .schema(ctx.schemaName())
                     .root(serialisedFragment)
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
@@ -591,6 +589,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private void submitFragment(
                 String initiatorNode,
+                int schemaVersion,
                 String fragmentString,
                 FragmentDescription desc,
                 TxAttributes txAttributes
@@ -604,11 +603,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             start.thenCompose(none -> {
                 IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
-                IgniteSchema igniteSchema = ctx.schema().unwrap(IgniteSchema.class);
 
-                return dependencyResolver.resolveDependencies(List.of(treeRoot), igniteSchema).thenComposeAsync(deps -> {
-                    return executeFragment(treeRoot, deps, context);
-                }, exec);
+                return dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion)
+                        .thenComposeAsync(deps -> executeFragment(treeRoot, deps, context), exec);
             }).exceptionally(ex -> {
                 handleError(ex, initiatorNode, desc.fragmentId());
 

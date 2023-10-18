@@ -205,10 +205,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return log;
     }
 
-    public String schemaName() {
-        return schema().getName();
-    }
-
     public SchemaPlus schema() {
         return cfg.getDefaultSchema();
     }

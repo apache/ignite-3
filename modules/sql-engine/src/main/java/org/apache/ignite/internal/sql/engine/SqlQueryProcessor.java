@@ -72,10 +72,10 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.schema.CatalogSqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
@@ -88,6 +88,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -135,15 +136,17 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final long DEFAULT_SESSION_IDLE_TIMEOUT = TimeUnit.MINUTES.toMillis(15);
 
     /** Name of the default schema. */
-    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private static final PropertiesHolder DEFAULT_PROPERTIES = PropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
             .set(SessionProperty.IDLE_TIMEOUT, DEFAULT_SESSION_IDLE_TIMEOUT)
             .build();
 
+    private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
+
     private final ParserService parserService = new ParserServiceImpl(
-            PARSED_RESULT_CACHE_SIZE, CaffeineCacheFactory.INSTANCE
+            PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
     );
 
     private final List<LifecycleAware> services = new ArrayList<>();
@@ -220,8 +223,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
 
-        sqlSchemaManager = new CatalogSqlSchemaManager(
+        sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
+                CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );
     }
@@ -242,6 +246,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
                 PLAN_CACHE_SIZE,
+                CACHE_FACTORY,
                 dataStorageManager,
                 dataStorageFieldsSupplier.get(),
                 metricManager
@@ -263,7 +268,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var ddlCommandHandler = new DdlCommandHandler(catalogManager);
 
-        var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
+        var executableTableRegistry = new ExecutableTableRegistryImpl(
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clock, TABLE_CACHE_SIZE
+        );
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(
                 executableTableRegistry,
@@ -472,7 +479,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, HybridTimestamp timestamp) {
         try {
             return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(unused -> {
-                SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
+                SchemaPlus schema = sqlSchemaManager.schema(timestamp.longValue()).getSubSchema(schemaName);
 
                 if (schema == null) {
                     throw new SchemaNotFoundException(schemaName);
