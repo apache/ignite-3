@@ -40,8 +40,8 @@ public:
      * @param table Table search pattern.
      * @param table_type Table type search pattern.
      */
-    table_metadata_query(diagnosable_adapter &diag, sql_connection &connection, const std::string &catalog,
-        const std::string &schema, const std::string &table, const std::string &table_type);
+    table_metadata_query(diagnosable_adapter &diag, sql_connection &connection, std::string catalog, std::string schema,
+        std::string table, std::string table_type);
 
     /**
      * Destructor.
@@ -97,7 +97,7 @@ public:
      *
      * @return Number of rows affected by the statement.
      */
-    std::int64_t affected_rows() const override;
+    [[nodiscard]] std::int64_t affected_rows() const override;
 
     /**
      * Move to the next result set.

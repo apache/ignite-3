@@ -143,20 +143,23 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
     /**
      * Inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Skipped records.
+     * @return Skipped records. The order of collection elements is guaranteed to be the same as the order of {@code recs}. If a record is
+     *         inserted, the element will be excluded from the collection result.
      */
-    Collection<R> insertAll(@Nullable Transaction tx, Collection<R> recs);
+    List<R> insertAll(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Asynchronously inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @return Future representing pending completion of the operation, with rejected rows for insertion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code recs}. If a record is inserted, the element will be
+     *         excluded from the collection result.
      */
-    CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs);
+    CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Replaces an existing record associated with the same key column values as the given record.
@@ -272,36 +275,42 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
     /**
      * Removes from a table records with the same key column values as the given one.
      *
-     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Records with the key columns set that did not exist.
+     * @return Records with the key columns set that did not exist. The order of collection elements is guaranteed to be the same as the
+     *         order of {@code keyRecs}. If a record is removed, the element will be excluded from the collection result.
      */
-    Collection<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs);
+    List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Asynchronously removes from a table records with the same key column values as the given one.
      *
-     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code keyRecs}. If a record is removed, the element will be
+     *         excluded from the collection result.
      */
-    CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
+    CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Remove the given records from a table.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Records that were not deleted.
+     * @return Records that were not deleted. The order of collection elements is guaranteed to be the same as the order of {@code recs}. If
+     *         a record is removed, the element will be excluded from the collection result.
      */
-    Collection<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs);
+    List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Asynchronously removes the given records from a table.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code recs}. If a record is removed, the element will be
+     *         excluded from the collection result.
      */
-    CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs);
+    CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs);
 }

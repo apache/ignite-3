@@ -201,13 +201,13 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
             return CreateSystemViewCommand.builder()
                     .name(SYS_VIEW_NAME)
                     .columns(COLUMNS)
-                    .type(SystemViewType.LOCAL);
+                    .type(SystemViewType.NODE);
         }
 
         void apply(CreateSystemViewCommandBuilder builder) {
             switch (this) {
                 case CHANGE_TYPE: {
-                    builder.type(SystemViewType.GLOBAL);
+                    builder.type(SystemViewType.CLUSTER);
                     break;
                 }
                 case ADD_COLUMN: {

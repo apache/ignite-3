@@ -30,6 +30,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.jetbrains.annotations.Nullable;
@@ -82,21 +83,21 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
 
     @Override
     public CompletableFuture<?> onUpdate(
-            ConfigurationNotificationEvent<AuthenticationView> ctx) {
+            ConfigurationNotificationEvent<SecurityView> ctx) {
         return CompletableFuture.runAsync(() -> refreshProviders(ctx.newValue()));
     }
 
-    private void refreshProviders(@Nullable AuthenticationView view) {
+    private void refreshProviders(@Nullable SecurityView view) {
         rwLock.writeLock().lock();
         try {
             if (view == null || !view.enabled()) {
                 authEnabled = false;
                 authenticators = List.of();
-            } else if (view.enabled() && view.providers().size() != 0) {
-                authenticators = providersFromAuthView(view);
+            } else if (view.enabled() && view.authentication().providers().size() != 0) {
+                authenticators = providersFromAuthView(view.authentication());
                 authEnabled = true;
             } else {
-                LOG.error("Invalid configuration: authentication is enabled, but no providers. Leaving the old settings");
+                LOG.error("Invalid configuration: security is enabled, but no providers. Leaving the old settings");
             }
         } catch (Exception exception) {
             LOG.error("Couldn't refresh authentication providers. Leaving the old settings", exception);

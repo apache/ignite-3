@@ -9,7 +9,6 @@
         }
     },
     "rest": {
-        "port": 10333,
-        "portRange": 10
+        "port": 10333
     }
 }

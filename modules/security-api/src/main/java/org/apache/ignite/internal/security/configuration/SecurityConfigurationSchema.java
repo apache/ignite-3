@@ -20,11 +20,16 @@ package org.apache.ignite.internal.security.configuration;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfigurationSchema;
 
 /** Configuration schema for cluster REST endpoint subtree. */
 @ConfigurationRoot(rootName = "security", type = ConfigurationType.DISTRIBUTED)
 public class SecurityConfigurationSchema {
+    /** Enabled. */
+    @Value(hasDefault = true)
+    public final boolean enabled = false;
+
     @ConfigValue
     public AuthenticationConfigurationSchema authentication;
 }
