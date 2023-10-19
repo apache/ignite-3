@@ -1334,7 +1334,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult) {
         if (!validationResult.isSuccessful()) {
-            if (validationResult.tableDropped()) {
+            if (validationResult.isTableDropped()) {
                 throw new IncompatibleSchemaAbortException(
                         format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId())
                 );

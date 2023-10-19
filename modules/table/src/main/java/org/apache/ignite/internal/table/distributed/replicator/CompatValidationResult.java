@@ -81,7 +81,7 @@ public class CompatValidationResult {
     /**
      * Returns whether the validation has failed due to table was already dropped at the commit timestamp.
      */
-    public boolean tableDropped() {
+    public boolean isTableDropped() {
         return !successful && toSchemaVersion == null;
     }
 
