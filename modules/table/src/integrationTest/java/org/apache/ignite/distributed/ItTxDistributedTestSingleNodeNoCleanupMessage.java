@@ -61,7 +61,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -191,20 +190,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         customers = txTestCluster.startTable(CUST_TABLE_NAME, CUST_TABLE_ID, CUSTOMERS_SCHEMA);
 
         log.info("Tables have been started");
-    }
-
-    @Disabled("IGNITE-20560")
-    @Test
-    @Override
-    public void testTransactionAlreadyRolledback() {
-        super.testTransactionAlreadyRolledback();
-    }
-
-    @Disabled("IGNITE-20560")
-    @Test
-    @Override
-    public void testTransactionAlreadyCommitted() {
-        super.testTransactionAlreadyCommitted();
     }
 
     @Test

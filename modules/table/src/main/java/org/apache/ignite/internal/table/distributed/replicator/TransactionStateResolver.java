@@ -259,7 +259,7 @@ public class TransactionStateResolver {
 
     private void updateLocalTxMapAfterDistributedStateResolved(UUID txId, CompletableFuture<TransactionMeta> future) {
         future.thenAccept(txMeta -> {
-            if (txMeta != null && txMeta instanceof TxStateMeta) {
+            if (txMeta instanceof TxStateMeta) {
                 txManager.updateTxMeta(txId, old -> (TxStateMeta) txMeta);
             }
         });
