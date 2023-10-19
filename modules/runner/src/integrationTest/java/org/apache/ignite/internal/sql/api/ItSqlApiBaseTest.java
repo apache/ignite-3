@@ -41,17 +41,9 @@ import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.lang.ColumnAlreadyExistsException;
-import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.ErrorGroups.Index;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.TableAlreadyExistsException;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -68,6 +60,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -91,23 +84,21 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20096")
     public void ddl() throws Exception {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
         // CREATE TABLE
         checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        checkError(
-                TableAlreadyExistsException.class,
-                ErrorGroups.Table.TABLE_ALREADY_EXISTS_ERR,
-                "Table already exists [name=\"PUBLIC\".\"TEST\"]",
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Table with name 'PUBLIC.TEST' already exists",
                 ses,
                 "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"
         );
         checkSqlError(
-                ErrorGroups.Table.TABLE_DEFINITION_ERR,
-                "Can't create table with duplicate columns: ID, VAL, VAL",
+                Sql.STMT_VALIDATION_ERR,
+                "Column with name 'VAL' specified more than once",
                 ses,
                 "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL INT, VAL INT)"
         );
@@ -115,28 +106,25 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
         // ADD COLUMN
         checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
-        checkError(
-                TableNotFoundException.class,
-                ErrorGroups.Table.TABLE_NOT_FOUND_ERR,
-                "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"
         );
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR");
-        checkError(
-                ColumnAlreadyExistsException.class,
-                ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR,
-                "Column already exists [name=\"VAL1\"]",
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Column with name 'VAL1' already exists",
                 ses,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
 
         // CREATE INDEX
         checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
-        checkError(
-                IndexAlreadyExistsException.class,
-                Index.INDEX_ALREADY_EXISTS_ERR,
-                "Index already exists [name=\"PUBLIC\".\"TEST_IDX\"]",
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Index with name 'PUBLIC.TEST_IDX' already exists",
                 ses,
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
@@ -150,36 +138,29 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
         checkSqlError(
-                Index.INVALID_INDEX_DEFINITION_ERR,
-                "Can't create index on duplicate columns: VAL0, VAL0",
+                Sql.STMT_VALIDATION_ERR,
+                "Column with name 'VAL0' specified more than once",
                 ses,
                 "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
         );
 
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
-                "Can`t delete column(s). Column VAL1 is used by indexes [TEST_IDX3].",
+                "Deleting column 'VAL1' used by index(es) [TEST_IDX3], it is not allowed",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN val1"
         );
 
-        SqlException ex = checkSqlError(
+        checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
-                "Can`t delete column(s).",
+                "Deleting column 'VAL0' used by index(es) [TEST_IDX1, TEST_IDX2, TEST_IDX3], it is not allowed",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN (val0, val1)"
         );
 
-        String msg = ex.getMessage();
-        String explainMsg = "Unexpected error message: " + msg;
-
-        assertTrue(msg.contains("Column VAL0 is used by indexes ["), explainMsg);
-        assertTrue(msg.contains("TEST_IDX1") && msg.contains("TEST_IDX2") && msg.contains("TEST_IDX3"), explainMsg);
-        assertTrue(msg.contains("Column VAL1 is used by indexes [TEST_IDX3]"), explainMsg);
-
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
-                "Can`t delete column, belongs to primary key: [name=ID]",
+                "Deleting column `ID` belonging to primary key is not allowed",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN id"
         );
@@ -190,18 +171,16 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
         // DROP COLUMNS
         checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");
-        checkError(
-                TableNotFoundException.class,
-                ErrorGroups.Table.TABLE_NOT_FOUND_ERR,
-                "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
         );
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
-        checkError(
-                ColumnNotFoundException.class,
-                ErrorGroups.Table.COLUMN_NOT_FOUND_ERR,
-                "Column does not exist [tableName=\"PUBLIC\".\"TEST\", columnName=\"VAL1\"]",
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Column with name 'VAL1' not found in table 'PUBLIC.TEST'",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
@@ -210,20 +189,19 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         checkDdl(false, ses, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
 
         checkDdl(true, ses, "DROP TABLE TEST");
-        checkError(
-                TableNotFoundException.class,
-                ErrorGroups.Table.TABLE_NOT_FOUND_ERR,
-                "The table does not exist [name=\"PUBLIC\".\"TEST\"]",
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Table with name 'PUBLIC.TEST' not found",
                 ses,
                 "DROP TABLE TEST"
         );
 
         checkDdl(false, ses, "DROP INDEX IF EXISTS TEST_IDX");
 
-        checkError(
-                IndexNotFoundException.class,
-                Index.INDEX_NOT_FOUND_ERR,
-                "Index does not exist [name=\"PUBLIC\".\"TEST_IDX\"]", ses,
+        checkSqlError(
+                Sql.STMT_VALIDATION_ERR,
+                "Index with name 'PUBLIC.TEST_IDX' not found",
+                ses,
                 "DROP INDEX TEST_IDX"
         );
     }
@@ -368,7 +346,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         Session ses = sql.createSession();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+            executeForRead(ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         List<Boolean> booleanList = List.of(Boolean.TRUE, Boolean.FALSE);
@@ -834,11 +812,11 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
-    protected ResultSet<SqlRow> executeForRead(Session ses, String query) {
-        return executeForRead(ses, null, query);
+    protected ResultSet<SqlRow> executeForRead(Session ses, String query, Object... args) {
+        return executeForRead(ses, null, query, args);
     }
 
-    protected abstract ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query, Object... args);
+    protected abstract ResultSet<SqlRow> executeForRead(Session ses, @Nullable Transaction tx, String query, Object... args);
 
     protected <T extends IgniteException> T checkError(Class<T> expCls, Integer code, String msg, Session ses, String sql,
             Object... args) {

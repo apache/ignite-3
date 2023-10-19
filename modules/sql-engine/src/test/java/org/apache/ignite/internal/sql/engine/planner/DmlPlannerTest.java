@@ -223,6 +223,36 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    /**
+     * Tests that primary key columns are not modifiable.
+     */
+    @ParameterizedTest
+    @MethodSource("updatePrimaryKey")
+    public void testDoNotAllowToModifyPrimaryKeyColumns(String query) {
+        TestTable test = TestBuilders.table()
+                .name("TEST")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = createSchema(test);
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () ->  physicalPlan(query, schema),
+                SqlValidatorException.class,
+                "Primary key columns are not modifiable"
+        );
+    }
+
+    private static Stream<String> updatePrimaryKey() {
+        return Stream.of(
+                "UPDATE TEST SET ID = ID + 1",
+                "MERGE INTO test DST USING test SRC ON DST.VAL = SRC.VAL"
+                        + " WHEN MATCHED THEN UPDATE SET ID = SRC.ID + 1"
+        );
+    }
+
     // Class name is fully-qualified because AbstractPlannerTest defines a class with the same name.
     private static TestTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()

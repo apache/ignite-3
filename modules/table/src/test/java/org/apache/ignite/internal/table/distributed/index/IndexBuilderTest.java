@@ -50,6 +50,8 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private static final int PARTITION_ID = 3;
 
+    private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 100500;
+
     private final ReplicaService replicaService = mock(ReplicaService.class, invocation -> completedFuture(null));
 
     private final IndexBuilder indexBuilder = new IndexBuilder("test", 1, replicaService);
@@ -121,7 +123,8 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 indexId,
                 indexStorage(nextRowIdsToBuild),
                 mock(MvPartitionStorage.class),
-                mock(ClusterNode.class)
+                mock(ClusterNode.class),
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN
         );
     }
 
