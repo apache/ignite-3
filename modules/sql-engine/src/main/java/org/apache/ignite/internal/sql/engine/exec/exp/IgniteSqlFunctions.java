@@ -23,7 +23,6 @@ import static org.apache.calcite.runtime.SqlFunctions.charLength;
 import static org.apache.calcite.runtime.SqlFunctions.octetLength;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
-import com.google.common.math.LongMath;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
