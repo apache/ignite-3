@@ -1802,7 +1802,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(catalogService.activeCatalogVersion(anyLong())).thenReturn(42);
 
         UUID targetTxId = newTxId();
-        HybridTimestamp beginTs = TransactionIds.beginTimestamp(targetTxId);
 
         CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
 
