@@ -203,62 +203,6 @@ public class IgniteSqlFunctions {
         return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
     }
 
-    // SQL TRUNCATE
-    /** SQL <code>TRUNCATE</code> operator applied to int values. */
-    public static int struncate(int b0) {
-        return sround(b0, 0);
-    }
-
-    public static int struncate(int b0, int b1) {
-        return sround(b0, b1);
-    }
-
-    /** SQL <code>TRUNCATE</code> operator applied to long values. */
-    public static long struncate(long b0) {
-        return struncate(b0, 0);
-    }
-
-    /** SQL <code>TRUNCATE</code> operator applied to long values. */
-    public static long struncate(long b0, int b1) {
-        if (b1 == 0) {
-            return b0;
-        } else if (b1 > 0) {
-            return b0;
-        } else {
-            long abs = (long) Math.pow(10, Math.abs(b1));
-            return divide(b0, abs, RoundingMode.HALF_DOWN) * abs;
-        }
-    }
-
-    /** SQL <code>TRUNCATE</code> operator applied to BigDecimal values. */
-    public static BigDecimal struncate(BigDecimal b0) {
-        return struncate(b0, 0);
-    }
-
-    public static BigDecimal struncate(BigDecimal b0, int b1) {
-        return b0.movePointRight(b1)
-                .setScale(0, RoundingMode.DOWN).movePointLeft(b1);
-    }
-
-    /** SQL <code>TRUNCATE</code> operator applied to float values. */
-    public static float struncate(float b0) {
-        return struncate(b0, 0);
-    }
-
-    public static float struncate(float b0, int b1) {
-        return struncate(BigDecimal.valueOf(b0), b1).floatValue();
-    }
-
-
-    /** SQL <code>TRUNCATE</code> operator applied to double values. */
-    public static double struncate(double b0) {
-        return struncate(b0, 0);
-    }
-
-    public static double struncate(double b0, int b1) {
-        return struncate(BigDecimal.valueOf(b0), b1).doubleValue();
-    }
-
     /** CAST(DOUBLE AS DECIMAL). */
     public static BigDecimal toBigDecimal(double val, int precision, int scale) {
         return toBigDecimal((Double) val, precision, scale);
