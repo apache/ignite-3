@@ -416,7 +416,6 @@ public class HeapLockManager implements LockManager {
          */
         private List<WaiterImpl> release(UUID txId) {
             waiters.remove(txId);
-            untrack(txId);
 
             if (waiters.isEmpty()) {
                 return Collections.emptyList();
@@ -535,20 +534,6 @@ public class HeapLockManager implements LockManager {
                 }
 
                 v.add(this);
-
-                return v;
-            });
-        }
-
-        private void untrack(UUID txId) {
-            assert waiter(txId) == null;
-
-            txMap.compute(txId, (k, v) -> {
-                if (v == null) {
-                    return v;
-                }
-
-                v.remove(this);
 
                 return v;
             });
