@@ -30,16 +30,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
+import java.util.stream.Stream;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Test Ignite SQL functions.
@@ -347,21 +357,172 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertThrowsWithCause(() -> sql("SELECT SUBSTR('1234567', 1, -3)"), IgniteException.class, "negative substring length");
     }
 
+    /** Test cases for ROUND function that accepts integral numeric types. */
+    @TestFactory
+    public Stream<DynamicTest> testRoundIntegral() {
+        class RoundTest implements Executable {
+
+            final NumType numType;
+
+            private RoundTest(NumType numType) {
+                this.numType = numType;
+            }
+
+            @Override
+            public void execute() {
+                String inputExpr = numType.expr("42");
+
+                assertQuery(format("SELECT ROUND({})", inputExpr))
+                        .returns(numType.value("42"))
+                        .columnMetadata(numType.roundMatcher())
+                        .check();
+
+                assertQuery(format("SELECT ROUND({}, s) FROM (VALUES (-2), (-1), (0), (1), (2) ) t(s)", inputExpr))
+                        .returns(numType.value("0"))
+                        .returns(numType.value("40"))
+                        .returns(numType.value("42"))
+                        .returns(numType.value("42"))
+                        .returns(numType.value("42"))
+                        .columnMetadata(numType.roundMatcher())
+                        .check();
+            }
+        }
+
+        return Stream.of(NumType.BYTE, NumType.SHORT, NumType.INT, NumType.BIGINT, NumType.DECIMAL)
+                .map(t -> DynamicTest.dynamicTest(t.name(), new RoundTest(t)));
+    }
+
+    /** Test cases for ROUND function that accepts real, double types. */
+    @TestFactory
+    public Stream<DynamicTest> testRound() {
+        class RoundTest implements Executable {
+
+            final NumType numType;
+
+            private RoundTest(NumType numType) {
+                this.numType = numType;
+            }
+
+            @Override
+            public void execute() {
+                String inputExpr = numType.expr("1.123");
+
+                assertQuery(format("SELECT ROUND({})", inputExpr))
+                        .returns(numType.value("1"))
+                        .columnMetadata(numType.roundMatcher())
+                        .check();
+
+                assertQuery(format("SELECT ROUND({}, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)", inputExpr))
+                        .returns(numType.value("0.000"))
+                        .returns(numType.value("0.000"))
+                        .returns(numType.value("1.000"))
+                        .returns(numType.value("1.100"))
+                        .returns(numType.value("1.120"))
+                        .returns(numType.value("1.123"))
+                        .returns(numType.value("1.123"))
+                        .returns(numType.value("1.123"))
+                        .columnMetadata(numType.roundMatcher())
+                        .check();
+            }
+        }
+
+        return Stream.of(NumType.REAL, NumType.DOUBLE)
+                .map(t -> DynamicTest.dynamicTest(t.name(), new RoundTest(t)));
+    }
+
+    /** Test cases for ROUND function for DECIMAL type with precision and scale. */
     @Test
-    public void testRound() {
-        assertQuery("SELECT ROUND(1.7)")
-                .returns(BigDecimal.valueOf(2))
-                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(2).scale(0))
+    public void testRoundDecimal() {
+        assertQuery("SELECT ROUND(1.123)")
+                .returns(new BigDecimal("1"))
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(0))
                 .check();
 
-        assertQuery("SELECT ROUND(1.123, s) FROM (VALUES (0), (1), (2), (3), (4) ) t(s)")
+        assertQuery(format("SELECT ROUND(1.123, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)"))
+                .returns(new BigDecimal("0.000"))
+                .returns(new BigDecimal("0.000"))
                 .returns(new BigDecimal("1.000"))
                 .returns(new BigDecimal("1.100"))
                 .returns(new BigDecimal("1.120"))
                 .returns(new BigDecimal("1.123"))
                 .returns(new BigDecimal("1.123"))
+                .returns(new BigDecimal("1.123"))
                 .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(3))
                 .check();
+    }
+
+    /** Numeric type for ROUND. */
+    enum NumType {
+        BYTE,
+        SHORT,
+        INT,
+        BIGINT,
+        REAL,
+        DOUBLE,
+        DECIMAL;
+
+        Object value(String input) {
+            switch (this) {
+                case BYTE:
+                    return Byte.valueOf(input);
+                case SHORT:
+                    return Short.valueOf(input);
+                case INT:
+                    return Integer.valueOf(input);
+                case BIGINT:
+                    return Long.valueOf(input);
+                case REAL:
+                    return Float.valueOf(input);
+                case DOUBLE:
+                    return Double.valueOf(input);
+                case DECIMAL:
+                    return new BigDecimal(input);
+                default:
+                    throw new IllegalStateException("Unexpected value: " + this);
+            }
+        }
+
+        String expr(String input) {
+            switch (this) {
+                case BYTE:
+                    return input + "::TINYINT";
+                case SHORT:
+                    return input + "::SMALLINT";
+                case INT:
+                    return input + "::INTEGER";
+                case BIGINT:
+                    return input + "::BIGINT";
+                case REAL:
+                    return input + "::REAL";
+                case DOUBLE:
+                    return input + "::DOUBLE";
+                case DECIMAL:
+                    return input + "::DECIMAL";
+                default:
+                    throw new IllegalStateException("Unexpected value: " + this);
+            }
+        }
+
+        private MetadataMatcher roundMatcher() {
+            switch (this) {
+                case BYTE:
+                    return new MetadataMatcher().type(ColumnType.INT8).scale(0);
+                case SHORT:
+                    return new MetadataMatcher().type(ColumnType.INT16).scale(0);
+                case INT:
+                    return new MetadataMatcher().type(ColumnType.INT32).scale(0);
+                case BIGINT:
+                    return new MetadataMatcher().type(ColumnType.INT64).scale(0);
+                case REAL:
+                    return new MetadataMatcher().type(ColumnType.FLOAT);
+                case DOUBLE:
+                    return new MetadataMatcher().type(ColumnType.DOUBLE);
+                case DECIMAL:
+                    return new MetadataMatcher().type(ColumnType.DECIMAL).scale(0);
+                default:
+                    throw new IllegalStateException("Unexpected value: " + this);
+            }
+        }
     }
 
     /**
