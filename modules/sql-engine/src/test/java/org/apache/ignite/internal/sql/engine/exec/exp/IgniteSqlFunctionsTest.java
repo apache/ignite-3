@@ -277,27 +277,45 @@ public class IgniteSqlFunctionsTest {
 
     /** Tests for ROUND(x, s) function, where x is a double value. */
     @ParameterizedTest
-    @MethodSource("round2Double")
+    @CsvSource({
+            "1.123, 3, 1.123",
+            "1.123, 2, 1.12",
+            "1.245, 1, 1.2",
+            "1.123, 0, 1.0",
+            "1.123, -1, 0.0",
+            "10.123, 0, 10.000",
+            "10.123, -1, 10.000",
+            "10.123, -2, 0.000",
+            "10.123, 3, 10.123",
+            "10.123, 4, 10.123",
+    })
     public void testRound2Double(double input, int scale, double result) {
         assertEquals(result, IgniteSqlFunctions.sround(input, scale));
     }
 
-    private static Stream<Arguments> round2Double() {
-        return Stream.of(
-                Arguments.of(1.123d, 3, 1.123d),
-                Arguments.of(1.123d, 2, 1.12d),
-                Arguments.of(1.245d, 1, 1.2d),
-                Arguments.of(1.123d, 0, 1.0d),
-                Arguments.of(1.123d, -1, 0.0d),
-
-                Arguments.of(5.5d, 1, 5.5d)
-        );
+    /** Tests for ROUND(x, s) function, where x is an int. */
+    @ParameterizedTest
+    @CsvSource({
+            "42,-2,0",
+            "42,-1,40",
+            "42,0,42",
+            "42,1,42",
+            "42,2,42",
+    })
+    public void testRound2IntType(int input, int scale, int expected) {
+        assertEquals(expected, IgniteSqlFunctions.sround(input, scale), "int");
     }
 
-    /** Tests for ROUND(x, s) function, where x is a int / long value. */
-    @Test
-    public void testRound2OtherTypes() {
-        assertEquals(1, IgniteSqlFunctions.sround(1, 2), "int");
-        assertEquals(1L, IgniteSqlFunctions.sround(1L, 3), "long");
+    /** Tests for ROUND(x, s) function, where x is an int. */
+    @ParameterizedTest
+    @CsvSource({
+            "42,-2,0",
+            "42,-1,40",
+            "42,0,42",
+            "42,1,42",
+            "42,2,42",
+    })
+    public void testRound2LongType(long input, int scale, long expected) {
+        assertEquals(expected, IgniteSqlFunctions.sround(input, scale), "int");
     }
 }
