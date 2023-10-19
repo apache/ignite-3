@@ -52,3 +52,4 @@ query R
 select round(a, b) from roundme
 ----
 42.123000
+
