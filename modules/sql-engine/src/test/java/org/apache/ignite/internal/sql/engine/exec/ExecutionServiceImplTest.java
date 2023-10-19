@@ -642,11 +642,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         // Start statements execution.
         prefetchListener.onPrefetchComplete(null);
 
+        waitForCondition(() -> resultCursors.size() == queries.size(), TIMEOUT_IN_MS);
+
         if (errHolder.get() != null) {
             throw errHolder.get();
         }
-
-        waitForCondition(() -> resultCursors.size() == queries.size(), TIMEOUT_IN_MS);
 
         assertEquals(queries.size(), resultCursors.size());
 
