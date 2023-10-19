@@ -37,6 +37,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -118,6 +120,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final LongSupplier delayDurationMsSupplier;
 
     private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
+
+    private static final AtomicInteger WAIT_COUNT = new AtomicInteger();
+    private static final AtomicLong ACCUMULATED_WAIT = new AtomicLong();
 
     /**
      * Constructor.
@@ -426,9 +431,16 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                             HybridTimestamp.maxClockSkew()
                     );
                     // TODO: this addition has to be removed when IGNITE-20378 is implemented.
+                    long millisToAdd = partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong();
+                    WAIT_COUNT.incrementAndGet();
+                    ACCUMULATED_WAIT.addAndGet(millisToAdd);
                     HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTs.addPhysicalTime(
-                            partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong()
+                            millisToAdd
                     );
+                    int waitCount = WAIT_COUNT.get();
+                    long accumulatedWait = ACCUMULATED_WAIT.get();
+                    LOG.info("Waited {} times, accumulated {} ms, average {} ms",
+                            waitCount, accumulatedWait, (float) accumulatedWait / waitCount);
 
                     return clockWaiter.waitFor(tsSafeForRoReadingInPastOptimization);
                 });
