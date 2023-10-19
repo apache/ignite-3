@@ -379,6 +379,10 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
                         .returns(numType.value("42"))
                         .columnMetadata(numType.roundMatcher())
                         .check();
+
+                assertQuery(format("SELECT ROUND({}, -1), ROUND({}, -1)", numType.expr("42"), numType.expr("47")))
+                        .returns(numType.value("40"), numType.value("50"))
+                        .check();
             }
         }
 

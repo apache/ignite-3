@@ -246,6 +246,8 @@ public class IgniteSqlFunctionsTest {
         }
     }
 
+    // ROUND
+
     /** Tests for ROUND(x) function. */
     @Test
     public void testRound() {
@@ -296,11 +298,14 @@ public class IgniteSqlFunctionsTest {
     /** Tests for ROUND(x, s) function, where x is an int. */
     @ParameterizedTest
     @CsvSource({
-            "42,-2,0",
-            "42,-1,40",
-            "42,0,42",
-            "42,1,42",
-            "42,2,42",
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 50",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -50",
     })
     public void testRound2IntType(int input, int scale, int result) {
         assertEquals(result, IgniteSqlFunctions.sround(input, scale));
@@ -309,11 +314,14 @@ public class IgniteSqlFunctionsTest {
     /** Tests for ROUND(x, s) function, where x is an int. */
     @ParameterizedTest
     @CsvSource({
-            "42,-2,0",
-            "42,-1,40",
-            "42,0,42",
-            "42,1,42",
-            "42,2,42",
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 50",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -50",
     })
     public void testRound2LongType(long input, int scale, long result) {
         assertEquals(result, IgniteSqlFunctions.sround(input, scale));

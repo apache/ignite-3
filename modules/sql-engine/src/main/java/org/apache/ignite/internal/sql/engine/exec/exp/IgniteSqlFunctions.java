@@ -159,7 +159,7 @@ public class IgniteSqlFunctions {
             return b0;
         } else {
             long abs = (long) Math.pow(10, Math.abs(b1));
-            return b0/abs*abs;
+            return divide(b0, abs, RoundingMode.HALF_UP) * abs;
         }
     }
 
@@ -183,7 +183,6 @@ public class IgniteSqlFunctions {
         return sround(BigDecimal.valueOf(b0), b1).floatValue();
     }
 
-
     /** SQL {@code ROUND} operator applied to BigDecimal values. */
     public static BigDecimal sround(BigDecimal b0) {
         return b0.setScale(0, RoundingMode.HALF_UP);
@@ -191,6 +190,7 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code ROUND} operator applied to BigDecimal values. */
     public static BigDecimal sround(BigDecimal b0, int b1) {
+        // b0.movePointRight(b1).setScale(0, RoundingMode.DOWN).movePointLeft(b1);
         int originalScale = b0.scale();
 
         if (b1 >= originalScale) {
@@ -200,6 +200,62 @@ public class IgniteSqlFunctions {
         BigDecimal roundedValue = b0.setScale(b1, RoundingMode.HALF_UP);
         // Pad with zeros to match the original scale
         return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
+    }
+
+    // SQL TRUNCATE
+    /** SQL <code>TRUNCATE</code> operator applied to int values. */
+    public static int struncate(int b0) {
+        return sround(b0, 0);
+    }
+
+    public static int struncate(int b0, int b1) {
+        return sround(b0, b1);
+    }
+
+    /** SQL <code>TRUNCATE</code> operator applied to long values. */
+    public static long struncate(long b0) {
+        return struncate(b0, 0);
+    }
+
+    /** SQL <code>TRUNCATE</code> operator applied to long values. */
+    public static long struncate(long b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            long abs = (long) Math.pow(10, Math.abs(b1));
+            return divide(b0, abs, RoundingMode.HALF_DOWN) * abs;
+        }
+    }
+
+    /** SQL <code>TRUNCATE</code> operator applied to BigDecimal values. */
+    public static BigDecimal struncate(BigDecimal b0) {
+        return struncate(b0, 0);
+    }
+
+    public static BigDecimal struncate(BigDecimal b0, int b1) {
+        return b0.movePointRight(b1)
+                .setScale(0, RoundingMode.DOWN).movePointLeft(b1);
+    }
+
+    /** SQL <code>TRUNCATE</code> operator applied to float values. */
+    public static float struncate(float b0) {
+        return struncate(b0, 0);
+    }
+
+    public static float struncate(float b0, int b1) {
+        return struncate(BigDecimal.valueOf(b0), b1).floatValue();
+    }
+
+
+    /** SQL <code>TRUNCATE</code> operator applied to double values. */
+    public static double struncate(double b0) {
+        return struncate(b0, 0);
+    }
+
+    public static double struncate(double b0, int b1) {
+        return struncate(BigDecimal.valueOf(b0), b1).doubleValue();
     }
 
     /** CAST(DOUBLE AS DECIMAL). */
@@ -502,5 +558,32 @@ public class IgniteSqlFunctions {
                 SqlNode parent, CalciteConnectionConfig cfg) {
             return true;
         }
+    }
+
+    private static long divide(long p, long q, RoundingMode mode) {
+        // Stripped down version of guava's LongMath::divide.
+
+        long div = p / q;
+        long rem = p - q * div;
+
+        int signum = 1 | (int) ((p ^ q) >> (Long.SIZE - 1));
+        boolean increment;
+        switch (mode) {
+            case HALF_DOWN:
+            case HALF_UP:
+                long absRem = Math.abs(rem);
+                long cmpRemToHalfDivisor = absRem - (Math.abs(q) - absRem);
+
+                if (cmpRemToHalfDivisor == 0) { // exactly on the half mark
+                    increment = mode == RoundingMode.HALF_UP;
+                } else {
+                    increment = cmpRemToHalfDivisor > 0; // closer to the UP value
+                }
+                break;
+            default:
+                throw new AssertionError();
+        }
+
+        return increment ? div + signum : div;
     }
 }
