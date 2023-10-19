@@ -279,15 +279,19 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         private volatile List<String> nodes = List.of();
         private long ver = Long.MIN_VALUE;
 
-        synchronized void update(LogicalTopologySnapshot topologySnapshot) {
-            if (ver < topologySnapshot.version()) {
-                nodes = deriveNodeNames(topologySnapshot);
-                ver = topologySnapshot.version();
+        void update(LogicalTopologySnapshot topologySnapshot) {
+            synchronized (this) {
+                if (ver < topologySnapshot.version()) {
+                    nodes = deriveNodeNames(topologySnapshot);
+                    ver = topologySnapshot.version();
+                }
+
+                if (initialTopologyFuture.isDone() || !nodes.contains(localNodeName)) {
+                    return;
+                }
             }
 
-            if (!initialTopologyFuture.isDone() && nodes.contains(localNodeName)) {
-                initialTopologyFuture.complete(null);
-            }
+            initialTopologyFuture.complete(null);
         }
 
         List<String> nodes() {
