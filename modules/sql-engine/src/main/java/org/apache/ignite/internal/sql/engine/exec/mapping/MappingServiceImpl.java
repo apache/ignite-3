@@ -90,7 +90,9 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
         List<Fragment> fragments = multiStepPlan.fragments();
 
-        MappingContext context = new MappingContext(localNodeName, topologyHolder.nodes());
+        List<String> nodes = topologyHolder.nodes();
+
+        MappingContext context = new MappingContext(localNodeName, nodes);
 
         List<Fragment> fragments0 = Commons.transform(fragments, fragment -> fragment.attach(context.cluster()));
 
@@ -228,11 +230,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     @Override
     public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
         topologyHolder.update(newTopology);
-    }
-
-    @Override
-    public void onNodeInvalidated(LogicalNode invalidatedNode) {
-        LogicalTopologyEventListener.super.onNodeInvalidated(invalidatedNode);
     }
 
     private static List<Fragment> replace(
