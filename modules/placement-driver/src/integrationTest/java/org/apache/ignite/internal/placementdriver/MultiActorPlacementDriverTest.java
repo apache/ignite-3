@@ -290,6 +290,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @Test
     public void testLeaseCreate() throws Exception {
+        //
         TablePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, true);
