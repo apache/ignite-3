@@ -32,7 +32,6 @@ import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Validates schema compatibility.
@@ -48,19 +47,19 @@ class SchemaCompatValidator {
     }
 
     /**
-     * Performs commit forward compatibility validation. That is, for each table enlisted in the transaction, checks to see whether the
-     * initial schema (identified by the begin timestamp) is forward-compatible with the commit schema (identified by the commit
-     * timestamp).
+     * Performs commit validation. That is, checks that each table enlisted in the tranasction still exists at the commit timestamp,
+     * and that the initial schema of the table (identified by the begin timestamp) is forward-compatible with the commit schema
+     * (identified by the commit timestamp).
      *
      * @param txId ID of the transaction that gets validated.
      * @param enlistedGroupIds IDs of the partitions that are enlisted with the transaction.
-     * @param commitTimestamp Commit timestamp (or {@code null} if it's an abort).
+     * @param commitTimestamp Commit timestamp.
      * @return Future of validation result.
      */
-    CompletableFuture<CompatValidationResult> validateForward(
+    CompletableFuture<CompatValidationResult> validateCommit(
             UUID txId,
             Collection<TablePartitionId> enlistedGroupIds,
-            @Nullable HybridTimestamp commitTimestamp
+            HybridTimestamp commitTimestamp
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
@@ -68,23 +67,18 @@ class SchemaCompatValidator {
                 .map(TablePartitionId::tableId)
                 .collect(toSet());
 
-        assert commitTimestamp != null;
         // Using compareTo() instead of after()/begin() because the latter methods take clock skew into account
         // which only makes sense when comparing 'unrelated' timestamps. beginTs and commitTs have a causal relationship,
         // so we don't need to account for clock skew.
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
         return schemas.waitForSchemasAvailability(commitTimestamp)
-                .thenApply(ignored -> validateForwardSchemasCompatibility(tableIds, commitTimestamp, beginTimestamp));
+                .thenApply(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp));
     }
 
-    private CompatValidationResult validateForwardSchemasCompatibility(
-            Set<Integer> tableIds,
-            HybridTimestamp commitTimestamp,
-            HybridTimestamp beginTimestamp
-    ) {
+    private CompatValidationResult validateCommit(Set<Integer> tableIds, HybridTimestamp commitTimestamp, HybridTimestamp beginTimestamp) {
         for (int tableId : tableIds) {
-            CompatValidationResult validationResult = validateForwardSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
+            CompatValidationResult validationResult = validateCommit(beginTimestamp, commitTimestamp, tableId);
 
             if (!validationResult.isSuccessful()) {
                 return validationResult;
@@ -94,6 +88,29 @@ class SchemaCompatValidator {
         return CompatValidationResult.success();
     }
 
+    private CompatValidationResult validateCommit(HybridTimestamp beginTimestamp, HybridTimestamp commitTimestamp, int tableId) {
+        CatalogTableDescriptor tableAtCommitTs = catalogService.table(tableId, commitTimestamp.longValue());
+
+        if (tableAtCommitTs == null) {
+            CatalogTableDescriptor tableAtTxStart = catalogService.table(tableId, beginTimestamp.longValue());
+            assert tableAtTxStart != null : "No table " + tableId + " at ts " + beginTimestamp;
+
+            return CompatValidationResult.tableDropped(tableId, tableAtTxStart.schemaId());
+        }
+
+        return validateForwardSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
+    }
+
+    /**
+     * Performs forward compatibility validation. That is, for the given table, checks to see whether the
+     * initial schema (identified by the begin timestamp) is forward-compatible with the commit schema (identified by the commit
+     * timestamp).
+     *
+     * @param beginTimestamp Begin timestamp of a transaction.
+     * @param commitTimestamp Commit timestamp.
+     * @param tableId ID of the table that is under validation.
+     * @return Validation result.
+     */
     private CompatValidationResult validateForwardSchemaCompatibility(
             HybridTimestamp beginTimestamp,
             HybridTimestamp commitTimestamp,
@@ -107,7 +124,7 @@ class SchemaCompatValidator {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
             if (!isForwardCompatible(oldSchema, newSchema)) {
-                return CompatValidationResult.failure(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
+                return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
             }
         }
 
@@ -160,7 +177,7 @@ class SchemaCompatValidator {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
             if (!isBackwardCompatible(oldSchema, newSchema)) {
-                return CompatValidationResult.failure(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
+                return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
             }
         }
 
@@ -178,7 +195,10 @@ class SchemaCompatValidator {
         CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
 
         assert tableAtBeginTs != null;
-        assert tableAtOpTs != null;
+
+        if (tableAtOpTs == null) {
+            throw new IncompatibleSchemaException(String.format("Table was dropped [table=%d]", tableId));
+        }
 
         if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
             throw new IncompatibleSchemaException(

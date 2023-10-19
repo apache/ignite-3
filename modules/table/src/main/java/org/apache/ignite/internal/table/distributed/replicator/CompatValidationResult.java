@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Result of a schema compatibility validation.
  */
@@ -26,7 +28,7 @@ public class CompatValidationResult {
     private final boolean successful;
     private final int failedTableId;
     private final int fromSchemaVersion;
-    private final int toSchemaVersion;
+    private final @Nullable Integer toSchemaVersion;
 
     /**
      * Returns a successful validation result.
@@ -38,18 +40,29 @@ public class CompatValidationResult {
     }
 
     /**
-     * Creates a validation result denoting validation failure.
+     * Creates a validation result denoting incompatible schema change.
      *
      * @param failedTableId Table which schema change is incompatible.
      * @param fromSchemaVersion Version number of the schema from which an incompatible transition tried to be made.
      * @param toSchemaVersion Version number of the schema to which an incompatible transition tried to be made.
      * @return A validation result for a failure.
      */
-    public static CompatValidationResult failure(int failedTableId, int fromSchemaVersion, int toSchemaVersion) {
+    public static CompatValidationResult incompatibleChange(int failedTableId, int fromSchemaVersion, int toSchemaVersion) {
         return new CompatValidationResult(false, failedTableId, fromSchemaVersion, toSchemaVersion);
     }
 
-    private CompatValidationResult(boolean successful, int failedTableId, int fromSchemaVersion, int toSchemaVersion) {
+    /**
+     * Creates a validation result denoting 'table already dropped when commit is made' situation.
+     *
+     * @param failedTableId Table which schema change is incompatible.
+     * @param fromSchemaVersion Version number of the schema from which an incompatible transition tried to be made.
+     * @return A validation result for a failure.
+     */
+    public static CompatValidationResult tableDropped(int failedTableId, int fromSchemaVersion) {
+        return new CompatValidationResult(false, failedTableId, fromSchemaVersion, null);
+    }
+
+    private CompatValidationResult(boolean successful, int failedTableId, int fromSchemaVersion, @Nullable Integer toSchemaVersion) {
         this.successful = successful;
         this.failedTableId = failedTableId;
         this.fromSchemaVersion = fromSchemaVersion;
@@ -63,6 +76,13 @@ public class CompatValidationResult {
      */
     public boolean isSuccessful() {
         return successful;
+    }
+
+    /**
+     * Returns whether the validation has failed due to table was already dropped at the commit timestamp.
+     */
+    public boolean tableDropped() {
+        return !successful && toSchemaVersion == null;
     }
 
     /**
@@ -95,6 +115,7 @@ public class CompatValidationResult {
      */
     public int toSchemaVersion() {
         assert !successful : "Should not be called on a successful result";
+        assert toSchemaVersion != null : "Should not be called when there is no toSchemaVersion";
 
         return toSchemaVersion;
     }

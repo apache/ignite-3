@@ -94,6 +94,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -211,6 +212,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final int FUTURE_SCHEMA_ROW_INDEXED_VALUE = 0;
 
     private static final int TABLE_ID = 1;
+
+    private static final int ANOTHER_TABLE_ID = 2;
 
     private final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
 
@@ -1099,6 +1102,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> doSingleRowPkRequest(UUID txId, BinaryRow binaryRow, RequestType requestType) {
+        return doSingleRowPkRequest(txId, binaryRow, requestType, false);
+    }
+
+    private CompletableFuture<?> doSingleRowPkRequest(UUID txId, BinaryRow binaryRow, RequestType requestType, boolean full) {
         return partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
                         .groupId(grpId)
                         .transactionId(txId)
@@ -1106,6 +1113,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .primaryKey(binaryRow.tupleSlice())
                         .term(1L)
                         .commitPartitionId(commitPartitionId())
+                        .full(full)
                         .build(),
                 localNode.id()
         );
@@ -1700,13 +1708,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void failsWhenFullScanReadsTupleWithIncompatibleSchemaFromFuture() {
+    public void failsWhenScanReadsTupleWithIncompatibleSchemaFromFuture() {
         testFailsWhenReadingFromFutureIncompatibleSchema(
-                (targetTxId, key) -> doRwFullScanRetrieveBatchRequest(targetTxId, false)
+                (targetTxId, key) -> doRwScanRetrieveBatchRequest(targetTxId)
         );
     }
 
-    private CompletableFuture<?> doRwFullScanRetrieveBatchRequest(UUID targetTxId, boolean full) {
+    private CompletableFuture<?> doRwScanRetrieveBatchRequest(UUID targetTxId) {
         return partitionReplicaListener.invoke(
                 TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(grpId)
@@ -1714,7 +1722,19 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .term(1L)
                         .scanId(1)
                         .batchSize(100)
-                        .full(full)
+                        .full(false)
+                        .build(),
+                localNode.id()
+        );
+    }
+
+    private CompletableFuture<?> doRwScanCloseRequest(UUID targetTxId) {
+        return partitionReplicaListener.invoke(
+                TABLE_MESSAGES_FACTORY.readWriteScanCloseReplicaRequest()
+                        .groupId(grpId)
+                        .transactionId(targetTxId)
+                        .term(1L)
+                        .scanId(1)
                         .build(),
                 localNode.id()
         );
@@ -1826,11 +1846,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         if (RequestTypes.isSingleRowRwPkOnly(requestType)) {
             invocation = (targetTxId, key) -> {
-                return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
+                return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
             };
         } else if (RequestTypes.isSingleRowRwFullRow(requestType)) {
             invocation = (targetTxId, key) -> {
-                return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
+                return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
             };
         } else {
             fail("Uncovered type: " + requestType);
@@ -1865,13 +1885,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID txId = newTxId();
         HybridTimestamp txBeginTs = TransactionIds.beginTimestamp(txId);
 
-        CatalogTableDescriptor tableVersion1 = mock(CatalogTableDescriptor.class);
-        CatalogTableDescriptor tableVersion2 = mock(CatalogTableDescriptor.class);
-        when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
-        when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
-
-        when(catalogService.table(TABLE_ID, txBeginTs.longValue())).thenReturn(tableVersion1);
-        when(catalogService.table(eq(TABLE_ID), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
+        makeSchemaChangeAfter(txBeginTs);
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, key);
 
@@ -1892,6 +1906,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         } else {
             assertThat(future, willCompleteSuccessfully());
         }
+    }
+
+    private void makeSchemaChangeAfter(HybridTimestamp txBeginTs) {
+        CatalogTableDescriptor tableVersion1 = mock(CatalogTableDescriptor.class);
+        CatalogTableDescriptor tableVersion2 = mock(CatalogTableDescriptor.class);
+        when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
+        when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
+
+        when(catalogService.table(TABLE_ID, txBeginTs.longValue())).thenReturn(tableVersion1);
+        when(catalogService.table(eq(TABLE_ID), gt(txBeginTs.longValue()))).thenReturn(tableVersion2);
     }
 
     @CartesianTest
@@ -1944,13 +1968,187 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
-    void rwScanRequestFailsIfTableAlteredAfterTxStart(
+    void rwScanRequestFailsIfTableAlteredAfterTxStart(@Values(booleans = {false, true}) boolean onExistingRow) {
+        testRwOperationsFailIfTableAlteredAfterTxStart(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
+            return doRwScanRetrieveBatchRequest(targetTxId);
+        });
+    }
+
+    @Test
+    void rwScanCloseRequestSucceedsIfTableAlteredAfterTxStart() {
+        UUID txId = newTxId();
+        HybridTimestamp txBeginTs = TransactionIds.beginTimestamp(txId);
+
+        makeSchemaChangeAfter(txBeginTs);
+
+        CompletableFuture<?> future = doRwScanCloseRequest(txId);
+
+        assertThat(future, willCompleteSuccessfully());
+    }
+
+    @CartesianTest
+    @CartesianTest.MethodFactory("singleRowRwOperationTypesFactory")
+    void singleRowRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, boolean full) {
+        ListenerInvocation invocation = null;
+
+        if (RequestTypes.isSingleRowRwPkOnly(requestType)) {
+            invocation = (targetTxId, key) -> {
+                return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
+            };
+        } else if (RequestTypes.isSingleRowRwFullRow(requestType)) {
+            invocation = (targetTxId, key) -> {
+                return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
+            };
+        } else {
+            fail("Uncovered type: " + requestType);
+        }
+
+        testRwOperationsFailIfTableWasDropped(requestType, onExistingRow, invocation);
+    }
+
+    private void testRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, ListenerInvocation listenerInvocation) {
+        TestKey key = nextKey();
+
+        if (onExistingRow) {
+            upsertInNewTxFor(key);
+        }
+
+        UUID txId = newTxId();
+        HybridTimestamp txBeginTs = TransactionIds.beginTimestamp(txId);
+
+        makeTableBeDroppedAfter(txBeginTs);
+
+        CompletableFuture<?> future = listenerInvocation.invoke(txId, key);
+
+        boolean expectValidationFailure;
+        if (RequestTypes.neverMisses(requestType)) {
+            expectValidationFailure = true;
+        } else {
+            expectValidationFailure = onExistingRow == RequestTypes.writesIfKeyDoesNotExist(requestType);
+        }
+
+        if (expectValidationFailure) {
+            IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
+            assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+            assertThat(ex.getMessage(), is("Table was dropped [table=1]"));
+        } else {
+            assertThat(future, willCompleteSuccessfully());
+        }
+    }
+
+    private void makeTableBeDroppedAfter(HybridTimestamp txBeginTs) {
+        makeTableBeDroppedAfter(txBeginTs, TABLE_ID);
+    }
+
+    private void makeTableBeDroppedAfter(HybridTimestamp txBeginTs, int tableId) {
+        CatalogTableDescriptor tableVersion1 = mock(CatalogTableDescriptor.class);
+        when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
+
+        when(catalogService.table(tableId, txBeginTs.longValue())).thenReturn(tableVersion1);
+        when(catalogService.table(eq(tableId), gt(txBeginTs.longValue()))).thenReturn(null);
+    }
+
+    @CartesianTest
+    @CartesianTest.MethodFactory("multiRowRwOperationTypesFactory")
+    void multiRowRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, boolean full) {
+        ListenerInvocation invocation = null;
+
+        if (RequestTypes.isMultipleRowsRwPkOnly(requestType)) {
+            invocation = (targetTxId, key) -> {
+                return doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
+            };
+        } else if (RequestTypes.isMultipleRowsRwFullRows(requestType)) {
+            invocation = (targetTxId, key) -> {
+                return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
+            };
+        } else {
+            fail("Uncovered type: " + requestType);
+        }
+
+        testRwOperationsFailIfTableWasDropped(requestType, onExistingRow, invocation);
+    }
+
+    @CartesianTest
+    void replaceRequestFailsIfTableWasDropped(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testRwOperationsFailIfTableAlteredAfterTxStart(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
-            return doRwFullScanRetrieveBatchRequest(targetTxId, full);
+        testRwOperationsFailIfTableWasDropped(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
+            return doReplaceRequest(
+                    targetTxId,
+                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
+                    full
+            );
         });
+    }
+
+    @CartesianTest
+    void rwScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
+        testRwOperationsFailIfTableWasDropped(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
+            return doRwScanRetrieveBatchRequest(targetTxId);
+        });
+    }
+
+    @Test
+    void rwScanCloseRequestSucceedsIfTableWasDropped() {
+        UUID txId = newTxId();
+        HybridTimestamp txBeginTs = TransactionIds.beginTimestamp(txId);
+
+        makeTableBeDroppedAfter(txBeginTs);
+
+        CompletableFuture<?> future = doRwScanCloseRequest(txId);
+
+        assertThat(future, willCompleteSuccessfully());
+    }
+
+    @Test
+    void commitRequestFailsIfCommitPartitionTableWasDropped() {
+        testCommitRequestIfTableWasDropped(grpId, Set.of(grpId), grpId.tableId());
+    }
+
+    @Test
+    void commitRequestFailsIfNonCommitPartitionTableWasDropped() {
+        TablePartitionId anotherPartitionId = new TablePartitionId(ANOTHER_TABLE_ID, 0);
+
+        testCommitRequestIfTableWasDropped(grpId, Set.of(grpId, anotherPartitionId), anotherPartitionId.tableId());
+    }
+
+    private void testCommitRequestIfTableWasDropped(
+            TablePartitionId commitPartitionId,
+            Set<ReplicationGroupId> groups,
+            int tableToBeDroppedId
+    ) {
+        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
+                .thenReturn(List.of(
+                        tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col")))
+                ));
+        when(txManager.cleanup(any(), any(), any(), anyBoolean(), any())).thenReturn(completedFuture(null));
+
+        AtomicReference<Boolean> committed = interceptFinishTxCommand();
+
+        UUID txId = newTxId();
+        HybridTimestamp txBeginTs = TransactionIds.beginTimestamp(txId);
+
+        makeTableBeDroppedAfter(txBeginTs, tableToBeDroppedId);
+
+        CompletableFuture<?> future = partitionReplicaListener.invoke(
+                TX_MESSAGES_FACTORY.txFinishReplicaRequest()
+                        .groupId(commitPartitionId)
+                        .groups(groups)
+                        .txId(txId)
+                        .term(1L)
+                        .commit(true)
+                        .commitTimestampLong(clock.nowLong())
+                        .build(),
+                localNode.id()
+        );
+
+        IncompatibleSchemaAbortException ex = assertWillThrowFast(future, IncompatibleSchemaAbortException.class);
+        assertThat(ex.code(), is(Transactions.TX_COMMIT_ERR));
+        assertThat(ex.getMessage(), is("Commit failed because a table was already dropped [tableId=" + tableToBeDroppedId + "]"));
+
+        assertThat("The transaction must have been aborted", committed.get(), is(false));
     }
 
     private UUID newTxId() {

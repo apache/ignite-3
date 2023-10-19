@@ -72,6 +72,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -1283,7 +1284,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request.commit()) {
             HybridTimestamp commitTimestamp = request.commitTimestamp();
 
-            return schemaCompatValidator.validateForward(txId, enlistedGroups, commitTimestamp)
+            return schemaCompatValidator.validateCommit(txId, enlistedGroups, commitTimestamp)
                     .thenCompose(validationResult -> {
                         return finishAndCleanup(
                                 enlistedGroups,
@@ -1301,9 +1302,15 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult) {
         if (!validationResult.isSuccessful()) {
-            throw new IncompatibleSchemaAbortException("Commit failed because schema "
-                    + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+            if (validationResult.tableDropped()) {
+                throw new IncompatibleSchemaAbortException(
+                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId())
+                );
+            } else {
+                throw new IncompatibleSchemaAbortException("Commit failed because schema "
+                        + validationResult.fromSchemaVersion() + " is not forward-compatible with "
+                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+            }
         }
     }
 

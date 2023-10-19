@@ -52,13 +52,16 @@ import org.apache.ignite.internal.type.VarlenNativeType;
 public class NonHistoricSchemas implements Schemas {
     private final CatalogSchemaManager schemaManager;
 
-    public NonHistoricSchemas(CatalogSchemaManager schemaManager) {
+    private final SchemaSyncService schemaSyncService;
+
+    public NonHistoricSchemas(CatalogSchemaManager schemaManager, SchemaSyncService schemaSyncService) {
         this.schemaManager = schemaManager;
+        this.schemaSyncService = schemaSyncService;
     }
 
     @Override
     public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
-        return completedFuture(null);
+        return schemaSyncService.waitForMetadataCompleteness(ts);
     }
 
     @Override
