@@ -80,7 +80,7 @@ distZip {
     dependsOn replacePackageScriptVars
 }
 
-distTar{
+distTar {
     onlyIf {
         project.hasProperty('odbc.enable')
     }
