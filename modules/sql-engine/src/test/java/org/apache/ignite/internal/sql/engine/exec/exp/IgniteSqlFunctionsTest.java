@@ -302,8 +302,8 @@ public class IgniteSqlFunctionsTest {
             "42,1,42",
             "42,2,42",
     })
-    public void testRound2IntType(int input, int scale, int expected) {
-        assertEquals(expected, IgniteSqlFunctions.sround(input, scale), "int");
+    public void testRound2IntType(int input, int scale, int result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
     }
 
     /** Tests for ROUND(x, s) function, where x is an int. */
@@ -315,7 +315,7 @@ public class IgniteSqlFunctionsTest {
             "42,1,42",
             "42,2,42",
     })
-    public void testRound2LongType(long input, int scale, long expected) {
-        assertEquals(expected, IgniteSqlFunctions.sround(input, scale), "int");
+    public void testRound2LongType(long input, int scale, long result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
     }
 }
