@@ -23,6 +23,7 @@ import static org.apache.calcite.runtime.SqlFunctions.charLength;
 import static org.apache.calcite.runtime.SqlFunctions.octetLength;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
+import com.google.common.math.LongMath;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -563,8 +564,8 @@ public class IgniteSqlFunctions {
     private static long divide(long p, long q, RoundingMode mode) {
         // Stripped down version of guava's LongMath::divide.
 
-        long div = p / q;
-        long rem = p - q * div;
+        long div = p / q; // throws if q == 0
+        long rem = p - q * div; // equals p % q
 
         int signum = 1 | (int) ((p ^ q) >> (Long.SIZE - 1));
         boolean increment;
