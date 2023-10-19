@@ -461,7 +461,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @UseTestTxStateStorage
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20640")
     void testDestroyPartitionStoragesOnEvictNode() throws Exception {
         Node node = getNode(0);
 
@@ -567,7 +567,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20640")
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
 

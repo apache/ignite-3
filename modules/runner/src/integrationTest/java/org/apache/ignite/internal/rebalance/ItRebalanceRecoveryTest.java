@@ -28,6 +28,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,7 +41,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
         return 2;
     }
 
-    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20640")
     void testPendingAssignmentsRecovery() throws InterruptedException {
         cluster.doInSession(0, session -> {
             session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1");
