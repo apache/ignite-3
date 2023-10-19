@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -481,6 +482,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
         return runAsync(runnable, cleanupExecutor);
+    }
+
+    @Override
+    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
+        return supplyAsync(action, cleanupExecutor).thenCompose(f -> f);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
