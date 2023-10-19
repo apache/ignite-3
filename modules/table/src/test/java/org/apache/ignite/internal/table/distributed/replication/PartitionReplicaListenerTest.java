@@ -1584,7 +1584,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
     }
 
-    private void testFailsWhenReadingFromFutureIncompatibleSchema(ListenerInvocation listenerInvocation) {
+    private void testFailsWhenReadingFromFutureIncompatibleSchema(RwListenerInvocation listenerInvocation) {
         UUID targetTxId = transactionIdFor(clock.now());
 
         TestKey key = simulateWriteWithSchemaVersionFromFuture();
@@ -1789,7 +1789,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .map(Arguments::of);
     }
 
-    private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, ListenerInvocation listenerInvocation) {
+    private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, RwListenerInvocation listenerInvocation) {
         TestKey key = nextKey();
 
         if (RequestTypes.looksUpFirst(requestType)) {
@@ -1807,10 +1807,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
 
         assertThat(future, willCompleteSuccessfully());
-
-        // Make sure metadata completeness is awaited for (at operation timestamp, that is, later than beginTs).
-        //noinspection ConstantConditions
-        verify(schemaSyncService).waitForMetadataCompleteness(gt(beginTs));
 
         // Make sure catalog required version is filled in the executed update command.
         verify(mockRaftClient, atLeast(1)).run(commandCaptor.capture());
@@ -1869,7 +1865,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             boolean onExistingRow,
             boolean full
     ) {
-        ListenerInvocation invocation = null;
+        RwListenerInvocation invocation = null;
 
         if (RequestTypes.isSingleRowRwPkOnly(requestType)) {
             invocation = (targetTxId, key) -> {
@@ -1901,7 +1897,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void testRwOperationFailsIfTableWasAlteredAfterTxStart(
             RequestType requestType,
             boolean onExistingRow,
-            ListenerInvocation listenerInvocation
+            RwListenerInvocation listenerInvocation
     ) {
         TestKey key = nextKey();
 
@@ -1950,7 +1946,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     void multiRowRwOperationsFailIfTableAlteredAfterTxStart(
             RequestType requestType, boolean onExistingRow, boolean full
     ) {
-        ListenerInvocation invocation = null;
+        RwListenerInvocation invocation = null;
 
         if (RequestTypes.isMultipleRowsRwPkOnly(requestType)) {
             invocation = (targetTxId, key) -> {
@@ -2016,7 +2012,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @CartesianTest
     @CartesianTest.MethodFactory("singleRowRwOperationTypesFactory")
     void singleRowRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, boolean full) {
-        ListenerInvocation invocation = null;
+        RwListenerInvocation invocation = null;
 
         if (RequestTypes.isSingleRowRwPkOnly(requestType)) {
             invocation = (targetTxId, key) -> {
@@ -2030,10 +2026,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             fail("Uncovered type: " + requestType);
         }
 
-        testOperationFailsIfTableWasDropped(requestType, onExistingRow, invocation);
+        testRwOperationFailsIfTableWasDropped(onExistingRow, invocation);
     }
 
-    private void testOperationFailsIfTableWasDropped(RequestType requestType, boolean onExistingRow, ListenerInvocation listenerInvocation) {
+    private void testRwOperationFailsIfTableWasDropped(boolean onExistingRow, RwListenerInvocation listenerInvocation) {
         TestKey key = nextKey();
 
         if (onExistingRow) {
@@ -2067,7 +2063,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @CartesianTest
     @CartesianTest.MethodFactory("multiRowRwOperationTypesFactory")
     void multiRowRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, boolean full) {
-        ListenerInvocation invocation = null;
+        RwListenerInvocation invocation = null;
 
         if (RequestTypes.isMultipleRowsRwPkOnly(requestType)) {
             invocation = (targetTxId, key) -> {
@@ -2081,7 +2077,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             fail("Uncovered type: " + requestType);
         }
 
-        testOperationFailsIfTableWasDropped(requestType, onExistingRow, invocation);
+        testRwOperationFailsIfTableWasDropped(onExistingRow, invocation);
     }
 
     @CartesianTest
@@ -2089,7 +2085,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testOperationFailsIfTableWasDropped(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
+        testRwOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
                     marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
@@ -2101,7 +2097,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     void rwScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
-        testOperationFailsIfTableWasDropped(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
+        testRwOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, key) -> {
             return doRwScanRetrieveBatchRequest(targetTxId);
         });
     }
@@ -2123,13 +2119,32 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow
     ) {
-        testOperationFailsIfTableWasDropped(RequestType.RO_GET, onExistingRow, (targetTxId, key) -> {
+        testRoOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, readTimestamp, key) -> {
             if (direct) {
                 return doReadOnlyDirectSingleGet(marshalQuietly(key, kvMarshaller).tupleSlice());
             } else {
-                return doReadOnlySingleGet(marshalQuietly(key, kvMarshaller).tupleSlice(), clock.now());
+                return doReadOnlySingleGet(marshalQuietly(key, kvMarshaller).tupleSlice(), readTimestamp);
             }
         });
+    }
+
+    private void testRoOperationFailsIfTableWasDropped(boolean onExistingRow, RoListenerInvocation listenerInvocation) {
+        TestKey key = nextKey();
+
+        if (onExistingRow) {
+            upsertInNewTxFor(key);
+        }
+
+        UUID txId = newTxId();
+        HybridTimestamp readTs = clock.now();
+
+        when(catalogService.table(eq(TABLE_ID), anyLong())).thenReturn(null);
+
+        CompletableFuture<?> future = listenerInvocation.invoke(txId, readTs, key);
+
+        IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
+        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+        assertThat(ex.getMessage(), is("Table was dropped [table=1]"));
     }
 
     @CartesianTest
@@ -2137,19 +2152,19 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow
     ) {
-        testOperationFailsIfTableWasDropped(RequestType.RO_GET_ALL, onExistingRow, (targetTxId, key) -> {
+        testRoOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, readTimestamp, key) -> {
             if (direct) {
                 return doReadOnlyDirectMultiGet(List.of(marshalQuietly(key, kvMarshaller)));
             } else {
-                return doReadOnlyMultiGet(List.of(marshalQuietly(key, kvMarshaller)), clock.now());
+                return doReadOnlyMultiGet(List.of(marshalQuietly(key, kvMarshaller)), readTimestamp);
             }
         });
     }
 
     @CartesianTest
     void roScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
-        testOperationFailsIfTableWasDropped(RequestType.RO_SCAN, onExistingRow, (targetTxId, key) -> {
-            return doRoScanRetrieveBatchRequest(targetTxId, clock.now());
+        testRoOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, readTimestamp, key) -> {
+            return doRoScanRetrieveBatchRequest(targetTxId, readTimestamp);
         });
     }
 
@@ -2444,7 +2459,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @FunctionalInterface
-    private interface ListenerInvocation {
+    private interface RwListenerInvocation {
         CompletableFuture<?> invoke(UUID targetTxId, TestKey key);
+    }
+
+    @FunctionalInterface
+    private interface RoListenerInvocation {
+        CompletableFuture<?> invoke(UUID targetTxId, HybridTimestamp readTimestamp, TestKey key);
     }
 }

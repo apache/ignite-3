@@ -197,7 +197,7 @@ class SchemaCompatValidator {
         assert tableAtBeginTs != null;
 
         if (tableAtOpTs == null) {
-            throw new IncompatibleSchemaException(String.format("Table was dropped [table=%d]", tableId));
+            throw tableWasDroppedException(tableId);
         }
 
         if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
@@ -207,6 +207,18 @@ class SchemaCompatValidator {
                             tableId, tableAtBeginTs.tableVersion(), tableAtOpTs.tableVersion()
                     )
             );
+        }
+    }
+
+    private static IncompatibleSchemaException tableWasDroppedException(int tableId) {
+        return new IncompatibleSchemaException(String.format("Table was dropped [table=%d]", tableId));
+    }
+
+    void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, int tableId) {
+        CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
+
+        if (tableAtOpTs == null) {
+            throw tableWasDroppedException(tableId);
         }
     }
 }

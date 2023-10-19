@@ -460,9 +460,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        CompletableFuture<Void> waitForSchemas = waitForSchemasBeforeReading(request);
-
-        return waitForSchemas.thenCompose(unused -> processOperationRequest(request, isPrimary, senderId));
+        return waitForSchemasBeforeReading(request)
+                .thenCompose(unused -> validateTableExistence(request))
+                .thenCompose(opStartTimestamp -> processOperationRequest(request, isPrimary, senderId, opStartTimestamp));
     }
 
     /**
@@ -487,7 +487,40 @@ public class PartitionReplicaListener implements ReplicaListener {
         return tsToWaitForSchemas == null ? completedFuture(null) : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchemas);
     }
 
-    private CompletableFuture<?> processOperationRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
+    private CompletableFuture<HybridTimestamp> validateTableExistence(ReplicaRequest request) {
+        HybridTimestamp opStartTs;
+
+        if (request instanceof ReadWriteScanCloseReplicaRequest) {
+            // We don't need to validate close request for table existence.
+            opStartTs = null;
+        } else if (request instanceof ReadWriteReplicaRequest) {
+            opStartTs = hybridClock.now();
+        } else if (request instanceof ReadOnlyReplicaRequest) {
+            opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
+        } else if (request instanceof ReadOnlyDirectReplicaRequest) {
+            opStartTs = hybridClock.now();
+        } else {
+            opStartTs = null;
+        }
+
+        if (opStartTs == null) {
+            return completedFuture(null);
+        }
+
+        return schemaSyncService.waitForMetadataCompleteness(opStartTs)
+                .thenApply(unused -> {
+                    schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId());
+
+                    return opStartTs;
+                });
+    }
+
+    private CompletableFuture<?> processOperationRequest(
+            ReplicaRequest request,
+            @Nullable Boolean isPrimary,
+            String senderId,
+            HybridTimestamp opStartTimestamp
+    ) {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -551,9 +584,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof BuildIndexReplicaRequest) {
             return raftClient.run(toBuildIndexCommand((BuildIndexReplicaRequest) request));
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
-            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request);
+            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTimestamp);
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
-            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request);
+            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTimestamp);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -1819,13 +1852,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes multiple entries direct request for read only transaction.
      *
      * @param request Read only multiple entries request.
+     * @param opStartTimestamp Moment when the operation processing was started in this class.
      * @return Result future.
      */
     private CompletableFuture<List<BinaryRow>> processReadOnlyDirectMultiEntryAction(
-            ReadOnlyDirectMultiRowReplicaRequest request
-    ) {
+            ReadOnlyDirectMultiRowReplicaRequest request,
+            HybridTimestamp opStartTimestamp) {
         List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
-        HybridTimestamp readTimestamp = hybridClock.now();
+        HybridTimestamp readTimestamp = opStartTimestamp;
 
         if (request.requestType() != RequestType.RO_GET_ALL) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
@@ -2466,11 +2500,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes single entry direct request for read only transaction.
      *
      * @param request Read only single entry request.
+     * @param opStartTimestamp Moment when the operation processing was started in this class.
      * @return Result future.
      */
-    private CompletableFuture<BinaryRow> processReadOnlyDirectSingleEntryAction(ReadOnlyDirectSingleRowReplicaRequest request) {
+    private CompletableFuture<BinaryRow> processReadOnlyDirectSingleEntryAction(
+            ReadOnlyDirectSingleRowReplicaRequest request,
+            HybridTimestamp opStartTimestamp
+    ) {
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
-        HybridTimestamp readTimestamp = hybridClock.now();
+        HybridTimestamp readTimestamp = opStartTimestamp;
 
         if (request.requestType() != RequestType.RO_GET) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
