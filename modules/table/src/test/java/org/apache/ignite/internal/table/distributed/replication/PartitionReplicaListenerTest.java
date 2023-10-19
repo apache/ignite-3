@@ -1883,7 +1883,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             fail("Uncovered type: " + requestType);
         }
 
-        testRwOperationsFailIfTableAlteredAfterTxStart(requestType, onExistingRow, invocation);
+        testRwOperationFailsIfTableWasAlteredAfterTxStart(requestType, onExistingRow, invocation);
     }
 
     @SuppressWarnings("unused")
@@ -1898,7 +1898,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .filter(RequestTypes::isSingleRowRw);
     }
 
-    private void testRwOperationsFailIfTableAlteredAfterTxStart(
+    private void testRwOperationFailsIfTableWasAlteredAfterTxStart(
             RequestType requestType,
             boolean onExistingRow,
             ListenerInvocation listenerInvocation
@@ -1964,7 +1964,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             fail("Uncovered type: " + requestType);
         }
 
-        testRwOperationsFailIfTableAlteredAfterTxStart(requestType, onExistingRow, invocation);
+        testRwOperationFailsIfTableWasAlteredAfterTxStart(requestType, onExistingRow, invocation);
     }
 
     @SuppressWarnings("unused")
@@ -1984,7 +1984,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testRwOperationsFailIfTableAlteredAfterTxStart(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
+        testRwOperationFailsIfTableWasAlteredAfterTxStart(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
                     marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
@@ -1996,7 +1996,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     void rwScanRequestFailsIfTableAlteredAfterTxStart(@Values(booleans = {false, true}) boolean onExistingRow) {
-        testRwOperationsFailIfTableAlteredAfterTxStart(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
+        testRwOperationFailsIfTableWasAlteredAfterTxStart(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
             return doRwScanRetrieveBatchRequest(targetTxId);
         });
     }
