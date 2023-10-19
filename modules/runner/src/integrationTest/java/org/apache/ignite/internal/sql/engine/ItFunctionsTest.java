@@ -30,19 +30,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
 import java.util.stream.Stream;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
@@ -394,7 +388,7 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
     /** Test cases for ROUND function that accepts real, double types. */
     @TestFactory
-    public Stream<DynamicTest> testRound() {
+    public Stream<DynamicTest> testRoundFloatingPoint() {
         class RoundTest implements Executable {
 
             final NumType numType;

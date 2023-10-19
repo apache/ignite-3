@@ -132,22 +132,35 @@ public class IgniteSqlFunctions {
 
     /** SQL {@code ROUND} operator applied to int values. */
     public static int sround(int b0) {
-        return sround(BigDecimal.valueOf(b0)).intValue();
+        return sround(b0, 0);
     }
 
     /** SQL {@code ROUND} operator applied to int values. */
     public static int sround(int b0, int b1) {
-        return sround(BigDecimal.valueOf(b0), b1).intValue();
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            return (int) sround((long) b0, b1);
+        }
     }
 
     /** SQL {@code ROUND} operator applied to long values. */
     public static long sround(long b0) {
-        return sround(BigDecimal.valueOf(b0)).longValue();
+        return sround(b0, 0);
     }
 
     /** SQL {@code ROUND} operator applied to long values. */
     public static long sround(long b0, int b1) {
-        return sround(BigDecimal.valueOf(b0), b1).longValue();
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            long abs = (long) Math.pow(10, Math.abs(b1));
+            return b0/abs*abs;
+        }
     }
 
     /** SQL {@code ROUND} operator applied to double values. */
@@ -159,6 +172,17 @@ public class IgniteSqlFunctions {
     public static double sround(double b0, int b1) {
         return sround(BigDecimal.valueOf(b0), b1).doubleValue();
     }
+
+    /** SQL {@code ROUND} operator applied to float values. */
+    public static float sround(float b0) {
+        return sround(BigDecimal.valueOf(b0)).floatValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to float values. */
+    public static float sround(float b0, int b1) {
+        return sround(BigDecimal.valueOf(b0), b1).floatValue();
+    }
+
 
     /** SQL {@code ROUND} operator applied to BigDecimal values. */
     public static BigDecimal sround(BigDecimal b0) {
