@@ -62,8 +62,9 @@ import org.jetbrains.annotations.Nullable;
  * the queue).
  */
 public class HeapLockManager implements LockManager {
-    private static final int HASH_BITS = 0x7fffffff;
-
+    /**
+     * Table size. TODO make it configurable IGNITE-20694
+     */
     private static final int SLOTS = 131072;
 
     /**
