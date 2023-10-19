@@ -2047,20 +2047,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, key);
 
-        boolean expectValidationFailure;
-        if (RequestTypes.neverMisses(requestType)) {
-            expectValidationFailure = true;
-        } else {
-            expectValidationFailure = onExistingRow == RequestTypes.writesIfKeyDoesNotExist(requestType);
-        }
-
-        if (expectValidationFailure) {
-            IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
-            assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
-            assertThat(ex.getMessage(), is("Table was dropped [table=1]"));
-        } else {
-            assertThat(future, willCompleteSuccessfully());
-        }
+        IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
+        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+        assertThat(ex.getMessage(), is("Table was dropped [table=1]"));
     }
 
     private void makeTableBeDroppedAfter(HybridTimestamp txBeginTs) {
