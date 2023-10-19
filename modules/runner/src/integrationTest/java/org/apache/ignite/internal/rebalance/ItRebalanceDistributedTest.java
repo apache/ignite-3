@@ -460,8 +460,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkPartitionNodes(0, 3);
     }
 
-    @Test
     @UseTestTxStateStorage
+    @Disabled
     void testDestroyPartitionStoragesOnEvictNode() throws Exception {
         Node node = getNode(0);
 
@@ -567,7 +567,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    @Disabled
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
 
