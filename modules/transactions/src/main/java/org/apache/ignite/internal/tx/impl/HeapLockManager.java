@@ -63,7 +63,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class HeapLockManager implements LockManager {
     private static final int HASH_BITS = 0x7fffffff;
-    private static final int SLOTS = 131059;
+
+    private static final int SLOTS = 131072;
 
     /**
      * Lock queues.
@@ -82,6 +83,16 @@ public class HeapLockManager implements LockManager {
      * Enlisted transactions.
      */
     private final ConcurrentHashMap<UUID, ConcurrentLinkedQueue<LockState>> txMap = new ConcurrentHashMap<>(1024);
+
+    /**
+     * {@code True} to record acquired locks
+     */
+    private boolean record;
+
+    /**
+     * Recorded locks.
+     */
+    private final List<Lock> recordedLocks = new ArrayList<>();
 
     /**
      * Constructor.
@@ -124,7 +135,15 @@ public class HeapLockManager implements LockManager {
 
         LockMode newLockMode = futureTuple.get2();
 
-        return futureTuple.get1().thenApply(res -> new Lock(lockKey, newLockMode, txId));
+        return futureTuple.get1().thenApply(res -> {
+            Lock lock = new Lock(lockKey, newLockMode, txId);
+
+            if (record) {
+                recordedLocks.add(lock);
+            }
+
+            return lock;
+        });
     }
 
     @Override
@@ -176,9 +195,8 @@ public class HeapLockManager implements LockManager {
      * @param key The key.
      */
     private LockState lockState(LockKey key) {
-        int hash = key.hashCode();
-        int h = hash & HASH_BITS; // spread(key.hashCode());
-        int index = h % slots.length; // h & (size - 1);
+        int h = spread(key.hashCode());
+        int index = h & (slots.length - 1);
         return slots[index];
     }
 
@@ -773,6 +791,16 @@ public class HeapLockManager implements LockManager {
         public String toString() {
             return S.toString(WaiterImpl.class, this, "isDone", fut.isDone());
         }
+    }
+
+    @Override
+    public void recordLocks(boolean mode) {
+        record = mode;
+    }
+
+    @Override
+    public List<Lock> recordedLocks() {
+        return recordedLocks;
     }
 
     private static int spread(int h) {

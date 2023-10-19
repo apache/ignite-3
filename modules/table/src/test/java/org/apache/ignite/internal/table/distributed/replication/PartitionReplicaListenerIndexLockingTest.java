@@ -31,7 +31,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -300,12 +299,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
+        LOCK_MANAGER.recordLocks(true);
         CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
 
         await(fut);
 
         assertThat(
-                locks(),
+                LOCK_MANAGER.recordedLocks(),
                 allOf(
                         hasItem(lockThat(
                                 arg.expectedLockOnUniqueHash + " on unique hash index",
@@ -378,13 +378,14 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
+        LOCK_MANAGER.recordLocks(true);
         CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
 
         await(fut);
 
         for (BinaryRow row : rows) {
             assertThat(
-                    locks(),
+                    LOCK_MANAGER.recordedLocks(),
                     allOf(
                             hasItem(lockThat(
                                     arg.expectedLockOnUniqueHash + " on unique hash index",
@@ -430,18 +431,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new ReadWriteTestArg(RequestType.RW_INSERT_ALL, LockMode.X, LockMode.IX, LockMode.X),
                 new ReadWriteTestArg(RequestType.RW_UPSERT_ALL, LockMode.X, LockMode.IX, LockMode.X)
         );
-    }
-
-    private List<Lock> locks() {
-        List<Lock> locks = new ArrayList<>();
-
-        Iterator<Lock> it = LOCK_MANAGER.locks(TRANSACTION_ID);
-
-        while (it.hasNext()) {
-            locks.add(it.next());
-        }
-
-        return locks;
     }
 
     private void insertRows(List<Pair<BinaryRow, RowId>> rows, UUID txId) {
