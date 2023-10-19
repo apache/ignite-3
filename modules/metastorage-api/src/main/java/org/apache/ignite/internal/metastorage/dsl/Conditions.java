@@ -258,7 +258,7 @@ public final class Conditions {
 
     /**
      * Produces the condition of type {@link ConditionType#NOT_TOMBSTONE}. This condition tests that an entry's value, identified by the
-     * given key, is not tombstone.
+     * given key, is not a tombstone.
      *
      * @return The condition of type {@link ConditionType#NOT_TOMBSTONE}.
      */
