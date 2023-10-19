@@ -249,5 +249,5 @@ public abstract class AbstractRpcTest {
      * @param expected Expected count.
      * @param timeout The timeout in millis.
      */
-    protected abstract boolean waitForTopology(RpcClient client, int expected, long timeout);
+    protected abstract boolean waitForTopology(RpcClient client, int expected, int timeout);
 }
