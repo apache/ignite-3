@@ -306,7 +306,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider, taskExecutor);
 
         logicalTopologyService.addEventListener(mappingService);
-        logicalTopologyService.logicalTopologyOnLeader().thenAccept(mappingService::onTopologyLeap);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
