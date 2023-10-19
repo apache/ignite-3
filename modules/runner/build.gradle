@@ -77,7 +77,6 @@ dependencies {
     implementation project(':ignite-security-api')
     implementation project(':ignite-security')
     implementation project(':ignite-catalog')
-    implementation project(':ignite-system-view-api')
     implementation project(':ignite-system-view')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
@@ -149,7 +148,6 @@ dependencies {
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-system-view')
-    integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

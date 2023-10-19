@@ -107,6 +107,6 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
         ColumnParams column = ColumnParams.builder().name("C").type(ColumnType.INT8).build();
         List<ColumnParams> columns = List.of(column);
 
-        return builder.name("view").columns(columns).type(SystemViewType.NODE);
+        return builder.name("view").columns(columns).type(SystemViewType.LOCAL);
     }
 }

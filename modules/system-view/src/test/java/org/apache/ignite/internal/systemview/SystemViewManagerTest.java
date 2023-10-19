@@ -22,17 +22,13 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
-import static org.apache.ignite.internal.util.SubscriptionUtils.fromIterable;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,34 +42,28 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.systemview.api.SystemView;
-import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -83,17 +73,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class SystemViewManagerTest extends BaseIgniteAbstractTest {
-    private static final String LOCAL_NODE_NAME = "LOCAL_NODE_NAME";
-
     @Mock
     private CatalogManager catalog;
 
+    @InjectMocks
     private SystemViewManagerImpl viewMgr;
-
-    @BeforeEach
-    void setUp() {
-        viewMgr = new SystemViewManagerImpl(LOCAL_NODE_NAME, catalog);
-    }
 
     @Test
     public void registerDuplicateNameFails() {
@@ -102,9 +86,9 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         SystemView<?> view = dummyView(name);
         SystemView<?> viewWithSameName = dummyView(name);
 
-        viewMgr.register(() -> List.of(view));
+        viewMgr.register(view);
 
-        assertThrows(IllegalArgumentException.class, () -> viewMgr.register(() -> List.of(viewWithSameName)));
+        assertThrows(IllegalArgumentException.class, () -> viewMgr.register(viewWithSameName));
         verifyNoInteractions(catalog);
     }
 
@@ -112,7 +96,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void registerAfterStartFails() {
         viewMgr.start();
 
-        assertThrows(IllegalStateException.class, () -> viewMgr.register(() -> List.of(dummyView("test"))));
+        assertThrows(IllegalStateException.class, () -> viewMgr.register(dummyView("test")));
         verifyNoInteractions(catalog);
     }
 
@@ -120,7 +104,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void startAfterStartFails() {
         Mockito.when(catalog.execute(anyList())).thenReturn(completedFuture(null));
 
-        viewMgr.register(() -> List.of(dummyView("test")));
+        viewMgr.register(dummyView("test"));
 
         viewMgr.start();
 
@@ -147,7 +131,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         Mockito.when(catalog.execute(anyList())).thenReturn(completedFuture(null));
 
-        viewMgr.register(() -> List.of(dummyView("test", type)));
+        viewMgr.register(dummyView("test", type));
         viewMgr.start();
 
         verify(catalog, only()).execute(anyList());
@@ -160,7 +144,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         Mockito.when(catalog.execute(anyList())).thenReturn(failedFuture(expected));
 
-        viewMgr.register(() -> List.of(dummyView("test")));
+        viewMgr.register(dummyView("test"));
 
         viewMgr.start();
 
@@ -176,7 +160,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         String name1 = "view1";
         String name2 = "view2";
 
-        viewMgr.register(() -> List.of(dummyView(name1), dummyView(name2)));
+        viewMgr.register(dummyView(name1));
+        viewMgr.register(dummyView(name2));
 
         assertThat(viewMgr.nodeAttributes(), aMapWithSize(0));
 
@@ -185,8 +170,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         verify(catalog, only()).execute(anyList());
         verifyNoMoreInteractions(catalog);
 
-        assertThat(viewMgr.nodeAttributes(), is(Map.of(NODE_ATTRIBUTES_KEY, String.join(NODE_ATTRIBUTES_LIST_SEPARATOR, name1.toUpperCase(
-                Locale.ROOT), name2.toUpperCase(Locale.ROOT)))));
+        assertThat(viewMgr.nodeAttributes(), is(Map.of(NODE_ATTRIBUTES_KEY, String.join(NODE_ATTRIBUTES_LIST_SEPARATOR, name1, name2))));
     }
 
     @Test
@@ -209,7 +193,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         viewMgr.stop();
 
         //noinspection ThrowableNotThrown
-        assertThrowsWithCause(() -> viewMgr.register(() -> List.of(dummyView("test"))), NodeStoppingException.class);
+        assertThrowsWithCause(() -> viewMgr.register(dummyView("test")), NodeStoppingException.class);
     }
 
     @Test
@@ -246,75 +230,6 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         assertThat(viewMgr.owningNodes(viewName), hasItem("C"));
     }
 
-    @Test
-    void viewScanTest() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(completedFuture(null));
-
-        String nodeView = "NODE_VIEW";
-        String clusterView = "CLUSTER_VIEW";
-
-        class Pojo {
-            private final int c1;
-            private final int c2;
-
-            private Pojo(int c1, int c2) {
-                this.c1 = c1;
-                this.c2 = c2;
-            }
-        }
-
-        Publisher<Pojo> dataSet = fromIterable(List.of(new Pojo(1, 1), new Pojo(2, 2)));
-
-        viewMgr.register(() -> List.of(
-                SystemViews.<Pojo>nodeViewBuilder()
-                        .name(nodeView)
-                        .nodeNameColumnAlias("NODE")
-                        .addColumn("C1", NativeTypes.INT32, p -> p.c1)
-                        .addColumn("C2", NativeTypes.INT32, p -> p.c2)
-                        .dataProvider(dataSet)
-                        .build(),
-                SystemViews.<Pojo>clusterViewBuilder()
-                        .name(clusterView)
-                        .addColumn("C1", NativeTypes.INT32, p -> p.c1)
-                        .addColumn("C2", NativeTypes.INT32, p -> p.c2)
-                        .dataProvider(dataSet)
-                        .build()
-        ));
-
-        viewMgr.start();
-
-        {
-            DrainAllSubscriber<InternalTuple> subs = new DrainAllSubscriber<>();
-
-            viewMgr.scanView(clusterView).subscribe(subs);
-
-            List<InternalTuple> entries = await(subs.completion);
-
-            assertThat(entries, hasSize(2));
-            assertThat(entries.get(0).intValue(0), equalTo(1));
-            assertThat(entries.get(0).intValue(1), equalTo(1));
-            assertThat(entries.get(1).intValue(0), equalTo(2));
-            assertThat(entries.get(1).intValue(1), equalTo(2));
-        }
-
-        {
-            DrainAllSubscriber<InternalTuple> subs = new DrainAllSubscriber<>();
-
-            viewMgr.scanView(nodeView).subscribe(subs);
-
-            List<InternalTuple> entries = await(subs.completion);
-
-            assertThat(entries, hasSize(2));
-            assertThat(entries.get(0).stringValue(0), equalTo(LOCAL_NODE_NAME));
-            assertThat(entries.get(0).intValue(1), equalTo(1));
-            assertThat(entries.get(0).intValue(2), equalTo(1));
-            assertThat(entries.get(1).stringValue(0), equalTo(LOCAL_NODE_NAME));
-            assertThat(entries.get(1).intValue(1), equalTo(2));
-            assertThat(entries.get(1).intValue(2), equalTo(2));
-        }
-
-    }
-
     private static SystemView<?> dummyView(String name) {
         return dummyView(name, NativeTypes.INT32);
     }
@@ -324,7 +239,17 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
                 .nodeNameColumnAlias("NODE")
                 .name(name)
                 .addColumn("c1", type, (Function<Object, T>) Function.identity())
-                .dataProvider(fromIterable(List.of()))
+                .dataProvider(() -> new AsyncCursor<>() {
+                    @Override
+                    public CompletableFuture<BatchedResult<Object>> requestNextAsync(int rows) {
+                        return completedFuture(null);
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> closeAsync() {
+                        return completedFuture(null);
+                    }
+                })
                 .build();
     }
 
@@ -353,31 +278,5 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         }
 
         return new LogicalTopologySnapshot(1, topology);
-    }
-
-    static class DrainAllSubscriber<T> implements Subscriber<T> {
-        private final List<T> entries = new ArrayList<>();
-
-        CompletableFuture<List<T>> completion = new CompletableFuture<>();
-
-        @Override
-        public void onSubscribe(Subscription subscription) {
-            subscription.request(Long.MAX_VALUE);
-        }
-
-        @Override
-        public void onNext(T item) {
-            entries.add(item);
-        }
-
-        @Override
-        public void onError(Throwable throwable) {
-            completion.completeExceptionally(throwable);
-        }
-
-        @Override
-        public void onComplete() {
-            completion.complete(entries);
-        }
     }
 }

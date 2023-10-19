@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.systemview.api;
+package org.apache.ignite.internal.systemview;
 
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 
 /**
  * The system view manager is responsible for registering system views in the cluster.
  */
 public interface SystemViewManager extends IgniteComponent {
     /**
-     * Registers a view provider into view manager.
+     * Registers a system view.
      *
      * <p>Registration of views is completed when the system view manager starts. Therefore,
-     * it is necessary for other components to register itself as a view provider before the manager is started.
+     * it is necessary for other components to register the views before the manager is started.
      *
-     * @param viewProvider System view to register.
+     * @param view System view to register.
      */
-    void register(SystemViewProvider viewProvider);
+    void register(SystemView<?> view);
 
     /**
      * Returns a list of nodes a view with given name can be found on.

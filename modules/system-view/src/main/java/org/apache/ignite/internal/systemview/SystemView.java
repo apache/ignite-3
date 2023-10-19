@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.systemview.api;
+package org.apache.ignite.internal.systemview;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Base class for system view definitions.
@@ -56,13 +56,12 @@ import org.apache.ignite.internal.type.NativeType;
  * @param <T> System view data type.
  */
 public abstract class SystemView<T> {
-    private static final Pattern LETTER_AND_UNDERSCORE = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]*");
 
     private final String name;
 
     private final List<SystemViewColumn<T, ?>> columns;
 
-    private final Publisher<T> dataProvider;
+    private final Supplier<AsyncCursor<T>> dataProvider;
 
     /**
      * Constructor.
@@ -73,9 +72,9 @@ public abstract class SystemView<T> {
      */
     SystemView(String name,
             List<SystemViewColumn<T, ?>> columns,
-            Publisher<T> dataProvider) {
+            Supplier<AsyncCursor<T>> dataProvider) {
 
-        if (nullOrBlank(name)) {
+        if (StringUtils.nullOrBlank(name)) {
             throw new IllegalArgumentException("Name can not be null or blank");
         }
 
@@ -123,9 +122,14 @@ public abstract class SystemView<T> {
      *
      * @return The data provider.
      */
-    public Publisher<T> dataProvider() {
+    public Supplier<AsyncCursor<T>> dataProvider() {
         return dataProvider;
     }
+
+    /**
+     * Returns the {@link SystemViewType type} of the system view.
+     */
+    public abstract SystemViewType type();
 
     /**
      * System view builder.
@@ -140,7 +144,7 @@ public abstract class SystemView<T> {
 
         protected String name;
 
-        protected Publisher<T> dataProvider;
+        protected Supplier<AsyncCursor<T>> dataProvider;
 
         /** Constructor. */
         SystemViewBuilder() {
@@ -150,25 +154,25 @@ public abstract class SystemView<T> {
         /**
          * Sets view name.
          *
-         * @param name View name. Must contain only latin letters, digits and underscore. The first character must be a letter.
+         * @param name View name.
          * @return this.
          */
         public BuilderT name(String name) {
-            this.name = normalizeIdentifier(name);
+            this.name = name;
             return (BuilderT) this;
         }
 
         /**
          * Adds a column.
          *
-         * @param name Column name. Must contain only latin letters, digits and underscore. The first character must be a letter.
+         * @param name Column name.
          * @param type Type of a column value.
          * @param value Function that extracts value of this column from a system view data record.
          * @param <C> Type of a column value.
          * @return this.
          */
         public <C> BuilderT addColumn(String name, NativeType type, Function<T, C> value) {
-            columns.add(new SystemViewColumn<>(normalizeIdentifier(name), type, value));
+            columns.add(new SystemViewColumn<>(name, type, value));
             return (BuilderT) this;
         }
 
@@ -178,7 +182,7 @@ public abstract class SystemView<T> {
          * @param dataProvider Function that produces data for this view.
          * @return this.
          */
-        public BuilderT dataProvider(Publisher<T> dataProvider) {
+        public BuilderT dataProvider(Supplier<AsyncCursor<T>> dataProvider) {
             this.dataProvider = dataProvider;
             return (BuilderT) this;
         }
@@ -189,18 +193,6 @@ public abstract class SystemView<T> {
          * @return An instance of a system view.
          */
         public abstract ViewT build();
-    }
-
-    static String normalizeIdentifier(String identifier) {
-        if (nullOrBlank(identifier)) {
-            throw new IllegalArgumentException("Identifier must not be null or blank");
-        }
-
-        if (!LETTER_AND_UNDERSCORE.matcher(identifier).matches()) {
-            throw new IllegalArgumentException("Identifier must be alphanumeric with underscore and start with letter. Was: " + identifier);
-        }
-
-        return identifier.toUpperCase(Locale.ROOT);
     }
 }
 
