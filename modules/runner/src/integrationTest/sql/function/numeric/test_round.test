@@ -3,10 +3,10 @@
 # group: [numeric]
 
 statement ok
-CREATE TABLE roundme_double(a DOUBLE, b INTEGER)
+CREATE TABLE roundme(a DOUBLE, b INTEGER)
 
 statement ok
-INSERT INTO roundme_double VALUES (42.123456, 3)
+INSERT INTO roundme VALUES (42.123456, 3)
 
 query R
 select round(42.12345::DOUBLE, 0)
@@ -39,16 +39,16 @@ select round(42::DOUBLE, -1), round(42::DOUBLE, -2), round(42::DOUBLE, -1000)
 40	0	0
 
 query R
-select round(a, 1) from roundme_double
+select round(a, 1) from roundme
 ----
 42.100000
 
 query I
-select round(b, 1) from roundme_double
+select round(b, 1) from roundme
 ----
 3
 
 query R
-select round(a, b) from roundme_double
+select round(a, b) from roundme
 ----
 42.123000
