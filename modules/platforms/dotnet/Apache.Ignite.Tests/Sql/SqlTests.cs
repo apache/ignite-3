@@ -334,18 +334,14 @@ namespace Apache.Ignite.Tests.Sql
         public void TestInvalidSqlThrowsException()
         {
             var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
-            StringAssert.Contains("Invalid query, check inner exceptions for details: select x from bad", ex!.Message);
 
-            var innerEx = ex.InnerException;
-            Assert.IsInstanceOf<SqlException>(innerEx);
-            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", innerEx!.Message);
+            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
         }
 
         [Test]
         public void TestCreateTableExistsThrowsException()
         {
-            // TODO: IGNITE-20388 Fix it
-            var ex = Assert.ThrowsAsync<IgniteException>(
+            var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
 
             StringAssert.Contains("Table with name 'PUBLIC.TEST' already exists", ex!.Message);
@@ -354,8 +350,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestAlterTableNotFoundThrowsException()
         {
-            // TODO: IGNITE-20388 Fix it
-            var ex = Assert.ThrowsAsync<IgniteException>(
+            var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
             StringAssert.Contains("Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found", ex!.Message);
@@ -364,11 +359,10 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestAlterTableColumnExistsThrowsException()
         {
-            // TODO: IGNITE-20388 Fix it
             var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
 
-            StringAssert.Contains("Invalid query, check inner exceptions for details: ALTER TABLE TEST ADD COLUMN ID INT", ex!.Message);
+            StringAssert.Contains("Failed to validate query. Column with name 'ID' already exists", ex!.Message);
         }
 
         [Test]

@@ -49,10 +49,10 @@ public class ClientTupleGetRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            var keyTuple = readTuple(in, table, true);
-
-            return table.recordView().getAsync(tx, keyTuple)
-                    .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));
+            return readTuple(in, table, true).thenCompose(keyTuple -> {
+                return table.recordView().getAsync(tx, keyTuple)
+                        .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));
+            });
         });
     }
 }

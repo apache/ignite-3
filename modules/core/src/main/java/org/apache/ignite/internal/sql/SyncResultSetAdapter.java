@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Synchronous wrapper over {@link org.apache.ignite.sql.async.AsyncResultSet}.
  */
-class SyncResultSetAdapter<T> implements ResultSet<T> {
+public class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** Wrapped async result set. */
     private final AsyncResultSet<T> ars;
 
@@ -44,7 +44,7 @@ class SyncResultSetAdapter<T> implements ResultSet<T> {
      *
      * @param ars Asynchronous result set.
      */
-    SyncResultSetAdapter(AsyncResultSet<T> ars) {
+    public SyncResultSetAdapter(AsyncResultSet<T> ars) {
         assert ars != null;
 
         this.ars = ars;

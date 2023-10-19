@@ -21,11 +21,13 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.event.EventListener;
+import java.util.function.BiFunction;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -33,8 +35,12 @@ import org.jetbrains.annotations.TestOnly;
  * leaseholder.
  */
 @TestOnly
-public class TestPlacementDriver implements PlacementDriver {
+public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters>
+        implements PlacementDriver {
     private final TestReplicaMetaImpl primaryReplica;
+
+    @Nullable
+    private BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> awaitPrimaryReplicaFunction = null;
 
     public TestPlacementDriver(String leaseholder) {
         this.primaryReplica = new TestReplicaMetaImpl(leaseholder);
@@ -47,6 +53,10 @@ public class TestPlacementDriver implements PlacementDriver {
             long timeout,
             TimeUnit unit
     ) {
+        if (awaitPrimaryReplicaFunction != null) {
+            return awaitPrimaryReplicaFunction.apply(groupId, timestamp);
+        }
+
         return completedFuture(primaryReplica);
     }
 
@@ -56,19 +66,18 @@ public class TestPlacementDriver implements PlacementDriver {
     }
 
     @Override
-    public void listen(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
-        if (evt != PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED) {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    @Override
-    public void removeListener(PrimaryReplicaEvent evt, EventListener<? extends PrimaryReplicaEventParameters> listener) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> fireEvent(PrimaryReplicaEvent event, PrimaryReplicaEventParameters parameters) {
+        return super.fireEvent(event, parameters);
+    }
+
+    public void setAwaitPrimaryReplicaFunction(
+            @Nullable BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> awaitPrimaryReplicaFunction
+    ) {
+        this.awaitPrimaryReplicaFunction = awaitPrimaryReplicaFunction;
     }
 }

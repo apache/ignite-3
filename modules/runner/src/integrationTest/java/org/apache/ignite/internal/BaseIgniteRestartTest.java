@@ -67,6 +67,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
     protected static final int DEFAULT_CLIENT_PORT = 10800;
 
+    protected static final int DEFAULT_HTTP_PORT = 10300;
+
+    protected static final int DEFAULT_HTTPS_PORT = 10400;
+
     @Language("HOCON")
     protected static final String RAFT_CFG = "{\n"
             + "  fsync: false,\n"
@@ -87,7 +91,11 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "    },\n"
             + "  },\n"
             + "  raft: " + RAFT_CFG + ",\n"
-            + "  clientConnector.port: {}\n"
+            + "  clientConnector.port: {},\n"
+            + "  rest: {\n"
+            + "    port: {}, \n"
+            + "    ssl.port: {} \n"
+            + "  }\n"
             + "}";
 
     public TestInfo testInfo;
@@ -203,11 +211,13 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     protected static String configurationString(int idx) {
         int port = DEFAULT_NODE_PORT + idx;
         int clientPort = DEFAULT_CLIENT_PORT + idx;
+        int httpPort = DEFAULT_HTTP_PORT + idx;
+        int httpsPort = DEFAULT_HTTPS_PORT + idx;
 
         // The address of the first node.
         @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
 
-        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort);
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr, clientPort, httpPort, httpsPort);
     }
 
     /**

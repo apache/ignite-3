@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rebalance;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -30,24 +29,20 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.table.Tuple;
@@ -60,9 +55,8 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Test suite for the rebalance.
  */
+@SuppressWarnings("resource")
 public class ItRebalanceTest extends IgniteIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceTest.class);
-
     @WorkDirectory
     private Path workDir;
 
@@ -101,8 +95,8 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
                 nodeName(2)
         ), table.tableId());
 
-        BinaryRowEx row = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1).set("value", "value1"));
-        BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1));
+        BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("value", "value1"));
+        BinaryRowEx key = marshalTuple(table, Tuple.create().set("id", 1));
 
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(nullValue()));
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(nullValue()));
@@ -149,6 +143,13 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         );
     }
 
+    private static Row marshalTuple(TableImpl table, Tuple tuple) throws TupleMarshallerException {
+        SchemaRegistry schemaReg = table.schemaView();
+        var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
+
+        return marshaller.marshal(tuple);
+    }
+
     private void waitForStableAssignmentsInMetastore(Set<String> expectedNodes, int table) throws InterruptedException {
         Set<String>[] lastAssignmentsHolderForLog = new Set[1];
 
@@ -169,7 +170,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         return cluster.node(nodeIndex).name();
     }
 
-    private void createTestTable() throws InterruptedException {
+    private void createTestTable() {
         String sql1 = "create zone test_zone with "
                 + "partitions=1, replicas=3, "
                 + "data_nodes_auto_adjust_scale_up=0, "
@@ -181,32 +182,5 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
             executeUpdate(sql1, session);
             executeUpdate(sql2, session);
         });
-
-        waitForTableToStart();
-    }
-
-    private void waitForTableToStart() throws InterruptedException {
-        // TODO: IGNITE-18733 - remove this wait because when a table creation query is executed, the table must be fully ready.
-
-        BooleanSupplier tableStarted = () -> {
-            int numberOfStartedRaftNodes = cluster.runningNodes()
-                    .map(ItRebalanceTest::tablePartitionIds)
-                    .mapToInt(List::size)
-                    .sum();
-            return numberOfStartedRaftNodes == 3;
-        };
-
-        assertTrue(waitForCondition(tableStarted, 10_000), "Did not see all table RAFT nodes started");
-    }
-
-    /**
-     * Returns the IDs of all table partitions that exist on the given node.
-     */
-    private static List<TablePartitionId> tablePartitionIds(IgniteImpl node) {
-        return node.raftManager().localNodes().stream()
-                .map(RaftNodeId::groupId)
-                .filter(TablePartitionId.class::isInstance)
-                .map(TablePartitionId.class::cast)
-                .collect(toList());
     }
 }

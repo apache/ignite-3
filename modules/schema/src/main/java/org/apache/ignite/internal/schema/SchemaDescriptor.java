@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 

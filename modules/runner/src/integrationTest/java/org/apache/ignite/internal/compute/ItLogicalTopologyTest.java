@@ -71,7 +71,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: " + NODE_ATTRIBUTES
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest.port: {}\n"
             + "}";
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {

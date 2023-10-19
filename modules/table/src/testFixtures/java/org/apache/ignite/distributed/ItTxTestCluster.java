@@ -106,6 +106,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -342,7 +343,14 @@ public class ItTxTestCluster {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            TxManagerImpl txMgr = newTxManager(replicaSvc, clock, new TransactionIdGenerator(i), node);
+            TxManagerImpl txMgr = newTxManager(
+                    replicaSvc,
+                    clock,
+                    new TransactionIdGenerator(i),
+                    node,
+                    placementDriver
+            );
+
             txMgr.start();
 
             txManagers.put(node.name(), txMgr);
@@ -368,8 +376,21 @@ public class ItTxTestCluster {
         assertNotNull(clientTxManager);
     }
 
-    protected TxManagerImpl newTxManager(ReplicaService replicaSvc, HybridClock clock, TransactionIdGenerator generator, ClusterNode node) {
-        return new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, generator, node::id);
+    protected TxManagerImpl newTxManager(
+            ReplicaService replicaSvc,
+            HybridClock clock,
+            TransactionIdGenerator generator,
+            ClusterNode node,
+            PlacementDriver placementDriver
+    ) {
+        return new TxManagerImpl(
+                replicaSvc,
+                new HeapLockManager(),
+                clock,
+                generator,
+                node::id,
+                placementDriver
+        );
     }
 
     public IgniteTransactions igniteTransactions() {
@@ -385,6 +406,9 @@ public class ItTxTestCluster {
      * @return Groups map.
      */
     public TableImpl startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
+        CatalogService catalogService = mock(CatalogService.class);
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
@@ -497,9 +521,6 @@ public class ItTxTestCluster {
                             try {
                                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
 
-                                CatalogService catalogService = mock(CatalogService.class);
-                                lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
-
                                 PartitionReplicaListener listener = newReplicaListener(
                                         mvPartStorage,
                                         raftSvc,
@@ -575,20 +596,25 @@ public class ItTxTestCluster {
 
         raftClients.computeIfAbsent(tableName, t -> new ArrayList<>()).addAll(clients.values());
 
-        return new TableImpl(new InternalTableImpl(
-                tableName,
-                tableId,
-                clients,
-                1,
-                consistentIdToNode,
-                clientTxManager,
-                mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
-                startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient ? clientClock : clocks.get(localNodeName),
-                timestampTracker,
-                placementDriver
-        ), new DummySchemaManagerImpl(schemaDescriptor), clientTxManager.lockManager());
+        return new TableImpl(
+                new InternalTableImpl(
+                        tableName,
+                        tableId,
+                        clients,
+                        1,
+                        consistentIdToNode,
+                        clientTxManager,
+                        mock(MvTableStorage.class),
+                        mock(TxStateTableStorage.class),
+                        startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
+                        startClient ? clientClock : clocks.get(localNodeName),
+                        timestampTracker,
+                        placementDriver
+                ),
+                new DummySchemaManagerImpl(schemaDescriptor),
+                clientTxManager.lockManager(),
+                new ConstantSchemaVersions(1)
+        );
     }
 
     protected PartitionReplicaListener newReplicaListener(
@@ -777,8 +803,14 @@ public class ItTxTestCluster {
     private void initializeClientTxComponents() {
         Supplier<String> localNodeIdSupplier = () -> client.topologyService().localMember().id();
 
-        clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1),
-                localNodeIdSupplier);
+        clientTxManager = new TxManagerImpl(
+                clientReplicaSvc,
+                new HeapLockManager(),
+                clientClock,
+                new TransactionIdGenerator(-1),
+                localNodeIdSupplier,
+                placementDriver
+        );
 
         clientTxStateResolver = new TransactionStateResolver(
                 clientReplicaSvc,
@@ -788,6 +820,7 @@ public class ItTxTestCluster {
                 idToNode,
                 client.messagingService()
         );
+
         clientTxStateResolver.start();
         clientTxManager.start();
     }

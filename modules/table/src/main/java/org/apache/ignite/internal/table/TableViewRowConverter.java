@@ -40,25 +40,25 @@ final class TableViewRowConverter {
         return schemaReg;
     }
 
-    Row resolveRow(BinaryRow binaryRow) {
+    Row resolveRow(BinaryRow binaryRow, int targetSchemaVersion) {
         try {
-            return schemaReg.resolve(binaryRow);
+            return schemaReg.resolve(binaryRow, targetSchemaVersion);
         } catch (SchemaRegistryException e) {
             throw new MarshallerException(e);
         }
     }
 
-    List<Row> resolveKeys(Collection<BinaryRow> rows) {
+    List<Row> resolveKeys(Collection<BinaryRow> rows, int targetSchemaVersion) {
         try {
-            return schemaReg.resolveKeys(rows);
+            return schemaReg.resolveKeys(rows, targetSchemaVersion);
         } catch (SchemaRegistryException e) {
             throw new MarshallerException(e);
         }
     }
 
-    List<Row> resolveRows(Collection<BinaryRow> rows) {
+    List<Row> resolveRows(Collection<BinaryRow> rows, int targetSchemaVersion) {
         try {
-            return schemaReg.resolve(rows);
+            return schemaReg.resolve(rows, targetSchemaVersion);
         } catch (SchemaRegistryException e) {
             throw new MarshallerException(e);
         }

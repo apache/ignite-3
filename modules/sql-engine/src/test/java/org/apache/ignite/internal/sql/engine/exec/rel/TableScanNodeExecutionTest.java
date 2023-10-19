@@ -39,11 +39,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -66,6 +66,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -114,8 +115,14 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-            TxManagerImpl txManager = new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(),
-                    new TransactionIdGenerator(0xdeadbeef), () -> "local");
+            TxManagerImpl txManager = new TxManagerImpl(
+                    replicaSvc,
+                    new HeapLockManager(),
+                    new HybridClockImpl(),
+                    new TransactionIdGenerator(0xdeadbeef),
+                    () -> "local",
+                    new TestPlacementDriver("local")
+            );
 
             txManager.start();
 

@@ -71,7 +71,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -82,6 +81,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -763,6 +763,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static void createTestTableAndIndexes(CatalogService catalogService) {
         int id = 0;
 
+        int schemaId = id++;
         int tableId = id++;
         int zoneId = id++;
         int sortedIndexId = id++;
@@ -770,6 +771,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 tableId,
+                schemaId,
                 hashIndexId,
                 TABLE_NAME,
                 zoneId,
@@ -790,7 +792,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 SORTED_INDEX_NAME,
                 tableId,
                 false,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
+                true
         );
 
         CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
@@ -798,7 +801,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 HASH_INDEX_NAME,
                 tableId,
                 true,
-                List.of("STRKEY")
+                List.of("STRKEY"),
+                true
         );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);

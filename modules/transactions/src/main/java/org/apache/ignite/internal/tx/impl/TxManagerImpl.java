@@ -20,7 +20,9 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -29,7 +31,9 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -45,14 +49,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
@@ -124,6 +131,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final Lazy<String> localNodeId;
 
+    private final PlacementDriver placementDriver;
+
+    private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
+
     /**
      * The constructor.
      *
@@ -137,13 +148,45 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LockManager lockManager,
             HybridClock clock,
             TransactionIdGenerator transactionIdGenerator,
-            Supplier<String> localNodeIdSupplier
+            Supplier<String> localNodeIdSupplier,
+            PlacementDriver placementDriver
+    ) {
+        this(
+                replicaService,
+                lockManager,
+                clock,
+                transactionIdGenerator,
+                localNodeIdSupplier,
+                placementDriver,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+        );
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param replicaService Replica service.
+     * @param lockManager Lock manager.
+     * @param clock A hybrid logical clock.
+     * @param transactionIdGenerator Used to generate transaction IDs.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     */
+    public TxManagerImpl(
+            ReplicaService replicaService,
+            LockManager lockManager,
+            HybridClock clock,
+            TransactionIdGenerator transactionIdGenerator,
+            Supplier<String> localNodeIdSupplier,
+            PlacementDriver placementDriver,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
+        this.placementDriver = placementDriver;
+        this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -163,21 +206,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return beginTx(timestampTracker, readOnly, false);
-    }
-
-    @Override
-    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return beginTx(timestampTracker, readOnly, true);
-    }
-
-    private InternalTransaction beginTx(HybridTimestampTracker timestampTracker, boolean readOnly, boolean implicit) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, implicit);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
         }
 
         HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -189,23 +223,23 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         lowWatermarkReadWriteLock.readLock().lock();
 
         try {
-            HybridTimestamp lowWatermark = this.lowWatermark.get();
+            HybridTimestamp lowWatermark1 = this.lowWatermark.get();
 
             readOnlyTxFutureById.compute(new TxIdAndTimestamp(readTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
                 assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-                if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
+                if (lowWatermark1 != null && readTimestamp.compareTo(lowWatermark1) <= 0) {
                     throw new IgniteInternalException(
                             TX_READ_ONLY_TOO_OLD_ERR,
                             "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
-                            readTimestamp, lowWatermark
+                            readTimestamp, lowWatermark1
                     );
                 }
 
                 return new CompletableFuture<>();
             });
 
-            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp, implicit);
+            return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp);
         } finally {
             lowWatermarkReadWriteLock.readLock().unlock();
         }
@@ -217,14 +251,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp() {
-        return clock.now();
+        HybridTimestamp now = clock.now();
 
-        // TODO: IGNITE-20378 Fix it
-        // return new HybridTimestamp(now.getPhysical()
-        //         - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
-        //         - HybridTimestamp.CLOCK_SKEW,
-        //         0
-        // );
+        return new HybridTimestamp(now.getPhysical()
+                - idleSafeTimePropagationPeriodMsSupplier.getAsLong()
+                - HybridTimestamp.CLOCK_SKEW,
+                0
+        );
     }
 
     @Override
@@ -269,10 +302,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
-        assert groups != null;
+        assert enlistedGroups != null;
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
         // with using read timestamp could see that this transaction is finishing, see #transactionMetaReadTimestampAware(txId, timestamp).
@@ -285,7 +318,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         HybridTimestamp commitTimestamp = commit ? clock.now() : null;
 
         // If there are no enlisted groups, just return - we already marked the tx as finished.
-        boolean finishRequestNeeded = !groups.isEmpty();
+        boolean finishRequestNeeded = !enlistedGroups.isEmpty();
 
         if (!finishRequestNeeded) {
             updateTxMeta(txId, old -> {
@@ -299,37 +332,56 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return completedFuture(null);
         }
 
-        observableTimestampTracker.update(commitTimestamp);
-
         Function<Void, CompletableFuture<Void>> clo = ignored -> {
-            TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                    .txId(txId)
-                    .timestampLong(clock.nowLong())
-                    .groupId(commitPartition)
-                    .groups(groups)
-                    .commit(commit)
-                    .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                    .term(term)
-                    .build();
+            // In case of commit it's required to check whether current primaries are still the same that were enlisted and whether
+            // given primaries are not expired or, in other words, whether commitTimestamp is less or equal to the enlisted primaries
+            // expiration timestamps.
+            CompletableFuture<Void> verificationFuture =
+                    commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : completedFuture(null);
 
-            return replicaService.invoke(recipientNode, req)
-                    .thenRun(() ->
-                            updateTxMeta(txId, old -> {
-                                if (isFinalState(old.txState())) {
-                                    finishingStateMeta.txFinishFuture().complete(old);
+            return verificationFuture.handle(
+                    (unused, throwable) -> {
+                        Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>(enlistedGroups.keySet());
 
-                                    return old;
-                                }
+                        boolean verifiedCommit = throwable == null && commit;
 
-                                assert old instanceof TxStateMetaFinishing;
+                        TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
+                                .txId(txId)
+                                .timestampLong(clock.nowLong())
+                                .groupId(commitPartition)
+                                .groups(replicationGroupIds)
+                                // In case of verification future failure transaction will be rolled back.
+                                .commit(verifiedCommit)
+                                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                                .term(term)
+                                .build();
 
-                                TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+                        return replicaService.invoke(recipientNode, req).thenRun(
+                                () -> {
+                                    updateTxMeta(txId, old -> {
+                                        if (isFinalState(old.txState())) {
+                                            finishingStateMeta.txFinishFuture().complete(old);
 
-                                finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+                                            return old;
+                                        }
 
-                                return finalTxStateMeta;
-                            })
-                    );
+                                        assert old instanceof TxStateMetaFinishing;
+
+                                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(verifiedCommit, commitTimestamp);
+
+                                        finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+
+                                        return finalTxStateMeta;
+                                    });
+
+                                    if (verifiedCommit) {
+                                        observableTimestampTracker.update(commitTimestamp);
+                                    }
+                                });
+                    })
+                    .thenCompose(Function.identity())
+                    // verification future is added in order to share proper exception with the client
+                    .thenCompose(r -> verificationFuture);
         };
 
         AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
@@ -430,6 +482,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
         return runAsync(runnable, cleanupExecutor);
+    }
+
+    @Override
+    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
+        return supplyAsync(action, cleanupExecutor).thenCompose(f -> f);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
@@ -539,6 +596,47 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId.get(), commitTimestamp);
     }
 
+    /**
+     * Check whether previously enlisted primary replicas aren't expired and that commit timestamp is less or equal than primary replicas
+     * expiration timestamp. Given method will either complete result future with void or {@link PrimaryReplicaExpiredException}
+     *
+     * @param enlistedGroups enlisted primary replicas map from groupId to enlistment consistency token.
+     * @param commitTimestamp Commit timestamp.
+     * @return Verification future.
+     */
+    private CompletableFuture<Void> verifyCommitTimestamp(Map<TablePartitionId, Long> enlistedGroups, HybridTimestamp commitTimestamp) {
+        var verificationFutures = new CompletableFuture[enlistedGroups.size()];
+        int cnt = -1;
+
+        for (Map.Entry<TablePartitionId, Long> enlistedGroup : enlistedGroups.entrySet()) {
+            TablePartitionId groupId = enlistedGroup.getKey();
+            Long expectedEnlistmentConsistencyToken = enlistedGroup.getValue();
+
+            verificationFutures[++cnt] = placementDriver.getPrimaryReplica(groupId, commitTimestamp)
+                    .thenAccept(currentPrimaryReplica -> {
+                        if (currentPrimaryReplica == null
+                                || !expectedEnlistmentConsistencyToken.equals(currentPrimaryReplica.getStartTime().longValue())
+                        ) {
+                            throw new PrimaryReplicaExpiredException(
+                                    groupId,
+                                    expectedEnlistmentConsistencyToken,
+                                    commitTimestamp,
+                                    currentPrimaryReplica
+                            );
+                        } else {
+                            assert commitTimestamp.compareTo(currentPrimaryReplica.getExpirationTime()) <= 0 :
+                                    IgniteStringFormatter.format(
+                                            "Commit timestamp is greater than primary replica expiration timestamp:"
+                                                    + " [groupId = {}, commit timestamp = {}, primary replica expiration timestamp = {}]",
+                                            groupId, commitTimestamp, currentPrimaryReplica.getExpirationTime());
+
+                        }
+                    });
+        }
+
+        return allOf(verificationFutures);
+    }
+
     private static class TxContext {
         volatile long inflights = 0; // Updated under lock.
         final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
@@ -550,3 +648,4 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 }
+

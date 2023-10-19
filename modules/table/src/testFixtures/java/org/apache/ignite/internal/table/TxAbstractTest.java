@@ -50,11 +50,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -70,12 +71,12 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -447,7 +448,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
     public void testBatchPutConcurrently() {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
@@ -476,7 +476,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
     public void testBatchReadPutConcurrently() throws InterruptedException {
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
@@ -1330,7 +1329,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             @Override
             public void onNext(BinaryRow item) {
-                Row row = accounts.schemaView().resolve(item);
+                SchemaRegistry registry = accounts.schemaView();
+                Row row = registry.resolve(item, registry.lastKnownSchema());
 
                 rows.add(TableRow.tuple(row));
             }
@@ -1741,7 +1741,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param t The table.
      * @return TX manager.
      */
-    protected abstract TxManager txManager(Table t);
+    protected abstract TxManager txManager(TableImpl t);
 
     /**
      * Get a lock manager on a partition leader.
@@ -1749,7 +1749,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param t The table.
      * @return Lock manager.
      */
-    protected LockManager lockManager(Table t) {
+    protected LockManager lockManager(TableImpl t) {
         return txManager(t).lockManager();
     }
 
@@ -1768,7 +1768,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param rows Rows.
      * @param expected Expected values.
      */
-    private static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
+    protected static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
         assertThat(
                 rows.stream().map(tuple -> tuple == null ? null : tuple.doubleValue("balance")).collect(toList()),
                 contains(expected)
@@ -1969,12 +1969,20 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFinished(true);
+        testTransactionAlreadyFinished(true, (transaction, uuid) -> {
+            transaction.commit();
+
+            log.info("Committed transaction {}", uuid);
+        });
     }
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFinished(false);
+        testTransactionAlreadyFinished(false, (transaction, uuid) -> {
+            transaction.rollback();
+
+            log.info("Rolled back transaction {}", uuid);
+        });
     }
 
     @Test
@@ -2031,7 +2039,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testBatchSinglePartitionGet() throws Exception {
         var accountRecordsView = accounts.recordView();
 
-        var marshaller = new TupleMarshallerImpl(accounts.schemaView());
+        SchemaRegistry schemaRegistry = accounts.schemaView();
+        var marshaller = new TupleMarshallerImpl(schemaRegistry.lastKnownSchema());
 
         int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
 
@@ -2074,7 +2083,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      *
      * @param commit True when transaction is committed, false the transaction is rolled back.
      */
-    private void testTransactionAlreadyFinished(boolean commit) {
+    protected void testTransactionAlreadyFinished(boolean commit, BiConsumer<Transaction, UUID> finisher) {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
@@ -2090,15 +2099,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         validateBalance(res, 100., 200.);
 
-        if (commit) {
-            tx.commit();
-
-            log.info("Committed transaction {}", txId);
-        } else {
-            tx.rollback();
-
-            log.info("Rolled back transaction {}", txId);
-        }
+        finisher.accept(tx, txId);
 
         TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(tx, makeKey(1)));
         assertTrue(ex.getMessage().contains("Transaction is already finished."));

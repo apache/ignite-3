@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -37,7 +36,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts an explicit read-write transaction coordinated by a local node.
+     * Starts a read-write transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
@@ -46,7 +45,7 @@ public interface TxManager extends IgniteComponent {
     InternalTransaction begin(HybridTimestampTracker timestampTracker);
 
     /**
-     * Starts either explicit read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
@@ -58,17 +57,6 @@ public interface TxManager extends IgniteComponent {
      *         available in the tables.
      */
     InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
-
-    /**
-     * Starts an implicit read-write transaction coordinated by a local node.
-     *
-     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
-     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
-     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
-     * @return The transaction.
-     */
-    InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
 
     /**
      * Returns a transaction state meta.
@@ -104,6 +92,14 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
 
     /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param action Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action);
+
+    /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
      *
      * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
@@ -123,7 +119,7 @@ public interface TxManager extends IgniteComponent {
      * @param recipientNode Recipient node.
      * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups with raft terms.
+     * @param enlistedGroups Enlisted partition groups with consistency token.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
@@ -132,7 +128,7 @@ public interface TxManager extends IgniteComponent {
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     );
 

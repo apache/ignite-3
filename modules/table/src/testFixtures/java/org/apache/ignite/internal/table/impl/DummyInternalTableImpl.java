@@ -63,7 +63,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -93,6 +92,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
@@ -111,6 +111,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
     public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
+
+    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(LOCAL_NODE.name());
 
     // 2000 was picked to avoid negative time that we get when building read timestamp
     // in TxManagerImpl.currentReadTimestamp.
@@ -176,7 +178,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
-            TransactionStateResolver transactionStateResolver,
+            @Nullable TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
@@ -198,7 +200,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         this(
                 replicaSvc,
                 mvPartStorage,
-                new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), LOCAL_NODE::id),
+                txManager(replicaSvc),
                 false,
                 null,
                 schema,
@@ -216,6 +218,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *         ReplicaService by itself.
      * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
+     * @param tracker Observable timestamp tracker.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -238,9 +241,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 CLOCK,
                 tracker,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                TEST_PLACEMENT_DRIVER
         );
-        RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
+        RaftGroupService svc = raftGroupServiceByPartitionId.get(PART_ID);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
@@ -384,7 +387,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                TEST_PLACEMENT_DRIVER
         );
 
         partitionListener = new PartitionListener(
@@ -422,6 +425,22 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      */
     public TxManager txManager() {
         return txManager;
+    }
+
+    /**
+     * Creates a {@link TxManager}.
+     *
+     * @param replicaSvc Replica service to use.
+     */
+    public static TxManagerImpl txManager(ReplicaService replicaSvc) {
+        return new TxManagerImpl(
+                replicaSvc,
+                new HeapLockManager(),
+                CLOCK,
+                new TransactionIdGenerator(0xdeadbeef),
+                LOCAL_NODE::id,
+                TEST_PLACEMENT_DRIVER
+        );
     }
 
     /** {@inheritDoc} */

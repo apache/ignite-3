@@ -140,7 +140,7 @@ public class TransactionStateResolver {
     public CompletableFuture<TransactionMeta> resolveTxState(
             UUID txId,
             ReplicationGroupId commitGrpId,
-            HybridTimestamp timestamp
+            @Nullable HybridTimestamp timestamp
     ) {
         TxStateMeta localMeta = txManager.stateMeta(txId);
 
@@ -176,7 +176,7 @@ public class TransactionStateResolver {
             UUID txId,
             @Nullable TxStateMeta localMeta,
             ReplicationGroupId commitGrpId,
-            HybridTimestamp timestamp,
+            @Nullable HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
         assert localMeta == null || !isFinalState(localMeta.txState()) : "Unexpected tx meta [txId" + txId + ", meta=" + localMeta + ']';

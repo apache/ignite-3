@@ -58,6 +58,8 @@ public class Catalog {
     private final Map<String, CatalogZoneDescriptor> zonesByName;
 
     @IgniteToStringExclude
+    private final Int2ObjectMap<CatalogSchemaDescriptor> schemasById;
+    @IgniteToStringExclude
     private final Int2ObjectMap<CatalogTableDescriptor> tablesById;
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogIndexDescriptor> indexesById;
@@ -88,9 +90,10 @@ public class Catalog {
         Objects.requireNonNull(schemas, "schemas");
         Objects.requireNonNull(zones, "zones");
 
-        this.schemasByName = schemas.stream().collect(toMapByName());
-        this.zonesByName = zones.stream().collect(toMapByName());
+        schemasByName = schemas.stream().collect(toMapByName());
+        zonesByName = zones.stream().collect(toMapByName());
 
+        schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         zonesById = zones.stream().collect(toMapById());
@@ -108,8 +111,12 @@ public class Catalog {
         return objectIdGen;
     }
 
-    public CatalogSchemaDescriptor schema(String name) {
+    public @Nullable CatalogSchemaDescriptor schema(String name) {
         return schemasByName.get(name);
+    }
+
+    public @Nullable CatalogSchemaDescriptor schema(int schemaId) {
+        return schemasById.get(schemaId);
     }
 
     public Collection<CatalogSchemaDescriptor> schemas() {

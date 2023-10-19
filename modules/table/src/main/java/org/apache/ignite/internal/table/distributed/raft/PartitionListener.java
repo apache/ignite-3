@@ -236,7 +236,8 @@ public class PartitionListener implements RaftGroupListener {
                 storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null
+                        cmd.full() ? cmd.safeTime() : null,
+                        cmd.lastCommitTimestamp()
                 );
             }
 
@@ -264,7 +265,8 @@ public class PartitionListener implements RaftGroupListener {
                 storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null
+                        cmd.full() ? cmd.safeTime() : null,
+                        cmd.lastCommitTimestamps()
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());

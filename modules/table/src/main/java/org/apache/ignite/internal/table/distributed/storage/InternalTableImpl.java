@@ -38,7 +38,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.net.ConnectException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -94,7 +93,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.Multiple
 import org.apache.ignite.internal.table.distributed.replication.request.MultipleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowPkReplicaRequest;
@@ -271,7 +269,8 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
+        boolean implicit = tx == null;
+        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         int partId = partitionId(row);
 
@@ -282,16 +281,16 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<R> fut;
 
         if (primaryReplicaAndTerm != null) {
-            assert !actualTx.implicit();
+            assert !implicit;
 
             fut = trackingInvoke(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), false, primaryReplicaAndTerm,
                     noWriteChecker);
         } else {
             fut = enlistWithRetry(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION,
-                    actualTx.implicit(), noWriteChecker);
+                    implicit, noWriteChecker);
         }
 
-        return postEnlist(fut, false, actualTx, actualTx.implicit());
+        return postEnlist(fut, false, actualTx, implicit);
     }
 
     /**
@@ -329,12 +328,12 @@ public class InternalTableImpl implements InternalTable {
                     "The operation is attempted for completed transaction"));
         }
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
+        boolean implicit = tx == null;
+        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         boolean singlePart = rowBatchByPartitionId.size() == 1;
-        boolean implicit = actualTx.implicit();
         boolean full = implicit && singlePart;
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
@@ -371,8 +370,8 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, implicit && !singlePart, actualTx, full);
     }
 
-    private InternalTransaction startImplicitTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.beginImplicit(observableTimestampTracker, false) : tx;
+    private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
+        return tx == null ? txManager.begin(observableTimestampTracker) : tx;
     }
 
     /**
@@ -474,7 +473,7 @@ public class InternalTableImpl implements InternalTable {
                                 if (e2 != null) {
                                     return result.completeExceptionally(e2);
                                 } else {
-                                    return result.complete((R) r2);
+                                    return result.complete(r2);
                                 }
                             });
                         }
@@ -598,7 +597,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryRowEx row,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, true);
+        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
         int partId = partitionId(row);
 
@@ -649,7 +648,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> rows,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, true);
+        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
 
         int partId = partitionId(rows.iterator().next());
 
@@ -934,7 +933,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        InternalTransaction tx = txManager.beginImplicit(observableTimestampTracker, false);
+        InternalTransaction tx = txManager.begin(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         CompletableFuture<Void> fut = enlistWithRetry(
@@ -991,7 +990,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
                 rows,
                 tx,
@@ -1005,11 +1004,16 @@ public class InternalTableImpl implements InternalTable {
                         .timestampLong(clock.nowLong())
                         .full(full)
                         .build(),
-                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
-                    ReadWriteMultiRowReplicaRequest r = (ReadWriteMultiRowReplicaRequest) req;
+                    for (BinaryRow row : res) {
+                        if (row != null) {
+                            return false;
+                        }
+                    }
 
-                    return res.size() == r.binaryRowMessages().size();
+                    // All values are null, this means nothing was deleted.
+                    return true;
                 }
         );
     }
@@ -1137,7 +1141,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
                 rows,
                 tx,
@@ -1151,24 +1155,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestampLong(clock.nowLong())
                         .full(full)
                         .build(),
-                rowBatches -> allResultFutures(rowBatches).thenApply(v -> {
-                    List<BinaryRow> result = new ArrayList<>();
-
-                    for (RowBatch batch : rowBatches) {
-                        List<BinaryRow> requestedRows = batch.requestedRows;
-                        List<BinaryRow> response = (List<BinaryRow>) batch.resultFuture.join();
-
-                        assert requestedRows.size() == response.size();
-
-                        for (int i = 0; i < requestedRows.size(); i++) {
-                            if (response.get(i) == null) {
-                                result.add(requestedRows.get(i));
-                            }
-                        }
-                    }
-
-                    return result;
-                }),
+                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
                     for (BinaryRow row : res) {
                         if (row != null) {
@@ -1184,7 +1171,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
+    public CompletableFuture<List<BinaryRow>> deleteAllExact(
             Collection<BinaryRowEx> rows,
             InternalTransaction tx
     ) {
@@ -1201,11 +1188,16 @@ public class InternalTableImpl implements InternalTable {
                         .timestampLong(clock.nowLong())
                         .full(full)
                         .build(),
-                InternalTableImpl::collectMultiRowsResponsesWithoutRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
-                    ReadWriteMultiRowReplicaRequest r = (ReadWriteMultiRowReplicaRequest) req;
+                    for (BinaryRow row : res) {
+                        if (row != null) {
+                            return false;
+                        }
+                    }
 
-                    return res.size() == r.binaryRowMessages().size();
+                    // All values are null, this means nothing was deleted.
+                    return true;
                 }
         );
     }
@@ -1323,9 +1315,8 @@ public class InternalTableImpl implements InternalTable {
 
         validatePartitionIndex(partId);
 
-        InternalTransaction actualTx = startImplicitTxIfNeeded(tx);
-
-        boolean implicit = actualTx.implicit();
+        boolean implicit = tx == null;
+        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> enlistCursorInTx(
@@ -1554,44 +1545,66 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Gathers the result of batch processing into a single resulting collection of rows.
+     * Gets a batch result.
      *
      * @param rowBatches Row batches.
      * @return Future of collecting results.
      */
-    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithoutRestoreOrder(Collection<RowBatch> rowBatches) {
-        return allResultFutures(rowBatches)
-                .thenApply(response -> {
-                    var result = new ArrayList<BinaryRow>(rowBatches.size());
+    public static CompletableFuture<List<BinaryRow>> collectRejectedRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+        return collectMultiRowsResponsesWithRestoreOrder(
+                rowBatches,
+                batch -> {
+                    List<BinaryRow> result = new ArrayList<>();
+                    List<BinaryRow> response = (List<BinaryRow>) batch.getCompletedResult();
 
-                    for (RowBatch rowBatch : rowBatches) {
-                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
+                    assert batch.requestedRows.size() == response.size() :
+                            "Replication response does not fit to request [requestRows=" + batch.requestedRows.size()
+                                    + "responseRows=" + response.size() + ']';
 
-                        if (batchResult == null) {
-                            continue;
-                        }
-
-                        result.addAll(batchResult);
+                    for (int i = 0; i < response.size(); i++) {
+                        result.add(response.get(i) != null ? null : batch.requestedRows.get(i));
                     }
 
                     return result;
-                });
+                },
+                true
+        );
+    }
+
+    /**
+     * Gets a batch result.
+     *
+     * @param rowBatches Row batches.
+     * @return Future of collecting results.
+     */
+    static CompletableFuture<List<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+        return collectMultiRowsResponsesWithRestoreOrder(
+                rowBatches,
+                batch -> (Collection<BinaryRow>) batch.getCompletedResult(),
+                false
+        );
     }
 
     /**
      * Gathers the result of batch processing into a single resulting collection of rows, restoring order as in the requested collection of
      * rows.
      *
-     * @param rowBatches Row batches by partition ID.
+     * @param rowBatches Row batches.
+     * @param bathResultMapper Map a batch to the result collection of binary rows.
+     * @param skipNull True to skip the null in result collection, false otherwise.
      * @return Future of collecting results.
      */
-    static CompletableFuture<List<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+    private static CompletableFuture<List<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(
+            Collection<RowBatch> rowBatches,
+            Function<RowBatch, Collection<BinaryRow>> bathResultMapper,
+            boolean skipNull
+    ) {
         return allResultFutures(rowBatches)
                 .thenApply(response -> {
                     var result = new BinaryRow[RowBatch.getTotalRequestedRowSize(rowBatches)];
 
                     for (RowBatch rowBatch : rowBatches) {
-                        Collection<BinaryRow> batchResult = (Collection<BinaryRow>) rowBatch.getCompletedResult();
+                        Collection<BinaryRow> batchResult = bathResultMapper.apply(rowBatch);
 
                         assert batchResult != null;
 
@@ -1605,8 +1618,15 @@ public class InternalTableImpl implements InternalTable {
                         }
                     }
 
-                    // Use Arrays#asList to avoid copying the array.
-                    return Arrays.asList(result);
+                    ArrayList<BinaryRow> resultToReturn = new ArrayList<>();
+
+                    for (BinaryRow row : result) {
+                        if (!skipNull || row != null) {
+                            resultToReturn.add(row);
+                        }
+                    }
+
+                    return resultToReturn;
                 });
     }
 

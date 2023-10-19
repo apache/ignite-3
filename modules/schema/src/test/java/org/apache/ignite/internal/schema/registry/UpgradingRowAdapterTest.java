@@ -17,21 +17,19 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
-import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -43,13 +41,13 @@ import java.util.Random;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -85,9 +83,9 @@ public class UpgradingRowAdapterTest {
                         new Column("valFloatCol", FLOAT, true),
                         new Column("valDoubleCol", DOUBLE, true),
                         new Column("valDateCol", DATE, true),
-                        new Column("valTimeCol", time(), true),
-                        new Column("valDateTimeCol", datetime(), true),
-                        new Column("valTimeStampCol", timestamp(), true),
+                        new Column("valTimeCol", time(0), true),
+                        new Column("valDateTimeCol", datetime(6), true),
+                        new Column("valTimeStampCol", timestamp(6), true),
                         new Column("valBitmask1Col", NativeTypes.bitmaskOf(22), true),
                         new Column("valBytesCol", BYTES, false),
                         new Column("valStringCol", STRING, false),
@@ -108,9 +106,9 @@ public class UpgradingRowAdapterTest {
                         new Column("valFloatCol", FLOAT, true),
                         new Column("valDoubleCol", DOUBLE, true),
                         new Column("valDateCol", DATE, true),
-                        new Column("valTimeCol", time(), true),
-                        new Column("valDateTimeCol", datetime(), true),
-                        new Column("valTimeStampCol", timestamp(), true),
+                        new Column("valTimeCol", time(0), true),
+                        new Column("valDateTimeCol", datetime(6), true),
+                        new Column("valTimeStampCol", timestamp(6), true),
                         new Column("valBitmask1Col", NativeTypes.bitmaskOf(22), true),
                         new Column("valBytesCol", BYTES, false),
                         new Column("valStringCol", STRING, false),
@@ -148,8 +146,7 @@ public class UpgradingRowAdapterTest {
         BinaryRow row = serializeValuesToRow(schema, values);
 
         var schemaRegistry = new SchemaRegistryImpl(
-                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
-                () -> completedFuture(INITIAL_TABLE_VERSION),
+                v -> v == 1 ? schema : schema2,
                 schema
         );
 
@@ -160,8 +157,7 @@ public class UpgradingRowAdapterTest {
         values.add(addedColumnIndex, null);
 
         var schema2Registry = new SchemaRegistryImpl(
-                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
-                () -> completedFuture(schema2.version()),
+                v -> v == 1 ? schema : schema2,
                 schema2
         );
 
@@ -169,7 +165,7 @@ public class UpgradingRowAdapterTest {
     }
 
     private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, BinaryRow binaryRow) {
-        Row row = schemaRegistry.resolve(binaryRow);
+        Row row = schemaRegistry.resolve(binaryRow, schemaRegistry.lastKnownSchemaVersion());
 
         SchemaDescriptor schema = row.schema();
 

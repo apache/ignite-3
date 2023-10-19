@@ -17,22 +17,22 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.UUID;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.UUID;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -45,6 +45,9 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,9 +89,9 @@ public class RowTest {
                 new Column("keyDoubleCol", DOUBLE, false),
                 new Column("keyUuidCol", UUID, false),
                 new Column("keyDateCol", DATE, false),
-                new Column("keyTimeCol", time(), false),
-                new Column("keyDateTimeCol", datetime(), false),
-                new Column("keyTimeStampCol", timestamp(), false),
+                new Column("keyTimeCol", time(0), false),
+                new Column("keyDateTimeCol", datetime(6), false),
+                new Column("keyTimeStampCol", timestamp(6), false),
                 new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), false)
         };
@@ -103,9 +106,9 @@ public class RowTest {
                 new Column("valDoubleCol", DOUBLE, false),
                 new Column("valUuidCol", UUID, false),
                 new Column("valDateCol", DATE, false),
-                new Column("valTimeCol", time(), false),
-                new Column("valDateTimeCol", datetime(), false),
-                new Column("valTimeStampCol", timestamp(), false),
+                new Column("valTimeCol", time(0), false),
+                new Column("valDateTimeCol", datetime(6), false),
+                new Column("valTimeStampCol", timestamp(6), false),
                 new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), false)
         };
@@ -128,9 +131,9 @@ public class RowTest {
                 new Column("keyDoubleCol", DOUBLE, false),
                 new Column("keyUuidCol", UUID, false),
                 new Column("keyDateCol", DATE, false),
-                new Column("keyTimeCol", time(), false),
-                new Column("keyDateTimeCol", datetime(), false),
-                new Column("keyTimeStampCol", timestamp(), false),
+                new Column("keyTimeCol", time(0), false),
+                new Column("keyDateTimeCol", datetime(6), false),
+                new Column("keyTimeStampCol", timestamp(6), false),
                 new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), false),
                 new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), false),
         };
@@ -145,9 +148,9 @@ public class RowTest {
                 new Column("valDoubleCol", DOUBLE, true),
                 new Column("valUuidCol", UUID, true),
                 new Column("valDateCol", DATE, true),
-                new Column("valTimeCol", time(), true),
-                new Column("valDateTimeCol", datetime(), true),
-                new Column("valTimeStampCol", timestamp(), true),
+                new Column("valTimeCol", time(0), true),
+                new Column("valDateTimeCol", datetime(6), true),
+                new Column("valTimeStampCol", timestamp(6), true),
                 new Column("valBitmask1Col", NativeTypes.bitmaskOf(4), true),
                 new Column("valBitmask2Col", NativeTypes.bitmaskOf(22), true),
         };
@@ -165,7 +168,7 @@ public class RowTest {
                 new Column("keyShortCol", INT16, false),
                 new Column("keyIntCol", INT32, false),
                 new Column("keyLongCol", INT64, false),
-                new Column("keyDateTimeCol", datetime(), false),
+                new Column("keyDateTimeCol", datetime(6), false),
                 new Column("keyBytesCol", BYTES, false),
                 new Column("keyStringCol", STRING, false),
                 new Column("keyNumberCol", NativeTypes.numberOf(9), false),
@@ -177,7 +180,7 @@ public class RowTest {
                 new Column("valShortCol", INT16, true),
                 new Column("valIntCol", INT32, true),
                 new Column("valLongCol", INT64, true),
-                new Column("valDateTimeCol", datetime(), true),
+                new Column("valDateTimeCol", datetime(6), true),
                 new Column("valBytesCol", BYTES, true),
                 new Column("valStringCol", STRING, true),
                 new Column("valNumberCol", NativeTypes.numberOf(9), true),

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -63,6 +65,10 @@ class IndexBuildTask {
 
     private final ClusterNode node;
 
+    private final List<IndexBuildCompletionListener> listeners;
+
+    private final long enlistmentConsistencyToken;
+
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean taskStopGuard = new AtomicBoolean();
@@ -77,7 +83,9 @@ class IndexBuildTask {
             ExecutorService executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
-            ClusterNode node
+            ClusterNode node,
+            List<IndexBuildCompletionListener> listeners,
+            long enlistmentConsistencyToken
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -87,6 +95,9 @@ class IndexBuildTask {
         this.busyLock = busyLock;
         this.batchSize = batchSize;
         this.node = node;
+        // We do not intentionally make a copy of the list, we want to see changes in the passed list.
+        this.listeners = listeners;
+        this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }
 
     /** Starts building the index. */
@@ -97,16 +108,18 @@ class IndexBuildTask {
             return;
         }
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Start building the index: [{}]", createCommonIndexInfo());
-        }
+        LOG.info("Start building the index: [{}]", createCommonIndexInfo());
 
         try {
             supplyAsync(this::handleNextBatch, executor)
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            if (unwrapCause(throwable) instanceof PrimaryReplicaMissException) {
+                                LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            } else {
+                                LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            }
 
                             taskFuture.completeExceptionally(throwable);
                         } else {
@@ -148,6 +161,12 @@ class IndexBuildTask {
                     .thenComposeAsync(unused -> {
                         if (indexStorage.getNextRowIdToBuild() == null) {
                             // Index has been built.
+                            LOG.info("Index build completed: [{}]", createCommonIndexInfo());
+
+                            for (IndexBuildCompletionListener listener : listeners) {
+                                listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
+                            }
+
                             return completedFuture(null);
                         }
 
@@ -188,6 +207,7 @@ class IndexBuildTask {
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
+                .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .build();
     }
 

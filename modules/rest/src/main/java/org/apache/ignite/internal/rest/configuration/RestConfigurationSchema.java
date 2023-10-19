@@ -35,11 +35,6 @@ public class RestConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = 10300;
 
-    /** TCP port range. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final int portRange = 100;
-
     /** The dual protocol (http/https) configuration. */
     @Value(hasDefault = true)
     public final boolean dualProtocol = false;

@@ -57,7 +57,7 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
     /** {@inheritDoc} */
     @Override
     public String representByPath(@Nullable String path) {
-        return HoconConverter.represent(registry, path == null ? List.of() : ConfigurationUtil.split(path)).render(
+        return HoconConverter.represent(registry.superRoot(), path == null ? List.of() : ConfigurationUtil.split(path)).render(
                 ConfigRenderOptions.concise());
     }
 

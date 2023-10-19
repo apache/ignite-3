@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,12 +35,17 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -84,11 +90,21 @@ public class SqlTestUtils {
             String expectedMessage,
             Executable executable) {
         T ex = assertThrows(expectedType, executable);
-        assertEquals(expectedCode, ex.code());
 
+        int expectedErrorCode = ErrorGroup.extractErrorCode(expectedCode);
+        ErrorGroup expectedErrorGroup = ErrorGroups.errorGroupByCode(expectedCode);
+        String expectedError = format("{}-{}", expectedErrorGroup.name(), expectedErrorCode);
+        String actualError = format("{}-{}", ex.groupName(), ex.errorCode());
+
+        assertEquals(expectedError, actualError, "Error does not match. " + ex);
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
         return ex;
+    }
+
+    public static <T> Stream<T> asStream(Iterator<T> sourceIterator) {
+        Iterable<T> iterable = () -> sourceIterator;
+        return StreamSupport.stream(iterable.spliterator(), false);
     }
 
     /**

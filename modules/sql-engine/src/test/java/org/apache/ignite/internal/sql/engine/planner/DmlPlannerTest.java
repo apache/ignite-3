@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.planner;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -32,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -220,6 +220,36 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 "MERGE INTO test DST USING unknown_t SRC ON DST.C1 = SRC.C1"
                         + " WHEN MATCHED THEN UPDATE SET C2 = SRC.C2"
                         + " WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)"
+        );
+    }
+
+    /**
+     * Tests that primary key columns are not modifiable.
+     */
+    @ParameterizedTest
+    @MethodSource("updatePrimaryKey")
+    public void testDoNotAllowToModifyPrimaryKeyColumns(String query) {
+        TestTable test = TestBuilders.table()
+                .name("TEST")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = createSchema(test);
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () ->  physicalPlan(query, schema),
+                SqlValidatorException.class,
+                "Primary key columns are not modifiable"
+        );
+    }
+
+    private static Stream<String> updatePrimaryKey() {
+        return Stream.of(
+                "UPDATE TEST SET ID = ID + 1",
+                "MERGE INTO test DST USING test SRC ON DST.VAL = SRC.VAL"
+                        + " WHEN MATCHED THEN UPDATE SET ID = SRC.ID + 1"
         );
     }
 

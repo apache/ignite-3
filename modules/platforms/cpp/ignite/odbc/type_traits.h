@@ -236,8 +236,8 @@ std::int32_t sql_type_decimal_digits(std::int16_t type, std::int32_t scale);
 /**
  * Get Ignite type decimal digits.
  *
-* @param typ Ignite type.
-* @param scale Scale if applies. Negative value means scale is not available.
+ * @param typ Ignite type.
+ * @param scale Scale if applies. Negative value means scale is not available.
  * @return big_decimal digits.
  */
 std::int32_t ignite_type_decimal_digits(ignite_type typ, std::int32_t scale);

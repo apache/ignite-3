@@ -700,7 +700,7 @@ public class IgniteUtils {
      * @param <O> Object type.
      * @return Object or default object.
      */
-    public static <O> O nonNullOrElse(O obj, O defaultObj) {
+    public static <O> O nonNullOrElse(@Nullable O obj, O defaultObj) {
         return (obj != null) ? obj : defaultObj;
     }
 

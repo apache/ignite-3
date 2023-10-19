@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.cluster.management.BaseItClusterManagementTest;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MockNode;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -46,6 +47,8 @@ public abstract class RestTestBase extends BaseItClusterManagementTest {
 
     static ClusterService clusterService;
 
+    static ClusterInitializer clusterInitializer;
+
     static ClusterManagementGroupManager clusterManager;
 
     @WorkDirectory
@@ -61,6 +64,7 @@ public abstract class RestTestBase extends BaseItClusterManagementTest {
         cluster.parallelStream().forEach(MockNode::start);
 
         clusterService = cluster.get(0).clusterService();
+        clusterInitializer = cluster.get(0).clusterInitializer();
         clusterManager = cluster.get(0).clusterManager();
     }
 
