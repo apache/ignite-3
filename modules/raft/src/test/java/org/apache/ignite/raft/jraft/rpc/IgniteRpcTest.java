@@ -66,8 +66,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
         ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
     }
 
-    /** {@inheritDoc} */
-    @Override public RpcServer<?> createServer() {
+    @Override
+    public RpcServer<?> createServer() {
         ClusterService service = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 INIT_PORT,
@@ -91,8 +91,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
         return server;
     }
 
-    /** {@inheritDoc} */
-    @Override public RpcClient createClient0() {
+    @Override
+    public RpcClient createClient0() {
         int i = cntr.incrementAndGet();
 
         ClusterService service = ClusterServiceTestUtils.clusterService(
@@ -116,8 +116,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
         return client;
     }
 
-    /** {@inheritDoc} */
-    @Override protected boolean waitForTopology(RpcClient client, int expected, int timeout) {
+    @Override
+    protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
         ClusterService service = ((IgniteRpcClient) client).clusterService();
 
         boolean success = TestUtils.waitForTopology(service, expected, timeout);
