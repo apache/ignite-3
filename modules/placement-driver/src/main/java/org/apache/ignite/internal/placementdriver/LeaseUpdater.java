@@ -283,7 +283,9 @@ public class LeaseUpdater {
                 }
 
                 try {
-                    updateLeaseBatchInternal();
+                    if (active()) {
+                        updateLeaseBatchInternal();
+                    }
                 } finally {
                     stateChangingLock.leaveBusy();
                 }
@@ -298,10 +300,6 @@ public class LeaseUpdater {
 
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
-            if (!active()) {
-                return;
-            }
-
             long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
