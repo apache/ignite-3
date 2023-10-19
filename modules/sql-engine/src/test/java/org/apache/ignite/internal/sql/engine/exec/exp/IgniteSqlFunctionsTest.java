@@ -250,6 +250,7 @@ public class IgniteSqlFunctionsTest {
     @Test
     public void testRound() {
         assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.000")));
+        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.123")));
         assertEquals(1, IgniteSqlFunctions.sround(1), "int");
         assertEquals(1L, IgniteSqlFunctions.sround(1L), "long");
         assertEquals(1.0d, IgniteSqlFunctions.sround(1.123d), "double");
@@ -258,6 +259,7 @@ public class IgniteSqlFunctionsTest {
     /** Tests for ROUND(x, s) function, where x is a BigDecimal value. */
     @ParameterizedTest
     @CsvSource({
+            "1.123, -1, 0.000",
             "1.123, 0, 1.000",
             "1.123, 1, 1.100",
             "1.123, 2, 1.120",
@@ -286,7 +288,7 @@ public class IgniteSqlFunctionsTest {
                 Arguments.of(1.123d, 2, 1.12d),
                 Arguments.of(1.245d, 1, 1.2d),
                 Arguments.of(1.123d, 0, 1.0d),
-                Arguments.of(1.123d, 0, 1.0d),
+                Arguments.of(1.123d, -1, 0.0d),
 
                 Arguments.of(5.5d, 1, 5.5d)
         );
