@@ -283,7 +283,9 @@ public class LeaseUpdater {
                 }
 
                 try {
-                    updateLeaseBatchInternal();
+                    if (active()) {
+                        updateLeaseBatchInternal();
+                    }
                 } finally {
                     stateChangingLock.leaveBusy();
                 }
