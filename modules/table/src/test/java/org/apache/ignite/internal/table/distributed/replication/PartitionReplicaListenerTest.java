@@ -135,6 +135,10 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
@@ -167,7 +171,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.MessagingService;
@@ -579,16 +582,39 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testReadOnlySingleRowReplicaRequestEmptyResult() throws Exception {
         BinaryRow testBinaryKey = nextBinaryKey();
 
-        CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
-                .groupId(grpId)
-                .readTimestampLong(clock.nowLong())
-                .primaryKey(testBinaryKey.tupleSlice())
-                .requestType(RequestType.RO_GET)
-                .build(), localNode.id());
+        ByteBuffer pk = testBinaryKey.tupleSlice();
+
+        CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(pk);
 
         BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS).result();
 
         assertNull(binaryRow);
+    }
+
+    private CompletableFuture<ReplicaResult> doReadOnlySingleGet(ByteBuffer pk) {
+        return doReadOnlySingleGet(pk, clock.now());
+    }
+
+    private CompletableFuture<ReplicaResult> doReadOnlySingleGet(ByteBuffer pk, HybridTimestamp readTimestamp) {
+        ReadOnlySingleRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
+                .groupId(grpId)
+                .readTimestampLong(readTimestamp.longValue())
+                .primaryKey(pk)
+                .requestType(RequestType.RO_GET)
+                .build();
+
+        return partitionReplicaListener.invoke(request, localNode.id());
+    }
+
+    private CompletableFuture<ReplicaResult> doReadOnlyDirectSingleGet(ByteBuffer pk) {
+        ReadOnlyDirectSingleRowReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyDirectSingleRowReplicaRequest()
+                .groupId(grpId)
+                .primaryKey(pk)
+                .requestType(RequestType.RO_GET)
+                .enlistmentConsistencyToken(1L)
+                .build();
+
+        return partitionReplicaListener.invoke(request, localNode.id());
     }
 
     @Test
@@ -602,12 +628,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
         testMvPartitionStorage.commitWrite(rowId, clock.now());
 
-        CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
-                .groupId(grpId)
-                .readTimestampLong(clock.nowLong())
-                .primaryKey(testBinaryKey.tupleSlice())
-                .requestType(RequestType.RO_GET)
-                .build(), localNode.id());
+        CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey.tupleSlice());
 
         BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS).result();
 
@@ -626,12 +647,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
         txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, localNode.id(), clock.now()));
 
-        CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
-                .groupId(grpId)
-                .readTimestampLong(clock.nowLong())
-                .primaryKey(testBinaryKey.tupleSlice())
-                .requestType(RequestType.RO_GET)
-                .build(), localNode.id());
+        CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey.tupleSlice());
 
         BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS).result();
 
@@ -649,12 +665,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
         txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.PENDING, localNode.id(), null));
 
-        CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
-                .groupId(grpId)
-                .readTimestampLong(clock.nowLong())
-                .primaryKey(testBinaryKey.tupleSlice())
-                .requestType(RequestType.RO_GET)
-                .build(), localNode.id());
+        CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey.tupleSlice());
 
         BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS).result();
 
@@ -673,12 +684,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
         txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.ABORTED, localNode.id(), null));
 
-        CompletableFuture<ReplicaResult> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
-                .groupId(grpId)
-                .readTimestampLong(clock.nowLong())
-                .primaryKey(testBinaryKey.tupleSlice())
-                .requestType(RequestType.RO_GET)
-                .build(), localNode.id());
+        CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey.tupleSlice());
 
         BinaryRow binaryRow = (BinaryRow) fut.get(1, TimeUnit.SECONDS).result();
 
@@ -984,11 +990,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testWriteIntentOnPrimaryReplicaInsertUpdateDelete() throws MarshallerException {
+    public void testWriteIntentOnPrimaryReplicaInsertUpdateDelete() {
         UUID txId = newTxId();
 
         BinaryRow testRow = binaryRow(0);
-        BinaryRow testRowPk = kvMarshaller.marshal(new TestKey(0, "k0"));
+        BinaryRow testRowPk = marshalQuietly(new TestKey(0, "k0"), kvMarshaller);
 
         assertThat(doSingleRowRequest(txId, testRow, RequestType.RW_INSERT), willCompleteSuccessfully());
 
@@ -1035,8 +1041,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         cleanup(txId);
     }
 
+    private static <K, V> Row marshalQuietly(K key, KvMarshaller<K, V> marshaller) {
+        try {
+            return marshaller.marshal(key);
+        } catch (MarshallerException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Test
-    public void testWriteIntentOnPrimaryReplicaMultiRowOps() throws MarshallerException {
+    public void testWriteIntentOnPrimaryReplicaMultiRowOps() {
         UUID txId = newTxId();
         BinaryRow row0 = binaryRow(0);
         BinaryRow row1 = binaryRow(1);
@@ -1059,8 +1073,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         checkRowInMvStorage(newRow1, true);
 
         Collection<BinaryRow> newRowPks = List.of(
-                kvMarshaller.marshal(new TestKey(0, "k0")),
-                kvMarshaller.marshal(new TestKey(1, "k1"))
+                marshalQuietly(new TestKey(0, "k0"), kvMarshaller),
+                marshalQuietly(new TestKey(1, "k1"), kvMarshaller)
         );
 
         assertThat(doMultiRowPkRequest(txId, newRowPks, RequestType.RW_DELETE_ALL), willCompleteSuccessfully());
@@ -1314,14 +1328,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean upsertAfterDelete,
             @Values(booleans = {false, true}) boolean committed,
             @Values(booleans = {false, true}) boolean multiple
-    ) throws MarshallerException {
+    ) {
         BinaryRow br1 = binaryRow(1);
 
-        BinaryRow br1Pk = kvMarshaller.marshal(new TestKey(1, "k" + 1));
+        BinaryRow br1Pk = marshalQuietly(new TestKey(1, "k" + 1), kvMarshaller);
 
         BinaryRow br2 = binaryRow(2);
 
-        BinaryRow br2Pk = kvMarshaller.marshal(new TestKey(2, "k" + 2));
+        BinaryRow br2Pk = marshalQuietly(new TestKey(2, "k" + 2), kvMarshaller);
 
         if (insertFirst) {
             UUID tx0 = newTxId();
@@ -1377,7 +1391,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             List<BinaryRow> expected = committed
                     ? (upsertAfterDelete ? allRows : allRowsButModified)
                     : (insertFirst ? allRows : singletonList((BinaryRow) null));
-            List<BinaryRow> res = roGetAll(allRowsPks, clock.nowLong());
+            List<BinaryRow> res = roGetAll(allRowsPks, clock.now());
 
             assertEquals(allRows.size(), res.size());
 
@@ -1564,7 +1578,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private BinaryRow marshalKeyOrKeyValue(RequestType requestType, TestKey key) {
         try {
-            return RequestTypes.isKeyOnly(requestType) ? kvMarshaller.marshal(key) : kvMarshaller.marshal(key, someValue);
+            return RequestTypes.isKeyOnly(requestType) ? marshalQuietly(key, kvMarshaller) : kvMarshaller.marshal(key, someValue);
         } catch (MarshallerException e) {
             throw new AssertionError(e);
         }
@@ -1735,6 +1749,19 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .transactionId(targetTxId)
                         .term(1L)
                         .scanId(1)
+                        .build(),
+                localNode.id()
+        );
+    }
+
+    private CompletableFuture<?> doRoScanRetrieveBatchRequest(UUID targetTxId, HybridTimestamp readTimestamp) {
+        return partitionReplicaListener.invoke(
+                TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                        .groupId(grpId)
+                        .transactionId(targetTxId)
+                        .scanId(1)
+                        .batchSize(100)
+                        .readTimestampLong(readTimestamp.longValue())
                         .build(),
                 localNode.id()
         );
@@ -2003,10 +2030,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             fail("Uncovered type: " + requestType);
         }
 
-        testRwOperationsFailIfTableWasDropped(requestType, onExistingRow, invocation);
+        testOperationFailsIfTableWasDropped(requestType, onExistingRow, invocation);
     }
 
-    private void testRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, ListenerInvocation listenerInvocation) {
+    private void testOperationFailsIfTableWasDropped(RequestType requestType, boolean onExistingRow, ListenerInvocation listenerInvocation) {
         TestKey key = nextKey();
 
         if (onExistingRow) {
@@ -2065,7 +2092,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             fail("Uncovered type: " + requestType);
         }
 
-        testRwOperationsFailIfTableWasDropped(requestType, onExistingRow, invocation);
+        testOperationFailsIfTableWasDropped(requestType, onExistingRow, invocation);
     }
 
     @CartesianTest
@@ -2073,7 +2100,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testRwOperationsFailIfTableWasDropped(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
+        testOperationFailsIfTableWasDropped(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
                     marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
@@ -2085,7 +2112,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     void rwScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
-        testRwOperationsFailIfTableWasDropped(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
+        testOperationFailsIfTableWasDropped(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
             return doRwScanRetrieveBatchRequest(targetTxId);
         });
     }
@@ -2100,6 +2127,41 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         CompletableFuture<?> future = doRwScanCloseRequest(txId);
 
         assertThat(future, willCompleteSuccessfully());
+    }
+
+    @CartesianTest
+    void singleRowRoGetFailsIfTableWasDropped(
+            @Values(booleans = {false, true}) boolean direct,
+            @Values(booleans = {false, true}) boolean onExistingRow
+    ) {
+        testOperationFailsIfTableWasDropped(RequestType.RO_GET, onExistingRow, (targetTxId, key) -> {
+            if (direct) {
+                return doReadOnlyDirectSingleGet(marshalQuietly(key, kvMarshaller).tupleSlice());
+            } else {
+                return doReadOnlySingleGet(marshalQuietly(key, kvMarshaller).tupleSlice(), clock.now());
+            }
+        });
+    }
+
+    @CartesianTest
+    void multiRowRoGetFailsIfTableWasDropped(
+            @Values(booleans = {false, true}) boolean direct,
+            @Values(booleans = {false, true}) boolean onExistingRow
+    ) {
+        testOperationFailsIfTableWasDropped(RequestType.RO_GET_ALL, onExistingRow, (targetTxId, key) -> {
+            if (direct) {
+                return doReadOnlyDirectMultiGet(List.of(marshalQuietly(key, kvMarshaller)));
+            } else {
+                return doReadOnlyMultiGet(List.of(marshalQuietly(key, kvMarshaller)), clock.now());
+            }
+        });
+    }
+
+    @CartesianTest
+    void roScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
+        testOperationFailsIfTableWasDropped(RequestType.RO_SCAN, onExistingRow, (targetTxId, key) -> {
+            return doRoScanRetrieveBatchRequest(targetTxId, clock.now());
+        });
     }
 
     @Test
@@ -2194,17 +2256,34 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return (BinaryRow) future.join().result();
     }
 
-    private List<BinaryRow> roGetAll(Collection<BinaryRow> rows, long readTimestamp) {
-        CompletableFuture<ReplicaResult> future = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
-                        .groupId(grpId)
-                        .requestType(RequestType.RO_GET_ALL)
-                        .readTimestampLong(readTimestamp)
-                        .primaryKeys(rows.stream().map(BinaryRow::tupleSlice).collect(toList()))
-                        .build(),
-                localNode.id()
-        );
+    private List<BinaryRow> roGetAll(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {
+        CompletableFuture<ReplicaResult> future = doReadOnlyMultiGet(rows, readTimestamp);
+
+        assertThat(future, willCompleteSuccessfully());
 
         return (List<BinaryRow>) future.join().result();
+    }
+
+    private CompletableFuture<ReplicaResult> doReadOnlyMultiGet(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {
+        ReadOnlyMultiRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
+                .groupId(grpId)
+                .requestType(RequestType.RO_GET_ALL)
+                .readTimestampLong(readTimestamp.longValue())
+                .primaryKeys(rows.stream().map(BinaryRow::tupleSlice).collect(toList()))
+                .build();
+
+        return partitionReplicaListener.invoke(request, localNode.id());
+    }
+
+    private CompletableFuture<ReplicaResult> doReadOnlyDirectMultiGet(Collection<BinaryRow> rows) {
+        ReadOnlyDirectMultiRowReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
+                .groupId(grpId)
+                .requestType(RequestType.RO_GET_ALL)
+                .primaryKeys(rows.stream().map(BinaryRow::tupleSlice).collect(toList()))
+                .enlistmentConsistencyToken(1L)
+                .build();
+
+        return partitionReplicaListener.invoke(request, localNode.id());
     }
 
     private void cleanup(UUID txId) {
@@ -2244,11 +2323,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private BinaryRow nextBinaryKey() {
-        try {
-            return kvMarshaller.marshal(nextKey());
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
+        return marshalQuietly(nextKey(), kvMarshaller);
     }
 
     private static TestKey nextKey() {
@@ -2280,14 +2355,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return kvMarshaller.unmarshalKey(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new AssertionError(e);
-        }
-    }
-
-    private TestValue value(BinaryRow binaryRow) {
-        try {
-            return kvMarshaller.unmarshalValue(Row.wrapBinaryRow(schemaDescriptor, binaryRow));
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
         }
     }
 
