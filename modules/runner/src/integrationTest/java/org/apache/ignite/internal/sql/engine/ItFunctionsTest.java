@@ -386,19 +386,19 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("nonIntegerTypes")
-    public void testRoundNonIntegralTypes(ParseNum parse, MetadataMatcher matcher, MetadataMatcher matcher2) {
+    public void testRoundNonIntegralTypes(ParseNum parse, MetadataMatcher round1, MetadataMatcher round2) {
         String v1 = parse.value("42.123");
         String v2 = parse.value("45.123");
         String v3 = parse.value("47.123");
 
         assertQuery(format("SELECT ROUND({}), ROUND({}, 0)", v1, v1))
                 .returns(parse.apply("42"), parse.apply("42.000"))
-                .columnMetadata(matcher, matcher2)
+                .columnMetadata(round1, round2)
                 .check();
 
         assertQuery(format("SELECT ROUND({}, -2), ROUND({}, -1), ROUND({}, -1),  ROUND({}, -1)", v1, v1, v2, v3))
                 .returns(parse.apply("0.000"), parse.apply("40.000"), parse.apply("50.000"), parse.apply("50.000"))
-                .columnMetadata(matcher2, matcher2, matcher2, matcher2)
+                .columnMetadata(round2, round2, round2, round2)
                 .check();
 
         String v4 = parse.value("1.123");
@@ -412,7 +412,7 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
                 .returns(parse.apply("1.123"))
                 .returns(parse.apply("1.123"))
                 .returns(parse.apply("1.123"))
-                .columnMetadata(matcher2)
+                .columnMetadata(round2)
                 .check();
     }
 
