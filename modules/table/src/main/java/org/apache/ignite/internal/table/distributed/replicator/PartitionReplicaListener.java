@@ -3230,8 +3230,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Takes current timestamp and makes schema related validations at this timestamp. The current timestamp is NOT sent as safeTime
-     * timestamp.
+     * Takes current timestamp and makes schema related validations at this timestamp.
      *
      * @param txId Transaction ID.
      * @return Future that will complete when validation completes.
@@ -3244,8 +3243,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Takes current timestamp and makes schema related validations at this timestamp. The current timestamp is NOT sent as safeTime
-     * timestamp.
+     * Takes current timestamp and makes schema related validations at this timestamp.
      *
      * @param txId Transaction ID.
      * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
