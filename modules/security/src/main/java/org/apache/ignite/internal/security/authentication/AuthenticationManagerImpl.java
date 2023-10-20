@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
@@ -50,7 +51,7 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    private final List<AuthenticationListener> listeners = new ArrayList<>();
+    private final List<AuthenticationListener> listeners = new CopyOnWriteArrayList<>();
 
     private List<Authenticator> authenticators = new ArrayList<>();
 

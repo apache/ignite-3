@@ -31,9 +31,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -63,7 +63,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     private final AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
 
-    private final List<AuthenticationEvent> events = new CopyOnWriteArrayList<>();
+    private final List<AuthenticationEvent> events = new ArrayList<>();
 
     private final AuthenticationListener listener = events::add;
 
