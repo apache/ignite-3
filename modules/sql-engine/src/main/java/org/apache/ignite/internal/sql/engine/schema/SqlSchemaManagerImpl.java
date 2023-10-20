@@ -114,7 +114,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                     assert schema != null : "unknown schema " + subSchema;
 
-                    IgniteTable table = schema.getTable(tableId);
+                    IgniteTable table = schema.tableByIdOpt(tableId);
 
                     if (table != null) {
                         return table;

@@ -273,6 +273,8 @@ public class CatalogTestUtils {
                 return completedFuture(false);
             }
 
+            lastSeenVersion = update.version();
+
             return onUpdateHandler.handle(update, clock.now(), update.version()).thenApply(ignored -> true);
         }
 

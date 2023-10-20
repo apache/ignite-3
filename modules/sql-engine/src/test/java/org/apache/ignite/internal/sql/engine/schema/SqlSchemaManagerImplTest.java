@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -57,6 +59,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -96,6 +99,28 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     @AfterEach
     void cleanup() throws Exception {
         catalogManager.stop();
+    }
+
+    @Test
+    void exceptionWillBeThrownIfTableNotFoundById() {
+        await(catalogManager.execute(List.of(
+                createDummyTable("T1")
+        )));
+
+        int versionAfter = catalogManager.latestCatalogVersion();
+
+        // just to fill up cache
+        sqlSchemaManager.schema(versionAfter);
+
+        int nonExistingTableId = Integer.MAX_VALUE;
+
+        assertThat(catalogManager.table(nonExistingTableId, versionAfter), nullValue());
+
+        assertThrowsWithCause(
+                () -> sqlSchemaManager.table(versionAfter, nonExistingTableId),
+                IgniteInternalException.class,
+                "Table with given id not found"
+        );
     }
 
     @Test
