@@ -212,7 +212,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void changeCurrentUser() throws IOException {
+    void changeCurrentProvider() throws IOException {
         handshake();
 
         securityConfiguration.change(change -> {
@@ -232,7 +232,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void changeAnotherUser() throws IOException {
+    void changeAnotherProvider() throws IOException {
         handshake();
 
         securityConfiguration.change(change -> {
@@ -252,7 +252,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void deleteCurrentUser() throws IOException {
+    void deleteCurrentProvider() throws IOException {
         handshake();
 
         securityConfiguration.change(change -> {
@@ -268,7 +268,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void deleteAnotherUser() throws IOException {
+    void deleteAnotherProvider() throws IOException {
         handshake();
 
         securityConfiguration.change(change -> {
@@ -284,7 +284,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void createNewUser() throws IOException {
+    void createNewProvider() throws IOException {
         handshake();
 
         securityConfiguration.change(change -> {

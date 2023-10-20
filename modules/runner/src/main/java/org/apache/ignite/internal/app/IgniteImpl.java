@@ -650,8 +650,6 @@ public class IgniteImpl implements Ignite {
 
         authenticationManager = createAuthenticationManager();
 
-        SecurityConfiguration securityConfiguration = clusterConfigRegistry.getConfiguration(SecurityConfiguration.KEY);
-
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
