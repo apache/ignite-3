@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.Arrays.copyOfRange;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -28,7 +26,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -36,6 +34,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -436,19 +435,35 @@ public class IgniteUtils {
     }
 
     /**
-     * Generate file with dummy content with provided size.
+     * Calls fsync on a directory.
      *
-     * @param file File path.
-     * @param fileSize File size in bytes.
-     * @throws IOException if an I/O error is thrown.
+     * @param dir Path to the directory.
+     * @throws IOException If an I/O error occurs
      */
-    public static void fillDummyFile(Path file, long fileSize) throws IOException {
-        try (SeekableByteChannel channel = Files.newByteChannel(file, WRITE, CREATE)) {
-            channel.position(fileSize - 4);
+    public static void fsyncDir(Path dir) throws IOException {
+        assert Files.isDirectory(dir);
 
-            ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
-            buf.rewind();
-            channel.write(buf);
+        // Fsync for directories doesn't work on Windows.
+        if (OperatingSystem.current() == OperatingSystem.WINDOWS) {
+            return;
+        }
+
+        try (FileChannel fc = FileChannel.open(dir, StandardOpenOption.READ)) {
+            fc.force(true);
+        }
+    }
+
+    /**
+     * Calls fsync on a file.
+     *
+     * @param file Path to the file.
+     * @throws IOException If an I/O error occurs
+     */
+    public static void fsyncFile(Path file) throws IOException {
+        assert Files.isRegularFile(file);
+
+        try (FileChannel fc = FileChannel.open(file, StandardOpenOption.WRITE)) {
+            fc.force(true);
         }
     }
 
