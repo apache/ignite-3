@@ -24,15 +24,47 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.core.IsEqual.equalTo;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
+import org.apache.ignite.configuration.SuperRootChange;
+import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.SuperRoot;
+import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
-import org.hamcrest.Matchers;
+import org.apache.ignite.internal.security.configuration.SecurityView;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class SecurityConfigurationModuleTest {
+    private ConfigurationTreeGenerator generator;
+
+    private SuperRootChange rootChange;
+
     private final SecurityConfigurationModule module = new SecurityConfigurationModule();
+
+    @BeforeEach
+    void setUp() {
+        generator = new ConfigurationTreeGenerator(
+                module.rootKeys(),
+                module.schemaExtensions(),
+                module.polymorphicSchemaExtensions()
+        );
+
+        SuperRoot superRoot = generator.createSuperRoot();
+
+        rootChange = new SuperRootChangeImpl(superRoot);
+    }
+
+    @AfterEach
+    void tearDown() {
+        generator.close();
+    }
 
     @Test
     void typeIsDistributed() {
@@ -41,7 +73,7 @@ class SecurityConfigurationModuleTest {
 
     @Test
     void hasConfigurationRoots() {
-        assertThat(module.rootKeys(), Matchers.contains(SecurityConfiguration.KEY));
+        assertThat(module.rootKeys(), contains(SecurityConfiguration.KEY));
     }
 
     @Test
@@ -60,5 +92,49 @@ class SecurityConfigurationModuleTest {
     @Test
     void providesPolymorphicSchemaExtensions() {
         assertThat(module.polymorphicSchemaExtensions(), contains(BasicAuthenticationProviderConfigurationSchema.class));
+    }
+
+    @Test
+    void setDefaultUserIfProvidersIsEmpty() {
+        module.patchConfigurationWithDynamicDefaults(rootChange);
+
+        SecurityView securityView = rootChange.viewRoot(SecurityConfiguration.KEY);
+
+        assertThat(securityView.authentication().providers().size(), is(1));
+
+        BasicAuthenticationProviderView defaultProvider = (BasicAuthenticationProviderView) securityView.authentication()
+                .providers()
+                .get(0);
+
+        assertAll(
+                () -> assertThat(defaultProvider.username(), equalTo("ignite")),
+                () -> assertThat(defaultProvider.password(), equalTo("ignite"))
+        );
+    }
+
+    @Test
+    void doNotSetDefaultUserIfProvidersIsNotEmpty() {
+        rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
+            authenticationChange.changeProviders().create("basic", change -> {
+                change.convert(BasicAuthenticationProviderChange.class)
+                        .changeUsername("admin")
+                        .changePassword("password");
+            });
+        });
+
+        module.patchConfigurationWithDynamicDefaults(rootChange);
+
+        SecurityView securityView = rootChange.viewRoot(SecurityConfiguration.KEY);
+
+        assertThat(securityView.authentication().providers().size(), is(1));
+
+        BasicAuthenticationProviderView defaultProvider = (BasicAuthenticationProviderView) securityView.authentication()
+                .providers()
+                .get(0);
+
+        assertAll(
+                () -> assertThat(defaultProvider.username(), equalTo("admin")),
+                () -> assertThat(defaultProvider.password(), equalTo("password"))
+        );
     }
 }

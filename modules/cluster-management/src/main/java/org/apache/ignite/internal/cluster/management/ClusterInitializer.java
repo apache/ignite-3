@@ -27,11 +27,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.StringUtils;
@@ -50,11 +54,21 @@ public class ClusterInitializer {
 
     private final ClusterService clusterService;
 
+    private final ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher;
+
+    private final ConfigurationValidator clusterConfigurationValidator;
+
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Constructor. */
-    public ClusterInitializer(ClusterService clusterService) {
+    public ClusterInitializer(
+            ClusterService clusterService,
+            ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
+            ConfigurationValidator clusterConfigurationValidator
+    ) {
         this.clusterService = clusterService;
+        this.configurationDynamicDefaultsPatcher = configurationDynamicDefaultsPatcher;
+        this.clusterConfigurationValidator = clusterConfigurationValidator;
     }
 
     /**
@@ -122,11 +136,14 @@ public class ClusterInitializer {
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
+            String initialClusterConfiguration = patchClusterConfigurationWithDynamicDefaults(clusterConfiguration);
+            validateConfiguration(initialClusterConfiguration);
+
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(msNodeNameSet)
                     .cmgNodes(cmgNodeNameSet)
                     .clusterName(clusterName)
-                    .clusterConfigurationToApply(clusterConfiguration)
+                    .initialClusterConfiguration(initialClusterConfiguration)
                     .build();
 
             return invokeMessage(cmgNodes, initMessage)
@@ -234,5 +251,19 @@ public class ClusterInitializer {
                     return node;
                 })
                 .collect(Collectors.toList());
+    }
+
+
+    private String patchClusterConfigurationWithDynamicDefaults(@Nullable String hocon) {
+        return configurationDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon == null ? "" : hocon);
+    }
+
+    private void validateConfiguration(String hocon) {
+        if (hocon != null) {
+            List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(hocon);
+            if (!issues.isEmpty()) {
+                throw new ConfigurationValidationException(issues);
+            }
+        }
     }
 }
