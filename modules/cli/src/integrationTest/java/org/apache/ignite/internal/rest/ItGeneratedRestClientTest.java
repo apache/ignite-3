@@ -287,7 +287,10 @@ public class ItGeneratedRestClientTest {
     void updateClusterConfigurationWithInvalidParam() throws JsonProcessingException {
         ApiException thrown = assertThrows(
                 ApiException.class,
-                () -> clusterConfigurationApi.updateClusterConfiguration("security.enabled=true")
+                () -> clusterConfigurationApi.updateClusterConfiguration("{\n"
+                        + "    security.enabled:true, \n"
+                        + "    security.authentication.providers:null\n"
+                        + "}")
         );
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);

@@ -29,6 +29,7 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -141,7 +142,15 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         createIndex(INDEX_NAME);
 
-        verify(indexBuilder).scheduleBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
+        verify(indexBuilder).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
+                eq(localNode),
+                anyLong()
+        );
     }
 
     @Test
@@ -150,7 +159,15 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
 
-        verify(indexBuilder).scheduleBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
+        verify(indexBuilder).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
+                eq(localNode),
+                anyLong()
+        );
 
         verify(indexBuilder).scheduleBuildIndex(
                 eq(tableId()),
@@ -158,7 +175,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
-                eq(localNode)
+                eq(localNode),
+                anyLong()
         );
     }
 
@@ -197,7 +215,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
-                eq(localNode)
+                eq(localNode),
+                anyLong()
         );
 
         verify(indexBuilder).scheduleBuildIndex(
@@ -206,7 +225,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
-                eq(localNode)
+                eq(localNode),
+                anyLong()
         );
     }
 

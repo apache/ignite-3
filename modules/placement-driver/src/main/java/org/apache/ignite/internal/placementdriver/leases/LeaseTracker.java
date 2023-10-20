@@ -35,11 +35,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +44,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -170,13 +168,10 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
                     LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
 
-                    Set<ReplicationGroupId> actualGroups = new HashSet<>();
-
                     Map<ReplicationGroupId, Lease> previousLeasesMap = leases.leaseByGroupId();
 
                     for (Lease lease : leaseBatch.leases()) {
                         ReplicationGroupId grpId = lease.replicationGroupId();
-                        actualGroups.add(grpId);
 
                         leasesMap.put(grpId, lease);
 
@@ -190,15 +185,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                             }
                         }
 
-                        firePrimaryReplicaExpiredEventIfNeed(event.revision(), lease);
+                        firePrimaryReplicaExpiredEventIfNeeded(grpId, event.revision(), lease);
                     }
 
-                    for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leasesMap.entrySet().iterator(); iterator.hasNext();) {
-                        Map.Entry<ReplicationGroupId, Lease> e = iterator.next();
+                    for (ReplicationGroupId grpId : leases.leaseByGroupId().keySet()) {
+                        if (!leasesMap.containsKey(grpId)) {
+                            tryRemoveTracker(grpId);
 
-                        if (!actualGroups.contains(e.getKey())) {
-                            iterator.remove();
-                            tryRemoveTracker(e.getKey());
+                            firePrimaryReplicaExpiredEventIfNeeded(grpId, event.revision(), null);
                         }
                     }
 
@@ -310,20 +304,27 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /**
      * Fires the primary replica expire event if it needs.
      *
+     * @param grpId Group id, used for the cases when the {@code lease} parameter is null. Should be always not null.
      * @param causalityToken Causality token.
      * @param lease Lease to check on expiration.
      */
-    private void firePrimaryReplicaExpiredEventIfNeed(long causalityToken, Lease lease) {
-        ReplicationGroupId grpId = lease.replicationGroupId();
+    private void firePrimaryReplicaExpiredEventIfNeeded(ReplicationGroupId grpId, long causalityToken, @Nullable Lease lease) {
+        assert lease == null || lease.replicationGroupId().equals(grpId)
+                : IgniteStringFormatter.format("Group id mismatch [groupId={}, lease={}]", grpId, lease);
+
         Lease currentLease = leases.leaseByGroupId().get(grpId);
 
-        if (currentLease != null && currentLease.isAccepted() && !currentLease.getStartTime().equals(lease.getStartTime())) {
-            CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
-                    PRIMARY_REPLICA_EXPIRED,
-                    new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder())
-            ));
+        if (currentLease != null && currentLease.isAccepted()) {
+            boolean sameLease = lease != null && currentLease.getStartTime().equals(lease.getStartTime());
 
-            assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
+            if (!sameLease) {
+                CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
+                        PRIMARY_REPLICA_EXPIRED,
+                        new PrimaryReplicaEventParameters(causalityToken, grpId, currentLease.getLeaseholder())
+                ));
+
+                assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
+            }
         }
     }
 

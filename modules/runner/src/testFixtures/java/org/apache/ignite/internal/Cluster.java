@@ -157,6 +157,16 @@ public class Cluster {
      * Starts the cluster with the given number of nodes and initializes it.
      *
      * @param nodeCount Number of nodes in the cluster.
+     * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     */
+    public void startAndInit(int nodeCount, Consumer<InitParametersBuilder> initParametersConfigurator) {
+        startAndInit(nodeCount, new int[]{0}, initParametersConfigurator);
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
      * @param cmgNodes Indices of CMG nodes.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
