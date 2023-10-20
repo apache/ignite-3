@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -89,6 +90,14 @@ public interface TxManager extends IgniteComponent {
      * @return Future that completes once the cleanup action finishes.
      */
     CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
+
+    /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param action Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action);
 
     /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.

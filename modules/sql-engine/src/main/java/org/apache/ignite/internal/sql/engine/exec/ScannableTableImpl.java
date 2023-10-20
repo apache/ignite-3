@@ -183,10 +183,12 @@ public class ScannableTableImpl implements ScannableTable {
         return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
 
-    private <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(ExecutionContext<RowT> ctx,
+    private static <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(
+            ExecutionContext<RowT> ctx,
             BinaryTupleSchema indexRowSchema,
-            @Nullable RowT condition, RowFactory<RowT> factory) {
-
+            @Nullable RowT condition,
+            RowFactory<RowT> factory
+    ) {
         if (condition == null) {
             return null;
         }
@@ -194,7 +196,7 @@ public class ScannableTableImpl implements ScannableTable {
         return RowConverter.toBinaryTuplePrefix(ctx, indexRowSchema, factory, condition);
     }
 
-    private <RowT> @Nullable BinaryTuple toBinaryTuple(ExecutionContext<RowT> ctx, BinaryTupleSchema indexRowSchema,
+    private static <RowT> @Nullable BinaryTuple toBinaryTuple(ExecutionContext<RowT> ctx, BinaryTupleSchema indexRowSchema,
             @Nullable RowT condition, RowFactory<RowT> factory) {
         if (condition == null) {
             return null;
