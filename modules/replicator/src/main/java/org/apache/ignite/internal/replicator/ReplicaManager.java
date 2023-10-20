@@ -308,7 +308,7 @@ public class ReplicaManager implements IgniteComponent {
                     }
                 }
 
-                if (res.replicationFuture() != null) {
+                if (ex == null && res.replicationFuture() != null) {
                     assert request instanceof PrimaryReplicaRequest;
 
                     res.replicationFuture().handle((res0, ex0) -> {

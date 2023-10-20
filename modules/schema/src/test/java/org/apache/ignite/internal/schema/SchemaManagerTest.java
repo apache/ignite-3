@@ -81,7 +81,7 @@ import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
+class SchemaManagerTest extends BaseIgniteAbstractTest {
     private static final String SCHEMA_STORE_PREFIX = ".sch-hist.";
     private static final String LATEST_SCHEMA_VERSION_STORE_SUFFIX = ".sch-hist-latest";
 
@@ -107,7 +107,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
 
     private final SimpleInMemoryKeyValueStorage metaStorageKvStorage = new SimpleInMemoryKeyValueStorage("test");
 
-    private CatalogSchemaManager schemaManager;
+    private SchemaManager schemaManager;
 
     private EventListener<CatalogEventParameters> tableCreatedListener;
     private EventListener<CatalogEventParameters> tableAlteredListener;
@@ -132,7 +132,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
             return null;
         }).when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), any());
 
-        schemaManager = new CatalogSchemaManager(registry, catalogService, metaStorageManager);
+        schemaManager = new SchemaManager(registry, catalogService, metaStorageManager);
         schemaManager.start();
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
@@ -490,7 +490,7 @@ class CatalogSchemaManagerTest extends BaseIgniteAbstractTest {
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
         doReturn(45L).when(metaStorageManager).appliedRevision();
 
-        schemaManager = new CatalogSchemaManager(registry, catalogService, metaStorageManager);
+        schemaManager = new SchemaManager(registry, catalogService, metaStorageManager);
         schemaManager.start();
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);

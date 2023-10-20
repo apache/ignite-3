@@ -23,8 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -41,7 +41,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final SqlSchemaManager sqlSchemaManager;
 
-    private final CatalogSchemaManager schemaManager;
+    private final SchemaManager schemaManager;
 
     private final ReplicaService replicaService;
 
@@ -51,7 +51,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
     final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
-    public ExecutableTableRegistryImpl(TableManager tableManager, CatalogSchemaManager schemaManager, SqlSchemaManager sqlSchemaManager,
+    public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager, SqlSchemaManager sqlSchemaManager,
             ReplicaService replicaService, HybridClock clock, int cacheSize) {
 
         this.sqlSchemaManager = sqlSchemaManager;
