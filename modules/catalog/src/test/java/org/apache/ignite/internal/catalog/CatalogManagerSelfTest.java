@@ -50,6 +50,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -1949,10 +1950,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         delayDuration.set(1);
         CompletableFuture<Void> schemaChangeFuture1 = manager.execute(cmd2);
 
-        clock.update(clock.now().addPhysicalTime(10_000));
+        // Move clock forward to avoid awaiting.
+        clock.update(clock.now().addPhysicalTime(10_001));
 
-        assertThat(schemaChangeFuture0, willCompleteSuccessfully());
-        assertThat(schemaChangeFuture1, willCompleteSuccessfully());
+        assertThat(schemaChangeFuture0, willSucceedFast());
+        assertThat(schemaChangeFuture1, willSucceedFast());
 
         // Make sure that we are getting the latest version of the schema using current timestamp.
         int latestVer = manager.latestCatalogVersion();
