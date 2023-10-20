@@ -438,10 +438,10 @@ public class IgniteUtils {
      * Calls fsync on a directory.
      *
      * @param dir Path to the directory.
-     * @throws IOException If an I/O error occurs
+     * @throws IOException If an I/O error occurs.
      */
     public static void fsyncDir(Path dir) throws IOException {
-        assert Files.isDirectory(dir);
+        assert Files.isDirectory(dir) : dir;
 
         // Fsync for directories doesn't work on Windows.
         if (OperatingSystem.current() == OperatingSystem.WINDOWS) {
@@ -457,10 +457,10 @@ public class IgniteUtils {
      * Calls fsync on a file.
      *
      * @param file Path to the file.
-     * @throws IOException If an I/O error occurs
+     * @throws IOException If an I/O error occurs.
      */
     public static void fsyncFile(Path file) throws IOException {
-        assert Files.isRegularFile(file);
+        assert Files.isRegularFile(file) : file;
 
         try (FileChannel fc = FileChannel.open(file, StandardOpenOption.WRITE)) {
             fc.force(true);
