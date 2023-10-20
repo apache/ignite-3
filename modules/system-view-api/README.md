@@ -34,8 +34,8 @@ To register a system view, you need to complete three steps.
 
 ### Step 1. Mark component as `SystemViewProvider`
 
-Any component that wants to register system views must implement `SystemViewProvider` interface with single
-`systemViews()` method, which simply returns a list of system views. The next step provides an example of the implementation of this method.
+Any component that wants to register system view must implement `SystemViewProvider` interface with single
+`systemViews()` method, which simply returns a list of system views. The next step provides an example for the implementation of this method.
 
 ### Step 2. Build a view.
 For example we want to add a view representing actual cluster topology.
