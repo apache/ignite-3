@@ -1936,7 +1936,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void activationTimeIsStrictlyMonotonical() {
+    public void activationTimeIsStrictlyMonotonic() {
         // Prepare schema changes.
         ColumnParams column = ColumnParams.builder().name("ID").type(INT32).build();
         CatalogCommand cmd1 = BaseCatalogManagerTest.createTableCommand(TABLE_NAME, List.of(column), List.of("ID"), null);
@@ -1951,7 +1951,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CompletableFuture<Void> schemaChangeFuture1 = manager.execute(cmd2);
 
         // Move clock forward to avoid awaiting.
-        clock.update(clock.now().addPhysicalTime(10_001));
+        clock.update(clock.now().addPhysicalTime(11_000));
 
         assertThat(schemaChangeFuture0, willSucceedFast());
         assertThat(schemaChangeFuture1, willSucceedFast());
