@@ -112,7 +112,7 @@ public enum IgniteMethod {
 
     SUBSTR(SqlFunctions.class, "substring", String.class, int.class, int.class),
 
-    /** ROUND function. See {@link IgniteSqlFunctions#sround(double)},  {@link IgniteSqlFunctions#sround(double, int)} and variants. */
+    /** ROUND function. See {@link IgniteSqlFunctions#sround(double)}, {@link IgniteSqlFunctions#sround(double, int)} and variants. */
     ROUND(IgniteSqlFunctions.class, "sround", true);
 
     private final Method method;
@@ -138,7 +138,7 @@ public enum IgniteMethod {
     IgniteMethod(Class<?> clazz, String methodName, boolean overloadedMethod) {
         if (overloadedMethod) {
             // Allow calcite to select appropriate method at a call site.
-            this.method = Arrays.stream(IgniteSqlFunctions.class.getMethods())
+            this.method = Arrays.stream(clazz.getMethods())
                     .filter(m -> m.getName().equals(methodName))
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException(format("Public static method {} is not defined", methodName)));

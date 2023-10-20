@@ -34,16 +34,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestFactory;
-import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test Ignite SQL functions.
@@ -351,190 +352,107 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertThrowsWithCause(() -> sql("SELECT SUBSTR('1234567', 1, -3)"), IgniteException.class, "negative substring length");
     }
 
-    /** Test cases for ROUND function that accepts integral numeric types. */
-    @TestFactory
-    public Stream<DynamicTest> testRoundIntegral() {
-        class RoundTest implements Executable {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("integralTypes")
+    public void testIntType(ParseNum parse, MetadataMatcher matcher) {
+        String v1 = parse.value("42");
+        String v2 = parse.value("45");
+        String v3 = parse.value("47");
 
-            final NumType numType;
-
-            private RoundTest(NumType numType) {
-                this.numType = numType;
-            }
-
-            @Override
-            public void execute() {
-                String inputExpr = numType.expr("42");
-
-                assertQuery(format("SELECT ROUND({})", inputExpr))
-                        .returns(numType.value("42"))
-                        .columnMetadata(numType.roundMatcher())
-                        .check();
-
-                assertQuery(format("SELECT ROUND({}, s) FROM (VALUES (-2), (-1), (0), (1), (2) ) t(s)", inputExpr))
-                        .returns(numType.value("0"))
-                        .returns(numType.value("40"))
-                        .returns(numType.value("42"))
-                        .returns(numType.value("42"))
-                        .returns(numType.value("42"))
-                        .columnMetadata(numType.roundMatcher())
-                        .check();
-
-                assertQuery(format("SELECT ROUND({}, -1), ROUND({}, -1)", numType.expr("42"), numType.expr("47")))
-                        .returns(numType.value("40"), numType.value("50"))
-                        .check();
-            }
-        }
-
-        return Stream.of(NumType.BYTE, NumType.SHORT, NumType.INT, NumType.BIGINT, NumType.DECIMAL)
-                .map(t -> DynamicTest.dynamicTest(t.name(), new RoundTest(t)));
-    }
-
-    /** Test cases for ROUND function that accepts real, double types. */
-    @TestFactory
-    public Stream<DynamicTest> testRoundFloatingPoint() {
-        class RoundTest implements Executable {
-
-            final NumType numType;
-
-            private RoundTest(NumType numType) {
-                this.numType = numType;
-            }
-
-            @Override
-            public void execute() {
-                String inputExpr = numType.expr("1.123");
-
-                assertQuery(format("SELECT ROUND({})", inputExpr))
-                        .returns(numType.value("1"))
-                        .columnMetadata(numType.roundMatcher())
-                        .check();
-
-                assertQuery(format("SELECT ROUND({}, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)", inputExpr))
-                        .returns(numType.value("0.000"))
-                        .returns(numType.value("0.000"))
-                        .returns(numType.value("1.000"))
-                        .returns(numType.value("1.100"))
-                        .returns(numType.value("1.120"))
-                        .returns(numType.value("1.123"))
-                        .returns(numType.value("1.123"))
-                        .returns(numType.value("1.123"))
-                        .columnMetadata(numType.roundMatcher())
-                        .check();
-
-                assertQuery(format("SELECT ROUND({}, 2)", numType.expr("1.125")))
-                        .returns(numType.value("1.13"))
-                        .columnMetadata(numType.roundMatcher())
-                        .check();
-            }
-        }
-
-        return Stream.of(NumType.REAL, NumType.DOUBLE)
-                .map(t -> DynamicTest.dynamicTest(t.name(), new RoundTest(t)));
-    }
-
-    /** Test cases for ROUND function for DECIMAL type with precision and scale. */
-    @Test
-    public void testRoundDecimal() {
-        assertQuery("SELECT ROUND(1.123)")
-                .returns(new BigDecimal("1"))
-                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(0))
+        assertQuery(format("SELECT ROUND({}), ROUND({}, 0)", v1, v1))
+                .returns(parse.apply("42"), parse.apply("42"))
+                .columnMetadata(matcher, matcher)
                 .check();
 
-        assertQuery("SELECT ROUND(1.124, 2)")
-                .returns(new BigDecimal("1.120"))
-                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(3))
-                .check();
+        String query = format(
+                "SELECT ROUND({}, -2), ROUND({}, -1), ROUND({}, -1), ROUND({}, -1)",
+                v1, v1, v2, v3);
 
-        assertQuery("SELECT ROUND(1.125, 2)")
-                .returns(new BigDecimal("1.130"))
-                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(3))
-                .check();
-
-        assertQuery(format("SELECT ROUND(1.123, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)"))
-                .returns(new BigDecimal("0.000"))
-                .returns(new BigDecimal("0.000"))
-                .returns(new BigDecimal("1.000"))
-                .returns(new BigDecimal("1.100"))
-                .returns(new BigDecimal("1.120"))
-                .returns(new BigDecimal("1.123"))
-                .returns(new BigDecimal("1.123"))
-                .returns(new BigDecimal("1.123"))
-                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(3))
+        assertQuery(query)
+                .returns(parse.apply("0"), parse.apply("40"), parse.apply("50"), parse.apply("50"))
+                .columnMetadata(matcher, matcher, matcher, matcher)
                 .check();
     }
 
-    /** Numeric type for ROUND. */
-    enum NumType {
-        BYTE,
-        SHORT,
-        INT,
-        BIGINT,
-        REAL,
-        DOUBLE,
-        DECIMAL;
+    private static Stream<Arguments> integralTypes() {
+        return Stream.of(
+                Arguments.of(new ParseNum("TINYINT", Byte::parseByte), new MetadataMatcher().type(ColumnType.INT8)),
+                Arguments.of(new ParseNum("SMALLINT", Short::parseShort), new MetadataMatcher().type(ColumnType.INT16)),
+                Arguments.of(new ParseNum("INTEGER", Integer::parseInt), new MetadataMatcher().type(ColumnType.INT32)),
+                Arguments.of(new ParseNum("BIGINT", Long::parseLong), new MetadataMatcher().type(ColumnType.INT64)),
+                Arguments.of(new ParseNum("DECIMAL(4)", BigDecimal::new), new MetadataMatcher().type(ColumnType.DECIMAL).precision(4))
+        );
+    }
 
-        Object value(String input) {
-            switch (this) {
-                case BYTE:
-                    return Byte.valueOf(input);
-                case SHORT:
-                    return Short.valueOf(input);
-                case INT:
-                    return Integer.valueOf(input);
-                case BIGINT:
-                    return Long.valueOf(input);
-                case REAL:
-                    return Float.valueOf(input);
-                case DOUBLE:
-                    return Double.valueOf(input);
-                case DECIMAL:
-                    return new BigDecimal(input);
-                default:
-                    throw new IllegalStateException("Unexpected value: " + this);
-            }
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nonIntegerTypes")
+    public void testRoundNonIntegralTypes(ParseNum parse, MetadataMatcher matcher, MetadataMatcher matcher2) {
+        String v1 = parse.value("42.123");
+        String v2 = parse.value("45.123");
+        String v3 = parse.value("47.123");
+
+        assertQuery(format("SELECT ROUND({}), ROUND({}, 0)", v1, v1))
+                .returns(parse.apply("42"), parse.apply("42.000"))
+                .columnMetadata(matcher, matcher2)
+                .check();
+
+        assertQuery(format("SELECT ROUND({}, -2), ROUND({}, -1), ROUND({}, -1),  ROUND({}, -1)", v1, v1, v2, v3))
+                .returns(parse.apply("0.000"), parse.apply("40.000"), parse.apply("50.000"), parse.apply("50.000"))
+                .columnMetadata(matcher2, matcher2, matcher2, matcher2)
+                .check();
+
+        String v4 = parse.value("1.123");
+
+        assertQuery(format("SELECT ROUND({}, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)", v4))
+                .returns(parse.apply("0.000"))
+                .returns(parse.apply("0.000"))
+                .returns(parse.apply("1.000"))
+                .returns(parse.apply("1.100"))
+                .returns(parse.apply("1.120"))
+                .returns(parse.apply("1.123"))
+                .returns(parse.apply("1.123"))
+                .returns(parse.apply("1.123"))
+                .columnMetadata(matcher2)
+                .check();
+    }
+
+    private static Stream<Arguments> nonIntegerTypes() {
+        MetadataMatcher matchFloat = new MetadataMatcher().type(ColumnType.FLOAT);
+        MetadataMatcher matchDouble = new MetadataMatcher().type(ColumnType.DOUBLE);
+
+        MetadataMatcher matchDecimal1 = new MetadataMatcher().type(ColumnType.DECIMAL).precision(5).scale(0);
+        MetadataMatcher matchDecimal2 = new MetadataMatcher().type(ColumnType.DECIMAL).precision(5).scale(3);
+
+        return Stream.of(
+                Arguments.of(new ParseNum("REAL", Float::parseFloat), matchFloat, matchFloat),
+                Arguments.of(new ParseNum("DOUBLE", Double::parseDouble), matchDouble, matchDouble),
+                Arguments.of(new ParseNum("DECIMAL(5, 3)", BigDecimal::new), matchDecimal1, matchDecimal2)
+        );
+    }
+
+    /** Numeric type parser. */
+    public static final class ParseNum {
+
+        private final String typeName;
+
+        private final Function<String, Object> func;
+
+        ParseNum(String typeName, Function<String, Object> func) {
+            this.typeName = typeName;
+            this.func = func;
         }
 
-        String expr(String input) {
-            switch (this) {
-                case BYTE:
-                    return input + "::TINYINT";
-                case SHORT:
-                    return input + "::SMALLINT";
-                case INT:
-                    return input + "::INTEGER";
-                case BIGINT:
-                    return input + "::BIGINT";
-                case REAL:
-                    return input + "::REAL";
-                case DOUBLE:
-                    return input + "::DOUBLE";
-                case DECIMAL:
-                    return input + "::DECIMAL";
-                default:
-                    throw new IllegalStateException("Unexpected value: " + this);
-            }
+        public Object apply(String val) {
+            return func.apply(val);
         }
 
-        private MetadataMatcher roundMatcher() {
-            switch (this) {
-                case BYTE:
-                    return new MetadataMatcher().type(ColumnType.INT8).scale(0);
-                case SHORT:
-                    return new MetadataMatcher().type(ColumnType.INT16).scale(0);
-                case INT:
-                    return new MetadataMatcher().type(ColumnType.INT32).scale(0);
-                case BIGINT:
-                    return new MetadataMatcher().type(ColumnType.INT64).scale(0);
-                case REAL:
-                    return new MetadataMatcher().type(ColumnType.FLOAT);
-                case DOUBLE:
-                    return new MetadataMatcher().type(ColumnType.DOUBLE);
-                case DECIMAL:
-                    return new MetadataMatcher().type(ColumnType.DECIMAL).scale(0);
-                default:
-                    throw new IllegalStateException("Unexpected value: " + this);
-            }
+        public String value(String val) {
+            return val + "::" + typeName;
+        }
+
+        @Override
+        public String toString() {
+            return typeName;
         }
     }
 
