@@ -226,7 +226,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(Operation.class)
-    @Disabled("Enable after IGNITE-20680 is implemented")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20680")
     void readWriteOperationAfterDroppingTargetTableIsRejected(Operation operation) {
         createTable();
 
