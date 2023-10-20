@@ -483,8 +483,8 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> systemViewDistributions() {
         return Stream.of(
-                Arguments.of(SystemViewType.NODE, IgniteDistributions.identity(0)),
-                Arguments.of(SystemViewType.CLUSTER, IgniteDistributions.single())
+                Arguments.of(SystemViewType.LOCAL, IgniteDistributions.identity(0)),
+                Arguments.of(SystemViewType.GLOBAL, IgniteDistributions.single())
         );
     }
 

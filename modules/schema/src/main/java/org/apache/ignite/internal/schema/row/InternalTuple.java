@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.lang;
+package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -26,9 +26,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 
 /**
  * General interface to describe tuples outside of their data layout and column schemas.
+ * Accessor methods may or may not throw {@link InvalidTypeException} depending on the implementation.
  */
 public interface InternalTuple {
     /**

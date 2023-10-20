@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FL
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 
 /**
  * Class that represents a Binary Tuple Prefix.

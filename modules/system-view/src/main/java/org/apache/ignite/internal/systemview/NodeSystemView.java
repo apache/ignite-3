@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.systemview.api;
+package org.apache.ignite.internal.systemview;
 
 import java.util.List;
-import java.util.concurrent.Flow.Publisher;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.StringUtils;
 
 /**
@@ -51,18 +53,14 @@ public class NodeSystemView<T> extends SystemView<T> {
      * @param dataProvider Data provider.
      * @param nodeNameColumnAlias Node name column alias.
      */
-    private NodeSystemView(String name,
+    NodeSystemView(String name,
             List<SystemViewColumn<T, ?>> columns,
-            Publisher<T> dataProvider,
+            Supplier<AsyncCursor<T>> dataProvider,
             String nodeNameColumnAlias) {
         super(name, columns, dataProvider);
 
         if (StringUtils.nullOrBlank(nodeNameColumnAlias)) {
             throw new IllegalArgumentException("Node name column alias can not be null or blank");
-        }
-
-        if (columns.stream().anyMatch(c -> nodeNameColumnAlias.equals(c.name()))) {
-            throw new IllegalArgumentException("Node name column alias must distinct from column names");
         }
 
         this.nodeNameColumnAlias = nodeNameColumnAlias;
@@ -75,6 +73,12 @@ public class NodeSystemView<T> extends SystemView<T> {
      */
     public String nodeNameColumnAlias() {
         return nodeNameColumnAlias;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SystemViewType type() {
+        return SystemViewType.LOCAL;
     }
 
     /** {@inheritDoc} */
@@ -100,12 +104,11 @@ public class NodeSystemView<T> extends SystemView<T> {
         /**
          * Sets an alias for a node name column. Should only be set for node system views.
          *
-         * @param alias Node name column alias. Must contain only latin letters, digits and underscore.
-         *      The first character must be a letter.
+         * @param alias Node name column alias.
          * @return this.
          */
         public Builder<T> nodeNameColumnAlias(String alias) {
-            this.nodeNameColumnAlias = normalizeIdentifier(alias);
+            this.nodeNameColumnAlias = alias;
             return this;
         }
 
