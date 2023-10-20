@@ -88,9 +88,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private static final int SYSTEM_VIEW_STRING_COLUMN_LENGTH = Short.MAX_VALUE;
 
     /** Safe time to wait before new Catalog version activation. */
-    private static final int DEFAULT_DELAY_DURATION = 0;
+    static final int DEFAULT_DELAY_DURATION = 0;
 
-    private static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
+    static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
 
     /** Initial update token for a catalog descriptor, this token is valid only before the first call of
      * {@link UpdateEntry#applyUpdate(Catalog, long)}.
@@ -524,10 +524,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
         long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
+        long prevVersionActivationTimestamp = catalog.time();
 
         return new Catalog(
                 update.version(),
-                activationTimestamp,
+                Math.max(activationTimestamp, prevVersionActivationTimestamp),
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 catalog.schemas()
