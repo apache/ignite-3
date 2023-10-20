@@ -62,7 +62,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * This class services management of table schemas.
  */
-public class CatalogSchemaManager implements IgniteComponent {
+public class SchemaManager implements IgniteComponent {
     /** Schema history key predicate part. */
     private static final String SCHEMA_STORE_PREFIX = ".sch-hist.";
     private static final String LATEST_SCHEMA_VERSION_STORE_SUFFIX = ".sch-hist-latest";
@@ -82,7 +82,7 @@ public class CatalogSchemaManager implements IgniteComponent {
     private final MetaStorageManager metastorageMgr;
 
     /** Constructor. */
-    public CatalogSchemaManager(
+    public SchemaManager(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             CatalogService catalogService,
             MetaStorageManager metastorageMgr

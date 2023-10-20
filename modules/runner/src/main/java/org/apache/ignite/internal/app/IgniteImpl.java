@@ -118,7 +118,7 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
@@ -279,7 +279,7 @@ public class IgniteImpl implements Ignite {
     private final DataStorageManager dataStorageMgr;
 
     /** Schema manager. */
-    private final CatalogSchemaManager schemaManager;
+    private final SchemaManager schemaManager;
 
     /** Metric manager. */
     private final MetricManager metricManager;
@@ -548,7 +548,7 @@ public class IgniteImpl implements Ignite {
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
-        schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageMgr);
+        schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
 
         distributionZoneManager = new DistributionZoneManager(
                 name,

@@ -25,11 +25,11 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -37,7 +37,7 @@ import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 
 /**
- * A dummy implementation over {@link CatalogSchemaManager}. It is dummy because:
+ * A dummy implementation over {@link SchemaManager}. It is dummy because:
  *
  * <ul>
  *     <li>It imitates historicity, but always takes the latest known schema</li>
@@ -50,11 +50,11 @@ import org.apache.ignite.internal.type.VarlenNativeType;
  */
 // TODO: IGNITE-19447 - remove when switched to the CatalogService
 public class NonHistoricSchemas implements Schemas {
-    private final CatalogSchemaManager schemaManager;
+    private final SchemaManager schemaManager;
 
     private final SchemaSyncService schemaSyncService;
 
-    public NonHistoricSchemas(CatalogSchemaManager schemaManager, SchemaSyncService schemaSyncService) {
+    public NonHistoricSchemas(SchemaManager schemaManager, SchemaSyncService schemaSyncService) {
         this.schemaManager = schemaManager;
         this.schemaSyncService = schemaSyncService;
     }
