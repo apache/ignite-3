@@ -421,6 +421,11 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
                         .returns(numType.value("1.123"))
                         .columnMetadata(numType.roundMatcher())
                         .check();
+
+                assertQuery(format("SELECT ROUND({}, 2)", numType.expr("1.125")))
+                        .returns(numType.value("1.13"))
+                        .columnMetadata(numType.roundMatcher())
+                        .check();
             }
         }
 
@@ -434,6 +439,16 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT ROUND(1.123)")
                 .returns(new BigDecimal("1"))
                 .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(0))
+                .check();
+
+        assertQuery("SELECT ROUND(1.124, 2)")
+                .returns(new BigDecimal("1.120"))
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(3))
+                .check();
+
+        assertQuery("SELECT ROUND(1.125, 2)")
+                .returns(new BigDecimal("1.130"))
+                .columnMetadata(new MetadataMatcher().type(ColumnType.DECIMAL).precision(4).scale(3))
                 .check();
 
         assertQuery(format("SELECT ROUND(1.123, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)"))

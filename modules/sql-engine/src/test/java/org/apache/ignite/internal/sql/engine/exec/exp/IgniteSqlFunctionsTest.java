@@ -262,6 +262,7 @@ public class IgniteSqlFunctionsTest {
             "1.123, 0, 1.000",
             "1.123, 1, 1.100",
             "1.123, 2, 1.120",
+            "1.127, 2, 1.130",
             "1.123, 3, 1.123",
             "1.123, 4, 1.123",
             "10.123, 0, 10.000",
@@ -279,6 +280,7 @@ public class IgniteSqlFunctionsTest {
     @CsvSource({
             "1.123, 3, 1.123",
             "1.123, 2, 1.12",
+            "1.127, 2, 1.13",
             "1.245, 1, 1.2",
             "1.123, 0, 1.0",
             "1.123, -1, 0.0",
@@ -308,7 +310,7 @@ public class IgniteSqlFunctionsTest {
         assertEquals(result, IgniteSqlFunctions.sround(input, scale));
     }
 
-    /** Tests for ROUND(x, s) function, where x is an int. */
+    /** Tests for ROUND(x, s) function, where x is a long. */
     @ParameterizedTest
     @CsvSource({
             "42, -2, 0",
