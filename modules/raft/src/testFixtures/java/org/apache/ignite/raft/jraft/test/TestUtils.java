@@ -146,7 +146,7 @@ public class TestUtils {
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    public static boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
+    public static boolean waitForTopology(ClusterService cluster, int expected, long timeout) {
         return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
     }
 
