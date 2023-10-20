@@ -21,11 +21,15 @@ This module provides an abstraction and core interfaces for the Ignite system vi
 
 ## Basic concepts
 
-* Component that want to expose system views must extend `SystemViewProvider` interface.
+* Component that want to expose system views must implement `SystemViewProvider` interface.
 * All system views must be registered during node startup.
 * All system views are reside in `SYSTEM` schema.
 * From SQL perspective, a system view is a virtual immutable table.
-* System views doesn't support transactions.
+* System views don't support transactions. That is, regardless of whether a transaction has started or not, each query 
+  to the system view may return a different data set. This data set is provided by a specified system view data provider 
+  that does not have integration with the transaction protocol.
+* The view name and its columns are not case sensitive and must contain only alphanumeric characters with underscores and 
+  begin with a letter. There is no way to set the name to be case sensitive.
 * The system view named `SYSTEM_VIEWS` may be used to obtain a list of all system views registered in the cluster.
 
 ## System view registration example

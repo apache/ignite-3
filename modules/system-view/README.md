@@ -29,7 +29,10 @@ System views registration in the cluster involve next steps, which are performed
 
 ### Execution
 
-From the query engine perspective the system view is an unmodifiable table that doesn't support transactions. 
+From the query engine perspective the system view is an unmodifiable table that is located in `SYSTEM` schema.
+System views don't support transactions. With each query, the sql engine requests data from the system view data provider, 
+which does not have transaction integration.  That is, regardless of whether a transaction has started or not, each query 
+to the system view may return a different set of data.
 
 Cluster-wide view data can be obtained on any node so the view of this type has a single distribution.
 
