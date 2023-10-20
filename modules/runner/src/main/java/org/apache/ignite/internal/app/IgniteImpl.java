@@ -855,6 +855,8 @@ public class IgniteImpl implements Ignite {
 
                         return cmgMgr.onJoinReady();
                     }, startupExecutor)
+                    // TODO Remove waiting for schema update after https://issues.apache.org/jira/browse/IGNITE-20498
+                    .thenComposeAsync(v -> systemViewManager.completeRegistration())
                     .thenRunAsync(() -> {
                         try {
                             // Transfer the node to the STARTED state.

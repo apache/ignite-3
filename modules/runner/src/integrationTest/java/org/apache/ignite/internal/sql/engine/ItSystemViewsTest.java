@@ -58,10 +58,6 @@ public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(KnownSystemView.class)
     public void systemViewWithGivenNameExists(KnownSystemView view) {
-        if (true) {
-            return;
-        }
-
         try (Session session = CLUSTER_NODES.get(0).sql().sessionBuilder().defaultSchema(view.schema).build()) {
             ResultSet<SqlRow> rs = session.execute(null, format("SELECT count(*) FROM {}", view.name));
 
@@ -75,10 +71,6 @@ public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(KnownSystemView.class)
     public void systemViewWithGivenNamePresentedInSystemViewsView(KnownSystemView view) {
-        if (true) {
-            return;
-        }
-
         try (Session session = CLUSTER_NODES.get(0).sql().sessionBuilder().defaultSchema(SYSTEM_VIEWS.schema).build()) {
             ResultSet<SqlRow> rs = session.execute(null,
                     format("SELECT count(*) FROM {} WHERE schema = '{}' AND name = '{}'",
@@ -94,10 +86,6 @@ public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void systemViewsViewMetadataTest() {
-        if (true) {
-            return;
-        }
-
         KnownSystemView view = SYSTEM_VIEWS;
 
         try (Session session = CLUSTER_NODES.get(0).sql().sessionBuilder().defaultSchema(view.schema).build()) {
@@ -134,10 +122,6 @@ public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void systemViewColumnsViewMetadataTest() {
-        if (true) {
-            return;
-        }
-
         KnownSystemView view = SYSTEM_VIEW_COLUMNS;
 
         try (Session session = CLUSTER_NODES.get(0).sql().sessionBuilder().defaultSchema(view.schema).build()) {

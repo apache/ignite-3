@@ -475,7 +475,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public List<SystemView<?>> systemViews() {
-        return List.of();
+        return List.of(
+                createSystemViewsView(),
+                createSystemViewColumnsView()
+        );
     }
 
     class OnUpdateHandlerImpl implements OnUpdateHandler {
