@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.systemview.api;
 
-import java.util.concurrent.Flow.Publisher;
-import org.apache.ignite.internal.lang.InternalTuple;
+import java.util.List;
 
 /**
- * Provides read operations over an abstract data source.
+ * Denotes a component that willing to expose system views.
+ *
+ * <p>Do not forget to register provider at {@link SystemViewManager} by calling
+ * {@link SystemViewManager#register(SystemViewProvider)} before the manager got started.
  */
 @FunctionalInterface
-public interface ScannableDataSource {
-    Publisher<InternalTuple> scan();
+public interface SystemViewProvider {
+    /** Returns a list of a system views to expose. */
+    List<SystemView<?>> systemViews();
 }
