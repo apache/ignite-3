@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_DISABLED;
+import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_ENABLED;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -31,12 +34,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationDisabled;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationEnabled;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderRemoved;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderUpdated;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEvent;
 import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
@@ -51,9 +51,9 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
 
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    private List<Authenticator> authenticators = new ArrayList<>();
-
     private final List<AuthenticationListener> listeners = new CopyOnWriteArrayList<>();
+
+    private List<Authenticator> authenticators = new ArrayList<>();
 
     private boolean authEnabled = false;
 
@@ -137,32 +137,34 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
         SecurityView newValue = ctx.newValue();
 
         // Authentication enabled/disabled.
-        if (oldValue.enabled() && !newValue.enabled()) {
-            notifyListeners(new AuthenticationDisabled());
-        } else if (!oldValue.enabled() && newValue.enabled()) {
-            notifyListeners(new AuthenticationEnabled());
+        if ((oldValue == null || oldValue.enabled()) && !newValue.enabled()) {
+            notifyListeners(() -> AUTHENTICATION_DISABLED);
+        } else if ((oldValue == null || !oldValue.enabled()) && newValue.enabled()) {
+            notifyListeners(() -> AUTHENTICATION_ENABLED);
         }
 
-        // Authentication providers removed.
-        oldValue.authentication()
-                .providers()
-                .stream()
-                .map(AuthenticationProviderView::name)
-                .filter(it -> newValue.authentication().providers().get(it) == null)
-                .map(AuthenticationProviderRemoved::new)
-                .forEach(this::notifyListeners);
+        if (oldValue != null) {
+            // Authentication providers removed.
+            oldValue.authentication()
+                    .providers()
+                    .stream()
+                    .map(AuthenticationProviderView::name)
+                    .filter(it -> newValue.authentication().providers().get(it) == null)
+                    .map(AuthenticationProviderEvent::removed)
+                    .forEach(this::notifyListeners);
 
-        // Authentication providers updated.
-        oldValue.authentication()
-                .providers()
-                .stream()
-                .filter(oldProvider -> {
-                    AuthenticationProviderView newProvider = newValue.authentication().providers().get(oldProvider.name());
-                    return newProvider != null && !AuthenticationProviderEqualityVerifier.areEqual(oldProvider, newProvider);
-                })
-                .map(AuthenticationProviderView::name)
-                .map(AuthenticationProviderUpdated::new)
-                .forEach(this::notifyListeners);
+            // Authentication providers updated.
+            oldValue.authentication()
+                    .providers()
+                    .stream()
+                    .filter(oldProvider -> {
+                        AuthenticationProviderView newProvider = newValue.authentication().providers().get(oldProvider.name());
+                        return newProvider != null && !AuthenticationProviderEqualityVerifier.areEqual(oldProvider, newProvider);
+                    })
+                    .map(AuthenticationProviderView::name)
+                    .map(AuthenticationProviderEvent::updated)
+                    .forEach(this::notifyListeners);
+        }
     }
 
     private void notifyListeners(AuthenticationEvent event) {

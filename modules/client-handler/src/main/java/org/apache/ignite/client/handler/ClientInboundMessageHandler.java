@@ -105,8 +105,7 @@ import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderRemoved;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderUpdated;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEvent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -306,7 +305,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
             UserDetails userDetails = authenticationManager.authenticate(authenticationRequest);
 
-            clientContext = new ClientContext(clientVer, clientCode, features, authenticationRequest, userDetails);
+            clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Handshake [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + clientContext);
@@ -768,37 +767,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 closeConnection();
                 break;
             case AUTHENTICATION_PROVIDER_REMOVED:
-                onAuthenticationProviderRemoved((AuthenticationProviderRemoved) event);
-                break;
             case AUTHENTICATION_PROVIDER_UPDATED:
-                onAuthenticationProviderUpdated(((AuthenticationProviderUpdated) event));
+                AuthenticationProviderEvent providerEvent = (AuthenticationProviderEvent) event;
+                if (clientContext != null && clientContext.userDetails().providerName().equals(providerEvent.name())) {
+                    closeConnection();
+                }
                 break;
             default:
                 break;
-        }
-    }
-
-    private void onAuthenticationProviderRemoved(AuthenticationProviderRemoved event) {
-        if (clientContext != null && clientContext.userDetails().providerName().equals(event.name())) {
-            closeConnection();
-        }
-    }
-
-    private void onAuthenticationProviderUpdated(AuthenticationProviderUpdated event) {
-        if (clientContext != null && clientContext.userDetails().providerName().equals(event.name())) {
-            try {
-                UserDetails userDetails = authenticationManager.authenticate(clientContext.authenticationRequest());
-                clientContext = new ClientContext(
-                        clientContext.version(),
-                        clientContext.clientCode(),
-                        clientContext.features(),
-                        clientContext.authenticationRequest(),
-                        userDetails
-                );
-            } catch (Throwable t) {
-                LOG.warn("Failed to re-authenticate client [remoteAddress={}]: ", t, channelHandlerContext.channel().remoteAddress());
-                closeConnection();
-            }
         }
     }
 

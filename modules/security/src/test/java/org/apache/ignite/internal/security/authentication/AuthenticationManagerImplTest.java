@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_DISABLED;
+import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_ENABLED;
+import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_PROVIDER_REMOVED;
+import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_PROVIDER_UPDATED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,19 +31,16 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationDisabled;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationEnabled;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderRemoved;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderUpdated;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEvent;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityView;
@@ -62,7 +63,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     private final AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
 
-    private final List<AuthenticationEvent> events = new ArrayList<>();
+    private final List<AuthenticationEvent> events = new CopyOnWriteArrayList<>();
 
     private final AuthenticationListener listener = events::add;
 
@@ -89,7 +90,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
                 () -> manager.authenticate(new UsernamePasswordRequest(USERNAME, "invalid-password")));
 
         assertEquals(1, events.size());
-        assertInstanceOf(AuthenticationEnabled.class, events.get(0));
+        assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
     }
 
     @Test
@@ -139,9 +140,10 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
 
         assertEquals(3, events.size());
-        assertInstanceOf(AuthenticationEnabled.class, events.get(0));
-        assertInstanceOf(AuthenticationDisabled.class, events.get(1));
-        AuthenticationProviderRemoved removed = assertInstanceOf(AuthenticationProviderRemoved.class, events.get(2));
+        assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
+        assertEquals(AUTHENTICATION_DISABLED, events.get(1).type());
+        AuthenticationProviderEvent removed = assertInstanceOf(AuthenticationProviderEvent.class, events.get(2));
+        assertEquals(AUTHENTICATION_PROVIDER_REMOVED, removed.type());
         assertEquals(PROVIDER, removed.name());
     }
 
@@ -168,8 +170,8 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals("Unknown", manager.authenticate(emptyCredentials).username());
 
         assertEquals(2, events.size());
-        assertInstanceOf(AuthenticationEnabled.class, events.get(0));
-        assertInstanceOf(AuthenticationDisabled.class, events.get(1));
+        assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
+        assertEquals(AUTHENTICATION_DISABLED, events.get(1).type());
     }
 
     @Test
@@ -202,9 +204,10 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
         assertEquals(USERNAME, manager.authenticate(adminNewPasswordCredentials).username());
 
         assertEquals(2, events.size());
-        assertInstanceOf(AuthenticationEnabled.class, events.get(0));
-        AuthenticationProviderUpdated updated = assertInstanceOf(AuthenticationProviderUpdated.class, events.get(1));
-        assertEquals(PROVIDER, updated.name());
+        assertEquals(AUTHENTICATION_ENABLED, events.get(0).type());
+        AuthenticationProviderEvent removed = assertInstanceOf(AuthenticationProviderEvent.class, events.get(1));
+        assertEquals(AUTHENTICATION_PROVIDER_UPDATED, removed.type());
+        assertEquals(PROVIDER, removed.name());
     }
 
     @Test

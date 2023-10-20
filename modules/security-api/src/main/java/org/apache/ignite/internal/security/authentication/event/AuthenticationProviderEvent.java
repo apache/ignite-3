@@ -17,19 +17,33 @@
 
 package org.apache.ignite.internal.security.authentication.event;
 
+import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_PROVIDER_REMOVED;
+import static org.apache.ignite.internal.security.authentication.event.EventType.AUTHENTICATION_PROVIDER_UPDATED;
+
 /**
- * Event that is fired when authentication provider is updated.
+ * Represents the authentication provider event.
  */
-public class AuthenticationProviderUpdated implements AuthenticationEvent {
+public class AuthenticationProviderEvent implements AuthenticationEvent {
+    private final EventType type;
+
     private final String name;
 
-    public AuthenticationProviderUpdated(String name) {
+    private AuthenticationProviderEvent(EventType type, String name) {
+        this.type = type;
         this.name = name;
+    }
+
+    public static AuthenticationProviderEvent updated(String name) {
+        return new AuthenticationProviderEvent(AUTHENTICATION_PROVIDER_UPDATED, name);
+    }
+
+    public static AuthenticationProviderEvent removed(String name) {
+        return new AuthenticationProviderEvent(AUTHENTICATION_PROVIDER_REMOVED, name);
     }
 
     @Override
     public EventType type() {
-        return EventType.AUTHENTICATION_PROVIDER_UPDATED;
+        return type;
     }
 
     public String name() {

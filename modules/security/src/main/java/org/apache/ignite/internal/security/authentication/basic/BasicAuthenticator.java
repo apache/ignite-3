@@ -37,6 +37,7 @@ public class BasicAuthenticator implements Authenticator {
      *
      * @param authenticatorName Authenticator name.
      * @param username Username.
+     * @param password Password.
      */
     public BasicAuthenticator(String authenticatorName, String username, String password) {
         this.authenticatorName = authenticatorName;

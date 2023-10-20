@@ -19,9 +19,7 @@ package org.apache.ignite.client.handler;
 
 import java.util.BitSet;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
-import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
-import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -37,11 +35,6 @@ class ClientContext {
     /** Feature set. */
     private final BitSet features;
 
-    /** Authentication request. */
-    @IgniteToStringExclude
-    private final AuthenticationRequest<?, ?> authenticationRequest;
-
-    /** User details. */
     private final UserDetails userDetails;
 
     /**
@@ -50,20 +43,12 @@ class ClientContext {
      * @param version Version.
      * @param clientCode Client type code.
      * @param features Feature set.
-     * @param authenticationRequest Authentication request.
      * @param userDetails User details.
      */
-    ClientContext(
-            ProtocolVersion version,
-            int clientCode,
-            BitSet features,
-            AuthenticationRequest<?, ?> authenticationRequest,
-            UserDetails userDetails
-    ) {
+    ClientContext(ProtocolVersion version, int clientCode, BitSet features, UserDetails userDetails) {
         this.version = version;
         this.clientCode = clientCode;
         this.features = features;
-        this.authenticationRequest = authenticationRequest;
         this.userDetails = userDetails;
     }
 
@@ -94,20 +79,6 @@ class ClientContext {
         return features;
     }
 
-    /**
-     * Gets the authentication request.
-     *
-     * @return Authentication request.
-     */
-    public AuthenticationRequest<?, ?> authenticationRequest() {
-        return authenticationRequest;
-    }
-
-    /**
-     * Gets the user details.
-     *
-     * @return User details.
-     */
     public UserDetails userDetails() {
         return userDetails;
     }
