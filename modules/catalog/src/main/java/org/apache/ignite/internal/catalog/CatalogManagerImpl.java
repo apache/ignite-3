@@ -524,7 +524,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
         long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
-        long prevVersionActivationTimestamp = catalog.time();
+        long prevVersionActivationTimestamp = catalog.time() + 1;
 
         return new Catalog(
                 update.version(),
