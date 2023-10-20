@@ -589,7 +589,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(ColumnType.TIME, 2, -1),
                 Arguments.of(ColumnType.DATETIME, 2, -1),
                 Arguments.of(ColumnType.TIMESTAMP, 2, -1),
-                Arguments.of(ColumnType.UUID, 2, -1),
+                Arguments.of(ColumnType.UUID, -1, -1),
                 Arguments.of(ColumnType.BITMASK, 2, -1)
         );
     }
