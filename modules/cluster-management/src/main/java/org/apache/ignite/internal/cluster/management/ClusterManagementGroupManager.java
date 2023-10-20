@@ -36,8 +36,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
@@ -55,7 +53,6 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyComm
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -136,27 +133,25 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Local node's attributes. */
     private final NodeAttributes nodeAttributes;
 
-    private final ConfigurationValidator clusterConfigurationValidator;
-
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
             ClusterService clusterService,
+            ClusterInitializer clusterInitializer,
             RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
-            NodeAttributes nodeAttributes,
-            ConfigurationValidator clusterConfigurationValidator) {
+            NodeAttributes nodeAttributes
+    ) {
         this.clusterService = clusterService;
+        this.clusterInitializer = clusterInitializer;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
         this.logicalTopology = logicalTopology;
         this.configuration = configuration;
         this.localStateStorage = new LocalStateStorage(vault);
-        this.clusterInitializer = new ClusterInitializer(clusterService);
         this.nodeAttributes = nodeAttributes;
-        this.clusterConfigurationValidator = clusterConfigurationValidator;
     }
 
     /**
@@ -332,8 +327,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private CompletableFuture<CmgRaftService> doInit(CmgRaftService service, CmgInitMessage msg) {
-        return validateConfiguration(msg.clusterConfigurationToApply())
-                .thenCompose(ignored -> service.initClusterState(createClusterState(msg)))
+        return service.initClusterState(createClusterState(msg))
                 .thenCompose(state -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
@@ -342,24 +336,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 });
     }
 
-    private CompletableFuture<Void> validateConfiguration(@Nullable String configuration) {
-        if (configuration != null) {
-            List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(configuration);
-            if (!issues.isEmpty()) {
-                return failedFuture(new ConfigurationValidationException(issues));
-            }
-        }
-
-        return completedFuture(null);
-    }
-
     private ClusterState createClusterState(CmgInitMessage msg) {
         return msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(msg.cmgNodes()))
                 .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(clusterTag(msgFactory, msg.clusterName()))
-                .clusterConfigurationToApply(msg.clusterConfigurationToApply())
+                .initialClusterConfiguration(msg.initialClusterConfiguration())
                 .build();
     }
 
@@ -408,7 +391,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         LOG.error("Error when retrieving cluster configuration", e);
                         updateDistributedConfigurationActionFuture.completeExceptionally(e);
                     } else {
-                        String configuration = state.clusterConfigurationToApply();
+                        String configuration = state.initialClusterConfiguration();
                         if (configuration != null) {
                             updateDistributedConfigurationActionFuture.complete(
                                     new UpdateDistributedConfigurationAction(
@@ -426,7 +409,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private CompletableFuture<Void> removeClusterConfigFromClusterState(CmgRaftService service) {
         return service.readClusterState()
                 .thenCompose(state -> {
-                    if (state.clusterConfigurationToApply() != null) {
+                    if (state.initialClusterConfiguration() != null) {
                         ClusterState clusterState = msgFactory.clusterState()
                                 .cmgNodes(Set.copyOf(state.cmgNodes()))
                                 .metaStorageNodes(Set.copyOf(state.metaStorageNodes()))

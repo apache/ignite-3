@@ -29,9 +29,11 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -133,22 +136,38 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartBuildIndexesOnIndexCreate() {
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
 
         clearInvocations(indexBuilder);
 
         createIndex(INDEX_NAME);
 
-        verify(indexBuilder).scheduleBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
+        verify(indexBuilder).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
+                eq(localNode),
+                anyLong()
+        );
     }
 
     @Test
     void testStartBuildIndexesOnPrimaryReplicaElected() {
         createIndex(INDEX_NAME);
 
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
 
-        verify(indexBuilder).scheduleBuildIndex(eq(tableId()), eq(PARTITION_ID), eq(indexId(INDEX_NAME)), any(), any(), eq(localNode));
+        verify(indexBuilder).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
+                eq(localNode),
+                anyLong()
+        );
 
         verify(indexBuilder).scheduleBuildIndex(
                 eq(tableId()),
@@ -156,7 +175,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
-                eq(localNode)
+                eq(localNode),
+                anyLong()
         );
     }
 
@@ -173,21 +193,56 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStopBuildIndexesOnChangePrimaryReplica() {
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
-        setPrimaryReplicaWitchExpireInOneSecond(PARTITION_ID, NODE_NAME + "_other", clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", clock.now());
 
         verify(indexBuilder).stopBuildingIndexes(tableId(), PARTITION_ID);
+    }
+
+    @Test
+    void testStartBuildIndexesOnPrimaryReplicaElectedOnlyForRegisteredIndexes() {
+        createIndex(INDEX_NAME);
+
+        int indexId = indexId(INDEX_NAME);
+
+        makeIndexAvailable(indexId);
+
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+
+        verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(INDEX_NAME)),
+                any(),
+                any(),
+                eq(localNode),
+                anyLong()
+        );
+
+        verify(indexBuilder).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(pkIndexName(TABLE_NAME))),
+                any(),
+                any(),
+                eq(localNode),
+                anyLong()
+        );
     }
 
     private void createIndex(String indexName) {
         createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
     }
 
+    private void makeIndexAvailable(int indexId) {
+        assertThat(catalogManager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+    }
+
     private void dropIndex(String indexName) {
         TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
-    private void setPrimaryReplicaWitchExpireInOneSecond(int partitionId, String leaseholder, HybridTimestamp startTime) {
+    private void setPrimaryReplicaWhichExpiresInOneSecond(int partitionId, String leaseholder, HybridTimestamp startTime) {
         CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(leaseholder, startTime));
 
         assertThat(placementDriver.setPrimaryReplicaMeta(0, replicaId(partitionId), replicaMetaFuture), willCompleteSuccessfully());

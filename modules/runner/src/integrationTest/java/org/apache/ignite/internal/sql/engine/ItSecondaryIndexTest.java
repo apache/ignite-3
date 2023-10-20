@@ -51,7 +51,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
      * Before all.
      */
     @BeforeAll
-    static void initTestData() throws InterruptedException {
+    static void initTestData() {
         sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT)");
         sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");

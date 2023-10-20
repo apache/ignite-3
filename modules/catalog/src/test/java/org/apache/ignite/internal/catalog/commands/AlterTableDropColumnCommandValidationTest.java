@@ -185,7 +185,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
         assertThrowsWithCause(
                 () -> builder.build().get(catalog),
                 CatalogValidationException.class,
-                "Deleting column belonging to primary key is not allowed"
+                "Deleting column `C2` belonging to primary key is not allowed"
         );
     }
 
@@ -201,7 +201,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
         assertThrowsWithCause(
                 () -> builder.build().get(catalog),
                 CatalogValidationException.class,
-                "Deleting indexed column is not allowed"
+                "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
         );
     }
 }

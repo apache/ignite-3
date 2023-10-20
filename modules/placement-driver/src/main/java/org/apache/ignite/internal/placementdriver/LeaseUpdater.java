@@ -103,7 +103,7 @@ public class LeaseUpdater {
     private final Updater updater;
 
     /** Dedicated thread to update leases. */
-    private volatile IgniteThread updaterThread;
+    private IgniteThread updaterThread;
 
     /** Processor to communicate with the leaseholder to negotiate the lease. */
     private LeaseNegotiator leaseNegotiator;
@@ -192,13 +192,9 @@ public class LeaseUpdater {
 
             leaseNegotiator = null;
 
-            Thread updaterTread = this.updaterThread;
+            updaterThread.interrupt();
 
-            if (updaterTread != null) {
-                updaterTread.interrupt();
-
-                this.updaterThread = null;
-            }
+            this.updaterThread = null;
 
         } finally {
             stateChangingLock.unblock();
@@ -281,13 +277,15 @@ public class LeaseUpdater {
     private class Updater implements Runnable {
         @Override
         public void run() {
-            while (updaterThread != null && !updaterThread.isInterrupted()) {
-                if (!active() || !stateChangingLock.enterBusy()) {
-                    return;
+            while (active() && !Thread.interrupted()) {
+                if (!stateChangingLock.enterBusy()) {
+                    continue;
                 }
 
                 try {
-                    updateLeaseBatchInternal();
+                    if (active()) {
+                        updateLeaseBatchInternal();
+                    }
                 } finally {
                     stateChangingLock.leaveBusy();
                 }
