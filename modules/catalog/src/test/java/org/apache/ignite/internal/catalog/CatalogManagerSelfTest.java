@@ -1942,12 +1942,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogCommand cmd2 = BaseCatalogManagerTest.createTableCommand("test2", List.of(column), List.of("ID"), null);
 
         // Make first schema change with delay = 1000.
-        delayDuration.set(1_000);
+        delayDuration.set(10_000);
         CompletableFuture<Void> schemaChangeFuture0 = manager.execute(cmd1);
 
         // Make second schema change with delay = 1.
         delayDuration.set(1);
         CompletableFuture<Void> schemaChangeFuture1 = manager.execute(cmd2);
+
+        clock.update(clock.now().addPhysicalTime(10_000));
 
         assertThat(schemaChangeFuture0, willCompleteSuccessfully());
         assertThat(schemaChangeFuture1, willCompleteSuccessfully());
