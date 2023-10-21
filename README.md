@@ -100,3 +100,4 @@ For more information, you can check the [Contribution guideline](./CONTRIBUTING.
 ## License
 
 The Apache Ignite project is licensed under the Apache 2.0 License. See the [LICENSE](./LICENSE.txt) file for details.
+
