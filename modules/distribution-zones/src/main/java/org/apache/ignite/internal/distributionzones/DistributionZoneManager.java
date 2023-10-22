@@ -421,8 +421,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
-            return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes)
-                    .thenRun(() -> causalityDataNodesEngine.onCreateOrRestoreZoneState(causalityToken, zone));
+            causalityDataNodesEngine.onCreateOrRestoreZoneState(causalityToken, zone);
+
+            return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes);
         } else {
             // Restart case, when topologyAugmentationMap has already been saved during a cluster work.
             ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap = fromBytes(topologyAugmentationMapFromVault.value());
