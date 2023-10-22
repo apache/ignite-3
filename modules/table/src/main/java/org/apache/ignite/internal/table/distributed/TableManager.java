@@ -1744,6 +1744,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
+        LOG.info("Handling pending assignments update assignments={}, revision={}",
+                pendingAssignmentsEntry.value() == null ? "null" : ByteUtils.fromBytes(pendingAssignmentsEntry.value()), revision);
         if (pendingAssignmentsEntry.value() == null) {
             return completedFuture(null);
         }
@@ -2161,34 +2163,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     CompletableFuture<Void> fut = completedFuture(null);
 
                     if (!stableAssignments.equals(ByteUtils.fromBytes(evt.entryEvent().oldEntry().value()))) {
-                        try {
-                            LOG.info("Updating raft group {} with the assignments {} to assignments {}",
-                                    tablePartitionId, ByteUtils.fromBytes(evt.entryEvent().oldEntry().value()), stableAssignments);
-                            fut = table(tableId).internalTable()
-                                    .partitionRaftGroupService(tablePartitionId.partitionId())
-                                    .updateConfiguration(configurationFromAssignments(stableAssignments));
-
-//                            fut = raftMgr.startRaftGroupService(
-//                                            tablePartitionId,
-//                                            configurationFromAssignments(stableAssignments),
-//                                            raftGroupServiceFactory)
-//                                    .thenAccept(raftGroupService -> {
-//                                        try {
-//
-////                                            replicaMgr.updateReplicaClient(tablePartitionId, raftGroupService);
-////                                                    ((InternalTableImpl) table(tableId).internalTable())
-////                                                    .updateInternalTableRaftGroupService(
-////                                                            tablePartitionId.partitionId(),
-////                                                            raftGroupService
-////                                                    );
-//                                        } catch (NodeStoppingException e) {
-//                                            // No-op
-//                                        }
-//                                    });
-                        } catch (NodeStoppingException e) {
-                            // No-op
-                        }
+                        LOG.info("Updating raft group {} with the assignments {} to assignments {} thread {}",
+                                tablePartitionId, ByteUtils.fromBytes(evt.entryEvent().oldEntry().value()), stableAssignments, Thread.currentThread().getName());
+                        fut = latestTablesById().get(tableId).internalTable()
+                                .partitionRaftGroupService(tablePartitionId.partitionId())
+                                .updateConfiguration(configurationFromAssignments(stableAssignments));
                     }
+
                     byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
 
                     Set<Assignment> pendingAssignments = pendingAssignmentsFromMetaStorage == null

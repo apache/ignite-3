@@ -799,11 +799,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     private static class MembersList {
-        private Peer leader;
+        private volatile Peer leader;
 
-        private List<Peer> peers;
+        private volatile List<Peer> peers;
 
-        private List<Peer> learners;
+        private volatile List<Peer> learners;
 
         public MembersList(Peer leader, List<Peer> peers, List<Peer> learners) {
             this.leader = leader;

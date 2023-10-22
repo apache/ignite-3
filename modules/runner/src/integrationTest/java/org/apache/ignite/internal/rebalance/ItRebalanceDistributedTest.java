@@ -115,7 +115,9 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -187,13 +189,11 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
-import org.slf4j.LoggerFactory;
 
 /**
  * Test suite for rebalance process, when replicas' number changed.
@@ -247,8 +247,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void before(TestInfo testInfo) throws Exception {
-        System.getProperties().put("java.util.logging.config.file",
-                "/Users/kgusakov/Projects/ignite-3/modules/runner/src/integrationTest/resources/ignite.java.util.logging.properties");
         nodes = new ArrayList<>();
 
         List<NetworkAddress> nodeAddresses = new ArrayList<>();
@@ -293,7 +291,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void after() {
-        LOG.info("-----------------------------------");
         nodes.forEach(Node::stop);
     }
 
@@ -460,8 +457,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkPartitionNodes(0, 3);
     }
 
+    @Test
     @UseTestTxStateStorage
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20640")
     void testDestroyPartitionStoragesOnEvictNode() throws Exception {
         Node node = getNode(0);
 
@@ -567,7 +564,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20640")
+    @Test
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
 
