@@ -247,5 +247,5 @@ public interface RaftGroupService {
     ClusterService clusterService();
 
 
-    CompletableFuture<Void> updateConfiguration(PeersAndLearners configuration);
+    void updateConfiguration(PeersAndLearners configuration);
 }

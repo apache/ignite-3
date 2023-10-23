@@ -497,7 +497,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> updateConfiguration(PeersAndLearners configuration) {
-        return this.raftClient.updateConfiguration(configuration);
+    public void updateConfiguration(PeersAndLearners configuration) {
+        this.raftClient.updateConfiguration(configuration);
     }
 }

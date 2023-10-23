@@ -54,7 +54,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -97,14 +96,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private final RaftConfiguration configuration;
 
-    private final MembersList membersList;
+    @Nullable
+    private volatile Peer leader;
 
-//    @Nullable
-//    private volatile Peer leader;
-//
-//    private volatile List<Peer> peers;
-//
-//    private volatile List<Peer> learners;
+    private volatile List<Peer> peers;
+
+    private volatile List<Peer> learners;
 
     private final ClusterService cluster;
 
@@ -136,43 +133,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         this.cluster = cluster;
         this.configuration = configuration;
-//        this.peers = List.copyOf(membersConfiguration.peers());
-//        this.learners = List.copyOf(membersConfiguration.learners());
+        this.peers = List.copyOf(membersConfiguration.peers());
+        this.learners = List.copyOf(membersConfiguration.learners());
         this.factory = factory;
         this.groupId = groupId.toString();
         this.realGroupId = groupId;
-//        this.leader = leader;
+        this.leader = leader;
         this.executor = executor;
-
-        this.membersList = new MembersList(
-                leader,
-                List.copyOf(membersConfiguration.peers()),
-                List.copyOf(membersConfiguration.learners())
-        );
-    }
-
-    @Override
-    public CompletableFuture<Void> updateConfiguration(PeersAndLearners configuration) {
-        membersList.set(
-                null,
-                List.copyOf(configuration.peers()),
-                List.copyOf(configuration.learners()));
-
-        return refreshLeader().handle((unused, throwable) -> {
-            if (throwable != null) {
-                if (throwable.getCause() instanceof TimeoutException) {
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Failed to refresh a leader [groupId={}]", groupId);
-                    }
-                } else {
-                    if (LOG.isWarnEnabled()) {
-                        LOG.warn("Failed to refresh a leader [groupId={}]", throwable, groupId);
-                    }
-                }
-            }
-
-            return null;
-        });
     }
 
     /**
@@ -234,17 +201,17 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public Peer leader() {
-        return membersList.get().get1();
+        return leader;
     }
 
     @Override
     public List<Peer> peers() {
-        return membersList.get().get2();
+        return peers;
     }
 
     @Override
     public List<Peer> learners() {
-        return membersList.get().get3();
+        return learners;
     }
 
     @Override
@@ -255,7 +222,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return this.<GetLeaderResponse>sendWithRetry(randomNode(), requestFactory)
-                .thenAccept(resp -> membersList.setLeader(parsePeer(resp.leaderId())));
+                .thenAccept(resp -> this.leader = parsePeer(resp.leaderId()));
     }
 
     @Override
@@ -269,7 +236,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .thenApply(resp -> {
                     Peer respLeader = parsePeer(resp.leaderId());
 
-                    membersList.setLeader(respLeader);
+                    this.leader = respLeader;
 
                     return new LeaderWithTerm(respLeader, resp.currentTerm());
                 });
@@ -277,7 +244,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public CompletableFuture<Void> refreshMembers(boolean onlyAlive) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> refreshMembers(onlyAlive));
@@ -291,13 +258,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         return this.<GetPeersResponse>sendWithRetry(leader, requestFactory)
                 .thenAccept(resp -> {
-                    membersList.set(parsePeerList(resp.peersList()), parsePeerList(resp.learnersList()));
+                    this.peers = parsePeerList(resp.peersList());
+                    this.learners = parsePeerList(resp.learnersList());
                 });
     }
 
     @Override
     public CompletableFuture<Void> addPeer(Peer peer) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> addPeer(peer));
@@ -310,12 +278,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return this.<AddPeerResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp -> membersList.setPeers(parsePeerList(resp.newPeersList())));
+                .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
     @Override
     public CompletableFuture<Void> removePeer(Peer peer) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> removePeer(peer));
@@ -328,12 +296,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return this.<RemovePeerResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp -> membersList.setPeers(parsePeerList(resp.newPeersList())));
+                .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
     @Override
     public CompletableFuture<Void> changePeers(Collection<Peer> peers) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> changePeers(peers));
@@ -346,12 +314,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return this.<ChangePeersResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp -> membersList.setPeers(parsePeerList(resp.newPeersList())));
+                .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
     @Override
     public CompletableFuture<Void> changePeersAsync(PeersAndLearners peersAndLearners, long term) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> changePeersAsync(peersAndLearners, term));
@@ -378,7 +346,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public CompletableFuture<Void> addLearners(Collection<Peer> learners) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> addLearners(learners));
@@ -391,12 +359,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp ->  membersList.setLearners(parsePeerList(resp.newLearnersList())));
+                .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
     @Override
     public CompletableFuture<Void> removeLearners(Collection<Peer> learners) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> removeLearners(learners));
@@ -409,12 +377,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp -> membersList.setLearners(parsePeerList(resp.newLearnersList())));
+                .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
     @Override
     public CompletableFuture<Void> resetLearners(Collection<Peer> learners) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> resetLearners(learners));
@@ -427,7 +395,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
-                .thenAccept(resp -> membersList.setLearners(parsePeerList(resp.newLearnersList())));
+                .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
     @Override
@@ -455,7 +423,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public CompletableFuture<Void> transferLeadership(Peer newLeader) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> transferLeadership(newLeader));
@@ -468,12 +436,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .build();
 
         return sendWithRetry(leader, requestFactory)
-                .thenRun(() -> membersList.setLeader(newLeader));
+                .thenRun(() -> this.leader = newLeader);
     }
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
-        Peer leader = this.membersList.get().get1();
+        Peer leader = this.leader;
 
         if (leader == null) {
             return refreshLeader().thenCompose(res -> run(cmd));
@@ -512,6 +480,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override
     public ClusterService clusterService() {
         return cluster;
+    }
+
+    @Override
+    public void updateConfiguration(PeersAndLearners configuration) {
+        peers = List.copyOf(configuration.peers());
+        learners = List.copyOf(configuration.learners());
+        leader = null;
     }
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
@@ -569,7 +544,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         } else if (resp instanceof SMErrorResponse) {
                             handleSmErrorResponse((SMErrorResponse) resp, fut);
                         } else {
-                            membersList.setLeader(peer); // The OK response was received from a leader.
+                            leader = peer; // The OK response was received from a leader.
 
                             fut.complete((R) resp);
                         }
@@ -588,10 +563,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             CompletableFuture<? extends NetworkMessage> fut
     ) {
         if (recoverable(err)) {
-            var members = membersList.get();
             LOG.warn(
-                    "Recoverable error during the request type={} occurred (will be retried on the randomly selected node leader={}, peers={}): ",
-                    err, sentRequest, members.get1(), members.get2()
+                    "Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
+                    err, sentRequest.getClass().getSimpleName()
             );
 
             scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
@@ -612,7 +586,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         switch (error) {
             case SUCCESS:
-                membersList.setLeader(peer); // The OK response was received from a leader.
+                leader = peer; // The OK response was received from a leader.
 
                 fut.complete(null); // Void response.
 
@@ -644,8 +618,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 if (resp.leaderId() == null) {
                     scheduleRetry(() -> sendWithRetry(randomNode(peer), requestFactory, stopTime, fut));
                 } else {
-                    var leader = parsePeer(resp.leaderId()); // Update a leader.
-                    membersList.setLeader(leader);
+                    leader = parsePeer(resp.leaderId()); // Update a leader.
 
                     scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut));
                 }
@@ -713,7 +686,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return Random peer.
      */
     private Peer randomNode(@Nullable Peer excludedPeer) {
-        List<Peer> peers0 = membersList.get().get2();
+        List<Peer> peers0 = peers;
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19466
         // assert peers0 != null && !peers0.isEmpty();
@@ -796,46 +769,5 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
 
         return CompletableFuture.completedFuture(node);
-    }
-
-    private static class MembersList {
-        private volatile Peer leader;
-
-        private volatile List<Peer> peers;
-
-        private volatile List<Peer> learners;
-
-        public MembersList(Peer leader, List<Peer> peers, List<Peer> learners) {
-            this.leader = leader;
-            this.peers = peers;
-            this.learners = learners;
-        }
-
-        synchronized void setLeader(Peer leader) {
-            this.leader = leader;
-        }
-
-        synchronized void setPeers(List<Peer> peers) {
-            this.peers = peers;
-        }
-
-        synchronized void setLearners(List<Peer> learners) {
-            this.learners = learners;
-        }
-
-        synchronized void set(Peer leader, List<Peer> peers, List<Peer> learners) {
-            this.leader = leader;
-            this.peers = peers;
-            this.learners = learners;
-        }
-
-        synchronized void set(List<Peer> peers, List<Peer> learners) {
-            this.peers = peers;
-            this.learners = learners;
-        }
-
-        synchronized IgniteTuple3<Peer, List<Peer>, List<Peer>> get()  {
-            return new IgniteTuple3<>(leader, peers, learners);
-        }
     }
 }
