@@ -1744,8 +1744,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
-        LOG.info("Handling pending assignments update assignments={}, revision={}",
-                pendingAssignmentsEntry.value() == null ? "null" : ByteUtils.fromBytes(pendingAssignmentsEntry.value()), revision);
         if (pendingAssignmentsEntry.value() == null) {
             return completedFuture(null);
         }
@@ -2128,7 +2126,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param evt Event.
      */
     protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
-        LOG.info("KKK handleChangeStableAssignment");
         if (evt.entryEvents().stream().allMatch(e -> e.oldEntry().value() == null)) {
             // It's the initial write to table stable assignments on table create event.
             return completedFuture(null);

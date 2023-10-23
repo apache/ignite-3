@@ -520,7 +520,6 @@ public class ReplicaManager implements IgniteComponent {
                         .thenCompose(Replica::shutdown)
                         .handle((notUsed, throwable) -> {
                             if (throwable == null) {
-                                LOG.error("Stopped replica [replicaGrpId={}]", replicaGrpId);
                                 return true;
                             } else {
                                 LOG.error("Failed to stop replica [replicaGrpId={}]", throwable, replicaGrpId);
