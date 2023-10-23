@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_TRANSAC
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
@@ -117,25 +115,21 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      */
     @Test
     public void testBatchUpdateException() throws SQLException {
-        try {
-            stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
 
-            stmt.addBatch("insert into test2 (id, val) values (1, 'val1')");
-            stmt.addBatch("insert into test2 (id, val) values (2, 'val2')");
-            stmt.addBatch("insert into test2 (id1, val1) values (3, 'val3')");
+        stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
 
-            stmt.executeBatch();
+        stmt.addBatch("insert into test2 (id, val) values (1, 'val1')");
+        stmt.addBatch("insert into test2 (id, val) values (2, 'val2')");
+        stmt.addBatch("insert into test2 (id1, val1) values (3, 'val3')");
 
-            fail("BatchUpdateException is expected");
-        } catch (BatchUpdateException e) {
-            assertEquals(2, e.getUpdateCounts().length);
+        BatchUpdateException batchException = JdbcTestUtils.assertThrowsSqlException(
+                BatchUpdateException.class,
+                "Unknown target column 'ID1'",
+                () -> stmt.executeBatch());
 
-            assertArrayEquals(new int[] {1, 1}, e.getUpdateCounts());
+        assertEquals(2, batchException.getUpdateCounts().length);
 
-            assertTrue(e.getMessage() != null
-                            && e.getMessage().contains("Unknown target column 'ID1'"),
-                    "Unexpected error message: " + e.getMessage());
-        }
+        assertArrayEquals(new int[]{1, 1}, batchException.getUpdateCounts());
     }
 
     /**
@@ -148,13 +142,8 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
         conn.setAutoCommit(false);
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
-
-            fail("SQLException is expected");
-        } catch (SQLException e) {
-            assertTrue(e.getMessage() != null
-                            && e.getMessage().contains("DDL doesn't support transactions."),
-                    "Unexpected error message: " + e.getMessage());
+            JdbcTestUtils.assertThrowsSqlException("DDL doesn't support transactions",
+                    () -> stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)"));
         }
     }
 

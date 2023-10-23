@@ -121,7 +121,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
                 // Starting transaction.
                 stmt.executeUpdate("insert into TEST (ID) values (1)");
 
-                assertThrowsSqlException("DDL doesn't support transactions.", () -> stmt.executeUpdate("drop table TEST"));
+                assertThrowsSqlException("DDL doesn't support transactions", () -> stmt.executeUpdate("drop table TEST"));
 
                 assertEquals(1, rowsCount(conn));
                 assertEquals(0, rowsCount(ItJdbcTransactionTest.conn));
