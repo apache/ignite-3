@@ -46,14 +46,26 @@ public class TombstoneConditionTest {
     private static final Entry TOMBSTONE = EntryImpl.tombstone(KEY, 1, 1);
 
     /**
-     * Tests {@link TombstoneCondition} condition for regular, empty and tombstone entries.
+     * Tests {@link TombstoneCondition.Type#TOMBSTONE} condition for regular, empty and tombstone entries.
      */
     @Test
     public void tombstone() {
-        Condition cond = new TombstoneCondition(KEY);
+        Condition cond = new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, KEY);
 
         assertFalse(cond.test(ENTRY));
         assertFalse(cond.test(EMPTY));
         assertTrue(cond.test(TOMBSTONE));
+    }
+
+    /**
+     * Tests {@link TombstoneCondition.Type#NOT_TOMBSTONE} condition for regular, empty and tombstone entries.
+     */
+    @Test
+    public void notTombstone() {
+        Condition cond = new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, KEY);
+
+        assertTrue(cond.test(ENTRY));
+        assertTrue(cond.test(EMPTY));
+        assertFalse(cond.test(TOMBSTONE));
     }
 }
