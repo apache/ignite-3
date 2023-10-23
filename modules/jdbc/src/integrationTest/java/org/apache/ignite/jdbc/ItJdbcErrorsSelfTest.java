@@ -142,7 +142,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
         conn.setAutoCommit(false);
 
         try (Statement stmt = conn.createStatement()) {
-            JdbcTestUtils.assertThrowsSqlException("DDL doesn't support transactions",
+            JdbcTestUtils.assertThrowsSqlException("DDL doesn't support transactions.",
                     () -> stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)"));
         }
     }

@@ -568,11 +568,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         if (outerTx != null) {
             if (SqlQueryType.DDL == queryType) {
-                throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions");
+                throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
             }
 
             if (SqlQueryType.DML == queryType && outerTx.isReadOnly()) {
-                throw new SqlException(STMT_VALIDATION_ERR, "DML can't be run within read only transaction");
+                throw new SqlException(STMT_VALIDATION_ERR, "DML can't be run within read only transaction.");
             }
         }
 

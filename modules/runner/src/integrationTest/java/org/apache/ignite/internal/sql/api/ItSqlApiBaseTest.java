@@ -374,7 +374,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML can't be run within read only transaction",
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML can't be run within read only transaction.",
                     () -> execute(outerTx, ses, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, ses, queryRw);
@@ -780,7 +780,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
             try {
                 assertThrowsSqlException(
                         Sql.STMT_VALIDATION_ERR,
-                        "DDL doesn't support transactions",
+                        "DDL doesn't support transactions.",
                         () -> execute(tx, ses, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
                 );
             } finally {
@@ -794,7 +794,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
             assertThrowsSqlException(
                     Sql.STMT_VALIDATION_ERR,
-                    "DDL doesn't support transactions",
+                    "DDL doesn't support transactions.",
                     () -> ses.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
             );
             tx.commit();
