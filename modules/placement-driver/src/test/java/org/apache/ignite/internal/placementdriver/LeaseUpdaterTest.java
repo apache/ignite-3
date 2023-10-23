@@ -100,7 +100,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Lease updater for tests. */
     private LeaseUpdater leaseUpdater;
     /** Closure to get a lease that is passed in Meta storage. */
-    private Consumer<Lease> renewLeaseConsumer = null;
+    private volatile Consumer<Lease> renewLeaseConsumer = null;
 
     @BeforeEach
     void setUp() {
@@ -121,13 +121,15 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         lenient().when(metaStorageManager.invoke(any(Condition.class), any(Operation.class), any(Operation.class)))
                 .thenAnswer(invocation -> {
-                    if (renewLeaseConsumer != null) {
+                    Consumer<Lease> leaseConsumer = renewLeaseConsumer;
+
+                    if (leaseConsumer != null) {
                         OperationImpl op = invocation.getArgument(1);
 
                         Lease lease = LeaseBatch.fromBytes(ByteBuffer.wrap(op.value()).order(ByteOrder.LITTLE_ENDIAN)).leases().iterator()
                                 .next();
 
-                        renewLeaseConsumer.accept(lease);
+                        leaseConsumer.accept(lease);
                     }
 
                     return completedFuture(true);

@@ -72,9 +72,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
     /** A list of background cleanup futures. */
     private final List<CompletableFuture<?>> cleanupFutures = new CopyOnWriteArrayList<>();
 
-    /** A flag to drop async cleanup actions.  */
-    private volatile boolean ignoreAsyncCleanup;
-
     /**
      * The constructor.
      *
@@ -115,9 +112,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                 ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
-                        if (ignoreAsyncCleanup) {
-                            return completedFuture(null);
-                        }
                         CompletableFuture<Void> cleanupFuture = super.executeCleanupAsync(runnable);
 
                         cleanupFutures.add(cleanupFuture);
@@ -213,23 +207,12 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         super.testTransactionAlreadyCommitted();
     }
 
-    @Disabled("IGNITE-20395")
-    @Test
-    @Override
-    public void testBalance() throws InterruptedException {
-        super.testBalance();
-    }
-
-    @Disabled("IGNITE-20395")
     @Test
     public void testTwoReadWriteTransactions() throws TransactionException {
         Tuple key = makeKey(1);
 
         assertFalse(accounts.recordView().delete(null, key));
         assertNull(accounts.recordView().get(null, key));
-
-        // Disable background cleanup to avoid a race.
-        ignoreAsyncCleanup = true;
 
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         accounts.recordView().upsert(tx1, makeValue(1, 100.));

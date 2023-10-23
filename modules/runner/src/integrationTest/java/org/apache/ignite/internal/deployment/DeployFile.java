@@ -20,7 +20,7 @@ package org.apache.ignite.internal.deployment;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 class DeployFile {
     private final Path file;
@@ -38,7 +38,7 @@ class DeployFile {
 
     private void ensureExists() throws IOException {
         if (!Files.exists(file)) {
-            IgniteUtils.fillDummyFile(file, expectedSize);
+            IgniteTestUtils.fillDummyFile(file, expectedSize);
         }
     }
 
