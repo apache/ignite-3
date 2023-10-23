@@ -294,6 +294,38 @@ public class IgniteSqlFunctionsTest {
         assertEquals(result, IgniteSqlFunctions.sround(input, scale));
     }
 
+    /** Tests for ROUND(x, s) function, where x is an byte. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 50",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -50",
+    })
+    public void testRound2ByteType(byte input, int scale, byte result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
+    }
+
+    /** Tests for ROUND(x, s) function, where x is an short. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 50",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -50",
+    })
+    public void testRound2ShortType(short input, int scale, short result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
+    }
+
     /** Tests for ROUND(x, s) function, where x is an int. */
     @ParameterizedTest
     @CsvSource({

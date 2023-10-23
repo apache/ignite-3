@@ -130,6 +130,26 @@ public class IgniteSqlFunctions {
 
     // SQL ROUND function
 
+    /** SQL {@code ROUND} operator applied to byte values. */
+    public static byte sround(byte b0) {
+        return (byte) sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to byte values. */
+    public static byte sround(byte b0, int b1) {
+        return (byte) sround((int) b0, b1);
+    }
+
+    /** SQL {@code ROUND} operator applied to short values. */
+    public static byte sround(short b0) {
+        return (byte) sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to short values. */
+    public static short sround(short b0, int b1) {
+        return (short) sround((int) b0, b1);
+    }
+
     /** SQL {@code ROUND} operator applied to int values. */
     public static int sround(int b0) {
         return sround(b0, 0);
