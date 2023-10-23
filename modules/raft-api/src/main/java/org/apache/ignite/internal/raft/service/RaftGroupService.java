@@ -247,5 +247,10 @@ public interface RaftGroupService {
     ClusterService clusterService();
 
 
+    /**
+     * Updates peers and learners lists in raft client.
+     *
+     * @param configuration Peers and learners configuration.
+     */
     void updateConfiguration(PeersAndLearners configuration);
 }
