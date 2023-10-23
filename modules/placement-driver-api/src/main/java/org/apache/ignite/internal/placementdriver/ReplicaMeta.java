@@ -19,29 +19,16 @@ package org.apache.ignite.internal.placementdriver;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Replica lease meta.
- */
+/** Replica lease meta. */
 public interface ReplicaMeta extends Serializable {
-    /**
-     * Gets a leaseholder node consistent ID.
-     *
-     * @return Leaseholder or {@code null} if nothing holds the lease.
-     */
-    String getLeaseholder();
+    /** Gets a leaseholder node consistent ID, {@code null} if nothing holds the lease. */
+    @Nullable String getLeaseholder();
 
-    /**
-     * Gets a lease start timestamp.
-     *
-     * @return Lease start timestamp.
-     */
+    /** Gets a lease start timestamp. */
     HybridTimestamp getStartTime();
 
-    /**
-     * Gets a lease expiration timestamp.
-     *
-     * @return Lease expiration timestamp or {@code null} if nothing holds the lease.
-     */
+    /** Gets a lease expiration timestamp. */
     HybridTimestamp getExpirationTime();
 }

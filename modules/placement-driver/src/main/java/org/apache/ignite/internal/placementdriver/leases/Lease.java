@@ -30,17 +30,20 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A lease representation in memory.
  * The real lease is stored in Meta storage.
  */
 public class Lease implements ReplicaMeta {
+    private static final long serialVersionUID = 394641185393949608L;
+
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
     public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE, null);
 
     /** A node that holds a lease. */
-    private final String leaseholder;
+    private final @Nullable String leaseholder;
 
     /** The lease is accepted, when the holder knows about it and applies all related obligations. */
     private final boolean accepted;
@@ -60,16 +63,16 @@ public class Lease implements ReplicaMeta {
     /**
      * Creates a new lease.
      *
-     * @param leaseholder Lease holder.
+     * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      * @param startTime Start lease timestamp.
      * @param leaseExpirationTime Lease expiration timestamp.
-     * @param replicationGroupId Id of replication group.
+     * @param replicationGroupId Id of replication group, {@code null} if nothing holds the lease.
      */
     public Lease(
-            String leaseholder,
+            @Nullable String leaseholder,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
-            ReplicationGroupId replicationGroupId
+            @Nullable ReplicationGroupId replicationGroupId
     ) {
         this(leaseholder, startTime, leaseExpirationTime, false, false, replicationGroupId);
     }
@@ -77,19 +80,20 @@ public class Lease implements ReplicaMeta {
     /**
      * The constructor.
      *
-     * @param leaseholder Lease holder.
+     * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      * @param startTime Start lease timestamp.
      * @param leaseExpirationTime Lease expiration timestamp.
      * @param prolong Lease is available to prolong.
      * @param accepted The flag is true when the holder accepted the lease, the false otherwise.
+     * @param replicationGroupId Id of replication group, {@code null} if nothing holds the lease.
      */
     public Lease(
-            String leaseholder,
+            @Nullable String leaseholder,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
             boolean prolong,
             boolean accepted,
-            ReplicationGroupId replicationGroupId
+            @Nullable ReplicationGroupId replicationGroupId
     ) {
         this.leaseholder = leaseholder;
         this.startTime = startTime;
@@ -147,7 +151,7 @@ public class Lease implements ReplicaMeta {
     }
 
     @Override
-    public String getLeaseholder() {
+    public @Nullable String getLeaseholder() {
         return leaseholder;
     }
 
@@ -179,7 +183,7 @@ public class Lease implements ReplicaMeta {
         return accepted;
     }
 
-    public ReplicationGroupId replicationGroupId() {
+    public @Nullable ReplicationGroupId replicationGroupId() {
         return replicationGroupId;
     }
 
