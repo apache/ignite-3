@@ -22,7 +22,7 @@ This module provides an abstraction and core interfaces for the Ignite system vi
 ## Basic concepts
 
 * Component that want to expose system views must implement `SystemViewProvider` interface.
-* All system views must be registered during node startup.
+* All system views must be registered during node startup. The `IgniteImpl` constructor is currently used as a starting point to do this.
 * All system views are reside in `SYSTEM` schema.
 * From SQL perspective, a system view is a virtual immutable table.
 * System views don't support transactions. That is, regardless of whether a transaction has started or not, each query 
