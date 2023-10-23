@@ -19,7 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.Hacks.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -109,7 +109,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -370,7 +370,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        CatalogSchemaManager schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageMgr);
+        SchemaManager schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
