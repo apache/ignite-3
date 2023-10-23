@@ -42,7 +42,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -416,8 +415,8 @@ public class ClientTable implements Table {
                             // Retry with specific schema version.
                             int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
 
-                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider, retryPolicyOverride,
-                                    expectedVersion)
+                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
+                                    retryPolicyOverride, expectedVersion)
                                     .whenComplete((res0, err0) -> {
                                         if (err0 != null) {
                                             fut.completeExceptionally(err0);
@@ -432,8 +431,8 @@ public class ClientTable implements Table {
                             // When schemaVersionOverride is not null, we already tried to load the schema.
                             schemas.remove(UNKNOWN_SCHEMA_VERSION);
 
-                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider, retryPolicyOverride,
-                                    UNKNOWN_SCHEMA_VERSION)
+                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
+                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION)
                                     .whenComplete((res0, err0) -> {
                                         if (err0 != null) {
                                             fut.completeExceptionally(err0);
