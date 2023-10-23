@@ -347,6 +347,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20559")
     public void testGlobalStateRevisionUpdatedCorrectly() throws Exception {
         PartialNode node = startPartialNode(0);
 

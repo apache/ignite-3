@@ -144,7 +144,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -739,7 +739,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
-        private final CatalogSchemaManager schemaManager;
+        private final SchemaManager schemaManager;
 
         private final CatalogManager catalogManager;
 
@@ -935,7 +935,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
-            schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageManager);
+            schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);
 
             var schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 

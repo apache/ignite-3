@@ -37,6 +37,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -78,9 +79,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     @ParameterizedTest
     @EnumSource(Operation.class)
     void readWriteOperationInTxAfterAlteringSchemaOnTargetTableIsRejected(Operation operation) {
-        cluster.doInSession(0, session -> {
-            executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
-        });
+        createTable();
 
         Table table = node.tables().table(TABLE_NAME);
 
@@ -101,7 +100,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             assertThat(
                     ex.getMessage(),
                     containsString(String.format(
-                            "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2",
+                            "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2]",
                             tableId
                     ))
             );
@@ -121,6 +120,12 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         assertThat(tx.state(), is(TxState.ABORTED));
     }
 
+    private void createTable() {
+        cluster.doInSession(0, session -> {
+            executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
+        });
+    }
+
     private void alterTable(String tableName) {
         cluster.doInSession(0, session -> {
             executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN added int", session);
@@ -132,10 +137,10 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     private void enlistTableInTransaction(Table table, Transaction tx) {
-        executeReadOn(table, tx, cluster);
+        executeRwReadOn(table, tx, cluster);
     }
 
-    private static void executeReadOn(Table table, Transaction tx, Cluster cluster) {
+    private static void executeRwReadOn(Table table, Transaction tx, Cluster cluster) {
         cluster.doInSession(0, session -> {
             executeUpdate("SELECT * FROM " + table.name(), session, tx);
         });
@@ -180,7 +185,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         SQL_READ {
             @Override
             void execute(Table table, Transaction tx, Cluster cluster) {
-                executeReadOn(table, tx, cluster);
+                executeRwReadOn(table, tx, cluster);
             }
 
             @Override
@@ -217,5 +222,50 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         alterTable(UNRELATED_TABLE_NAME);
 
         assertDoesNotThrow(() -> putInTx(table, tx));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Operation.class)
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20680")
+    void readWriteOperationAfterDroppingTargetTableIsRejected(Operation operation) {
+        createTable();
+
+        Table table = node.tables().table(TABLE_NAME);
+
+        putPreExistingValueTo(table);
+
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin();
+
+        enlistTableInTransaction(table, tx);
+
+        dropTable(TABLE_NAME);
+
+        IgniteException ex;
+
+        int tableId = ((TableImpl) table).tableId();
+
+        if (operation.sql()) {
+            ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
+            assertThat(
+                    ex.getMessage(),
+                    containsString(String.format("Table was dropped [table=%s]", tableId))
+            );
+        } else {
+            ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
+            assertThat(
+                    ex.getMessage(),
+                    is(String.format("Table was dropped [table=%s]", tableId))
+            );
+        }
+
+        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+
+        assertThat(tx.state(), is(TxState.ABORTED));
+    }
+
+    private void dropTable(String tableName) {
+        cluster.doInSession(0, session -> {
+            executeUpdate("DROP TABLE " + tableName, session);
+        });
     }
 }
