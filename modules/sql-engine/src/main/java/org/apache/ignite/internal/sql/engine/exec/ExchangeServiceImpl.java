@@ -117,7 +117,7 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
 
         if (!(traceableErr instanceof QueryCancelledException)) {
-            LOG.info(format("Failed to execute query fragment:  traceId={}, queryId={}, fragmentId={}",
+            LOG.info(format("Failed to execute query fragment: traceId={}, queryId={}, fragmentId={}",
                     ((TraceableException) traceableErr).traceId(), queryId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
             LOG.debug(format("Failed to execute query fragment: traceId={}, queryId={}, fragmentId={}",
