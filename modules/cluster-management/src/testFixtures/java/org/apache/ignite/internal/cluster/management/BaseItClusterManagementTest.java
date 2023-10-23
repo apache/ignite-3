@@ -28,6 +28,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -52,7 +53,10 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private static NodeAttributesConfiguration userNodeAttributes;
+
+    @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
 
     protected static List<MockNode> createNodes(int numNodes, TestInfo testInfo, Path workDir) {
         StaticNodeFinder nodeFinder = createNodeFinder(numNodes);
@@ -65,7 +69,8 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
                         workDir.resolve("node" + i),
                         raftConfiguration,
                         cmgConfiguration,
-                        nodeAttributes
+                        userNodeAttributes,
+                        storageProfilesConfiguration
 
                 ))
                 .collect(toList());
@@ -79,7 +84,8 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
                 workDir.resolve("node" + cluster.size()),
                 raftConfiguration,
                 cmgConfiguration,
-                nodeAttributes
+                userNodeAttributes,
+                storageProfilesConfiguration
         );
 
         cluster.add(node);
