@@ -306,7 +306,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             PlacementDriver placementDriver
     ) {
         this.mvDataStorage = mvDataStorage;
-        this.raftClient = raftClient;
+        this.raftClient = new ChainingRaftGroupService(raftClient);
         this.txManager = txManager;
         this.lockManager = lockManager;
         this.scanRequestExecutor = scanRequestExecutor;

@@ -212,7 +212,9 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                synchronized (safeTime) {
+                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                }
             }
 
             updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
