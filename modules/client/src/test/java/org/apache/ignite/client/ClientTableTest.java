@@ -111,7 +111,6 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
-    @Disabled("IGNITE-20576")
     public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() throws Exception {
         FakeSchemaRegistry.setLastVer(2);
 
