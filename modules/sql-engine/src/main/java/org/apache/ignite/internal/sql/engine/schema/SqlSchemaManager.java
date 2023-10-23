@@ -38,7 +38,7 @@ public interface SqlSchemaManager {
      * Returns table by given id, which version correspond to the one from schema of given version.
      *
      * @param schemaVersion Version of the schema.
-     * @param tableId A identifier of a table of interest.
+     * @param tableId An identifier of a table of interest.
      * @return A table.
      */
     IgniteTable table(int schemaVersion, int tableId);
