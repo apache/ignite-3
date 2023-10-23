@@ -72,7 +72,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -581,6 +583,59 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkPartitionAssignmentsSyncedAndRebalanceKeysEmpty();
 
         verifyThatRaftNodesAndReplicasWereStartedOnlyOnce();
+    }
+
+    @Test
+    void testRaftClientsUpdatesAfterRebalance() throws InterruptedException, ExecutionException, TimeoutException {
+        Node node = getNode(0);
+
+        createZone(node, ZONE_NAME, 1, 1);
+
+        createTable(node, ZONE_NAME, TABLE_NAME);
+
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        Set<Assignment> assignedNodeBeforeRebalance = getPartitionClusterNodes(node, 0);
+
+        Node newNodeForAssignment = nodes.stream().filter(n ->
+                !assignedNodeBeforeRebalance.contains(Assignment.forPeer(n.clusterService.nodeName()))).findFirst().get();
+
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeForAssignment.clusterService.nodeName()));
+
+        // Write the new assignments to metastore as a pending assignments.
+        {
+            TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
+
+            ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+
+            Map<ByteArray, byte[]> msEntries = new HashMap<>();
+
+            byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
+
+            msEntries.put(partAssignmentsPendingKey, bytesPendingAssignments);
+
+            node.metaStorageManager.putAll(msEntries).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
+        }
+
+        // Wait for rebalance to complete.
+        assertTrue(waitForCondition(
+                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
+
+        // Check that raft clients on all nodes updated to the new list of peers.
+        assertTrue(waitForCondition(
+                () -> nodes.stream().allMatch(n ->
+                        n.tableManager
+                                .latestTables()
+                                .get(getTableId(node, TABLE_NAME))
+                                .internalTable()
+                                .partitionRaftGroupService(0)
+                                .peers()
+                                .equals(List.of(new Peer(newNodeForAssignment.clusterService.nodeName())))),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
+
     }
 
     private void clearSpyInvocations() {
