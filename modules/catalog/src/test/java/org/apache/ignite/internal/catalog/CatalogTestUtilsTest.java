@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -39,7 +40,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests to verify {@link CatalogTestUtils}.
  */
-class CatalogTestUtilsTest {
+class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
 
     /**
      * Simple smoke test to verify test manager is able to process a few version of catalog
