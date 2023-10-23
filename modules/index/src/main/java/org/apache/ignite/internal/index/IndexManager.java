@@ -49,10 +49,10 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -75,7 +75,7 @@ public class IndexManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Schema manager. */
-    private final CatalogSchemaManager schemaManager;
+    private final SchemaManager schemaManager;
 
     /** Table manager. */
     private final TableManager tableManager;
@@ -106,7 +106,7 @@ public class IndexManager implements IgniteComponent {
      * @param catalogService Catalog manager.
      */
     public IndexManager(
-            CatalogSchemaManager schemaManager,
+            SchemaManager schemaManager,
             TableManager tableManager,
             CatalogService catalogService,
             MetaStorageManager metaStorageManager,

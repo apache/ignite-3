@@ -69,6 +69,7 @@ public class ClusterManagementRestFactory implements RestFactory {
     @Override
     public void cleanResources() {
         clusterService = null;
+        clusterInitializer = null;
         cmgManager = null;
     }
 }

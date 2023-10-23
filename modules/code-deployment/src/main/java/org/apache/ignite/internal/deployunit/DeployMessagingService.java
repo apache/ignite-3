@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.deployunit;
 
 import java.util.List;
-import java.util.Random;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
 import org.apache.ignite.internal.deployunit.message.DownloadUnitRequest;
 import org.apache.ignite.internal.deployunit.message.DownloadUnitRequestImpl;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.deployunit.message.StopDeployResponseImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ChannelType;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
 /**
@@ -106,15 +108,26 @@ public class DeployMessagingService {
      * @return Downloaded deployment unit content.
      */
     CompletableFuture<UnitContent> downloadUnitContent(String id, Version version, List<String> nodes) {
-        String node = nodes.get(new Random().nextInt(nodes.size()));
         DownloadUnitRequest request = DownloadUnitRequestImpl.builder()
                 .id(id)
                 .version(version.render())
                 .build();
 
+        ClusterNode clusterNode = resolveClusterNode(nodes);
+
         return clusterService.messagingService()
-                .invoke(clusterService.topologyService().getByConsistentId(node), DEPLOYMENT_CHANNEL, request, Long.MAX_VALUE)
+                .invoke(clusterNode, DEPLOYMENT_CHANNEL, request, Long.MAX_VALUE)
                 .thenApply(message -> ((DownloadUnitResponse) message).unitContent());
+    }
+
+    private ClusterNode resolveClusterNode(List<String> nodes) {
+        return nodes.stream().map(node -> clusterService.topologyService().getByConsistentId(node))
+                .filter(Objects::nonNull)
+                .findAny()
+                .orElseThrow(() -> {
+                    LOG.error("No any available node for download unit from {}", nodes);
+                    return new DeploymentUnitReadException("No any available node for download unit from " + nodes);
+                });
     }
 
     /**

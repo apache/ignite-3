@@ -227,7 +227,10 @@ public class MetaStorageWriteHandler {
                     return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, simpleCondition.key());
 
                 case TOMBSTONE:
-                    return new TombstoneCondition(simpleCondition.key());
+                    return new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, simpleCondition.key());
+
+                case NOT_TOMBSTONE:
+                    return new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, simpleCondition.key());
 
                 default:
                     throw new IllegalArgumentException("Unexpected simple condition type " + simpleCondition.type());

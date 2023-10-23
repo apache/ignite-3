@@ -49,7 +49,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -154,7 +154,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
-    private final CatalogSchemaManager schemaManager;
+    private final SchemaManager schemaManager;
 
     private final DataStorageManager dataStorageManager;
 
@@ -197,7 +197,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             ClusterService clusterSrvc,
             LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
-            CatalogSchemaManager schemaManager,
+            SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
@@ -537,7 +537,6 @@ public class SqlQueryProcessor implements QueryProcessor {
      * @return Wrapper for an active transaction.
      * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
      */
-    // TODO: IGNITE-20539 - unify creation of implicit transactions.
     static QueryTransactionWrapper wrapTxOrStartImplicit(
             SqlQueryType queryType,
             IgniteTransactions transactions,

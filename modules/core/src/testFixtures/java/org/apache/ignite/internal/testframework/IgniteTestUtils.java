@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.testframework;
 
 import static java.lang.Thread.sleep;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
@@ -29,6 +32,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,7 +42,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -675,9 +680,6 @@ public final class IgniteTestUtils {
     /**
      * Creates a unique Ignite node name for the given test.
      *
-     * <p>If the operating system is {@link #isWindowsOs Windows}, then the name will be short
-     * due to the fact that the length of the paths must be up to 260 characters.
-     *
      * @param testInfo Test info.
      * @param idx Node index.
      *
@@ -699,13 +701,6 @@ public final class IgniteTestUtils {
     @FunctionalInterface
     public interface RunnableX {
         void run() throws Throwable;
-    }
-
-    /**
-     * Returns {@code true} if the operating system is Windows.
-     */
-    public static boolean isWindowsOs() {
-        return System.getProperty("os.name").toLowerCase(Locale.US).contains("win");
     }
 
     /**
@@ -897,6 +892,23 @@ public final class IgniteTestUtils {
      */
     public static String escapeWindowsPath(String path) {
         return path.replace("\\", "\\\\");
+    }
+
+    /**
+     * Generate file with dummy content with provided size.
+     *
+     * @param file File path.
+     * @param fileSize File size in bytes.
+     * @throws IOException if an I/O error is thrown.
+     */
+    public static void fillDummyFile(Path file, long fileSize) throws IOException {
+        try (SeekableByteChannel channel = Files.newByteChannel(file, WRITE, CREATE)) {
+            channel.position(fileSize - 4);
+
+            ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
+            buf.rewind();
+            channel.write(buf);
+        }
     }
 
     /**

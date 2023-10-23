@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -374,7 +373,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         long term = 2;
         int indexId = 3;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
-        condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2, UNSPECIFIED_VALUE_PLACEHOLDER});
+        condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
         ArgumentCaptor<BinaryTuplePrefix> prefix = ArgumentCaptor.forClass(BinaryTuplePrefix.class);
 
@@ -539,27 +538,6 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         collector.expectRow(binaryRow);
         collector.expectError(err);
-    }
-
-    /**
-     * Index lookup - invalid key.
-     */
-    @ParameterizedTest
-    @MethodSource("transactions")
-    public void testIndexLookupInvalidKey(NoOpTransaction tx) {
-        TestInput input = new TestInput();
-
-        Tester tester = new Tester(input);
-
-        int partitionId = 1;
-        long term = 2;
-        int indexId = 3;
-        Object[] key = {UNSPECIFIED_VALUE_PLACEHOLDER};
-
-        AssertionError err = assertThrows(AssertionError.class, () -> tester.indexLookUp(partitionId, term, tx, indexId, key));
-        assertEquals("Invalid lookup key.", err.getMessage());
-
-        verifyNoInteractions(internalTable);
     }
 
     private static Stream<Arguments> transactions() {

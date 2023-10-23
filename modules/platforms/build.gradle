@@ -152,10 +152,12 @@ if (project.hasProperty('prepareRelease')) {
 }
 
 artifacts {
-    odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
-        builtBy cmakeBuildOdbc
-    }
-    odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
-        builtBy cmakeBuildOdbc
+    if (project.hasProperty('odbc.enable')) {
+        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
+            builtBy cmakeBuildOdbc
+        }
+        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
+            builtBy cmakeBuildOdbc
+        }
     }
 }
