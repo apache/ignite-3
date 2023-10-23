@@ -26,7 +26,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -466,9 +465,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        CompletableFuture<Void> waitForSchemas = waitForSchemasBeforeReading(request);
-
-        return waitForSchemas.thenCompose(unused -> processOperationRequest(request, isPrimary, senderId));
+        return waitForSchemasBeforeReading(request)
+                .thenCompose(unused -> validateTableExistence(request))
+                .thenCompose(opStartTimestamp -> processOperationRequest(request, isPrimary, senderId, opStartTimestamp));
     }
 
     /**
@@ -493,7 +492,40 @@ public class PartitionReplicaListener implements ReplicaListener {
         return tsToWaitForSchemas == null ? completedFuture(null) : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchemas);
     }
 
-    private CompletableFuture<?> processOperationRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
+    private CompletableFuture<HybridTimestamp> validateTableExistence(ReplicaRequest request) {
+        HybridTimestamp opStartTs;
+
+        if (request instanceof ReadWriteScanCloseReplicaRequest) {
+            // We don't need to validate close request for table existence.
+            opStartTs = null;
+        } else if (request instanceof ReadWriteReplicaRequest) {
+            opStartTs = hybridClock.now();
+        } else if (request instanceof ReadOnlyReplicaRequest) {
+            opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
+        } else if (request instanceof ReadOnlyDirectReplicaRequest) {
+            opStartTs = hybridClock.now();
+        } else {
+            opStartTs = null;
+        }
+
+        if (opStartTs == null) {
+            return completedFuture(null);
+        }
+
+        return schemaSyncService.waitForMetadataCompleteness(opStartTs)
+                .thenApply(unused -> {
+                    schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId());
+
+                    return opStartTs;
+                });
+    }
+
+    private CompletableFuture<?> processOperationRequest(
+            ReplicaRequest request,
+            @Nullable Boolean isPrimary,
+            String senderId,
+            HybridTimestamp opStartTimestamp
+    ) {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -523,7 +555,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
                         } else {
-                            return validateAtTimestamp(req.transactionId())
+                            return validateRwReadAgainstSchemaAfterTakingLocks(req.transactionId())
                                     .thenApply(ignored -> rows);
                         }
                     })
@@ -557,9 +589,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof BuildIndexReplicaRequest) {
             return raftClient.run(toBuildIndexCommand((BuildIndexReplicaRequest) request));
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
-            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request);
+            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTimestamp);
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
-            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request);
+            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTimestamp);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -1289,10 +1321,16 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request.commit()) {
             HybridTimestamp commitTimestamp = request.commitTimestamp();
 
-            return schemaCompatValidator.validateForward(txId, enlistedGroups, commitTimestamp)
-                    .thenCompose(validationResult ->
-                            finishAndCleanup(enlistedGroups, validationResult.isSuccessful(), commitTimestamp, txId, txCoordinatorId)
-                                    .thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult)));
+            return schemaCompatValidator.validateCommit(txId, enlistedGroups, commitTimestamp)
+                    .thenCompose(validationResult -> {
+                        return finishAndCleanup(
+                                enlistedGroups,
+                                validationResult.isSuccessful(),
+                                validationResult.isSuccessful() ? commitTimestamp : null,
+                                txId,
+                                txCoordinatorId
+                        ).thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult));
+                    });
         } else {
             // Aborting.
             return finishAndCleanup(enlistedGroups, false, null, txId, txCoordinatorId);
@@ -1301,9 +1339,15 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult) {
         if (!validationResult.isSuccessful()) {
-            throw new IncompatibleSchemaAbortException("Commit failed because schema "
-                    + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+            if (validationResult.isTableDropped()) {
+                throw new IncompatibleSchemaAbortException(
+                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId())
+                );
+            } else {
+                throw new IncompatibleSchemaAbortException("Commit failed because schema "
+                        + validationResult.fromSchemaVersion() + " is not forward-compatible with "
+                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+            }
         }
     }
 
@@ -1416,9 +1460,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp commitTimestamp,
             String txCoordinatorId
     ) {
-        HybridTimestamp currentTimestamp = hybridClock.now();
+        assert !commit || (commitTimestamp != null);
 
-        return reliableCatalogVersionFor(currentTimestamp)
+        HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : hybridClock.now();
+
+        return reliableCatalogVersionFor(tsForCatalogVersion)
                 .thenCompose(catalogVersion -> {
                     synchronized (commandProcessingLinearizationMutex) {
                         FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
@@ -1507,9 +1553,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return allOffFuturesExceptionIgnored(txUpdateFutures, request).thenCompose(v -> {
-            long commandTimestamp = hybridClock.nowLong();
+            HybridTimestamp commandTimestamp = hybridClock.now();
 
-            return reliableCatalogVersionFor(hybridTimestamp(commandTimestamp))
+            return reliableCatalogVersionFor(commandTimestamp)
                     .thenCompose(catalogVersion -> {
                         synchronized (commandProcessingLinearizationMutex) {
                             TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
@@ -1811,13 +1857,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes multiple entries direct request for read only transaction.
      *
      * @param request Read only multiple entries request.
+     * @param opStartTimestamp Moment when the operation processing was started in this class.
      * @return Result future.
      */
     private CompletableFuture<List<BinaryRow>> processReadOnlyDirectMultiEntryAction(
-            ReadOnlyDirectMultiRowReplicaRequest request
-    ) {
+            ReadOnlyDirectMultiRowReplicaRequest request,
+            HybridTimestamp opStartTimestamp) {
         List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
-        HybridTimestamp readTimestamp = hybridClock.now();
+        HybridTimestamp readTimestamp = opStartTimestamp;
 
         if (request.requestType() != RequestType.RO_GET_ALL) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
@@ -1905,7 +1952,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
-                    return validateOperationAgainstSchema(request.transactionId())
+                    return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                             .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
@@ -1975,7 +2022,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return allOf(insertLockFuts)
                             .thenCompose(ignored ->
                                     // We are inserting completely new rows - no need to cleanup anything in this case, hence empty times.
-                                    validateOperationAgainstSchema(request.transactionId())
+                                    validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                             )
                             .thenCompose(catalogVersion -> applyUpdateAllCommand(
                                             request,
@@ -2036,7 +2083,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(null, null));
                     }
 
-                    return validateOperationAgainstSchema(request.transactionId())
+                    return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                             .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
@@ -2107,7 +2154,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return completedFuture(result);
                             }
 
-                            return validateAtTimestamp(txId)
+                            return validateRwReadAgainstSchemaAfterTakingLocks(txId)
                                     .thenApply(unused -> new ReplicaResult(result, null));
                         });
             }
@@ -2154,7 +2201,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
-                    return validateOperationAgainstSchema(request.transactionId())
+                    return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                             .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
@@ -2470,11 +2517,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes single entry direct request for read only transaction.
      *
      * @param request Read only single entry request.
+     * @param opStartTimestamp Moment when the operation processing was started in this class.
      * @return Result future.
      */
-    private CompletableFuture<BinaryRow> processReadOnlyDirectSingleEntryAction(ReadOnlyDirectSingleRowReplicaRequest request) {
+    private CompletableFuture<BinaryRow> processReadOnlyDirectSingleEntryAction(
+            ReadOnlyDirectSingleRowReplicaRequest request,
+            HybridTimestamp opStartTimestamp
+    ) {
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
-        HybridTimestamp readTimestamp = hybridClock.now();
+        HybridTimestamp readTimestamp = opStartTimestamp;
 
         if (request.requestType() != RequestType.RO_GET) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
@@ -2511,7 +2562,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     return completedFuture(new ReplicaResult(false, request.full() ? null : completedFuture(null)));
                                 }
 
-                                return validateOperationAgainstSchema(request.transactionId())
+                                return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                         .thenCompose(catalogVersion -> awaitCleanup(validatedRowId, catalogVersion))
                                         .thenCompose(
                                                 catalogVersion -> applyUpdateCommand(
@@ -2536,7 +2587,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     RowId rowId0 = new RowId(partId(), UUID.randomUUID());
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
-                            .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
+                            .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
                                                     request,
@@ -2567,7 +2618,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
+                            .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
@@ -2599,7 +2650,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
+                            .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
@@ -2627,7 +2678,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
+                            .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
@@ -2655,7 +2706,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> validateOperationAgainstSchema(request.transactionId())
+                            .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
@@ -2706,7 +2757,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForGet(rowId, txId)
-                            .thenCompose(ignored -> validateAtTimestamp(txId))
+                            .thenCompose(ignored -> validateRwReadAgainstSchemaAfterTakingLocks(txId))
                             .thenApply(ignored -> new ReplicaResult(row, null));
                 });
             }
@@ -2717,7 +2768,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(rowLock -> validateOperationAgainstSchema(request.transactionId()))
+                            .thenCompose(rowLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId()))
                             .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
@@ -2741,7 +2792,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(ignored -> validateOperationAgainstSchema(request.transactionId()))
+                            .thenCompose(ignored -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId()))
                             .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
                                     catalogVersion -> applyUpdateCommand(
@@ -2985,7 +3036,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return completedFuture(new ReplicaResult(false, null));
                             }
 
-                            return validateOperationAgainstSchema(txId)
+                            return validateWriteAgainstSchemaAfterTakingLocks(txId)
                                     .thenCompose(catalogVersion -> awaitCleanup(rowIdLock.get1(), catalogVersion))
                                     .thenCompose(
                                             catalogVersion -> applyUpdateCommand(
@@ -3259,25 +3310,26 @@ public class PartitionReplicaListener implements ReplicaListener {
         return false;
     }
 
-    private CompletableFuture<Void> validateAtTimestamp(UUID txId) {
+    /**
+     * Takes current timestamp and makes schema related validations at this timestamp.
+     *
+     * @param txId Transaction ID.
+     * @return Future that will complete when validation completes.
+     */
+    private CompletableFuture<Void> validateRwReadAgainstSchemaAfterTakingLocks(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
-                .thenApply(unused -> {
-                    failIfSchemaChangedSinceTxStart(txId, operationTimestamp);
-
-                    return null;
-                });
+                .thenRun(() -> failIfSchemaChangedSinceTxStart(txId, operationTimestamp));
     }
 
     /**
-     * Chooses operation timestamp and makes schema related validations. The operation timestamp is only used for validation,
-     * it is NOT sent as safeTime timestamp.
+     * Takes current timestamp and makes schema related validations at this timestamp.
      *
      * @param txId Transaction ID.
      * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
      */
-    private CompletableFuture<Integer> validateOperationAgainstSchema(UUID txId) {
+    private CompletableFuture<Integer> validateWriteAgainstSchemaAfterTakingLocks(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return reliableCatalogVersionFor(operationTimestamp)

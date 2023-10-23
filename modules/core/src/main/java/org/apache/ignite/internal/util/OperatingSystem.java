@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.util;
+package org.apache.ignite.internal.util;
 
 import java.util.Locale;
 
