@@ -44,26 +44,29 @@ Any component that wants to register system views must implement `SystemViewProv
 ### Step 2. Build a view.
 For example we want to add a view representing actual cluster topology.
 Since this information can be obtained on any node in the cluster this should be a `ClusterSystemView`,
-but to understand the difference between cluster-wide and local view, let's also add exactly the same local view. 
-The main difference is that we have to set `nodeNameColumnAlias` for the local view.
+but to understand the difference between cluster-wide and local view, let's also add exactly the same local view (`NodeSystemView`). 
+The only difference is that we have to set `nodeNameColumnAlias` for the local view.
+
+Please note that we explicitly specify the generic type of the column. It is a good practice to detect the column
+type mismatch at compile time.
 
 ```java
 @Override
 public List<SystemView<?>> systemViews() {
     SystemView<ClusterNode> clusterWideView = SystemViews.<ClusterNode>clusterViewBuilder()
             .name("TOPOLOGY_SNAPSHOT")
-            .addColumn("NAME", NativeTypes.STRING, ClusterNode::name)
-            .addColumn("HOST", NativeTypes.STRING, node -> node.address().host())
-            .addColumn("PORT", NativeTypes.INT32, node -> node.address().port())
+            .<String>addColumn("NAME", NativeTypes.STRING, ClusterNode::name)
+            .<String>addColumn("HOST", NativeTypes.STRING, node -> node.address().host())
+            .<Integer>addColumn("PORT", NativeTypes.INT32, node -> node.address().port())
             .dataProvider(SubscriptionUtils.fromIterable(() -> ignite.clusterNodes().iterator()))
             .build();
 
     SystemView<ClusterNode> localView = SystemViews.<ClusterNode>nodeViewBuilder()
             .name("TOPOLOGY_SNAPSHOT_LOCAL_VIEW")
             .nodeNameColumnAlias("VIEW_DATA_SOURCE")
-            .addColumn("NAME", NativeTypes.STRING, ClusterNode::name)
-            .addColumn("HOST", NativeTypes.STRING, node -> node.address().host())
-            .addColumn("PORT", NativeTypes.INT32, node -> node.address().port())
+            .<String>addColumn("NAME", NativeTypes.STRING, ClusterNode::name)
+            .<String>addColumn("HOST", NativeTypes.STRING, node -> node.address().host())
+            .<Integer>addColumn("PORT", NativeTypes.INT32, node -> node.address().port())
             .dataProvider(SubscriptionUtils.fromIterable(() -> ignite.iterator()))
             .build();
             
