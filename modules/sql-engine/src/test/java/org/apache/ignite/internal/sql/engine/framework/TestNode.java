@@ -64,6 +64,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -99,7 +100,8 @@ public class TestNode implements LifecycleAware {
             MappingService mappingService
     ) {
         this.nodeName = nodeName;
-        var ps = new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT, mock(MetricManager.class));
+        var ps = new PrepareServiceImpl(nodeName, 0, CaffeineCacheFactory.INSTANCE,
+                mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT, mock(MetricManager.class));
         this.prepareService = registerService(ps);
         this.schemaManager = schemaManager;
 
@@ -117,7 +119,9 @@ public class TestNode implements LifecycleAware {
                 mailboxRegistry, messageService
         ));
         NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
-        ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
+        ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
+                executableTableRegistry, null
+        );
 
         executionService = registerService(new ExecutionServiceImpl<>(
                 messageService,
@@ -222,7 +226,7 @@ public class TestNode implements LifecycleAware {
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schemaManager.schema(DEFAULT_SCHEMA_NAME, Long.MAX_VALUE))
+                                .defaultSchema(schemaManager.schema(Long.MAX_VALUE).getSubSchema(DEFAULT_SCHEMA_NAME))
                                 .build()
                 )
                 .build();
