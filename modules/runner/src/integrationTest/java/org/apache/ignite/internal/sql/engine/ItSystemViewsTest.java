@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -62,7 +63,7 @@ public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
     void beforeAll(TestInfo testInfo) {
         super.beforeAll(testInfo);
 
-        systemViewManager().completeRegistration().join();
+        IgniteTestUtils.await(systemViewManager().completeRegistration());
     }
 
     @ParameterizedTest
