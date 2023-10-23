@@ -156,6 +156,12 @@ public class Lease implements ReplicaMeta {
     }
 
     @Override
+    public @Nullable String getLeaseholderId() {
+        // TODO: IGNITE-20678 реализовать
+        return null;
+    }
+
+    @Override
     public HybridTimestamp getStartTime() {
         return startTime;
     }
