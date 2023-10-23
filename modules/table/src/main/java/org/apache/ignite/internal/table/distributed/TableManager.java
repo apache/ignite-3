@@ -2162,6 +2162,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (!stableAssignments.equals(ByteUtils.fromBytes(evt.entryEvent().oldEntry().value()))) {
                         LOG.info("Updating raft group {} with the assignments {} to assignments {} thread {}",
                                 tablePartitionId, ByteUtils.fromBytes(evt.entryEvent().oldEntry().value()), stableAssignments, Thread.currentThread().getName());
+
                         fut = tablesById(evt.revision()).thenCompose(t -> t.get(tableId).internalTable()
                                 .partitionRaftGroupService(tablePartitionId.partitionId())
                                 .updateConfiguration(configurationFromAssignments(stableAssignments)));
