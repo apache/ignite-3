@@ -32,7 +32,9 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -53,6 +55,14 @@ public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
             this.schema = schema;
             this.name = name;
         }
+    }
+
+    @BeforeAll
+    @Override
+    void beforeAll(TestInfo testInfo) {
+        super.beforeAll(testInfo);
+
+        systemViewManager().completeRegistration().join();
     }
 
     @ParameterizedTest

@@ -130,6 +130,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
@@ -905,8 +906,14 @@ public class IgniteImpl implements Ignite {
         return distributedTblMgr;
     }
 
+    @TestOnly
     public QueryProcessor queryEngine() {
         return qryEngine;
+    }
+
+    @TestOnly
+    public SystemViewManager systemViewManager() {
+        return systemViewManager;
     }
 
     @TestOnly
