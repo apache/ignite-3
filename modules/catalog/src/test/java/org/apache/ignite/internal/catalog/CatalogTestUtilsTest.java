@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
 
     /**
-     * Simple smoke test to verify test manager is able to process a few version of catalog
+     * Simple smoke test to verify test manager is able to process several versions of catalog,
      * and returned instance follows the contract.
      */
     @Test
