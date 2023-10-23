@@ -29,14 +29,22 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test Ignite SQL functions.
@@ -342,6 +350,110 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT SUBSTR(1000, 1, 3)").returns("100").check();
 
         assertThrowsWithCause(() -> sql("SELECT SUBSTR('1234567', 1, -3)"), IgniteException.class, "negative substring length");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("integralTypes")
+    public void testIntType(ParseNum parse, MetadataMatcher matcher) {
+        String v1 = parse.value("42");
+        String v2 = parse.value("45");
+        String v3 = parse.value("47");
+
+        assertQuery(format("SELECT ROUND({}), ROUND({}, 0)", v1, v1))
+                .returns(parse.apply("42"), parse.apply("42"))
+                .columnMetadata(matcher, matcher)
+                .check();
+
+        String query = format(
+                "SELECT ROUND({}, -2), ROUND({}, -1), ROUND({}, -1), ROUND({}, -1)",
+                v1, v1, v2, v3);
+
+        assertQuery(query)
+                .returns(parse.apply("0"), parse.apply("40"), parse.apply("50"), parse.apply("50"))
+                .columnMetadata(matcher, matcher, matcher, matcher)
+                .check();
+    }
+
+    private static Stream<Arguments> integralTypes() {
+        return Stream.of(
+                Arguments.of(new ParseNum("TINYINT", Byte::parseByte), new MetadataMatcher().type(ColumnType.INT8)),
+                Arguments.of(new ParseNum("SMALLINT", Short::parseShort), new MetadataMatcher().type(ColumnType.INT16)),
+                Arguments.of(new ParseNum("INTEGER", Integer::parseInt), new MetadataMatcher().type(ColumnType.INT32)),
+                Arguments.of(new ParseNum("BIGINT", Long::parseLong), new MetadataMatcher().type(ColumnType.INT64)),
+                Arguments.of(new ParseNum("DECIMAL(4)", BigDecimal::new), new MetadataMatcher().type(ColumnType.DECIMAL).precision(4))
+        );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nonIntegerTypes")
+    public void testRoundNonIntegralTypes(ParseNum parse, MetadataMatcher round1, MetadataMatcher round2) {
+        String v1 = parse.value("42.123");
+        String v2 = parse.value("45.123");
+        String v3 = parse.value("47.123");
+
+        assertQuery(format("SELECT ROUND({}), ROUND({}, 0)", v1, v1))
+                .returns(parse.apply("42"), parse.apply("42.000"))
+                .columnMetadata(round1, round2)
+                .check();
+
+        assertQuery(format("SELECT ROUND({}, -2), ROUND({}, -1), ROUND({}, -1),  ROUND({}, -1)", v1, v1, v2, v3))
+                .returns(parse.apply("0.000"), parse.apply("40.000"), parse.apply("50.000"), parse.apply("50.000"))
+                .columnMetadata(round2, round2, round2, round2)
+                .check();
+
+        String v4 = parse.value("1.123");
+
+        assertQuery(format("SELECT ROUND({}, s) FROM (VALUES (-2), (-1), (0), (1), (2), (3), (4), (100) ) t(s)", v4))
+                .returns(parse.apply("0.000"))
+                .returns(parse.apply("0.000"))
+                .returns(parse.apply("1.000"))
+                .returns(parse.apply("1.100"))
+                .returns(parse.apply("1.120"))
+                .returns(parse.apply("1.123"))
+                .returns(parse.apply("1.123"))
+                .returns(parse.apply("1.123"))
+                .columnMetadata(round2)
+                .check();
+    }
+
+    private static Stream<Arguments> nonIntegerTypes() {
+        MetadataMatcher matchFloat = new MetadataMatcher().type(ColumnType.FLOAT);
+        MetadataMatcher matchDouble = new MetadataMatcher().type(ColumnType.DOUBLE);
+
+        MetadataMatcher matchDecimal1 = new MetadataMatcher().type(ColumnType.DECIMAL).precision(5).scale(0);
+        MetadataMatcher matchDecimal2 = new MetadataMatcher().type(ColumnType.DECIMAL).precision(5).scale(3);
+
+        return Stream.of(
+                Arguments.of(new ParseNum("REAL", Float::parseFloat), matchFloat, matchFloat),
+                Arguments.of(new ParseNum("DOUBLE", Double::parseDouble), matchDouble, matchDouble),
+                Arguments.of(new ParseNum("DECIMAL(5, 3)", BigDecimal::new), matchDecimal1, matchDecimal2)
+        );
+    }
+
+    /** Numeric type parser. */
+    public static final class ParseNum {
+
+        private final String typeName;
+
+        private final Function<String, Object> func;
+
+        ParseNum(String typeName, Function<String, Object> func) {
+            this.typeName = typeName;
+            this.func = func;
+        }
+
+        public Object apply(String val) {
+            return func.apply(val);
+        }
+
+        public String value(String val) {
+            return val + "::" + typeName;
+        }
+
+        @Override
+        public String toString() {
+            return typeName;
+        }
     }
 
     /**
