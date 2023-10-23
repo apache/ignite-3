@@ -127,7 +127,10 @@ public class ChainingRaftGroupService implements RaftGroupService {
     public synchronized <R> CompletableFuture<R> run(Command cmd) {
         CompletableFuture<R> newFuture = runChainHead.thenCompose(unused -> service.run(cmd));
 
-        runChainHead = newFuture;
+        runChainHead = newFuture
+                // Ignoring the exception as we should not fail subsequent calls, and the caller will
+                // see the exception in the returned future (if they need to handle it at all).
+                .exceptionally(ex -> null);
 
         return newFuture;
     }
