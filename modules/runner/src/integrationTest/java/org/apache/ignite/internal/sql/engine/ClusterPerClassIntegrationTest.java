@@ -498,17 +498,17 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Returns internal  {@code SqlQueryProcessor} for first cluster node.
+     * Returns internal {@code SqlQueryProcessor} for first cluster node.
      */
     protected SqlQueryProcessor queryProcessor() {
         return (SqlQueryProcessor) ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
     }
 
     /**
-     * Returns internal  {@code SystemViewManager} for first cluster node.
+     * Returns internal {@code SystemViewManager} for first cluster node.
      */
     protected SystemViewManagerImpl systemViewManager() {
-        return (SystemViewManagerImpl) ((IgniteImpl)CLUSTER_NODES.get(0)).systemViewManager();
+        return (SystemViewManagerImpl) ((IgniteImpl) CLUSTER_NODES.get(0)).systemViewManager();
     }
 
     /**
