@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -411,7 +412,10 @@ public class IgniteImpl implements Ignite {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
 
         NodeAttributesCollector nodeAttributesCollector =
-                new NodeAttributesCollector(nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY));
+                new NodeAttributesCollector(
+                        nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
+                        nodeConfigRegistry.getConfiguration(StorageProfilesConfiguration.KEY)
+                );
 
 
         clusterConfigurationDefaultsSetter =

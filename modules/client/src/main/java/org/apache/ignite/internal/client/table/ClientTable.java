@@ -42,7 +42,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -408,38 +407,47 @@ public class ClientTable implements Table {
                         return;
                     }
 
-                    // Retry schema errors.
-                    Throwable cause = ExceptionUtils.unwrapRootCause(err);
-                    if (cause instanceof ClientSchemaVersionMismatchException) {
-                        // Retry with specific schema version.
-                        int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
+                    // Retry schema errors, if any.
+                    Throwable cause = err;
 
-                        doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider, retryPolicyOverride,
-                                expectedVersion)
-                                .whenComplete((res0, err0) -> {
-                                    if (err0 != null) {
-                                        fut.completeExceptionally(err0);
-                                    } else {
-                                        fut.complete(res0);
-                                    }
-                                });
-                    } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
-                        // Force load latest schema and revalidate user data against it.
-                        // When schemaVersionOverride is not null, we already tried to load the schema.
-                        schemas.remove(UNKNOWN_SCHEMA_VERSION);
+                    while (cause != null) {
+                        if (cause instanceof ClientSchemaVersionMismatchException) {
+                            // Retry with specific schema version.
+                            int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
 
-                        doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider, retryPolicyOverride,
-                                UNKNOWN_SCHEMA_VERSION)
-                                .whenComplete((res0, err0) -> {
-                                    if (err0 != null) {
-                                        fut.completeExceptionally(err0);
-                                    } else {
-                                        fut.complete(res0);
-                                    }
-                                });
-                    } else {
-                        fut.completeExceptionally(err);
+                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
+                                    retryPolicyOverride, expectedVersion)
+                                    .whenComplete((res0, err0) -> {
+                                        if (err0 != null) {
+                                            fut.completeExceptionally(err0);
+                                        } else {
+                                            fut.complete(res0);
+                                        }
+                                    });
+
+                            return;
+                        } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
+                            // Force load latest schema and revalidate user data against it.
+                            // When schemaVersionOverride is not null, we already tried to load the schema.
+                            schemas.remove(UNKNOWN_SCHEMA_VERSION);
+
+                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
+                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION)
+                                    .whenComplete((res0, err0) -> {
+                                        if (err0 != null) {
+                                            fut.completeExceptionally(err0);
+                                        } else {
+                                            fut.complete(res0);
+                                        }
+                                    });
+
+                            return;
+                        }
+
+                        cause = cause.getCause();
                     }
+
+                    fut.completeExceptionally(err);
                 });
 
         return fut;

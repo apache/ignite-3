@@ -296,7 +296,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return versionTracker.waitFor(version);
     }
 
-    private Catalog catalog(int version) {
+    @Override
+    public Catalog catalog(int version) {
         return catalogByVer.get(version);
     }
 

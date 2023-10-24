@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Schema implementation for sql engine.
@@ -65,9 +66,12 @@ public class IgniteSchema extends AbstractSchema {
     }
 
     /** Returns table by given id. */
-    public IgniteTable getTable(int tableId) {
+    @Nullable IgniteTable tableByIdOpt(int tableId) {
         IgniteDataSource dataSource = tableById.get(tableId);
-        assert dataSource instanceof IgniteTable : "Expected table but got " + dataSource;
+
+        if (!(dataSource instanceof IgniteTable)) {
+            return null;
+        }
 
         return (IgniteTable) dataSource;
     }

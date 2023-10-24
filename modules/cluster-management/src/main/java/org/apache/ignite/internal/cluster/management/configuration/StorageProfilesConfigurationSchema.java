@@ -15,31 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management;
+package org.apache.ignite.internal.cluster.management.configuration;
 
-import java.util.Map;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
- * Contains local attributes that are collected during node startup and become visible
- * to all cluster nodes after the local node is added to the logical topology.
- *
- * @see LogicalNode#userAttributes()
- * @see LogicalNode#systemAttributes()
+ * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
  */
-public interface NodeAttributes {
+@ConfigurationRoot(rootName = "storageProfiles", type = ConfigurationType.LOCAL)
+public class StorageProfilesConfigurationSchema {
     /**
-     * Returns user defined attributes from a node's configuration.
+     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
      */
-    Map<String, String> userAttributes();
-
-    /**
-     * Returns internal attributes provided by system components.
-     */
-    Map<String, String> systemAttributes();
-
-    /**
-     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564
-     */
-    Map<String, String> storageProfiles();
+    @NamedConfigValue
+    public StorageProfileConfigurationSchema storageProfiles;
 }

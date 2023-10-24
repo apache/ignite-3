@@ -84,7 +84,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Assumptions;
@@ -318,9 +317,13 @@ public class KvMarshallerTest {
         KvMarshaller<Integer, BitSet> marshaller =
                 factory.create(schema, Integer.class, BitSet.class);
 
-        Throwable ex = ExceptionUtils.unwrapRootCause(assertThrows(
+        Throwable ex = assertThrows(
                 MarshallerException.class,
-                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42))));
+                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42)));
+
+        while (ex.getCause() != null) {
+            ex = ex.getCause();
+        }
 
         assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }

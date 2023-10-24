@@ -31,7 +31,6 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy wrapper for predefined collection of schemas.
@@ -70,19 +69,30 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String name, int version) {
-        return name == null ? root : root.getSubSchema(name);
+    public SchemaPlus schema(int version) {
+        return root;
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String name, long timestamp) {
-        return name == null ? root : root.getSubSchema(name);
+    public SchemaPlus schema(long timestamp) {
+        return root;
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> schemaReadyFuture(int version) {
         return completedFuture(null);
+    }
+
+    @Override
+    public IgniteTable table(int schemaVersion, int tableId) {
+        IgniteTable table = tableById.get(tableId);
+
+        if (table == null) {
+            throw new RuntimeException("Table not found: " + tableId);
+        }
+
+        return table;
     }
 }
