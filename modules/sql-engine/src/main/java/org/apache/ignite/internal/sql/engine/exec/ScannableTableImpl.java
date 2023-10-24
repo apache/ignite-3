@@ -194,7 +194,7 @@ public class ScannableTableImpl implements ScannableTable {
             RowHandler<RowT> handler,
             @Nullable RowT prefix
     ) {
-        if (prefix == null) {
+        if (prefix == null || handler.columnCount(prefix) == 0) {
             return null;
         }
 

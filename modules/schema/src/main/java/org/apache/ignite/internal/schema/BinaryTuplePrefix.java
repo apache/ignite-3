@@ -57,17 +57,17 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
      * columns, then all elements will be used in resulting prefix. If given tuple has more columns, then
      * excess columns will be truncated.
      *
-     * @param size The size of the complete tuple.
+     * @param numElements Number of elements in full schema of prefix.
      * @param tuple Tuple to create a prefix from.
-     * @return Prefix, created from provided tuple with regards to desired size.
+     * @return Prefix, created from provided tuple with regards to desired number of elements.
      */
-    public static BinaryTuplePrefix fromBinaryTuple(int size, BinaryTuple tuple) {
-        if (size == tuple.elementCount()) {
+    public static BinaryTuplePrefix fromBinaryTuple(int numElements, BinaryTuple tuple) {
+        if (numElements == tuple.elementCount()) {
             return entireTuple(tuple);
-        } else if (size > tuple.elementCount()) {
-            return expandTuple(size, tuple);
+        } else if (numElements > tuple.elementCount()) {
+            return expandTuple(numElements, tuple);
         } else {
-            return truncateTuple(size, tuple);
+            return truncateTuple(numElements, tuple);
         }
     }
 
@@ -97,24 +97,20 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
         return new BinaryTuplePrefix(tuple.elementCount(), prefixBuffer);
     }
 
-    private static BinaryTuplePrefix expandTuple(int size, BinaryTuple tuple) {
-        assert size > tuple.elementCount();
+    private static BinaryTuplePrefix expandTuple(int numElements, BinaryTuple tuple) {
+        assert numElements > tuple.elementCount();
 
-        var stats = new Sink() {
-            int dataBeginOffset = 0;
-            int dataEndOffset = 0;
+        if (tuple.elementCount() == 0) {
+            return new BinaryTuplePrefix(
+                    numElements, new BinaryTuplePrefixBuilder(0, numElements, 0).build()
+            );
+        }
 
-            @Override
-            public void nextElement(int index, int begin, int end) {
-                if (index == 0) {
-                    dataBeginOffset = begin;
-                }
+        int[] dataBeginOffsetHolder = new int[1];
+        int[] dataEndOffsetHolder = new int[1];
 
-                dataEndOffset = end;
-            }
-        };
-
-        tuple.parse(stats);
+        tuple.fetch(0, (index, begin, end) -> dataBeginOffsetHolder[0] = begin);
+        tuple.fetch(tuple.elementCount() - 1, (index, begin, end) -> dataEndOffsetHolder[0] = end);
 
         ByteBuffer tupleBuffer = tuple.byteBuffer();
 
@@ -123,13 +119,13 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
 
         ByteBuffer prefixBuffer = ByteBuffer.allocate(
                         tupleBuffer.remaining()
-                                + (entrySize * (size - tuple.elementCount()))
+                                + (entrySize * (numElements - tuple.elementCount()))
                                 + Integer.BYTES)
                 .order(ORDER)
-                .put(tupleBuffer.slice().limit(stats.dataBeginOffset)); // header
+                .put(tupleBuffer.slice().limit(dataBeginOffsetHolder[0])); // header
 
-        int payloadEndPosition = stats.dataEndOffset - stats.dataBeginOffset;
-        for (int idx = tuple.elementCount(); idx < size; idx++) {
+        int payloadEndPosition = dataEndOffsetHolder[0] - dataBeginOffsetHolder[0];
+        for (int idx = tuple.elementCount(); idx < numElements; idx++) {
             switch (entrySize) {
                 case Byte.BYTES:
                     prefixBuffer.put((byte) payloadEndPosition);
@@ -146,40 +142,30 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
         }
 
         prefixBuffer
-                .put(tupleBuffer.slice().position(stats.dataBeginOffset).limit(stats.dataEndOffset)) // payload
+                .put(tupleBuffer.slice().position(dataBeginOffsetHolder[0]).limit(dataEndOffsetHolder[0])) // payload
                 .putInt(tuple.elementCount())
                 .flip();
 
         prefixBuffer.put(0, (byte) (flags | PREFIX_FLAG));
 
-        return new BinaryTuplePrefix(size, prefixBuffer);
+        return new BinaryTuplePrefix(numElements, prefixBuffer);
     }
 
-    private static BinaryTuplePrefix truncateTuple(int size, BinaryTuple tuple) {
-        assert size < tuple.elementCount();
+    private static BinaryTuplePrefix truncateTuple(int numElements, BinaryTuple tuple) {
+        assert numElements < tuple.elementCount();
 
-        var stats = new Sink() {
-            int dataBeginOffset = 0;
-            int dataEndOffset = 0;
+        int[] dataBeginOffsetHolder = new int[1];
+        int[] dataEndOffsetHolder = new int[1];
 
-            @Override
-            public void nextElement(int index, int begin, int end) {
-                if (index == 0) {
-                    dataBeginOffset = begin;
-                }
+        tuple.fetch(0, (index, begin, end) -> dataBeginOffsetHolder[0] = begin);
+        tuple.fetch(numElements - 1, (index, begin, end) -> dataEndOffsetHolder[0] = end);
 
-                if (index < size) {
-                    dataEndOffset = end;
-                }
-            }
-        };
-
-        tuple.parse(stats);
-
-        BinaryTuplePrefixBuilder builder = new BinaryTuplePrefixBuilder(size, size, stats.dataEndOffset - stats.dataBeginOffset);
+        BinaryTuplePrefixBuilder builder = new BinaryTuplePrefixBuilder(
+                numElements, numElements, dataEndOffsetHolder[0] - dataBeginOffsetHolder[0]
+        );
 
         tuple.parse((index, begin, end) -> {
-            if (index < size) {
+            if (index < numElements) {
                 byte[] valueBytes = tuple.bytesValue(index);
 
                 if (valueBytes == null) {
@@ -190,7 +176,7 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
             }
         });
 
-        return new BinaryTuplePrefix(size, builder.build());
+        return new BinaryTuplePrefix(numElements, builder.build());
     }
 
     @Override

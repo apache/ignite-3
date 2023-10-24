@@ -79,16 +79,16 @@ public class BinaryTuplePrefixTest {
     }
 
     @Test
-    public void testCreatePrefixFromBinaryTuple1() {
-        int prefixSize = 1;
+    public void testCreatePrefixFromBinaryTupleWhichSizeIsLesserThanRequired() {
+        int sourceTupleSize = 1;
 
-        ByteBuffer buffer = new BinaryTupleBuilder(prefixSize)
+        ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize)
                 .appendInt(10)
                 .build();
 
-        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(prefixSize, buffer));
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(sourceTupleSize, buffer));
 
-        assertThat(prefix.elementCount(), equalTo(prefixSize));
+        assertThat(prefix.elementCount(), equalTo(sourceTupleSize));
         assertThat(prefix.intValue(0), equalTo(10));
         assertThat(prefix.hasNullValue(1), equalTo(true));
         assertThat(prefix.hasNullValue(2), equalTo(true));
@@ -96,56 +96,19 @@ public class BinaryTuplePrefixTest {
     }
 
     @Test
-    public void testCreatePrefixFromBinaryTuple2() {
-        int prefixSize = 2;
+    public void testCreatePrefixFromBinaryTupleWhichSizeIsEqualsToRequired() {
+        int sourceTupleSize = 4;
 
-        ByteBuffer buffer = new BinaryTupleBuilder(prefixSize)
-                .appendInt(10)
-                .appendString("foo")
-                .build();
-
-        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(prefixSize, buffer));
-
-        assertThat(prefix.elementCount(), equalTo(prefixSize));
-        assertThat(prefix.intValue(0), equalTo(10));
-        assertThat(prefix.stringValue(1), equalTo("foo"));
-        assertThat(prefix.hasNullValue(2), equalTo(true));
-        assertThat(prefix.hasNullValue(3), equalTo(true));
-    }
-
-    @Test
-    public void testCreatePrefixFromBinaryTuple3() {
-        int prefixSize = 3;
-
-        ByteBuffer buffer = new BinaryTupleBuilder(prefixSize)
-                .appendInt(10)
-                .appendString("foo")
-                .appendNull()
-                .build();
-
-        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(prefixSize, buffer));
-
-        assertThat(prefix.elementCount(), equalTo(prefixSize));
-        assertThat(prefix.intValue(0), equalTo(10));
-        assertThat(prefix.stringValue(1), equalTo("foo"));
-        assertThat(prefix.hasNullValue(2), equalTo(true));
-        assertThat(prefix.hasNullValue(3), equalTo(true));
-    }
-
-    @Test
-    public void testCreatePrefixFromBinaryTuple4() {
-        int prefixSize = 4;
-
-        ByteBuffer buffer = new BinaryTupleBuilder(prefixSize)
+        ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize)
                 .appendInt(10)
                 .appendString("foo")
                 .appendNull()
                 .appendBoolean(false)
                 .build();
 
-        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(prefixSize, buffer));
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(sourceTupleSize, new BinaryTuple(sourceTupleSize, buffer));
 
-        assertThat(prefix.elementCount(), equalTo(prefixSize));
+        assertThat(prefix.elementCount(), equalTo(sourceTupleSize));
         assertThat(prefix.intValue(0), equalTo(10));
         assertThat(prefix.stringValue(1), equalTo("foo"));
         assertThat(prefix.hasNullValue(2), equalTo(true));
@@ -153,10 +116,10 @@ public class BinaryTuplePrefixTest {
     }
 
     @Test
-    public void testCreatePrefixFromBinaryTuple5() {
-        int prefixSize = 5;
+    public void testCreatePrefixFromBinaryTupleWhichSizeIsGreaterThanRequired() {
+        int sourceTupleSize = 5;
 
-        ByteBuffer buffer = new BinaryTupleBuilder(prefixSize)
+        ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize)
                 .appendInt(10)
                 .appendString("foo")
                 .appendNull()
@@ -164,13 +127,30 @@ public class BinaryTuplePrefixTest {
                 .appendString("truncated value")
                 .build();
 
-        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(prefixSize, buffer));
+        int prefixSize = 4;
 
-        assertThat(prefix.elementCount(), equalTo(4));
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(prefixSize, new BinaryTuple(sourceTupleSize, buffer));
+
+        assertThat(prefix.elementCount(), equalTo(prefixSize));
         assertThat(prefix.intValue(0), equalTo(10));
         assertThat(prefix.stringValue(1), equalTo("foo"));
         assertThat(prefix.hasNullValue(2), equalTo(true));
         assertThat(prefix.booleanValue(3), equalTo(false));
+    }
+
+    @Test
+    public void testCreatePrefixFromZeroLengthBinaryTuple() {
+        int sourceTupleSize = 0;
+
+        ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize).build();
+
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(sourceTupleSize, buffer));
+
+        assertThat(prefix.elementCount(), equalTo(sourceTupleSize));
+        assertThat(prefix.hasNullValue(0), equalTo(true));
+        assertThat(prefix.hasNullValue(1), equalTo(true));
+        assertThat(prefix.hasNullValue(2), equalTo(true));
+        assertThat(prefix.hasNullValue(3), equalTo(true));
     }
 
     /**
