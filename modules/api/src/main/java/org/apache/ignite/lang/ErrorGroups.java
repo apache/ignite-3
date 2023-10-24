@@ -379,6 +379,8 @@ public class ErrorGroups {
         /** Stopping replica exception code. */
         public static final int REPLICA_STOPPING_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 8);
 
+        public static final int REPLICATION_SAFE_TIME_MISS = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
+
     }
 
     /** Storage error group. */

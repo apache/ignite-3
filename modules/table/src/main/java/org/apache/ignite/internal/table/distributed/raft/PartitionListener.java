@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_MISS;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
 import java.nio.file.Path;
@@ -153,10 +154,11 @@ public class PartitionListener implements RaftGroupListener {
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
                 if (cmd.safeTimeLong() > maxObservableSafeTime) {
+//                if (true) {
                     maxObservableSafeTime = cmd.safeTimeLong();
                 } else {
                     System.out.println("!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + clo.command().getClass());
-                    clo.result(new SafeTimeReorderException(100, "errorMsg"));
+                    clo.result(new SafeTimeReorderException(REPLICATION_SAFE_TIME_MISS, "errorMsg"));
                     return;
                 }
             }
