@@ -57,9 +57,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>Each kind of rows is serialized to the same binary tuple format
  * using the {@link #toBinaryTuple(RowWrapper)} method.
  *
- * <p>Factory method {@link RowFactory#create(InternalTuple) wrap(InternalTuple)}
- * allow create rows without any additional conversions. But the fields in binary
- * tuple must match the factory {@link RowSchema row schema}.
+ * <p>Factory method {@link RowFactory#create(InternalTuple)} allows to
+ * create rows without any additional conversions. But the fields in
+ * binary tuple must match the factory {@link RowSchema row schema}.
  */
 public class SqlRowHandler implements RowHandler<RowWrapper> {
     public static final RowHandler<RowWrapper> INSTANCE = new SqlRowHandler();
