@@ -20,18 +20,9 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEWS;
 import static org.apache.ignite.internal.sql.engine.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEW_COLUMNS;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -39,7 +30,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * End-to-end tests to verify system views.
  */
-@SuppressWarnings("DataFlowIssue")
 public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
     enum KnownSystemView {
         SYSTEM_VIEWS("SYSTEM", "SYSTEM_VIEWS"),
@@ -53,130 +43,116 @@ public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
             this.schema = schema;
             this.name = name;
         }
+
+        String canonicalName() {
+            return schema + "." + name;
+        }
     }
 
     @ParameterizedTest
     @EnumSource(KnownSystemView.class)
     public void systemViewWithGivenNameExists(KnownSystemView view) {
-        try (Session session = CLUSTER_NODES.get(0).sql().sessionBuilder().defaultSchema(view.schema).build()) {
-            ResultSet<SqlRow> rs = session.execute(null, format("SELECT count(*) FROM {}", view.name));
-
-            // for this test it's enough to check presence of the row,
-            // because we are interested in whether the view is available for
-            // querying at all
-            assertThat(rs.hasNext(), is(true));
-        }
+        assertQuery(format("SELECT count(*) FROM {}", view.canonicalName()))
+                // for this test it's enough to check presence of the row,
+                // because we are interested in whether the view is available for
+                // querying at all
+                .returnSomething()
+                .check();
     }
 
     @ParameterizedTest
     @EnumSource(KnownSystemView.class)
     public void systemViewWithGivenNamePresentedInSystemViewsView(KnownSystemView view) {
-        try (Session session = CLUSTER_NODES.get(0).sql().sessionBuilder().defaultSchema(SYSTEM_VIEWS.schema).build()) {
-            ResultSet<SqlRow> rs = session.execute(null,
-                    format("SELECT count(*) FROM {} WHERE schema = '{}' AND name = '{}'",
-                            SYSTEM_VIEWS.name, view.schema, view.name));
-
-            assertThat(rs.hasNext(), is(true));
-
-            SqlRow row = rs.next();
-
-            assertThat(row.value(0), is(1L));
-        }
+        assertQuery(format("SELECT * FROM {} WHERE schema = ? AND name = ?", SYSTEM_VIEWS.canonicalName()))
+                .withParams(view.schema, view.name)
+                .returnSomething()
+                .check();
     }
 
     @Test
     public void systemViewsViewMetadataTest() {
-        KnownSystemView view = SYSTEM_VIEWS;
+        assertQuery(format("SELECT * FROM {}", SYSTEM_VIEWS.canonicalName()))
+                .columnMetadata(
+                        new MetadataMatcher()
+                                .name("ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
 
-        try (Session session = CLUSTER_NODES.get(0).sql().sessionBuilder().defaultSchema(view.schema).build()) {
-            ResultSet<SqlRow> rs = session.execute(null, format("SELECT * FROM {}", view.name));
+                        new MetadataMatcher()
+                                .name("SCHEMA")
+                                .type(ColumnType.STRING)
+                                .precision(Short.MAX_VALUE)
+                                .nullable(true),
 
-            ResultSetMetadata metadata = rs.metadata();
+                        new MetadataMatcher()
+                                .name("NAME")
+                                .type(ColumnType.STRING)
+                                .precision(Short.MAX_VALUE)
+                                .nullable(true),
 
-            assertMetadata(metadata, List.of(
-                    new MetadataMatcher()
-                            .name("ID")
-                            .type(ColumnType.INT32)
-                            .nullable(true),
-
-                    new MetadataMatcher()
-                            .name("SCHEMA")
-                            .type(ColumnType.STRING)
-                            .precision(Short.MAX_VALUE)
-                            .nullable(true),
-
-                    new MetadataMatcher()
-                            .name("NAME")
-                            .type(ColumnType.STRING)
-                            .precision(Short.MAX_VALUE)
-                            .nullable(true),
-
-                    new MetadataMatcher()
-                            .name("TYPE")
-                            .type(ColumnType.STRING)
-                            .precision(Short.MAX_VALUE)
-                            .nullable(true)
-            ));
-        }
+                        new MetadataMatcher()
+                                .name("TYPE")
+                                .type(ColumnType.STRING)
+                                .precision(Short.MAX_VALUE)
+                                .nullable(true)
+                )
+                .check();
     }
 
     @Test
     public void systemViewColumnsViewMetadataTest() {
-        KnownSystemView view = SYSTEM_VIEW_COLUMNS;
+        assertQuery(format("SELECT * FROM {}", SYSTEM_VIEW_COLUMNS.canonicalName()))
+                .columnMetadata(
+                        new MetadataMatcher()
+                                .name("VIEW_ID")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
 
-        try (Session session = CLUSTER_NODES.get(0).sql().sessionBuilder().defaultSchema(view.schema).build()) {
-            ResultSet<SqlRow> rs = session.execute(null, format("SELECT * FROM {}", view.name));
+                        new MetadataMatcher()
+                                .name("NAME")
+                                .type(ColumnType.STRING)
+                                .precision(Short.MAX_VALUE)
+                                .nullable(true),
 
-            ResultSetMetadata metadata = rs.metadata();
+                        new MetadataMatcher()
+                                .name("TYPE")
+                                .type(ColumnType.STRING)
+                                .precision(Short.MAX_VALUE)
+                                .nullable(true),
 
-            assertMetadata(metadata, List.of(
-                    new MetadataMatcher()
-                            .name("VIEW_ID")
-                            .type(ColumnType.INT32)
-                            .nullable(true),
+                        new MetadataMatcher()
+                                .name("NULLABLE")
+                                .type(ColumnType.BOOLEAN)
+                                .nullable(true),
 
-                    new MetadataMatcher()
-                            .name("NAME")
-                            .type(ColumnType.STRING)
-                            .precision(Short.MAX_VALUE)
-                            .nullable(true),
+                        new MetadataMatcher()
+                                .name("PRECISION")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
 
-                    new MetadataMatcher()
-                            .name("TYPE")
-                            .type(ColumnType.STRING)
-                            .precision(Short.MAX_VALUE)
-                            .nullable(true),
+                        new MetadataMatcher()
+                                .name("SCALE")
+                                .type(ColumnType.INT32)
+                                .nullable(true),
 
-                    new MetadataMatcher()
-                            .name("NULLABLE")
-                            .type(ColumnType.BOOLEAN)
-                            .nullable(true),
-
-                    new MetadataMatcher()
-                            .name("PRECISION")
-                            .type(ColumnType.INT32)
-                            .nullable(true),
-
-                    new MetadataMatcher()
-                            .name("SCALE")
-                            .type(ColumnType.INT32)
-                            .nullable(true),
-
-                    new MetadataMatcher()
-                            .name("LENGTH")
-                            .type(ColumnType.INT32)
-                            .nullable(true)
-            ));
-
-        }
+                        new MetadataMatcher()
+                                .name("LENGTH")
+                                .type(ColumnType.INT32)
+                                .nullable(true))
+                .check();
     }
 
-    private static void assertMetadata(ResultSetMetadata actual, List<MetadataMatcher> matchers) {
-        assertThat(actual, notNullValue());
-        assertThat(actual.columns(), hasSize(matchers.size()));
+    @Test
+    public void systemViewAndTableCrossQuery() {
+        KnownSystemView view = SYSTEM_VIEWS;
 
-        for (int i = 0; i < matchers.size(); i++) {
-            matchers.get(i).check(actual.columns().get(i));
-        }
+        sql("CREATE TABLE known_views(view_id INT primary key, name varchar(256))");
+        sql(format("INSERT INTO known_views SELECT id, SUBSTRING(name, 256) FROM {}", view.canonicalName()));
+
+        assertQuery(format("SELECT * FROM known_views kv JOIN {} sv"
+                + " ON kv.view_id = sv.id WHERE sv.name = ?", view.canonicalName()))
+                .withParam(view.name)
+                .returnSomething()
+                .check();
     }
 }

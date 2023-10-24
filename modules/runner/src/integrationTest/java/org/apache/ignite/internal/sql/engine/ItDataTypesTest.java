@@ -322,7 +322,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
                 "SELECT DECIMAL '0.09'  BETWEEN DECIMAL '0.06' AND DECIMAL '0.07'")
                 .returns(false).check();
 
-        assertQuery("SELECT ROUND(DECIMAL '10.000', 2)").returns(new BigDecimal("10.00")).check();
+        assertQuery("SELECT ROUND(DECIMAL '10.000', 2)").returns(new BigDecimal("10.000")).check();
         assertQuery("SELECT CAST(DECIMAL '10.000' AS VARCHAR)").returns("10.000").check();
         assertQuery("SELECT CAST(DECIMAL '10.000' AS INTEGER)").returns(10).check();
 

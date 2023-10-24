@@ -195,6 +195,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.auto.service
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {
