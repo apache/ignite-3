@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;

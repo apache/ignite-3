@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -39,7 +40,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
-public class ItSetOpTest extends ClusterPerClassIntegrationTest {
+public class ItSetOpTest extends BaseSqlIntegrationTest {
     /**
      * Before all.
      */

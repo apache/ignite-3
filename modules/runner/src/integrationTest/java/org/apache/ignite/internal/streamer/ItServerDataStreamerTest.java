@@ -25,6 +25,6 @@ import org.apache.ignite.Ignite;
 public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
     @Override
     Ignite ignite() {
-        return CLUSTER_NODES.get(0);
+        return CLUSTER.aliveNode();
     }
 }

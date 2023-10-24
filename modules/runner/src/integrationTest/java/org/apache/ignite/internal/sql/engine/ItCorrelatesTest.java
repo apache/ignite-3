@@ -19,11 +19,12 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** Tests for correlated queries. */
-public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
+public class ItCorrelatesTest extends BaseSqlIntegrationTest {
     private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
 
     @AfterEach
@@ -37,7 +38,7 @@ public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
         sql("create table test_tbl(k INTEGER primary key, v INTEGER)");
 
         //TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
-        CLUSTER_NODES.get(0).tables().tables();
+        CLUSTER.node(0).tables().tables();
 
         sql("INSERT INTO test_tbl VALUES (1, 1)");
 
