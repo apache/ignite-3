@@ -65,7 +65,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param testInfo Test information object.
      */
     @BeforeAll
-    void beforeAll(TestInfo testInfo) {
+    protected void beforeAll(TestInfo testInfo) {
         CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {

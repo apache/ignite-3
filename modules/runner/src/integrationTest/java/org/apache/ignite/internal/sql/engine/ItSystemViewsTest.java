@@ -53,8 +53,11 @@ public class ItSystemViewsTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Override
     @BeforeAll
-    void beforeAll(TestInfo testInfo) {
+    protected void beforeAll(TestInfo testInfo) {
+        super.beforeAll(testInfo);
+
         IgniteTestUtils.await(systemViewManager().completeRegistration());
     }
 
