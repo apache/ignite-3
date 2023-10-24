@@ -31,6 +31,7 @@ import static org.mockito.Mockito.spy;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
@@ -75,8 +76,11 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected CatalogManagerImpl manager;
 
+    protected AtomicLong delayDuration = new AtomicLong();
+
     @BeforeEach
     void setUp() {
+        delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
         vault = new VaultManager(new InMemoryVaultService());
 
         metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(NODE_NAME));
@@ -84,7 +88,12 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         updateLog = spy(new UpdateLogImpl(metastore));
         clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));
 
-        manager = new CatalogManagerImpl(updateLog, clockWaiter);
+        manager = new CatalogManagerImpl(
+                updateLog,
+                clockWaiter,
+                delayDuration::get,
+                () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
+        );
 
         vault.start();
         metastore.start();

@@ -22,8 +22,11 @@ import static org.apache.ignite.internal.sql.engine.ItSystemViewsTest.KnownSyste
 import static org.apache.ignite.internal.sql.engine.ItSystemViewsTest.KnownSystemView.SYSTEM_VIEW_COLUMNS;
 
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -47,6 +50,14 @@ public class ItSystemViewsTest extends ClusterPerClassIntegrationTest {
         String canonicalName() {
             return schema + "." + name;
         }
+    }
+
+    @BeforeAll
+    @Override
+    void beforeAll(TestInfo testInfo) {
+        super.beforeAll(testInfo);
+
+        IgniteTestUtils.await(systemViewManager().completeRegistration());
     }
 
     @ParameterizedTest
