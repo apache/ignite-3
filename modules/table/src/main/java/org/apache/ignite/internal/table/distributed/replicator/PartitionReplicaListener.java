@@ -420,7 +420,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         for (UUID txId : txCleanupReadyFutures.keySet()) {
             txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-                if (txOps == null || isFinalState(txOps.state)) {
+                if (txOps == null) {
                     return null;
                 }
 
@@ -430,6 +430,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .toArray(CompletableFuture[]::new);
 
                     futs.add(allOf(txFuts).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
+
+                    txOps.futures.clear();
                 }
 
                 return txOps;
@@ -548,6 +550,13 @@ public class PartitionReplicaListener implements ReplicaListener {
             return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processTwoEntriesAction(req, senderId));
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
+
+            // Scan's request.full() has a slightly different semantics than the same field in other requests -
+            // it identifies an implicit transaction. Please note that request.full() is always false in the following `appendTxCommand`.
+            // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
+            // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
+            // If they don't fit the bucket, the transaction is treated as 2pc.
+            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
@@ -1403,7 +1412,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cleanupWithRetryOnReplica(commit, commitTimestamp, txId, partitionId, leaseHolder, attempts));
     }
 
-
     private CompletableFuture<Void> cleanupWithRetryOnReplica(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -1525,7 +1533,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // TODO https://issues.apache.org/jira/browse/IGNITE-18617
         txCleanupReadyFutures.compute(request.txId(), (id, txOps) -> {
             if (txOps == null) {
-                txOps = new TxCleanupReadyFutureList();
+                return null;
             }
 
             txOps.futures.forEach((opType, futures) -> {
@@ -1537,8 +1545,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             });
 
             txOps.futures.clear();
-
-            txOps.state = txState;
 
             return txOps;
         });
@@ -1700,7 +1706,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txOps = new TxCleanupReadyFutureList();
             }
 
-            if (isFinalState(txOps.state)) {
+            TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+            if (txStateMeta == null || isFinalState(txStateMeta.txState())) {
                 cleanupReadyFut.completeExceptionally(new Exception());
             } else {
                 txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(cleanupReadyFut);
@@ -3434,11 +3442,6 @@ public class PartitionReplicaListener implements ReplicaListener {
          * Operation type is mapped operation futures.
          */
         final Map<RequestType, List<CompletableFuture<?>>> futures = new EnumMap<>(RequestType.class);
-
-        /**
-         * Transaction state. {@code TxState#ABORTED} and {@code TxState#COMMITED} match the final transaction states.
-         */
-        TxState state = PENDING;
     }
 
     @Override
