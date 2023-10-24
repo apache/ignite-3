@@ -102,7 +102,7 @@ public class Lease implements ReplicaMeta {
             boolean accepted,
             @Nullable ReplicationGroupId replicationGroupId
     ) {
-        assert ((leaseholder == null) == (leaseholderId == null)) && ((leaseholder == null) == (replicationGroupId == null)) :
+        assert (leaseholder == null) == ((leaseholderId == null) && (replicationGroupId == null)) :
                 "leaseholder=" + leaseholder + ", leaseholderId=" + leaseholderId + ", replicationGroupId=" + replicationGroupId;
 
         this.leaseholder = leaseholder;
