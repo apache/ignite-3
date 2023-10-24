@@ -349,7 +349,7 @@ public class LeaseUpdater {
                     if (isLeaseOutdated(lease)) {
                         // New lease is granting.
                         writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
-                    } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
+                    } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
                         // Old lease is renewing.
                         prolongLease(grpId, lease, renewedLeases);
                     }
