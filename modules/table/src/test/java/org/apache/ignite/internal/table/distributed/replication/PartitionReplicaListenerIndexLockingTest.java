@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -287,15 +288,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_REPLACE_IF_EXIST:
             case RW_GET_AND_REPLACE:
             case RW_GET_AND_UPSERT:
-                BinaryRowMessage binaryRowMessage = binaryRowMessage(testBinaryRow);
-
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                         .groupId(PARTITION_ID)
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
-                        .schemaVersion(binaryRowMessage.schemaVersion())
-                        .binaryRowMessage(binaryRowMessage)
+                        .schemaVersion(testBinaryRow.schemaVersion())
+                        .binaryTuple(testBinaryRow.tupleSlice())
                         .requestType(arg.type)
                         .build();
                 break;
@@ -374,7 +373,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(rows.iterator().next().schemaVersion())
-                        .binaryRowMessages(rows.stream().map(PartitionReplicaListenerIndexLockingTest::binaryRowMessage).collect(toList()))
+                        .binaryTuples(binaryRowsToBuffers(rows))
                         .requestType(arg.type)
                         .build();
 

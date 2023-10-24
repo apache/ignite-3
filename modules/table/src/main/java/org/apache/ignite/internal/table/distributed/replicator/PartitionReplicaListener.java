@@ -2018,10 +2018,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     Map<UUID, BinaryRowMessage> convertedMap = rowsToInsert.entrySet().stream()
                             .collect(toMap(
                                     e -> e.getKey().uuid(),
-                                    e -> MSG_FACTORY.binaryRowMessage()
-                                            .binaryTuple(e.getValue().tupleSlice())
-                                            .schemaVersion(e.getValue().schemaVersion())
-                                            .build()
+                                    e -> binaryRowMessage(e.getValue())
                             ));
 
                     return allOf(insertLockFuts)
@@ -2072,14 +2069,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowIdFuts).thenCompose(ignore -> {
-                    List<BinaryRowMessage> searchRowMessages = request.binaryRowMessages();
-                    Map<UUID, BinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRowMessages.size());
+                    Map<UUID, BinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRows.size());
                     List<RowId> rows = new ArrayList<>();
 
-                    for (int i = 0; i < searchRowMessages.size(); i++) {
+                    for (int i = 0; i < searchRows.size(); i++) {
                         RowId lockedRow = rowIdFuts[i].join().get1();
 
-                        rowsToUpdate.put(lockedRow.uuid(), searchRowMessages.get(i));
+                        rowsToUpdate.put(lockedRow.uuid(), binaryRowMessage(searchRows.get(i)));
 
                         rows.add(lockedRow);
                     }
@@ -3021,7 +3017,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             ReadWriteSwapRowReplicaRequest request,
             String txCoordinatorId
     ) {
-        BinaryRow newRow = request.binaryRow();
+        BinaryRow newRow = request.newBinaryRow();
         BinaryRow expectedRow = request.oldBinaryRow();
         TablePartitionIdMessage commitPartitionId = request.commitPartitionId();
 
@@ -3370,15 +3366,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (row != null) {
-            BinaryRowMessage rowMessage = MSG_FACTORY.binaryRowMessage()
-                    .binaryTuple(row.tupleSlice())
-                    .schemaVersion(row.schemaVersion())
-                    .build();
-
-            bldr.rowMessage(rowMessage);
+            bldr.rowMessage(binaryRowMessage(row));
         }
 
         return bldr.build();
+    }
+
+    private static BinaryRowMessage binaryRowMessage(BinaryRow row) {
+        return MSG_FACTORY.binaryRowMessage()
+                .binaryTuple(row.tupleSlice())
+                .schemaVersion(row.schemaVersion())
+                .build();
     }
 
     private static UpdateAllCommand updateAllCommand(

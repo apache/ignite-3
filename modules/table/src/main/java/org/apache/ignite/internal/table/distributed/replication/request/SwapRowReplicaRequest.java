@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
 
@@ -26,16 +28,16 @@ import org.apache.ignite.network.annotations.Marshallable;
  * Dual row replica request.
  */
 public interface SwapRowReplicaRequest extends SchemaVersionAwareReplicaRequest {
-    BinaryRowMessage binaryRowMessage();
+    ByteBuffer newBinaryTuple();
 
-    default BinaryRow binaryRow() {
-        return binaryRowMessage().asBinaryRow();
+    default BinaryRow newBinaryRow() {
+        return new BinaryRowImpl(schemaVersion(), newBinaryTuple());
     }
 
-    BinaryRowMessage oldBinaryRowMessage();
+    ByteBuffer oldBinaryTuple();
 
     default BinaryRow oldBinaryRow() {
-        return oldBinaryRowMessage().asBinaryRow();
+        return new BinaryRowImpl(schemaVersion(), oldBinaryTuple());
     }
 
     @Marshallable
