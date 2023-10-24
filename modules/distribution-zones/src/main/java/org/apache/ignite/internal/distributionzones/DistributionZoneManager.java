@@ -32,7 +32,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
@@ -529,8 +529,7 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            // Update data nodes for a zone only if the revision of the event is newer than value in that trigger key,
-            // so we do not react on a stale events
+            // Update data nodes for a zone only if the corresponding data nodes keys weren't initialised in ms yet.
             CompoundCondition triggerKeyCondition = conditionForZoneCreation(zoneId);
 
             Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(zoneId, revision, toBytes(toDataNodesMap(dataNodes)));
@@ -582,7 +581,7 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             SimpleCondition triggerKeyCondition = conditionForZoneRemoval(zoneId);
 
-            Update removeKeysUpd = deleteDataNodesAndUpdateTriggerKeys(zoneId, revision);
+            Update removeKeysUpd = deleteDataNodesAndTriggerKeys(zoneId, revision);
 
             Iif iif = iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
 

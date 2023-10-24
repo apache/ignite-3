@@ -261,9 +261,10 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Condition for updating {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} key.
-     * Update only if the revision of the event is newer than value in that trigger key.
+     * Condition for creating all data nodes' related keys in Meta Storage. Condition passes only when
+     * {@link DistributionZonesUtil#zoneDataNodesKey(int)} not exists and not a tombstone in the Meta Storage.
      *
+     * @param zoneId Distribution zone id
      * @return Update condition.
      */
     static CompoundCondition conditionForZoneCreation(int zoneId) {
@@ -274,9 +275,9 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Condition for updating {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} key.
-     * Update only if the revision of the event is newer than value in that trigger key.
+     * Condition for removing all data nodes' related keys in Meta Storage.
      *
+     * @param zoneId Distribution zone id
      * @return Update condition.
      */
     static SimpleCondition conditionForZoneRemoval(int zoneId) {
@@ -327,6 +328,14 @@ public class DistributionZonesUtil {
         ).yield(true);
     }
 
+    /**
+     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
+     *
+     * @param zoneId Distribution zone id
+     * @param revision Revision of the event.
+     * @param nodes Data nodes.
+     * @return Update command for the meta storage.
+     */
     static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
         return ops(
                 put(zoneDataNodesKey(zoneId), nodes),
@@ -336,9 +345,8 @@ public class DistributionZonesUtil {
 
 
     /**
-     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}
-     * and {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
+     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} and
+     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
      *
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
@@ -361,7 +369,7 @@ public class DistributionZonesUtil {
      * @param revision Revision of the event.
      * @return Update command for the meta storage.
      */
-    static Update deleteDataNodesAndUpdateTriggerKeys(int zoneId, long revision) {
+    static Update deleteDataNodesAndTriggerKeys(int zoneId, long revision) {
         return ops(
                 remove(zoneDataNodesKey(zoneId)),
                 remove(zoneScaleUpChangeTriggerKey(zoneId)),
