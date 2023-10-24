@@ -1634,6 +1634,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 request.txId(),
                                 request.commit(),
                                 request.commitTimestamp(),
+                                request.commitTimestampLong(),
                                 catalogVersion
                         );
 
@@ -1647,15 +1648,16 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID transactionID,
             boolean commit,
             HybridTimestamp commitTimestamp,
+            long commitTimestampLong,
             int catalogVersion
     ) {
         synchronized (commandProcessingLinearizationMutex) {
-            return applyCleanupCommand(transactionID, commit, commitTimestamp, catalogVersion)
+            return applyCleanupCommand(transactionID, commit, commitTimestamp, commitTimestampLong, catalogVersion)
                     .handle((res, ex) -> {
                         if (ex != null) {
                             if (ex.getCause() instanceof SafeTimeReorderException) {
                                 System.out.println(">>> Retry 0");
-                                return applyCleanupCommandWithRetry(transactionID, commit, commitTimestamp, catalogVersion);
+                                return applyCleanupCommandWithRetry(transactionID, commit, commitTimestamp, commitTimestampLong, catalogVersion);
                             }
 
                             return CompletableFuture.<Void>failedFuture(ex);
@@ -1670,12 +1672,13 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID transactionID,
             boolean commit,
             HybridTimestamp commitTimestamp,
+            long commitTimestampLong,
             int catalogVersion
     ) {
         TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
                 .txId(transactionID)
                 .commit(commit)
-                .commitTimestampLong(commitTimestamp.longValue())
+                .commitTimestampLong(commitTimestampLong)
                 .safeTimeLong(hybridClock.nowLong())
                 .txCoordinatorId(getTxCoordinatorId(transactionID))
                 .requiredCatalogVersion(catalogVersion)
