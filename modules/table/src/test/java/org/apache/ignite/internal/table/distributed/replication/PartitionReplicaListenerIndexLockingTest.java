@@ -274,6 +274,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
+                        .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
                         .requestType(arg.type)
                         .build();
@@ -286,12 +287,15 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_REPLACE_IF_EXIST:
             case RW_GET_AND_REPLACE:
             case RW_GET_AND_UPSERT:
+                BinaryRowMessage binaryRowMessage = binaryRowMessage(testBinaryRow);
+
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
                         .groupId(PARTITION_ID)
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
-                        .binaryRowMessage(binaryRowMessage(testBinaryRow))
+                        .schemaVersion(binaryRowMessage.schemaVersion())
+                        .binaryRowMessage(binaryRowMessage)
                         .requestType(arg.type)
                         .build();
                 break;
@@ -354,6 +358,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
+                        .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
                         .requestType(arg.type)
                         .build();
@@ -368,6 +373,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
+                        .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryRowMessages(rows.stream().map(PartitionReplicaListenerIndexLockingTest::binaryRowMessage).collect(toList()))
                         .requestType(arg.type)
                         .build();

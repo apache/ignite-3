@@ -93,6 +93,7 @@ import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaReques
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
+import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -456,6 +457,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
+        if (request instanceof SchemaVersionAwareReplicaRequest) {
+            assert ((SchemaVersionAwareReplicaRequest) request).schemaVersion() > 0 : "No schema version passed?";
+        }
+
         if (request instanceof CommittableTxRequest) {
             var req = (CommittableTxRequest) request;
 
@@ -477,7 +482,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Request that's being processed.
      */
     private CompletableFuture<Void> waitForSchemasBeforeReading(ReplicaRequest request) {
-        // TODO: IGNITE-20106 - validate that input rows schema version matches the tx-bound schema version.
+        // TODO: IGNITE-20715 - validate that input rows schema version matches the tx-bound schema version.
 
         HybridTimestamp tsToWaitForSchemas;
 
