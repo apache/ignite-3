@@ -2157,10 +2157,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId), stableAssignmentsWatchEvent.revision())
                 .thenComposeAsync(pendingAssignmentsEntry -> {
-                    CompletableFuture<Void> fut = completedFuture(null);
+                    CompletableFuture<Void> raftClientUpdateFuture = completedFuture(null);
 
                     if (!stableAssignments.equals(ByteUtils.fromBytes(evt.entryEvent().oldEntry().value()))) {
-                        fut = tablesById(evt.revision()).thenAccept(t -> {
+                        raftClientUpdateFuture = tablesById(evt.revision()).thenAccept(t -> {
                             t.get(tableId).internalTable()
                                     .partitionRaftGroupService(tablePartitionId.partitionId())
                                     .updateConfiguration(configurationFromAssignments(stableAssignments));
@@ -2180,10 +2180,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     if (shouldStopLocalServices) {
                         return allOf(
-                                fut,
+                                raftClientUpdateFuture,
                                 stopAndDestroyPartition(tablePartitionId, evt.revision()));
                     } else {
-                        return fut;
+                        return raftClientUpdateFuture;
                     }
                 }, ioExecutor);
     }

@@ -586,7 +586,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testRaftClientsUpdatesAfterRebalance() throws InterruptedException, ExecutionException, TimeoutException {
+    void testRaftClientsUpdatesAfterRebalance() throws Exception {
         Node node = getNode(0);
 
         createZone(node, ZONE_NAME, 1, 1);
@@ -595,10 +595,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
-        Set<Assignment> assignedNodeBeforeRebalance = getPartitionClusterNodes(node, 0);
+        Set<Assignment> assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
 
         Node newNodeForAssignment = nodes.stream().filter(n ->
-                !assignedNodeBeforeRebalance.contains(Assignment.forPeer(n.clusterService.nodeName()))).findFirst().get();
+                !assignmentsBeforeRebalance.contains(Assignment.forPeer(n.clusterService.nodeName()))).findFirst().get();
 
         Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeForAssignment.clusterService.nodeName()));
 
@@ -623,7 +623,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
-        // Check that raft clients on all nodes updated to the new list of peers.
+        // Check that raft clients on all nodes were updated with the new list of peers.
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n ->
                         n.tableManager
