@@ -254,7 +254,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
                 handler.handleUpdateAll(
                         TX_ID,
-                        singletonMap(rowUuid, new TimedBinaryRow(rowMessage.asBinaryRow(), null)),
+                        singletonMap(rowUuid, new TimedBinaryRow(rowMessage == null ? null : rowMessage.asBinaryRow(), null)),
                         partitionId,
                         true,
                         null,
