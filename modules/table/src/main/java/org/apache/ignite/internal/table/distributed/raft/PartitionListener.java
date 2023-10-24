@@ -40,6 +40,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
@@ -99,6 +100,8 @@ public class PartitionListener implements RaftGroupListener {
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
+    private long maxObservableSafeTime = -1;
+
     /**
      * The constructor.
      *
@@ -147,8 +150,16 @@ public class PartitionListener implements RaftGroupListener {
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
-
-            // LOG.info("CMD {}", command.getClass().getName());
+            if (command instanceof SafeTimePropagatingCommand) {
+                SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+                if (cmd.safeTimeLong() > maxObservableSafeTime) {
+                    maxObservableSafeTime = cmd.safeTimeLong();
+                } else {
+                    System.out.println("!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + clo.command().getClass());
+                    clo.result(new SafeTimeReorderException(100, "errorMsg"));
+                    return;
+                }
+            }
 
             long commandIndex = clo.index();
             long commandTerm = clo.term();
