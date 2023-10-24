@@ -17,24 +17,30 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -101,6 +107,46 @@ public class CatalogTestUtils {
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
+            @Override
+            public void start() {
+                clockWaiter.start();
+
+                super.start();
+            }
+
+            @Override
+            public void beforeNodeStop() {
+                super.beforeNodeStop();
+
+                clockWaiter.beforeNodeStop();
+            }
+
+            @Override
+            public void stop() throws Exception {
+                super.stop();
+
+                clockWaiter.stop();
+            }
+        };
+    }
+
+    /**
+     * Create the same {@link CatalogManager} as for normal operations, but with {@link UpdateLog} that
+     * simply notifies the manager without storing any updates in metastore.
+     *
+     * <p>Particular configuration of manager pretty fast (in terms of awaiting of certain safe time) and lightweight.
+     * It doesn't contain any mocks from {@link org.mockito.Mockito}.
+     *
+     * @param nodeName Name of the node that is meant to own this manager. Any thread spawned by returned instance
+     *      will have it as thread's name prefix.
+     * @param clock This clock is used to assign activation timestamp for incoming updates, thus make it possible
+     *      to acquired schema that was valid at give time.
+     * @return An instance of {@link CatalogManager catalog manager}.
+     */
+    public static CatalogManager createCatalogManagerWithTestUpdateLog(String nodeName, HybridClock clock) {
+        var clockWaiter = new ClockWaiter(nodeName, clock);
+
+        return new CatalogManagerImpl(new TestUpdateLog(clock), clockWaiter) {
             @Override
             public void start() {
                 clockWaiter.start();
@@ -208,5 +254,48 @@ public class CatalogTestUtils {
 
     static CatalogCommand addColumnParams(String tableName, ColumnParams... columns) {
         return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
+    }
+
+    private static class TestUpdateLog implements UpdateLog {
+        private final HybridClock clock;
+
+        private long lastSeenVersion = 0;
+
+        private volatile OnUpdateHandler onUpdateHandler;
+
+        private TestUpdateLog(HybridClock clock) {
+            this.clock = clock;
+        }
+
+        @Override
+        public synchronized CompletableFuture<Boolean> append(VersionedUpdate update) {
+            if (update.version() - 1 != lastSeenVersion) {
+                return completedFuture(false);
+            }
+
+            lastSeenVersion = update.version();
+
+            return onUpdateHandler.handle(update, clock.now(), update.version()).thenApply(ignored -> true);
+        }
+
+        @Override
+        public void registerUpdateHandler(OnUpdateHandler handler) {
+            this.onUpdateHandler = handler;
+        }
+
+        @Override
+        public void start() throws IgniteInternalException {
+            if (onUpdateHandler == null) {
+                throw new IgniteInternalException(
+                        Common.INTERNAL_ERR,
+                        "Handler must be registered prior to component start"
+                );
+            }
+        }
+
+        @Override
+        public void stop() throws Exception {
+
+        }
     }
 }

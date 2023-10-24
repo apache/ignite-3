@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /**
  * Provides access to read/write APIs for SQL engine.
@@ -28,10 +27,9 @@ public interface ExecutableTableRegistry {
     /**
      * Returns an table that can be used for both read and write operations.
      *
+     * @param schemaVersion Version of the schema.
      * @param tableId Table Id.
-     * @param tableVersion Table version.
-     * @param tableDescriptor Table descriptor.
      * @return An operation that returns executable table.
      */
-    CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor);
+    CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId);
 }

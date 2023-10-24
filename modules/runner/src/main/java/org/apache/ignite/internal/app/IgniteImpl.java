@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -130,6 +131,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
@@ -410,7 +412,10 @@ public class IgniteImpl implements Ignite {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
 
         NodeAttributesCollector nodeAttributesCollector =
-                new NodeAttributesCollector(nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY));
+                new NodeAttributesCollector(
+                        nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
+                        nodeConfigRegistry.getConfiguration(StorageProfilesConfiguration.KEY)
+                );
 
 
         clusterConfigurationDefaultsSetter =
@@ -855,8 +860,6 @@ public class IgniteImpl implements Ignite {
 
                         return cmgMgr.onJoinReady();
                     }, startupExecutor)
-                    // TODO Remove waiting for schema update after https://issues.apache.org/jira/browse/IGNITE-20498
-                    .thenComposeAsync(v -> systemViewManager.completeRegistration())
                     .thenRunAsync(() -> {
                         try {
                             // Transfer the node to the STARTED state.
@@ -907,8 +910,14 @@ public class IgniteImpl implements Ignite {
         return distributedTblMgr;
     }
 
+    @TestOnly
     public QueryProcessor queryEngine() {
         return qryEngine;
+    }
+
+    @TestOnly
+    public SystemViewManager systemViewManager() {
+        return systemViewManager;
     }
 
     @TestOnly

@@ -60,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -497,10 +498,17 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Returns internal  {@code SqlQueryProcessor} for first cluster node.
+     * Returns internal {@code SqlQueryProcessor} for first cluster node.
      */
     protected SqlQueryProcessor queryProcessor() {
         return (SqlQueryProcessor) ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+    }
+
+    /**
+     * Returns internal {@code SystemViewManager} for first cluster node.
+     */
+    protected SystemViewManagerImpl systemViewManager() {
+        return (SystemViewManagerImpl) ((IgniteImpl) CLUSTER_NODES.get(0)).systemViewManager();
     }
 
     /**

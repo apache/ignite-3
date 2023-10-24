@@ -70,6 +70,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -177,6 +178,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
+
+    @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
 
     /**
@@ -272,7 +276,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                new NodeAttributesCollector(nodeAttributes)
+                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;

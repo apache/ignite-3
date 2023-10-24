@@ -49,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -64,7 +65,8 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(createTestTable("T1"));
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
-        PrepareService prepareService = new PrepareServiceImpl("test", 0, null, plannerTimeout, new MetricManager());
+        PrepareService prepareService = new PrepareServiceImpl("test", 0,
+                CaffeineCacheFactory.INSTANCE, null, plannerTimeout, new MetricManager());
         prepareService.start();
         try {
             ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
