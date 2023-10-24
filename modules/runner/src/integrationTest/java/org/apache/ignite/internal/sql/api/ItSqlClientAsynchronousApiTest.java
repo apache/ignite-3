@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest.getClientAddresses;
 
+import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -34,7 +35,7 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
 
     @BeforeAll
     public void startClient() {
-        client = IgniteClient.builder().addresses(getClientAddresses(CLUSTER_NODES).get(0)).build();
+        client = IgniteClient.builder().addresses(getClientAddresses(List.of(CLUSTER.aliveNode())).get(0)).build();
     }
 
     @AfterAll

@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 

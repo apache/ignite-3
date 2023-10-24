@@ -28,14 +28,15 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Interval coverage tests. */
-public class ItIntervalTest extends ClusterPerClassIntegrationTest {
+public class ItIntervalTest extends BaseSqlIntegrationTest {
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
