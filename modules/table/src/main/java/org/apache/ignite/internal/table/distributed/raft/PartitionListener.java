@@ -154,7 +154,6 @@ public class PartitionListener implements RaftGroupListener {
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
                 if (cmd.safeTimeLong() > maxObservableSafeTime) {
-//                if (true) {
                     maxObservableSafeTime = cmd.safeTimeLong();
                 } else {
                     System.out.println("!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + clo.command().getClass());
