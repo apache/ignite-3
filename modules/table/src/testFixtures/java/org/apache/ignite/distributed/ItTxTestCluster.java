@@ -279,7 +279,7 @@ public class ItTxTestCluster {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
 
-        placementDriver = new TestPlacementDriver(cluster.get(0).nodeName());
+        placementDriver = new TestPlacementDriver(cluster.get(0));
 
         LOG.info("The cluster has been started");
 

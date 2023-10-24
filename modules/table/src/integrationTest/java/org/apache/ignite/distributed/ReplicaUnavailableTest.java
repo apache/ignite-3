@@ -128,7 +128,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 cmgManager,
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                new TestPlacementDriver(name)
+                new TestPlacementDriver(clusterService)
         );
 
         replicaManager.start();

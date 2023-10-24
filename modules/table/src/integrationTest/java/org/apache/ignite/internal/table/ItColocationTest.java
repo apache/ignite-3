@@ -148,7 +148,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl(),
                 new TransactionIdGenerator(0xdeadbeef),
                 clusterNode::id,
-                new TestPlacementDriver(clusterNode.name())
+                new TestPlacementDriver(clusterNode)
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -248,7 +248,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HybridClockImpl(),
                 observableTimestampTracker,
-                new TestPlacementDriver(clusterNode.name())
+                new TestPlacementDriver(clusterNode)
         );
     }
 

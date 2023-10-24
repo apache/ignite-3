@@ -256,7 +256,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var placementDriver = new TestPlacementDriver(name);
+        var placementDriver = new TestPlacementDriver(clusterSvc);
 
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,

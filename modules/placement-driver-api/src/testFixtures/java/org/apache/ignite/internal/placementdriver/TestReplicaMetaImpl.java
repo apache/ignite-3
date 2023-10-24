@@ -19,8 +19,10 @@ package org.apache.ignite.internal.placementdriver;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -29,8 +31,11 @@ import org.jetbrains.annotations.TestOnly;
 public class TestReplicaMetaImpl implements ReplicaMeta {
     private static final long serialVersionUID = -382174507405586033L;
 
-    /** A node that holds a lease, {@code null} if nothing holds the lease. */
+    /** A node consistent ID that holds a lease, {@code null} if nothing holds the lease. */
     private final @Nullable String leaseholder;
+
+    /** A node ID that holds a lease, {@code null} if nothing holds the lease. */
+    private final @Nullable String leaseholderId;
 
     /** Lease start timestamp. The timestamp is assigned when the lease created and is not changed when the lease is prolonged. */
     private final HybridTimestamp startTime;
@@ -43,8 +48,18 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
      *
      * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      */
-    TestReplicaMetaImpl(@Nullable String leaseholder) {
+    TestReplicaMetaImpl(@Nullable ClusterNode leaseholder) {
         this(leaseholder, MIN_VALUE, MAX_VALUE);
+    }
+
+    /**
+     * Creates a new primary meta with unbounded period.
+     *
+     * @param leaseholder Lease holder consistent ID, {@code null} if nothing holds the lease.
+     * @param leaseholderId Lease holder ID, {@code null} if nothing holds the lease.
+     */
+    TestReplicaMetaImpl(@Nullable String leaseholder, @Nullable String leaseholderId) {
+        this(leaseholder, leaseholderId, MIN_VALUE, MAX_VALUE);
     }
 
     /**
@@ -52,16 +67,41 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
      *
      * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      * @param startTime Start lease timestamp.
-     * @param leaseExpirationTime Lease expiration timestamp.
+     * @param expirationTime Lease expiration timestamp.
      */
-    public TestReplicaMetaImpl(
+    public TestReplicaMetaImpl(@Nullable ClusterNode leaseholder, HybridTimestamp startTime, HybridTimestamp expirationTime) {
+        this(
+                leaseholder == null ? null : leaseholder.name(),
+                leaseholder == null ? null : leaseholder.id(),
+                startTime,
+                expirationTime
+        );
+    }
+
+    /**
+     * Creates a new primary meta.
+     *
+     * @param leaseholder Lease holder consistent ID, {@code null} if nothing holds the lease.
+     * @param leaseholderId Lease holder ID, {@code null} if nothing holds the lease.
+     * @param startTime Start lease timestamp.
+     * @param expirationTime Lease expiration timestamp.
+     */
+    private TestReplicaMetaImpl(
             @Nullable String leaseholder,
+            @Nullable String leaseholderId,
             HybridTimestamp startTime,
-            HybridTimestamp leaseExpirationTime
+            HybridTimestamp expirationTime
     ) {
+        assertEquals(
+                leaseholder == null,
+                leaseholderId == null,
+                String.format("leaseholder=%s, leaseholderId=%s", leaseholder, leaseholderId)
+        );
+
         this.leaseholder = leaseholder;
+        this.leaseholderId = leaseholderId;
         this.startTime = startTime;
-        this.expirationTime = leaseExpirationTime;
+        this.expirationTime = expirationTime;
     }
 
     @Override
@@ -71,8 +111,7 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
 
     @Override
     public @Nullable String getLeaseholderId() {
-        // TODO: IGNITE-20678 реализовать
-        return null;
+        return leaseholderId;
     }
 
     @Override

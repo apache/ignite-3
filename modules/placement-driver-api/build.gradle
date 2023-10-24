@@ -28,6 +28,7 @@ dependencies {
     implementation libs.jetbrains.annotations
 
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-network-api')
     testFixturesImplementation libs.jetbrains.annotations
 }
 

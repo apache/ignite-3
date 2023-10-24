@@ -67,6 +67,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -128,7 +129,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(placementDriverNodeNames));
 
         for (String nodeName : nodeNames) {
-            var clusterService = clusterServices.get(nodeName);
+            ClusterService clusterService = clusterServices.get(nodeName);
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
@@ -157,7 +158,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     cmgManager,
                     clock,
                     Set.of(ReplicaMessageTestGroup.class),
-                    new TestPlacementDriver(nodeName)
+                    new TestPlacementDriver(clusterService)
             );
 
             replicaManagers.put(nodeName, replicaManager);
@@ -184,9 +185,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @AfterEach
     public void afterTest() throws Exception {
-        for (Closeable cl : servicesToClose) {
-            cl.close();
-        }
+        IgniteUtils.closeAll(servicesToClose);
     }
 
     /**
