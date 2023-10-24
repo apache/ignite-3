@@ -25,6 +25,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -2015,7 +2016,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         if (lockedRowId != null) {
                             rowIdsToDelete.put(lockedRowId.uuid(), MSG_FACTORY.timedBinaryRowMessage()
-                                    .timestamp(lastCommitTimes.get(lockedRowId.uuid()).longValue())
+                                    .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRowId.uuid())))
                                     .build());
 
                             result.add(new NullBinaryRow());
@@ -2151,7 +2152,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         rowsToUpdate.put(lockedRow.uuid(),
                                 MSG_FACTORY.timedBinaryRowMessage()
                                         .binaryRowMessage(binaryRowMessage(searchRows.get(i)))
-                                        .timestamp(lastCommitTimes.get(lockedRow.uuid()).longValue())
+                                        .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRow.uuid())))
                                         .build());
 
                         rows.add(lockedRow);
@@ -2265,7 +2266,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         if (lockedRowId != null) {
                             rowIdsToDelete.put(lockedRowId.uuid(), MSG_FACTORY.timedBinaryRowMessage()
-                                    .timestamp(lastCommitTimes.get(lockedRowId.uuid()).longValue())
+                                    .timestamp(hybridTimestampToLong(lastCommitTimes.get(lockedRowId.uuid())))
                                     .build());
 
                             rows.add(lockedRowId);
