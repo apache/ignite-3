@@ -20,10 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -82,8 +79,6 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         int t1Id = testTable1.id();
         int t2Id = testTable2.id();
-        TableDescriptor td1 = testTable1.descriptor();
-        TableDescriptor td2 = testTable2.descriptor();
 
         Tester tester = new Tester(createSchema(testTable1, testTable2));
 
@@ -96,8 +91,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
 
-        verify(registry, times(1)).getTable(eq(t1Id), anyInt(), same(td1));
-        verify(registry, times(1)).getTable(eq(t2Id), anyInt(), same(td2));
+        verify(registry, times(1)).getTable(anyInt(), eq(t1Id));
+        verify(registry, times(1)).getTable(anyInt(), eq(t2Id));
     }
 
     /**
@@ -108,7 +103,6 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         TestTable table = createTestTable("TEST1", addHashIndex("ID"));
 
         int t1Id = table.id();
-        TableDescriptor td1 = table.descriptor();
 
         Tester tester = new Tester(createSchema(table));
         tester.setDependencies(t1Id, table1, update1);
@@ -116,7 +110,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 WHERE id=1");
         tester.checkDependencies(f.join(), t1Id);
 
-        verify(registry, times(1)).getTable(eq(t1Id), anyInt(), same(td1));
+        verify(registry, times(1)).getTable(anyInt(), eq(t1Id));
     }
 
     /**
@@ -129,8 +123,6 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         int t1Id = testTable1.id();
         int t2Id = testTable2.id();
-        TableDescriptor td1 = testTable1.descriptor();
-        TableDescriptor td2 = testTable2.descriptor();
 
         Tester tester = new Tester(createSchema(testTable1, testTable2));
 
@@ -144,8 +136,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
 
-        verify(registry, times(1)).getTable(eq(t1Id), anyInt(), same(td1));
-        verify(registry, times(1)).getTable(eq(t2Id), anyInt(), same(td2));
+        verify(registry, times(1)).getTable(anyInt(), eq(t1Id));
+        verify(registry, times(1)).getTable(anyInt(), eq(t2Id));
     }
 
     /**
@@ -166,7 +158,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
 
-        verify(registry, times(1)).getTable(anyInt(), anyInt(), any(TableDescriptor.class));
+        verify(registry, times(1)).getTable(anyInt(), anyInt());
     }
 
     /**
@@ -205,14 +197,14 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
             CompletableFuture<ExecutableTable> f = CompletableFuture.completedFuture(executableTable);
 
-            when(registry.getTable(eq(tableId), anyInt(), any(TableDescriptor.class))).thenReturn(f);
+            when(registry.getTable(anyInt(), eq(tableId))).thenReturn(f);
         }
 
         void setError(int tableId, Throwable err) {
             CompletableFuture<ExecutableTable> f = new CompletableFuture<>();
             f.completeExceptionally(err);
 
-            when(registry.getTable(eq(tableId), anyInt(), any(TableDescriptor.class))).thenReturn(f);
+            when(registry.getTable(anyInt(), eq(tableId))).thenReturn(f);
         }
 
         CompletableFuture<ResolvedDependencies> resolveDependencies(String sql) {
@@ -225,7 +217,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
                 throw new IllegalStateException("Unable to plan: " + sql, e);
             }
 
-            return resolver.resolveDependencies(List.of(rel), igniteSchema);
+            return resolver.resolveDependencies(List.of(rel), igniteSchema.version());
         }
 
         void checkDependencies(ResolvedDependencies dependencies, int tableId) {
@@ -234,12 +226,6 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
             assertEquals(executableTable.scannableTable(), dependencies.scannableTable(tableId));
             assertEquals(executableTable.updatableTable(), dependencies.updatableTable(tableId));
         }
-
-        TableDescriptor tableDescriptor(String tableName) {
-            IgniteTable table = (IgniteTable) igniteSchema.getTable(tableName);
-            return table.descriptor();
-        }
-
     }
 
     private static final class TestExecutableTable implements ExecutableTable {

@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * Factory that creates caches backed by {@link Caffeine} cache.
  */
 public class CaffeineCacheFactory implements CacheFactory {
-    public static CacheFactory INSTANCE = new CaffeineCacheFactory();
+    public static final CacheFactory INSTANCE = new CaffeineCacheFactory();
 
     private CaffeineCacheFactory() {
     }

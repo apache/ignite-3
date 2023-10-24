@@ -268,8 +268,9 @@ public class CmgRaftService implements ManuallyCloseable {
                 .name(node.name())
                 .host(node.address().host())
                 .port(node.address().port())
-                .attributes(attributes == null ? null : attributes.configAttributes())
+                .userAttributes(attributes == null ? null : attributes.userAttributes())
                 .systemAttributes(attributes == null ? null : attributes.systemAttributes())
+                .storageProfiles(attributes == null ? null : attributes.storageProfiles())
                 .build();
     }
 
