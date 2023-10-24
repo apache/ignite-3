@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -50,7 +49,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -115,6 +113,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
@@ -2006,7 +2005,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(deleteExactLockFuts).thenCompose(ignore -> {
-                    Map<UUID, BinaryRowMessage> rowIdsToDelete = new HashMap<>();
+                    Map<UUID, TimedBinaryRowMessage> rowIdsToDelete = new HashMap<>();
                     // TODO:IGNITE-20669 Replace the result to BitSet.
                     Collection<BinaryRow> result = new ArrayList<>();
                     List<RowId> rows = new ArrayList<>();
@@ -2015,7 +2014,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRowId = deleteExactLockFuts[i].join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.put(lockedRowId.uuid(), null);
+                            rowIdsToDelete.put(lockedRowId.uuid(), MSG_FACTORY.timedBinaryRowMessage()
+                                    .timestamp(lastCommitTimes.get(lockedRowId.uuid()).longValue())
+                                    .build());
 
                             result.add(new NullBinaryRow());
 
@@ -2035,7 +2036,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     catalogVersion -> applyUpdateAllCommand(
                                             request,
                                             rowIdsToDelete,
-                                            lastCommitTimes,
                                             txCoordinatorId,
                                             catalogVersion
                                     )
@@ -2087,10 +2087,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                         insertLockFuts[idx++] = takeLocksForInsert(entry.getValue(), entry.getKey(), txId);
                     }
 
-                    Map<UUID, BinaryRowMessage> convertedMap = rowsToInsert.entrySet().stream()
+                    Map<UUID, TimedBinaryRowMessage> convertedMap = rowsToInsert.entrySet().stream()
                             .collect(toMap(
                                     e -> e.getKey().uuid(),
-                                    e -> binaryRowMessage(e.getValue())
+                                    e -> MSG_FACTORY.timedBinaryRowMessage()
+                                            .binaryRowMessage(binaryRowMessage(e.getValue()))
+                                            .build()
                             ));
 
                     return allOf(insertLockFuts)
@@ -2101,7 +2103,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(catalogVersion -> applyUpdateAllCommand(
                                             request,
                                             convertedMap,
-                                            emptyMap(),
                                             txCoordinatorId,
                                             catalogVersion
                                     )
@@ -2141,13 +2142,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowIdFuts).thenCompose(ignore -> {
-                    Map<UUID, BinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRows.size());
+                    Map<UUID, TimedBinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRows.size());
                     List<RowId> rows = new ArrayList<>();
 
                     for (int i = 0; i < searchRows.size(); i++) {
                         RowId lockedRow = rowIdFuts[i].join().get1();
 
-                        rowsToUpdate.put(lockedRow.uuid(), binaryRowMessage(searchRows.get(i)));
+                        rowsToUpdate.put(lockedRow.uuid(),
+                                MSG_FACTORY.timedBinaryRowMessage()
+                                        .binaryRowMessage(binaryRowMessage(searchRows.get(i)))
+                                        .timestamp(lastCommitTimes.get(lockedRow.uuid()).longValue())
+                                        .build());
 
                         rows.add(lockedRow);
                     }
@@ -2162,7 +2167,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     catalogVersion -> applyUpdateAllCommand(
                                             request,
                                             rowsToUpdate,
-                                            lastCommitTimes,
                                             txCoordinatorId,
                                             catalogVersion
                                     )
@@ -2251,7 +2255,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowIdLockFuts).thenCompose(ignore -> {
-                    Map<UUID, BinaryRowMessage> rowIdsToDelete = new HashMap<>();
+                    Map<UUID, TimedBinaryRowMessage> rowIdsToDelete = new HashMap<>();
                     // TODO:IGNITE-20669 Replace the result to BitSet.
                     Collection<BinaryRow> result = new ArrayList<>();
                     List<RowId> rows = new ArrayList<>();
@@ -2260,7 +2264,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId lockedRowId = lockFut.join();
 
                         if (lockedRowId != null) {
-                            rowIdsToDelete.put(lockedRowId.uuid(), null);
+                            rowIdsToDelete.put(lockedRowId.uuid(), MSG_FACTORY.timedBinaryRowMessage()
+                                    .timestamp(lastCommitTimes.get(lockedRowId.uuid()).longValue())
+                                    .build());
 
                             rows.add(lockedRowId);
 
@@ -2279,7 +2285,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(
                                     catalogVersion -> applyUpdateAllCommand(
                                             rowIdsToDelete,
-                                            lastCommitTimes,
                                             request.commitPartitionId(),
                                             request.transactionId(),
                                             request.full(),
@@ -2455,8 +2460,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Executes an UpdateAll command.
      *
-     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
-     * @param lastCommitTimes All timestamps of the last committed entries for each row.
+     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link TimedBinaryRowMessage}s to be updated.
      * @param commitPartitionId Partition ID that these rows belong to.
      * @param transactionId Transaction ID.
      * @param full {@code true} if this is a single-command transaction.
@@ -2466,8 +2470,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
-            Map<UUID, HybridTimestamp> lastCommitTimes,
+            Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             TablePartitionIdMessage commitPartitionId,
             UUID transactionId,
             boolean full,
@@ -2478,7 +2481,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         synchronized (commandProcessingLinearizationMutex) {
             UpdateAllCommand cmd = updateAllCommand(
                     rowsToUpdate,
-                    lastCommitTimes,
                     commitPartitionId,
                     transactionId,
                     hybridClock.now(),
@@ -2498,8 +2500,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     cmd.tablePartitionId().asTablePartitionId(),
                                     true,
                                     null,
-                                    null,
-                                    emptyMap());
+                                    null
+                            );
 
                             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                         }
@@ -2525,8 +2527,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     cmd.tablePartitionId().asTablePartitionId(),
                                     true,
                                     null,
-                                    null,
-                                    emptyMap());
+                                    null
+                            );
 
                             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                         }
@@ -2548,8 +2550,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             cmd.tablePartitionId().asTablePartitionId(),
                             false,
                             null,
-                            cmd.safeTime(),
-                            emptyMap());
+                            cmd.safeTime()
+                    );
 
                     return null;
                 });
@@ -2561,22 +2563,19 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Executes an UpdateAll command.
      *
      * @param request Read write multi rows replica request.
-     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
-     * @param lastCommitTimes All timestamps of the last committed entries for each row.
+     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link TimedBinaryRowMessage}s to be updated.
      * @param txCoordinatorId Transaction coordinator id.
      * @param catalogVersion Validated catalog version associated with given operation.
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
             ReadWriteMultiRowReplicaRequest request,
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
-            Map<UUID, HybridTimestamp> lastCommitTimes,
+            Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             String txCoordinatorId,
             int catalogVersion
     ) {
         return applyUpdateAllCommand(
                 rowsToUpdate,
-                lastCommitTimes,
                 request.commitPartitionId(),
                 request.transactionId(),
                 request.full(),
@@ -3452,8 +3451,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private static UpdateAllCommand updateAllCommand(
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
-            Map<UUID, HybridTimestamp> lastCommitTimes,
+            Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             TablePartitionIdMessage commitPartitionId,
             UUID transactionId,
             HybridTimestamp safeTimeTimestamp,
@@ -3463,18 +3461,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         return MSG_FACTORY.updateAllCommand()
                 .tablePartitionId(commitPartitionId)
-                .rowsToUpdate(rowsToUpdate)
+                .messageRowsToUpdate(rowsToUpdate)
                 .txId(transactionId)
                 .safeTimeLong(safeTimeTimestamp.longValue())
                 .full(full)
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion)
-                .lastCommitTimestampsLong(
-                        // Also make sure lastCommitTimes contains only those entries that match rowsToUpdate.
-                        lastCommitTimes.entrySet().stream()
-                                .filter(entry -> rowsToUpdate.containsKey(entry.getKey()))
-                                .collect(toMap(Entry::getKey, entry -> entry.getValue().longValue()))
-                )
                 .build();
     }
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 import static org.mockito.Mockito.mock;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
@@ -254,12 +254,11 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
                 handler.handleUpdateAll(
                         TX_ID,
-                        singletonMap(rowUuid, rowMessage),
+                        singletonMap(rowUuid, new TimedBinaryRow(rowMessage.asBinaryRow(), null)),
                         partitionId,
                         true,
                         null,
-                        null,
-                        emptyMap()
+                        null
                 );
             }
         };
