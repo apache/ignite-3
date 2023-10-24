@@ -74,8 +74,12 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private static final TablePartitionId GROUP_1 = new TablePartitionId(1000, 0);
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
+
+    private static final String LEASEHOLDER_ID_1 = "leaseholder1_id";
+
     private static final Lease LEASE_FROM_1_TO_5_000 = new Lease(
             LEASEHOLDER_1,
+            LEASEHOLDER_ID_1,
             new HybridTimestamp(1, 0),
             new HybridTimestamp(5_000, 0),
             false,
@@ -85,6 +89,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final Lease LEASE_FROM_1_TO_15_000 = new Lease(
             LEASEHOLDER_1,
+            LEASEHOLDER_ID_1,
             new HybridTimestamp(1, 0),
             new HybridTimestamp(15_000, 0),
             false,
@@ -94,6 +99,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final Lease LEASE_FROM_15_000_TO_30_000 = new Lease(
             LEASEHOLDER_1,
+            LEASEHOLDER_ID_1,
             new HybridTimestamp(15_000, 0),
             new HybridTimestamp(30_000, 0),
             false,
@@ -468,6 +474,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         Lease neighborGroupLease = new Lease(
                 LEASEHOLDER_1,
+                LEASEHOLDER_ID_1,
                 new HybridTimestamp(1, 0),
                 new HybridTimestamp(15_000, 0),
                 false,

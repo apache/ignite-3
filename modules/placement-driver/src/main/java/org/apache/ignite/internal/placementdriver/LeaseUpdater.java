@@ -391,7 +391,7 @@ public class LeaseUpdater {
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
 
-            Lease renewedLease = new Lease(candidate.name(), startTs, expirationTs, grpId);
+            Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
             renewedLeases.put(grpId, renewedLease);
 

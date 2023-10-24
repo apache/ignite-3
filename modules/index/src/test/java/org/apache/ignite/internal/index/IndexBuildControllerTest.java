@@ -65,7 +65,9 @@ import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,6 +77,8 @@ import org.junit.jupiter.api.Test;
 public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test_node";
 
+    private static final String NODE_ID = "test_node_id";
+
     private static final String TABLE_NAME = "test_table";
 
     private static final String COLUMN_NAME = "test_column";
@@ -83,7 +87,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     private static final int PARTITION_ID = 10;
 
-    private ClusterNode localNode;
+    private final ClusterNode localNode = new ClusterNodeImpl(NODE_ID, NODE_NAME, mock(NetworkAddress.class));
 
     private IndexBuilder indexBuilder;
 
@@ -97,8 +101,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        localNode = mock(ClusterNode.class, invocation -> NODE_NAME);
-
         indexBuilder = mock(IndexBuilder.class);
 
         IndexManager indexManager = mock(IndexManager.class, invocation -> {
@@ -136,7 +138,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartBuildIndexesOnIndexCreate() {
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         clearInvocations(indexBuilder);
 
@@ -157,7 +159,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     void testStartBuildIndexesOnPrimaryReplicaElected() {
         createIndex(INDEX_NAME);
 
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder).scheduleBuildIndex(
                 eq(tableId()),
@@ -193,8 +195,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStopBuildIndexesOnChangePrimaryReplica() {
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", NODE_ID + "_other", clock.now());
 
         verify(indexBuilder).stopBuildingIndexes(tableId(), PARTITION_ID);
     }
@@ -207,7 +209,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         makeIndexAvailable(indexId);
 
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, clock.now());
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder, never()).scheduleBuildIndex(
                 eq(tableId()),
@@ -242,8 +244,13 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
-    private void setPrimaryReplicaWhichExpiresInOneSecond(int partitionId, String leaseholder, HybridTimestamp startTime) {
-        CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(leaseholder, startTime));
+    private void setPrimaryReplicaWhichExpiresInOneSecond(
+            int partitionId,
+            String leaseholder,
+            String leaseholderId,
+            HybridTimestamp startTime
+    ) {
+        CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(leaseholder, leaseholderId, startTime));
 
         assertThat(placementDriver.setPrimaryReplicaMeta(0, replicaId(partitionId), replicaMetaFuture), willCompleteSuccessfully());
     }
@@ -260,8 +267,14 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return new TablePartitionId(tableId(), partitionId);
     }
 
-    private ReplicaMeta replicaMetaForOneSecond(String leaseholder, HybridTimestamp startTime) {
-        return new Lease(leaseholder, startTime, startTime.addPhysicalTime(1_000), new TablePartitionId(tableId(), PARTITION_ID));
+    private ReplicaMeta replicaMetaForOneSecond(String leaseholder, String leaseholderId, HybridTimestamp startTime) {
+        return new Lease(
+                leaseholder,
+                leaseholderId,
+                startTime,
+                startTime.addPhysicalTime(1_000),
+                new TablePartitionId(tableId(), PARTITION_ID)
+        );
     }
 
     private static class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
