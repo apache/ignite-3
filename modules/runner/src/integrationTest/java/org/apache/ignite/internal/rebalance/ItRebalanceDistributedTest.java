@@ -599,10 +599,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         Set<Assignment> assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
 
-        Node newNodeForAssignment = nodes.stream().filter(n ->
-                !assignmentsBeforeRebalance.contains(Assignment.forPeer(n.clusterService.nodeName()))).findFirst().get();
+        String newNodeNameForAssignment = nodes.stream()
+                .map(n -> Assignment.forPeer(n.clusterService.nodeName()))
+                .filter(assignment -> !assignmentsBeforeRebalance.contains(assignment))
+                .findFirst()
+                .orElseThrow()
+                .consistentId();
 
-        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeForAssignment.clusterService.nodeName()));
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
 
         // Write the new assignments to metastore as a pending assignments.
         {
@@ -610,13 +614,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-            Map<ByteArray, byte[]> msEntries = new HashMap<>();
-
             byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
 
-            msEntries.put(partAssignmentsPendingKey, bytesPendingAssignments);
-
-            node.metaStorageManager.putAll(msEntries).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
+            node.metaStorageManager
+                    .putAll(Map.of(partAssignmentsPendingKey, bytesPendingAssignments))
+                    .get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
         }
 
         // Wait for rebalance to complete.
@@ -634,7 +636,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                 .internalTable()
                                 .partitionRaftGroupService(0)
                                 .peers()
-                                .equals(List.of(new Peer(newNodeForAssignment.clusterService.nodeName())))),
+                                .equals(List.of(new Peer(newNodeNameForAssignment)))),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
