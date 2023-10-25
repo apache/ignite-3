@@ -29,12 +29,13 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndScaleDownTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndScaleUpTriggerKey;
@@ -106,6 +107,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -509,8 +511,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * Method initialise data nodes value for the specified zone, also sets {@code revision} to the
-     * {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)}, {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} and
-     * {@link DistributionZonesUtil#zonesChangeTriggerKey(int)} if it passes the condition. It is called on the first creation of a zone.
+     * {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} and {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}
+     * if it passes the condition. It is called on the first creation of a zone.
      *
      * @param zoneId Unique id of a zone
      * @param revision Revision of an event that has triggered this method.
@@ -527,9 +529,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            // Update data nodes for a zone only if the revision of the event is newer than value in that trigger key,
-            // so we do not react on a stale events
-            CompoundCondition triggerKeyCondition = triggerKeyConditionForZonesChanges(revision, zoneId);
+            // Update data nodes for a zone only if the corresponding data nodes keys weren't initialised in ms yet.
+            CompoundCondition triggerKeyCondition = conditionForZoneCreation(zoneId);
 
             Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(zoneId, revision, toBytes(toDataNodesMap(dataNodes)));
 
@@ -578,9 +579,9 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            CompoundCondition triggerKeyCondition = triggerKeyConditionForZonesChanges(revision, zoneId);
+            SimpleCondition triggerKeyCondition = conditionForZoneRemoval(zoneId);
 
-            Update removeKeysUpd = deleteDataNodesAndUpdateTriggerKeys(zoneId, revision);
+            Update removeKeysUpd = deleteDataNodesAndTriggerKeys(zoneId, revision);
 
             Iif iif = iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
 
@@ -887,8 +888,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * Method updates data nodes value for the specified zone after scale up timer timeout, sets {@code revision} to the
-     * {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} and
-     * {@link DistributionZonesUtil#zonesChangeTriggerKey(int)} if it passes the condition.
+     * {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} if it passes the condition.
      *
      * @param zoneId Unique id of a zone
      * @param revision Revision of an event that has triggered this method.
@@ -998,8 +998,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * Method updates data nodes value for the specified zone after scale down timer timeout, sets {@code revision} to the
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} and
-     * {@link DistributionZonesUtil#zonesChangeTriggerKey(int)} if it passes the condition.
+     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} if it passes the condition.
      *
      * @param zoneId Unique id of a zone
      * @param revision Revision of an event that has triggered this method.
