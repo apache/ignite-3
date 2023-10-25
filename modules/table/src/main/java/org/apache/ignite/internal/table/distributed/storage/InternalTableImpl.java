@@ -841,30 +841,6 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
-    private ReadWriteMultiRowPkReplicaRequest readWriteMultiRowPkReplicaRequest(
-            RequestType requestType,
-            Collection<? extends BinaryRow> rows,
-            InternalTransaction tx,
-            ReplicationGroupId groupId,
-            Long term,
-            boolean full
-    ) {
-        assert rows.stream().map(BinaryRow::schemaVersion).distinct().count() <= 1
-                : "Different schema versions encountered: " + rows.stream().map(BinaryRow::schemaVersion).collect(toSet());
-
-        return tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
-                .groupId(groupId)
-                .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
-                .schemaVersion(rows.iterator().next().schemaVersion())
-                .primaryKeys(serializeBinaryTuples(rows))
-                .transactionId(tx.id())
-                .term(term)
-                .requestType(requestType)
-                .timestampLong(clock.nowLong())
-                .full(full)
-                .build();
-    }
-
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(
@@ -889,6 +865,30 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
+    }
+
+    private ReadWriteMultiRowPkReplicaRequest readWriteMultiRowPkReplicaRequest(
+            RequestType requestType,
+            Collection<? extends BinaryRow> rows,
+            InternalTransaction tx,
+            ReplicationGroupId groupId,
+            Long term,
+            boolean full
+    ) {
+        assert rows.stream().map(BinaryRow::schemaVersion).distinct().count() <= 1
+                : "Different schema versions encountered: " + rows.stream().map(BinaryRow::schemaVersion).collect(toSet());
+
+        return tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
+                .groupId(groupId)
+                .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
+                .schemaVersion(rows.iterator().next().schemaVersion())
+                .primaryKeys(serializeBinaryTuples(rows))
+                .transactionId(tx.id())
+                .term(term)
+                .requestType(requestType)
+                .timestampLong(clock.nowLong())
+                .full(full)
+                .build();
     }
 
     private static List<ByteBuffer> serializeBinaryTuples(Collection<? extends BinaryRow> keys) {
