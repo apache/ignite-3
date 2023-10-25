@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
@@ -107,7 +110,10 @@ public enum IgniteMethod {
     /** See {@link IgniteSqlFunctions#consumeFirstArgument(Object, Object)}. **/
     CONSUME_FIRST_ARGUMENT(IgniteSqlFunctions.class, "consumeFirstArgument", Object.class, Object.class),
 
-    SUBSTR(SqlFunctions.class, "substring", String.class, int.class, int.class);
+    SUBSTR(SqlFunctions.class, "substring", String.class, int.class, int.class),
+
+    /** ROUND function. See {@link IgniteSqlFunctions#sround(double)}, {@link IgniteSqlFunctions#sround(double, int)} and variants. */
+    ROUND(IgniteSqlFunctions.class, "sround", true);
 
     private final Method method;
 
@@ -120,6 +126,25 @@ public enum IgniteMethod {
      */
     IgniteMethod(Class<?> clazz, String methodName, Class<?>... argumentTypes) {
         method = Types.lookupMethod(clazz, methodName, argumentTypes);
+    }
+
+    /**
+     * Constructor that allows to specify overloaded methods as SQL function implementations.
+     *
+     * @param clazz Class where to lookup method.
+     * @param methodName Method name.
+     * @param overloadedMethod If {@code true} to looks up overloaded methods, otherwise looks up a method w/o parameters.
+     */
+    IgniteMethod(Class<?> clazz, String methodName, boolean overloadedMethod) {
+        if (overloadedMethod) {
+            // Allow calcite to select appropriate method at a call site.
+            this.method = Arrays.stream(clazz.getMethods())
+                    .filter(m -> m.getName().equals(methodName))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(format("Public static method {} is not defined", methodName)));
+        } else {
+            this.method = Types.lookupMethod(clazz, methodName);
+        }
     }
 
     /**

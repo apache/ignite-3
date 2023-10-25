@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -84,14 +85,15 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             ClusterManagementConfiguration cmgConfiguration,
-            NodeAttributesConfiguration nodeAttributes
+            NodeAttributesConfiguration nodeAttributes,
+            StorageProfilesConfiguration storageProfilesConfiguration
     ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
         this.workDir = workDir;
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
-        this.nodeAttributes = new NodeAttributesCollector(nodeAttributes);
+        this.nodeAttributes = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
 
         try {
             init(addr.port());

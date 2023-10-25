@@ -32,10 +32,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -61,7 +59,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
      * {@inheritDoc}
      */
     @Override
-    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, IgniteSchema schema) {
+    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int schemaVersion) {
         Map<Integer, CompletableFuture<ExecutableTable>> tableMap = new HashMap<>();
         Map<Integer, ScannableDataSource> dataSources = new HashMap<>();
 
@@ -88,7 +86,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             public IgniteRel visit(IgniteTableModify rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(igniteTable);
+                resolveTable(schemaVersion, igniteTable.id());
 
                 return super.visit(rel);
             }
@@ -97,7 +95,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             public IgniteRel visit(IgniteIndexScan rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(igniteTable);
+                resolveTable(schemaVersion, igniteTable.id());
 
                 return rel;
             }
@@ -106,7 +104,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             public IgniteRel visit(IgniteTableScan rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(igniteTable);
+                resolveTable(schemaVersion, igniteTable.id());
 
                 return rel;
             }
@@ -128,16 +126,12 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();
 
-                    resolveTable(schema.getTable(tableId));
+                    resolveTable(schemaVersion, tableId);
                 }
             }
 
-            private void resolveTable(IgniteTable igniteTable) {
-                int tableId = igniteTable.id();
-                TableDescriptor tableDescriptor = igniteTable.descriptor();
-                int tableVersion = igniteTable.version();
-
-                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(tableId, tableVersion, tableDescriptor));
+            private void resolveTable(int schemaVersion, int tableId) {
+                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(schemaVersion, tableId));
             }
         };
 

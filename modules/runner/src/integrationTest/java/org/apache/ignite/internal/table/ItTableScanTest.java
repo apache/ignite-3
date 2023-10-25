@@ -61,7 +61,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -84,7 +84,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests to check a scan internal command.
  */
-public class ItTableScanTest extends ClusterPerClassIntegrationTest {
+public class ItTableScanTest extends BaseSqlIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test";
 
@@ -354,7 +354,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @throws Exception If failed.
      */
     public void pureTableScan(Function<InternalTransaction, CompletableFuture<Integer>> txOperationAction) throws Exception {
-        InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
+        InternalTransaction tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin();
 
         log.info("Old transaction [id={}]", tx.id());
 
@@ -646,7 +646,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 List<String> assignments = internalTable.assignments();
 
                 // Any node from assignments will do it.
-                ClusterNode node0 = CLUSTER_NODES.get(0).clusterNodes().stream().filter(clusterNode -> {
+                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(clusterNode -> {
                     return assignments.contains(clusterNode.name());
                 }).findFirst().orElseThrow();
 
@@ -742,7 +742,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * Gets an index id.
      */
     private static int getSortedIndexId() {
-        CatalogManager catalogManager = ((IgniteImpl) CLUSTER_NODES.get(0)).catalogManager();
+        CatalogManager catalogManager = ((IgniteImpl) CLUSTER.aliveNode()).catalogManager();
 
         int catalogVersion = catalogManager.latestCatalogVersion();
 
@@ -805,7 +805,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 
-        return (TableImpl) CLUSTER_NODES.get(0).tables().table(TABLE_NAME);
+        return (TableImpl) CLUSTER.aliveNode().tables().table(TABLE_NAME);
     }
 
     /**
@@ -872,7 +872,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @return Transaction.
      */
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
-        Ignite ignite = CLUSTER_NODES.get(0);
+        Ignite ignite = CLUSTER.aliveNode();
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 

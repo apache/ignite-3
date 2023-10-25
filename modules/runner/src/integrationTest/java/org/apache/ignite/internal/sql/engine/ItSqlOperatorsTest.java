@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,10 +37,10 @@ import org.junit.jupiter.api.Test;
  *
  * @see IgniteSqlOperatorTable
  */
-public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
+public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     /** {@inheritDoc} */
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -192,8 +194,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("COT(1)").returns(1.0d / Math.tan(1)).check();
         assertExpression("DEGREES(1)").returns(Math.toDegrees(1)).check();
         assertExpression("RADIANS(1)").returns(Math.toRadians(1)).check();
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20311
-        // assertExpression("ROUND(1.7)").returns(BigDecimal.valueOf(2)).check();
+        assertExpression("ROUND(1.7)").returns(BigDecimal.valueOf(2)).check();
         assertExpression("SIGN(-5)").returns(-1).check();
         assertExpression("SIN(1)").returns(Math.sin(1)).check();
         assertExpression("SINH(1)").returns(Math.sinh(1)).check();

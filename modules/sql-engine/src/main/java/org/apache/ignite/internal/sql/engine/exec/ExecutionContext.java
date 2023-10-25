@@ -215,7 +215,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /** {@inheritDoc} */
     @Override
     public SchemaPlus getRootSchema() {
-        return qctx.schema();
+        throw new AssertionError("getRootSchema");
     }
 
     /** {@inheritDoc} */

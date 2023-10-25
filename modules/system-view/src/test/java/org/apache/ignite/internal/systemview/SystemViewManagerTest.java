@@ -349,7 +349,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
                 systemAttributes = Map.of();
             }
 
-            topology.add(new LogicalNode(clusterNode, Map.of(), systemAttributes));
+            topology.add(new LogicalNode(clusterNode, Map.of(), systemAttributes, Map.of()));
         }
 
         return new LogicalTopologySnapshot(1, topology);

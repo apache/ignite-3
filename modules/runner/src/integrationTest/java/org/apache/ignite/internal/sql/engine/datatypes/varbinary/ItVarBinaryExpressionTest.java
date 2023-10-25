@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBinary> {
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 

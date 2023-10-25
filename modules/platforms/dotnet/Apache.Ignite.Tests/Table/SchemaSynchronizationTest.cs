@@ -19,14 +19,12 @@ namespace Apache.Ignite.Tests.Table;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
-using Internal.Table;
 using NUnit.Framework;
 
 /// <summary>

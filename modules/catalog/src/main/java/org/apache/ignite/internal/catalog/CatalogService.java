@@ -49,6 +49,8 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     String DEFAULT_ZONE_NAME = "Default";
 
+    Catalog catalog(int version);
+
     @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
 
     @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
