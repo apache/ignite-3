@@ -180,16 +180,11 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertEquals(3, res.get(0).get(0));
 
-        // TODO improve test
-        sql("CREATE TABLE CAR(ID INT, PARKINGID INT NOT NULL, NAME VARCHAR(255), CITY VARCHAR(20), PRIMARY KEY (ID, PARKINGID));");
-        sql("CREATE INDEX CAR_NAME_IDX ON PUBLIC.CAR(NAME);");
-        sql("INSERT INTO PUBLIC.CAR(ID, PARKINGID, NAME, CITY) VALUES(1, 0, 'car_1', 'New York');");
-        sql("ALTER TABLE PUBLIC.CAR ADD COLUMN MODEL_ID INT;");
-        sql("ALTER TABLE PUBLIC.CAR ADD COLUMN COUNTRY VARCHAR DEFAULT 'USA';");
-        sql("ALTER TABLE PUBLIC.CAR DROP COLUMN MODEL_ID;");
+        sql("ALTER TABLE my ADD COLUMN (c5 VARCHAR)");
+        sql("ALTER TABLE my DROP COLUMN c4");
 
-        assertQuery("SELECT * FROM PUBLIC.CAR WHERE ID <= 10 OR ID > 1000 ORDER BY ID")
-                .returns(1, 0, "car_1", "New York", "USA")
+        assertQuery("SELECT * FROM my WHERE c1=3")
+                .returns(3, "2", 3, null)
                 .check();
     }
 
