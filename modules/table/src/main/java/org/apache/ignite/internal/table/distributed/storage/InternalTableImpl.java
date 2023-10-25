@@ -21,6 +21,8 @@ import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
@@ -92,6 +94,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.Multiple
 import org.apache.ignite.internal.table.distributed.replication.request.MultipleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
@@ -830,20 +833,36 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRows,
                 tx,
-                    (keyRows0, txo, groupId, term, full) -> tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
-                            .groupId(groupId)
-                            .schemaVersion(keyRows0.iterator().next().schemaVersion())
-                            .primaryKeys(serializeBinaryTuples(keyRows0))
-                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                            .transactionId(txo.id())
-                            .term(term)
-                            .requestType(RW_GET_ALL)
-                            .timestampLong(clock.nowLong())
-                            .full(full)
-                            .build(),
+                    (keyRows0, txo, groupId, term, full) -> {
+                        return readWriteMultiRowPkReplicaRequest(RW_GET_ALL, keyRows0, txo, groupId, term, full);
+                    },
                 InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder,
                 (res, req) -> false
         );
+    }
+
+    private ReadWriteMultiRowPkReplicaRequest readWriteMultiRowPkReplicaRequest(
+            RequestType requestType,
+            Collection<? extends BinaryRow> rows,
+            InternalTransaction tx,
+            ReplicationGroupId groupId,
+            Long term,
+            boolean full
+    ) {
+        assert rows.stream().map(BinaryRow::schemaVersion).distinct().count() <= 1
+                : "Different schema versions encountered: " + rows.stream().map(BinaryRow::schemaVersion).collect(toSet());
+
+        return tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
+                .groupId(groupId)
+                .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
+                .schemaVersion(rows.iterator().next().schemaVersion())
+                .primaryKeys(serializeBinaryTuples(rows))
+                .transactionId(tx.id())
+                .term(term)
+                .requestType(requestType)
+                .timestampLong(clock.nowLong())
+                .full(full)
+                .build();
     }
 
     /** {@inheritDoc} */
@@ -1007,18 +1026,21 @@ public class InternalTableImpl implements InternalTable {
 
     private ReadWriteMultiRowReplicaRequest readWriteMultiRowReplicaRequest(
             RequestType requestType,
-            Collection<? extends BinaryRow> keyRows0,
-            InternalTransaction txo,
+            Collection<? extends BinaryRow> rows,
+            InternalTransaction tx,
             ReplicationGroupId groupId,
             Long term,
             boolean full
     ) {
+        assert rows.stream().map(BinaryRow::schemaVersion).distinct().count() <= 1
+                : "Different schema versions encountered: " + rows.stream().map(BinaryRow::schemaVersion).collect(toSet());
+
         return tableMessagesFactory.readWriteMultiRowReplicaRequest()
                 .groupId(groupId)
-                .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                .schemaVersion(keyRows0.iterator().next().schemaVersion())
-                .binaryTuples(serializeBinaryTuples(keyRows0))
-                .transactionId(txo.id())
+                .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
+                .schemaVersion(rows.iterator().next().schemaVersion())
+                .binaryTuples(serializeBinaryTuples(rows))
+                .transactionId(tx.id())
                 .term(term)
                 .requestType(requestType)
                 .timestampLong(clock.nowLong())
@@ -1162,17 +1184,9 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (keyRows0, txo, groupId, term, full) -> tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(keyRows0.iterator().next().schemaVersion())
-                        .primaryKeys(serializeBinaryTuples(keyRows0))
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_DELETE_ALL)
-                        .timestampLong(clock.nowLong())
-                        .full(full)
-                        .build(),
+                (keyRows0, txo, groupId, term, full) -> {
+                    return readWriteMultiRowPkReplicaRequest(RW_DELETE_ALL, keyRows0, txo, groupId, term, full);
+                },
                 InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                 (res, req) -> {
                     for (BinaryRow row : res) {
