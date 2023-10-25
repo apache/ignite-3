@@ -36,8 +36,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
@@ -73,12 +73,12 @@ import org.junit.jupiter.params.provider.ValueSource;
  * By default, any SQL API test should be added to the base class and use special provided methods to interact
  * with the API in a API-type-independent manner. For any API-specific test, should be used the appropriate subclass.
  */
-public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
+public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected static final int ROW_COUNT = 16;
 
     @AfterEach
     public void dropTables() {
-        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
+        for (Table t : CLUSTER.aliveNode().tables().tables()) {
             sql("DROP TABLE " + t.name());
         }
     }
@@ -592,7 +592,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     public void batch() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = CLUSTER.aliveNode().sql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         BatchedArguments args = BatchedArguments.of(0, 0);
@@ -629,7 +629,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = CLUSTER.aliveNode().sql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         BatchedArguments args = BatchedArguments.of(0, 0);

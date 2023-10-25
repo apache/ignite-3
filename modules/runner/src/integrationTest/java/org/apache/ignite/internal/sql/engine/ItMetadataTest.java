@@ -24,6 +24,7 @@ import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests to verify the query metadata returned alongside the query result.
  */
-public class ItMetadataTest extends ClusterPerClassIntegrationTest {
+public class ItMetadataTest extends BaseSqlIntegrationTest {
     /**
      * Before all.
      */
@@ -45,7 +46,7 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 

@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
@@ -49,7 +50,7 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("txControlCalls")
     public void testTxControlStatementsAreNotAllowedWithSingleStatementMethods(String stmtSql, ExecMethod execMethod) {
-        Ignite ignite = CLUSTER_NODES.get(0);
+        Ignite ignite = CLUSTER.aliveNode();
         IgniteSql igniteSql = ignite.sql();
 
         try (Session session = igniteSql.createSession()) {

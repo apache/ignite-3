@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -52,12 +53,12 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests basic operations using a different API
  * on a table where all columns belong to the primary key.
  */
-public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
+public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     /** Storage engine types. */
     private static final String[] ENGINES = {"aipersist", "aimem", "rocksdb"};
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -365,11 +366,11 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         }
 
         private Table table() {
-            return CLUSTER_NODES.get(0).tables().table(tableName(engine));
+            return CLUSTER.aliveNode().tables().table(tableName(engine));
         }
 
         private void runInTransaction(List<Consumer<Transaction>> writeOps, Consumer<Transaction> readOp) {
-            IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
+            IgniteTransactions transactions = CLUSTER.aliveNode().transactions();
 
             for (Consumer<Transaction> writeOp : writeOps) {
                 transactions.runInTransaction(writeOp, new TransactionOptions().readOnly(false));
@@ -379,7 +380,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         }
 
         private void runInTransaction(Consumer<Transaction> writeOp, Consumer<Transaction> readOp) {
-            IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
+            IgniteTransactions transactions = CLUSTER.aliveNode().transactions();
 
             if (readOnlyTx) {
                 // Start a separate transaction for the write operation.

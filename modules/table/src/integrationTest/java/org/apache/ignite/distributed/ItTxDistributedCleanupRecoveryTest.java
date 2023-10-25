@@ -50,7 +50,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -171,7 +170,6 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
         assertThrows(TransactionException.class, () -> deleteUpsert().commit());
     }
 
-    @Disabled("IGNITE-20560")
     @Test
     @Override
     public void testTransactionAlreadyRolledback() {
@@ -179,14 +177,14 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
         // So we should give up retrying and crash.
         setDefaultRetryCount(6);
 
-        testTransactionAlreadyFinished(false, (transaction, txId) -> {
+        // Do not check the locks since we have intentionally dropped the cleanup request thus the locks are not released yet.
+        testTransactionAlreadyFinished(false, false, (transaction, txId) -> {
             assertThrows(TransactionException.class, transaction::rollback);
 
             log.info("Rolled back transaction {}", txId);
         });
     }
 
-    @Disabled("IGNITE-20560")
     @Test
     @Override
     public void testTransactionAlreadyCommitted() {
@@ -194,7 +192,8 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
         // So we should give up retrying and crash.
         setDefaultRetryCount(6);
 
-        testTransactionAlreadyFinished(true, (transaction, txId) -> {
+        // Do not check the locks since we have intentionally dropped the cleanup request thus the locks are not released yet.
+        testTransactionAlreadyFinished(true, false, (transaction, txId) -> {
             assertThrows(TransactionException.class, transaction::commit);
 
             log.info("Committed transaction {}", txId);

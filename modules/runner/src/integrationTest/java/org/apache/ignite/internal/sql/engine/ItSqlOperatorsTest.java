@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,10 +37,10 @@ import org.junit.jupiter.api.Test;
  *
  * @see IgniteSqlOperatorTable
  */
-public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
+public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     /** {@inheritDoc} */
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
