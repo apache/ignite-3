@@ -21,7 +21,6 @@ import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
@@ -44,10 +43,12 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -875,8 +876,7 @@ public class InternalTableImpl implements InternalTable {
             Long term,
             boolean full
     ) {
-        assert rows.stream().map(BinaryRow::schemaVersion).distinct().count() <= 1
-                : "Different schema versions encountered: " + rows.stream().map(BinaryRow::schemaVersion).collect(toSet());
+        assert allSchemaVersionsSame(rows) : "Different schema versions encountered: " + uniqueSchemaVersions(rows);
 
         return tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
                 .groupId(groupId)
@@ -889,6 +889,36 @@ public class InternalTableImpl implements InternalTable {
                 .timestampLong(clock.nowLong())
                 .full(full)
                 .build();
+    }
+
+    private static boolean allSchemaVersionsSame(Collection<? extends BinaryRow> rows) {
+        int schemaVersion = -1;
+        boolean first = true;
+
+        for (BinaryRow row : rows) {
+            if (first) {
+                schemaVersion = row.schemaVersion();
+                first = false;
+
+                continue;
+            }
+
+            if (row.schemaVersion() != schemaVersion) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static Set<Integer> uniqueSchemaVersions(Collection<? extends BinaryRow> rows) {
+        Set<Integer> set = new HashSet<>();
+
+        for (BinaryRow row : rows) {
+            set.add(row.schemaVersion());
+        }
+
+        return set;
     }
 
     private static List<ByteBuffer> serializeBinaryTuples(Collection<? extends BinaryRow> keys) {
@@ -1032,8 +1062,7 @@ public class InternalTableImpl implements InternalTable {
             Long term,
             boolean full
     ) {
-        assert rows.stream().map(BinaryRow::schemaVersion).distinct().count() <= 1
-                : "Different schema versions encountered: " + rows.stream().map(BinaryRow::schemaVersion).collect(toSet());
+        assert allSchemaVersionsSame(rows) : "Different schema versions encountered: " + uniqueSchemaVersions(rows);
 
         return tableMessagesFactory.readWriteMultiRowReplicaRequest()
                 .groupId(groupId)
