@@ -52,7 +52,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.RowBatch;
@@ -189,7 +188,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
-                    .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
+                    .schemaVersion(partToRows.getValue().get(0).schemaVersion())
+                    .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_UPSERT_ALL)
@@ -203,16 +203,11 @@ public final class UpdatableTableImpl implements UpdatableTable {
         return CompletableFuture.allOf(futures);
     }
 
-    private static List<BinaryRowMessage> serializeBinaryRows(Collection<BinaryRow> rows) {
-        var result = new ArrayList<BinaryRowMessage>(rows.size());
+    private static List<ByteBuffer> binaryRowsToBuffers(Collection<BinaryRow> rows) {
+        var result = new ArrayList<ByteBuffer>(rows.size());
 
         for (BinaryRow row : rows) {
-            BinaryRowMessage message = MESSAGES_FACTORY.binaryRowMessage()
-                    .binaryTuple(row.tupleSlice())
-                    .schemaVersion(row.schemaVersion())
-                    .build();
-
-            result.add(message);
+            result.add(row.tupleSlice());
         }
 
         return result;
@@ -269,7 +264,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
-                    .binaryRowMessages(serializeBinaryRows(rowBatch.requestedRows))
+                    .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
+                    .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_INSERT_ALL)
@@ -337,6 +333,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(serializeTablePartitionId(commitPartitionId))
+                    .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())

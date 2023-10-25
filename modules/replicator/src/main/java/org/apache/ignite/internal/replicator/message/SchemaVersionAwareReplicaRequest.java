@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
-
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.network.annotations.Marshallable;
+package org.apache.ignite.internal.replicator.message;
 
 /**
- * Single row replica request involving a table's Primary Key.
+ * Requests that are aware about the schema version that must be used when processing them.
  */
-public interface SingleRowPkReplicaRequest extends SchemaVersionAwareReplicaRequest {
-    ByteBuffer primaryKey();
-
-    @Marshallable
-    RequestType requestType();
+public interface SchemaVersionAwareReplicaRequest extends ReplicaRequest {
+    /**
+     * Schema version in which input values are marshalled and that must be used when processing the request.
+     */
+    int schemaVersion();
 }
