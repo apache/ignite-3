@@ -57,7 +57,7 @@ public class SchemaColumnMapperTest extends BaseIgniteAbstractTest {
             verifyMapping(oldSchema, newSchema);
         }
 
-        // Sequential removal of columns located at the beginning, according to column order.
+        // Sequentially remove columns located at the beginning, according to the column order.
         for (int i = 0; i < TOTAL_ITERATIONS; i += batchSize) {
             SchemaDescriptor oldSchema = newSchema;
             int[] idxs = IntStream.range(0, batchSize).toArray();
@@ -103,8 +103,8 @@ public class SchemaColumnMapperTest extends BaseIgniteAbstractTest {
     }
 
     private static void verifyMapping(SchemaDescriptor oldSchema, SchemaDescriptor newSchema) {
-        Column[] oldCols = allDescriptorColumns(oldSchema);
-        Column[] newCols = allDescriptorColumns(newSchema);
+        Column[] oldCols = allColumns(oldSchema);
+        Column[] newCols = allColumns(newSchema);
         ColumnMapper mapper = SchemaUtils.columnMapper(oldSchema, newSchema);
 
         Map<Integer, Column> schemaIndexMap = Arrays.stream(oldCols)
@@ -157,7 +157,7 @@ public class SchemaColumnMapperTest extends BaseIgniteAbstractTest {
         return columns;
     }
 
-    private static Column[] allDescriptorColumns(SchemaDescriptor schemaDescriptor) {
+    private static Column[] allColumns(SchemaDescriptor schemaDescriptor) {
         Column[] keyColumns = schemaDescriptor.keyColumns().columns();
         Column[] valueColumns = schemaDescriptor.valueColumns().columns();
 

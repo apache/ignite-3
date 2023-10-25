@@ -180,11 +180,11 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertEquals(3, res.get(0).get(0));
 
-        sql("ALTER TABLE my ADD COLUMN (c5 VARCHAR)");
+        sql("ALTER TABLE my ADD COLUMN (c5 VARCHAR, c6 BOOLEAN)");
         sql("ALTER TABLE my DROP COLUMN c4");
 
         assertQuery("SELECT * FROM my WHERE c1=3")
-                .returns(3, "2", 3, null)
+                .returns(3, "2", 3, null, null)
                 .check();
     }
 
