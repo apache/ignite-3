@@ -75,6 +75,7 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -207,11 +208,11 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
                 ReadWriteMultiRowReplicaRequest multiRowReplicaRequest = (ReadWriteMultiRowReplicaRequest) request;
 
-                Map<UUID, TimedBinaryRowMessage> rows = multiRowReplicaRequest.binaryRowMessages().stream()
+                Map<UUID, TimedBinaryRowMessage> rows = multiRowReplicaRequest.binaryTuples().stream()
                         .collect(
-                                toMap(row -> TestTransactionIds.newTransactionId(),
-                                        row -> MSG_FACTORY.timedBinaryRowMessage()
-                                                .binaryRowMessage(row)
+                                toMap(tupleBuffer -> TestTransactionIds.newTransactionId(),
+                                        tupleBuffer -> MSG_FACTORY.timedBinaryRowMessage()
+                                                .binaryRowMessage(binaryRowMessage(tupleBuffer, multiRowReplicaRequest))
                                                 .build())
                         );
 
