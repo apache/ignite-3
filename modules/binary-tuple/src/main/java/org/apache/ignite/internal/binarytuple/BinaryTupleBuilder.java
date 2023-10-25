@@ -372,7 +372,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendBytes(byte[] value) {
+    public BinaryTupleBuilder appendBytes(byte @Nullable [] value) {
         return value == null ? appendNull() : appendBytesNotNull(value);
     }
 

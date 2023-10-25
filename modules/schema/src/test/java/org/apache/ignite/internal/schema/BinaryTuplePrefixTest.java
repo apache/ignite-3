@@ -79,7 +79,7 @@ public class BinaryTuplePrefixTest {
     }
 
     @Test
-    public void testCreatePrefixFromBinaryTupleWhichSizeIsLesserThanRequired() {
+    public void testCreatePrefixFromBinaryTupleWhichSizeIsLessThanRequired() {
         int sourceTupleSize = 1;
 
         ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize)
@@ -96,7 +96,7 @@ public class BinaryTuplePrefixTest {
     }
 
     @Test
-    public void testCreatePrefixFromBinaryTupleWhichSizeIsEqualsToRequired() {
+    public void testCreatePrefixFromBinaryTupleWhichSizeIsEqualToRequired() {
         int sourceTupleSize = 4;
 
         ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize)

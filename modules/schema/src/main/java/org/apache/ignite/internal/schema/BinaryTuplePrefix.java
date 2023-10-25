@@ -117,12 +117,14 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
         byte flags = tupleBuffer.get(0);
         int entrySize = BinaryTupleCommon.flagsToEntrySize(flags);
 
-        ByteBuffer prefixBuffer = ByteBuffer.allocate(
-                        tupleBuffer.remaining()
-                                + (entrySize * (numElements - tuple.elementCount()))
-                                + Integer.BYTES)
+        int newTupleSize = tupleBuffer.remaining() // size of original tuple
+                // additional space for the offset map to align it with desired number of columns
+                + (entrySize * (numElements - tuple.elementCount()))
+                + Integer.BYTES; // actual number of columns in prefix
+
+        ByteBuffer prefixBuffer = ByteBuffer.allocate(newTupleSize)
                 .order(ORDER)
-                .put(tupleBuffer.slice().limit(dataBeginOffsetHolder[0])); // header
+                .put(tupleBuffer.duplicate().limit(dataBeginOffsetHolder[0])); // header
 
         int payloadEndPosition = dataEndOffsetHolder[0] - dataBeginOffsetHolder[0];
         for (int idx = tuple.elementCount(); idx < numElements; idx++) {
@@ -164,17 +166,11 @@ public class BinaryTuplePrefix extends BinaryTupleReader implements InternalTupl
                 numElements, numElements, dataEndOffsetHolder[0] - dataBeginOffsetHolder[0]
         );
 
-        tuple.parse((index, begin, end) -> {
-            if (index < numElements) {
-                byte[] valueBytes = tuple.bytesValue(index);
+        for (int i = 0; i < numElements; i++) {
+            byte[] valueBytes = tuple.bytesValue(i);
 
-                if (valueBytes == null) {
-                    builder.appendNull();
-                } else {
-                    builder.appendBytes(valueBytes);
-                }
-            }
-        });
+            builder.appendBytes(valueBytes);
+        }
 
         return new BinaryTuplePrefix(numElements, builder.build());
     }
