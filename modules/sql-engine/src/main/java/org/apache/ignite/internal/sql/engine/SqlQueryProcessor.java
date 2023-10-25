@@ -572,7 +572,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             if (SqlQueryType.DML == queryType && outerTx.isReadOnly()) {
-                throw new SqlException(STMT_VALIDATION_ERR, "DML can't be run within read only transaction.");
+                throw new SqlException(STMT_VALIDATION_ERR, "DML query cannot be started by using read only transactions.");
             }
         }
 
