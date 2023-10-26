@@ -17,36 +17,37 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.index.IndexManagementUtils.PARTITION_BUILD_INDEX_KEY_PREFIX;
+import static org.apache.ignite.internal.index.IndexManagementUtils.extractPartitionIdFromPartitionBuildIndexKey;
+import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
+import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeyAbsentLocally;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeysPresentLocally;
+import static org.apache.ignite.internal.index.IndexManagementUtils.makeIndexAvailableInCatalogWithoutFuture;
+import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
+import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKeyPrefix;
+import static org.apache.ignite.internal.index.IndexManagementUtils.putBuildIndexMetastoreKeysIfAbsent;
+import static org.apache.ignite.internal.index.IndexManagementUtils.removeMetastoreKeyIfPresent;
+import static org.apache.ignite.internal.index.IndexManagementUtils.toPartitionBuildIndexMetastoreKeyString;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.IndexAlreadyAvailableValidationException;
-import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
@@ -64,7 +65,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.table.distributed.index.IndexBuildCompletionListener;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -73,36 +73,37 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *
  * <p>An approximate algorithm for making an index available:</p>
  * <ul>
- *     <li>On {@link CatalogEvent#INDEX_CREATE}, keys are created in the metastore: {@code indexBuild.inProgress.<indexId>} and
- *     {@code indexBuild.partition.<indexId>.<partitionId_0>}...{@code indexBuild.partition.<indexId>.<partitionId_N>}.</li>
+ *     <li>On {@link CatalogEvent#INDEX_CREATE},
+ *     {@link IndexManagementUtils#putBuildIndexMetastoreKeysIfAbsent(MetaStorageManager, int, int) index building keys} are created in the
+ *     metastore.</li>
  *     <li>Then it is expected that the distributed index building event will be triggered for all partitions via
- *     {@link IndexBuildCompletionListener} (from {@link IndexBuilder#listen}); as a result of each of these events, the corresponding key
- *     {@code indexBuild.partition.<indexId>.<partitionId>} will be deleted from metastore.</li>
- *     <li>When all the {@code indexBuild.partition.<indexId>.<partitionId>} keys in the metastore are deleted,
- *     {@link MakeIndexAvailableCommand} will be executed for the corresponding index.</li>
- *     <li>At {@link CatalogEvent#INDEX_AVAILABLE}, key {@code indexBuild.inProgress.<indexId>} in the metastore will be deleted.</li>
+ *     {@link IndexBuildCompletionListener} (from {@link IndexBuilder#listen}); as a result of each of these events, the corresponding
+ *     {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition building index key} will be deleted from
+ *     metastore.</li>
+ *     <li>When <b>all</b> the {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) buildig index key partition} in the
+ *     metastore are deleted, {@link MakeIndexAvailableCommand} will be executed for the corresponding index.</li>
+ *     <li>At {@link CatalogEvent#INDEX_AVAILABLE},
+ *     {@link IndexManagementUtils#inProgressBuildIndexMetastoreKey(int) in progress building index key} in the metastore will be
+ *     deleted.</li>
  * </ul>
  *
  * <p>Notes:</p>
  * <ul>
- *     <li>At {@link CatalogEvent#INDEX_DROP}, the keys in the metastore are deleted: {@code indexBuild.inProgress.<indexId>} and
- *     {@code indexBuild.partition.<indexId>.<partitionId_0>}...{@code indexBuild.partition.<indexId>.<partitionId_N>}.</li>
+ *     <li>At {@link CatalogEvent#INDEX_DROP},
+ *     {@link IndexManagementUtils#putBuildIndexMetastoreKeysIfAbsent(MetaStorageManager, int, int) index building keys} in the metastore
+ *     are deleted.</li>
  *     <li>Handling of {@link CatalogEvent#INDEX_CREATE}, {@link CatalogEvent#INDEX_DROP}, {@link CatalogEvent#INDEX_AVAILABLE} and watch
- *     prefix {@link #PARTITION_BUILD_INDEX_KEY_PREFIX} is made by the whole cluster (and only one node makes a write to the metastore) as
- *     these events are global, but only one node (a primary replica owning a partition) handles
+ *     prefix {@link IndexManagementUtils#PARTITION_BUILD_INDEX_KEY_PREFIX} is made by the whole cluster (and only one node makes a write to
+ *     the metastore) as these events are global, but only one node (a primary replica owning a partition) handles
  *     {@link IndexBuildCompletionListener#onBuildCompletion} (form {@link IndexBuilder#listen}) event.</li>
+ *     <li>Restoring index availability occurs in {@link IndexAvailabilityRestorer}.</li>
  * </ul>
  *
  * @see CatalogIndexDescriptor#available()
  */
-// TODO: IGNITE-20637 Recovery needs to be implemented
-// TODO: IGNITE-20637 Need integration with the IgniteImpl
+// TODO: IGNITE-20638 Need integration with the IgniteImpl
 public class IndexAvailabilityController implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityController.class);
-
-    private static final String IN_PROGRESS_BUILD_INDEX_KEY_PREFIX = "indexBuild.inProgress.";
-
-    private static final String PARTITION_BUILD_INDEX_KEY_PREFIX = "indexBuild.partition.";
 
     private final CatalogManager catalogManager;
 
@@ -173,18 +174,9 @@ public class IndexAvailabilityController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             int indexId = parameters.indexDescriptor().id();
 
-            int partitions = getPartitionCountFromCatalog(indexId, parameters.catalogVersion());
+            int partitions = getPartitionCountFromCatalog(catalogManager, indexId, parameters.catalogVersion());
 
-            ByteArray inProgressBuildIndexKey = inProgressBuildIndexKey(indexId);
-
-            return metaStorageManager.invoke(
-                    notExists(inProgressBuildIndexKey),
-                    concat(
-                            List.of(put(inProgressBuildIndexKey, BYTE_EMPTY_ARRAY)),
-                            putPartitionBuildIndexOperations(indexId, partitions)
-                    ),
-                    List.of(noop())
-            );
+            return putBuildIndexMetastoreKeysIfAbsent(metaStorageManager, indexId, partitions);
         });
     }
 
@@ -192,15 +184,20 @@ public class IndexAvailabilityController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             int indexId = parameters.indexId();
 
-            int partitions = getPartitionCountFromCatalog(indexId, parameters.catalogVersion() - 1);
+            int partitions = getPartitionCountFromCatalog(catalogManager, indexId, parameters.catalogVersion() - 1);
 
-            ByteArray inProgressBuildIndexKey = inProgressBuildIndexKey(indexId);
+            ByteArray inProgressBuildIndexKey = inProgressBuildIndexMetastoreKey(indexId);
+
+            List<Operation> removePartitionBuildIndexMetastoreKeyOperations = IntStream.range(0, partitions)
+                    .mapToObj(partitionId -> partitionBuildIndexMetastoreKey(indexId, partitionId))
+                    .map(Operations::remove)
+                    .collect(toList());
 
             return metaStorageManager.invoke(
                     exists(inProgressBuildIndexKey),
                     concat(
                             List.of(remove(inProgressBuildIndexKey)),
-                            removePartitionBuildIndexOperations(indexId, partitions)
+                            removePartitionBuildIndexMetastoreKeyOperations
                     ),
                     List.of(noop())
             );
@@ -209,9 +206,9 @@ public class IndexAvailabilityController implements ManuallyCloseable {
 
     private CompletableFuture<?> onIndexAvailable(MakeIndexAvailableEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            ByteArray inProgressBuildIndexKey = inProgressBuildIndexKey(parameters.indexId());
+            ByteArray inProgressBuildIndexMetastoreKey = inProgressBuildIndexMetastoreKey(parameters.indexId());
 
-            return metaStorageManager.invoke(exists(inProgressBuildIndexKey), remove(inProgressBuildIndexKey), noop());
+            return removeMetastoreKeyIfPresent(metaStorageManager, inProgressBuildIndexMetastoreKey);
         });
     }
 
@@ -224,39 +221,25 @@ public class IndexAvailabilityController implements ManuallyCloseable {
 
             Entry entry = event.entryEvent().newEntry();
 
-            if (!entry.tombstone()) {
+            if (entry.value() != null) {
                 // In case an index was created when there was only one partition.
                 return completedFuture(null);
             }
 
-            String partitionBuildIndexKey = new String(entry.key(), UTF_8);
+            String partitionBuildIndexKey = toPartitionBuildIndexMetastoreKeyString(entry.key());
 
-            int indexId = parseIndexIdFromPartitionBuildIndexKey(partitionBuildIndexKey);
-
-            ByteArray inProgressBuildIndexKey = inProgressBuildIndexKey(indexId);
+            int indexId = extractPartitionIdFromPartitionBuildIndexKey(partitionBuildIndexKey);
 
             long metastoreRevision = entry.revision();
 
-            if (isRemainingPartitionBuildIndexKeys(indexId, metastoreRevision)
-                    || isMetastoreKeyAbsent(inProgressBuildIndexKey, metastoreRevision)) {
+            if (isMetastoreKeysPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), metastoreRevision)
+                    || isMetastoreKeyAbsentLocally(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId), metastoreRevision)) {
                 return completedFuture(null);
             }
 
             // We will not wait for the command to be executed, since we will then find ourselves in a dead lock since we will not be able
             // to free the metastore thread.
-            catalogManager
-                    .execute(buildMakeIndexAvailableCommand(indexId))
-                    .whenComplete((unused, throwable) -> {
-                        if (throwable != null) {
-                            Throwable unwrapCause = unwrapCause(throwable);
-
-                            if (!(unwrapCause instanceof IndexNotFoundValidationException)
-                                    && !(unwrapCause instanceof IndexAlreadyAvailableValidationException)
-                                    && !(unwrapCause instanceof NodeStoppingException)) {
-                                LOG.error("Error processing the command to make the index available: {}", unwrapCause, indexId);
-                            }
-                        }
-                    });
+            makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);
 
             return completedFuture(null);
         });
@@ -264,7 +247,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
 
     private void onIndexBuildCompletionForPartition(int indexId, int partitionId) {
         inBusyLock(busyLock, () -> {
-            ByteArray partitionBuildIndexKey = partitionBuildIndexKey(indexId, partitionId);
+            ByteArray partitionBuildIndexKey = partitionBuildIndexMetastoreKey(indexId, partitionId);
 
             // Intentionally not waiting for the operation to complete or returning the future because it is not necessary.
             metaStorageManager
@@ -280,77 +263,5 @@ public class IndexAvailabilityController implements ManuallyCloseable {
                         }
                     });
         });
-    }
-
-    private int getPartitionCountFromCatalog(int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = getIndexDescriptorStrict(indexId, catalogVersion);
-
-        CatalogTableDescriptor tableDescriptor = catalogManager.table(indexDescriptor.tableId(), catalogVersion);
-
-        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + catalogVersion;
-
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), catalogVersion);
-
-        assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
-
-        return zoneDescriptor.partitions();
-    }
-
-    private CatalogIndexDescriptor getIndexDescriptorStrict(int indexId, int catalogVersion) {
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexId, catalogVersion);
-
-        assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
-
-        return indexDescriptor;
-    }
-
-    private boolean isRemainingPartitionBuildIndexKeys(int indexId, long metastoreRevision) {
-        try (Cursor<Entry> cursor = metaStorageManager.prefixLocally(partitionBuildIndexKeyPrefix(indexId), metastoreRevision)) {
-            return cursor.stream().anyMatch(not(Entry::tombstone));
-        }
-    }
-
-    private boolean isMetastoreKeyAbsent(ByteArray key, long metastoreRevision) {
-        return metaStorageManager.getLocally(key, metastoreRevision).value() == null;
-    }
-
-    private static ByteArray inProgressBuildIndexKey(int indexId) {
-        return ByteArray.fromString(IN_PROGRESS_BUILD_INDEX_KEY_PREFIX + indexId);
-    }
-
-    private static ByteArray partitionBuildIndexKeyPrefix(int indexId) {
-        return ByteArray.fromString(PARTITION_BUILD_INDEX_KEY_PREFIX + indexId);
-    }
-
-    private static ByteArray partitionBuildIndexKey(int indexId, int partitionId) {
-        return ByteArray.fromString(PARTITION_BUILD_INDEX_KEY_PREFIX + indexId + '.' + partitionId);
-    }
-
-    private static Collection<Operation> putPartitionBuildIndexOperations(int indexId, int partitions) {
-        return IntStream.range(0, partitions)
-                .mapToObj(partitionId -> partitionBuildIndexKey(indexId, partitionId))
-                .map(key -> put(key, BYTE_EMPTY_ARRAY))
-                .collect(toList());
-    }
-
-    private static Collection<Operation> removePartitionBuildIndexOperations(int indexId, int partitions) {
-        return IntStream.range(0, partitions)
-                .mapToObj(partitionId -> partitionBuildIndexKey(indexId, partitionId))
-                .map(Operations::remove)
-                .collect(toList());
-    }
-
-    private static int parseIndexIdFromPartitionBuildIndexKey(String key) {
-        assert key.startsWith(PARTITION_BUILD_INDEX_KEY_PREFIX) : key;
-
-        int indexIdFromIndex = PARTITION_BUILD_INDEX_KEY_PREFIX.length();
-
-        int indexIdToIndex = key.indexOf('.', indexIdFromIndex);
-
-        return Integer.parseInt(key.substring(indexIdFromIndex, indexIdToIndex));
-    }
-
-    private static CatalogCommand buildMakeIndexAvailableCommand(int indexId) {
-        return MakeIndexAvailableCommand.builder().indexId(indexId).build();
     }
 }
