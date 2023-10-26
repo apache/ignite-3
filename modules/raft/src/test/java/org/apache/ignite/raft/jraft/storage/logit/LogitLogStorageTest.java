@@ -20,10 +20,8 @@ package org.apache.ignite.raft.jraft.storage.logit;
 import static org.apache.ignite.raft.jraft.entity.PeerId.emptyPeer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
-import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -45,13 +43,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class LogitLogStorageTest extends BaseLogStorageTest {
     private LogitLogStorageFactory logStorageFactory;
 
-    @WorkDirectory
-    private Path workDir;
 
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory(workDir, testStoreOptions());
+        logStorageFactory = new LogitLogStorageFactory(path, testStoreOptions());
         logStorageFactory.start();
 
         super.setup();

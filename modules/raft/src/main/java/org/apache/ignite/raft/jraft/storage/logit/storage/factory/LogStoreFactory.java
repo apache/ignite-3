@@ -52,7 +52,7 @@ public class LogStoreFactory {
                 return new SegmentFile(raftOptions, filePath, this.storeOptions.getSegmentFileSize());
 
             case FILE_CONFIGURATION:
-                return new SegmentFile(raftOptions, filePath, this.storeOptions.getIndexFileSize());
+                return new SegmentFile(raftOptions, filePath, this.storeOptions.getConfFileSize());
 
             default:
                 throw new AssertionError("Unidentified file type: " + fileType);
