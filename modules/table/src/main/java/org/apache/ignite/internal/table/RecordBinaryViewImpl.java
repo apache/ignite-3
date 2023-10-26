@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -63,10 +66,11 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public Tuple get(@Nullable Transaction tx, Tuple keyRec) {
-        return sync(getAsync(tx, keyRec));
+        try (var ignored = span("RecordBinaryViewImpl.get")) {
+            return sync(getAsync(tx, keyRec));
+        }
     }
 
     /** {@inheritDoc} */
@@ -119,7 +123,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @WithSpan
     @Override
-    public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, Tuple rec) {
+    public CompletableFuture<Void> upsertAsync(@SpanAttribute("tx") @Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
         return withSchemaSync(tx, (schemaVersion) -> {

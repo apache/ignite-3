@@ -90,7 +90,7 @@ public class HeapLockManager implements LockManager {
 
     @WithSpan
     @Override
-    public CompletableFuture<Lock> acquire(@SpanAttribute("id") UUID txId, LockKey lockKey, @SpanAttribute("mode") LockMode lockMode) {
+    public CompletableFuture<Lock> acquire(@SpanAttribute("txId") UUID txId, LockKey lockKey, @SpanAttribute("mode") LockMode lockMode) {
         while (true) {
             LockState state = lockState(lockKey);
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.tracing.OtelSpanManager.rootSpan;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -29,7 +30,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import io.opentelemetry.context.Context;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.Map;
@@ -281,18 +281,20 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        resources.close();
-        igniteTables.removeAssignmentsChangeListener(partitionAssignmentsChangeListener);
+        try (var ignored = rootSpan("ClientInboundMessageHandler.channelInactive")) {
+            resources.close();
+            igniteTables.removeAssignmentsChangeListener(partitionAssignmentsChangeListener);
 
-        super.channelInactive(ctx);
+            super.channelInactive(ctx);
+        }
     }
 
-    @WithSpan
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
-        try {
+        var span = rootSpan("ClientInboundMessageHandler.handshake");
+
+        try (span) {
             writeMagic(ctx);
             var clientVer = ProtocolVersion.unpack(unpacker);
 
@@ -336,6 +338,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
         } catch (Throwable t) {
             LOG.warn("Handshake failed [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + t.getMessage(), t);
+
+            span.recordException(t);
 
             packer.close();
 
@@ -402,14 +406,15 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         metrics.bytesSentAdd(bytes);
     }
 
-    @WithSpan
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx) {
         LOG.warn("Error processing client request [id=" + requestId + ", op=" + opCode
                 + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
 
         var packer = getPacker(ctx.alloc());
 
-        try {
+        var span = rootSpan("ClientInboundMessageHandler.writeError");
+
+        try (span) {
             assert err != null;
 
             packer.packInt(ServerMessageType.RESPONSE);
@@ -427,10 +432,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(ctx, t);
+            span.recordException(t);
         }
     }
 
-    @WithSpan
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         SchemaVersionMismatchException schemaVersionMismatchException = schemaVersionMismatchException(err);
         err = schemaVersionMismatchException == null ? ExceptionUtils.unwrapCause(err) : schemaVersionMismatchException;

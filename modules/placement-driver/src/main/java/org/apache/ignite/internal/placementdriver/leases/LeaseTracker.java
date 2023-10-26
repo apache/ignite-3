@@ -61,6 +61,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
@@ -222,40 +223,45 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
-        return inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
-                .orTimeout(timeout, unit)
-                .exceptionally(e -> {
-                    if (e instanceof TimeoutException) {
-                        throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp, leases.leaseByGroupId().get(groupId), e);
-                    }
+        return OtelSpanManager.asyncSpan("LeaseTracker.awaitPrimaryReplica", span -> {
+            return inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
+                    .orTimeout(timeout, unit)
+                    .exceptionally(e -> {
+                        if (e instanceof TimeoutException) {
+                            throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp,
+                                    leases.leaseByGroupId().get(groupId), e);
+                        }
 
-                    throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
-                }));
+                        throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
+                    }));
+        });
     }
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         HybridTimestamp timestampWithClockSkew = timestamp.addPhysicalTime(CLOCK_SKEW);
 
-        return inBusyLockAsync(busyLock, () -> {
-            Lease lease = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
+        return OtelSpanManager.asyncSpan("LeaseTracker.getPrimaryReplica", span -> {
+            return inBusyLockAsync(busyLock, () -> {
+                Lease lease = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-            if (lease.isAccepted() && lease.getExpirationTime().after(timestampWithClockSkew)) {
-                return completedFuture(lease);
-            }
+                if (lease.isAccepted() && lease.getExpirationTime().after(timestampWithClockSkew)) {
+                    return completedFuture(lease);
+                }
 
-            return msManager
-                    .clusterTime()
-                    .waitFor(timestampWithClockSkew)
-                    .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                        Lease lease0 = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
+                return msManager
+                        .clusterTime()
+                        .waitFor(timestampWithClockSkew)
+                        .thenApply(ignored -> inBusyLock(busyLock, () -> {
+                            Lease lease0 = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-                        if (lease0.isAccepted() && lease0.getExpirationTime().after(timestampWithClockSkew)) {
-                            return lease0;
-                        } else {
-                            return null;
-                        }
-                    }));
+                            if (lease0.isAccepted() && lease0.getExpirationTime().after(timestampWithClockSkew)) {
+                                return lease0;
+                            } else {
+                                return null;
+                            }
+                        }));
+            });
         });
     }
 

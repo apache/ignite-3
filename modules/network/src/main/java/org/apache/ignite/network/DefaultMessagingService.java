@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.network.NettyBootstrapFactory.isInNetworkThread;
 
+import io.opentelemetry.api.trace.Span;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.net.InetAddress;
@@ -249,6 +250,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return new CompletableFuture<NetworkMessage>().orTimeout(10, TimeUnit.MILLISECONDS);
         }
 
+        Span.current().addEvent("Sends an invocation request");
+
         long correlationId = createCorrelationId();
 
         CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<NetworkMessage>()
@@ -344,6 +347,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param obj Incoming message wrapper.
      */
     private void onMessage(InNetworkObject obj) {
+        Span.current().addEvent("Process queued");
+
         if (isInNetworkThread()) {
             inboundExecutor.execute(() -> {
                 try {
@@ -385,6 +390,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender consistent ID
         // without throwing an exception.
         assert message instanceof ScaleCubeMessage || senderConsistentId != null;
+
+        Span.current().addEvent("Invoke handlers");
 
         for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
             networkMessageHandler.onReceived(message, senderConsistentId, correlationId);

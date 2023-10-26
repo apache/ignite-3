@@ -1516,6 +1516,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public RaftGroupService partitionRaftGroupService(int partition) {
         RaftGroupService raftGroupService = raftGroupServiceByPartitionId.get(partition);
@@ -1536,6 +1537,7 @@ public class InternalTableImpl implements InternalTable {
         return txStateStorage;
     }
 
+    @WithSpan
     private void awaitLeaderInitialization() {
         List<CompletableFuture<Void>> futs = new ArrayList<>();
 

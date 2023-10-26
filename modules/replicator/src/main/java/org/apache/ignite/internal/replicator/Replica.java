@@ -40,6 +40,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
@@ -136,7 +137,7 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        return listener.invoke(request, senderId);
+        return OtelSpanManager.asyncSpan("Replica.processRequest", (span) -> listener.invoke(request, senderId));
     }
 
     /**

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -229,6 +230,7 @@ public class StorageUpdateHandler {
         executeBatchGc();
     }
 
+    @WithSpan
     private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {
         // No previously committed value, this action might be an insert. No need to cleanup.
         if (lastCommitTs == null) {
@@ -298,6 +300,7 @@ public class StorageUpdateHandler {
      * @param rowId Row id.
      * @param previousRow Previous write value.
      */
+    @WithSpan
     private void tryRemovePreviousWritesIndex(RowId rowId, BinaryRow previousRow) {
         try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
             if (!cursor.hasNext()) {

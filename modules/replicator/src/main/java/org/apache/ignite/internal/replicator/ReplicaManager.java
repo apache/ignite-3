@@ -61,6 +61,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -180,124 +181,126 @@ public class ReplicaManager implements IgniteComponent {
             return;
         }
 
-        ReplicaRequest request = (ReplicaRequest) message;
+        OtelSpanManager.asyncSpan("ReplicaManager.onReplicaMessageReceived", (span) -> {
+            ReplicaRequest request = (ReplicaRequest) message;
 
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            // Notify the sender that the Replica is created and ready to process requests.
-            if (request instanceof AwaitReplicaRequest) {
-                replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
-                    if (replicaFut == null) {
-                        replicaFut = new CompletableFuture<>();
-                    }
-
-                    if (!replicaFut.isDone()) {
-                        replicaFut.whenComplete((createdReplica, ex) -> {
-                                    if (ex != null) {
-                                        clusterNetSvc.messagingService().respond(
-                                                senderConsistentId,
-                                                REPLICA_MESSAGES_FACTORY
-                                                        .errorReplicaResponse()
-                                                        .throwable(ex)
-                                                        .build(),
-                                                correlationId);
-                                    } else {
-                                        createdReplica.ready().thenAccept(unused ->
-                                                IgniteUtils.inBusyLock(
-                                                        busyLock,
-                                                        () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
-                                                )
-                                        );
-                                    }
-                                }
-                        );
-                    } else {
-                        sendAwaitReplicaResponse(senderConsistentId, correlationId);
-                    }
-                    return replicaFut;
-                });
-
-                return;
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
             }
 
-            CompletableFuture<Replica> replicaFut = replicas.get(request.groupId());
-
-            HybridTimestamp requestTimestamp = extractTimestamp(request);
-
-            if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
-                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
-
-                return;
-            }
-
-            if (requestTimestamp != null) {
-                clock.update(requestTimestamp);
-            }
-
-            boolean sendTimestamp = request instanceof TimestampAware || request instanceof ReadOnlyDirectReplicaRequest;
-
-            // replicaFut is always completed here.
-            Replica replica = replicaFut.join();
-
-            // TODO IGNITE-20296 Id of the node should come along with the message itself.
-            String senderId = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId).id();
-
-            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
-
-            resFut.handle((res, ex) -> {
-                NetworkMessage msg;
-
-                if (ex == null) {
-                    msg = prepareReplicaResponse(sendTimestamp, res.result());
-                } else {
-                    LOG.warn("Failed to process replica request [request={}]", ex, request);
-
-                    msg = prepareReplicaErrorResponse(sendTimestamp, ex);
-                }
-
-                clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
-
-                if (request instanceof PrimaryReplicaRequest) {
-                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                    if (!localNode.name().equals(replica.proposedPrimary())) {
-                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                    } else if (isConnectivityRelatedException(ex)) {
-                        stopLeaseProlongation(request.groupId(), null);
-                    }
-                }
-
-                if (res.replicationFuture() != null) {
-                    assert request instanceof PrimaryReplicaRequest;
-
-                    res.replicationFuture().handle((res0, ex0) -> {
-                        NetworkMessage msg0;
-
-                        LOG.debug("Sending delayed response for replica request [request={}]", request);
-
-                        if (ex == null) {
-                            msg0 = prepareReplicaResponse(sendTimestamp, res0);
-                        } else {
-                            LOG.warn("Failed to process delayed response [request={}]", ex, request);
-
-                            msg0 = prepareReplicaErrorResponse(sendTimestamp, ex);
+            try {
+                // Notify the sender that the Replica is created and ready to process requests.
+                if (request instanceof AwaitReplicaRequest) {
+                    replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
+                        if (replicaFut == null) {
+                            replicaFut = new CompletableFuture<>();
                         }
 
-                        // Using strong send here is important to avoid a reordering with a normal response.
-                        clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
-
-                        return null;
+                        if (!replicaFut.isDone()) {
+                            replicaFut.whenComplete((createdReplica, ex) -> {
+                                        if (ex != null) {
+                                            clusterNetSvc.messagingService().respond(
+                                                    senderConsistentId,
+                                                    REPLICA_MESSAGES_FACTORY
+                                                            .errorReplicaResponse()
+                                                            .throwable(ex)
+                                                            .build(),
+                                                    correlationId);
+                                        } else {
+                                            createdReplica.ready().thenAccept(unused ->
+                                                    IgniteUtils.inBusyLock(
+                                                            busyLock,
+                                                            () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
+                                                    )
+                                            );
+                                        }
+                                    }
+                            );
+                        } else {
+                            sendAwaitReplicaResponse(senderConsistentId, correlationId);
+                        }
+                        return replicaFut;
                     });
+
+                    return null;
                 }
 
-                return null;
-            });
-        } finally {
-            busyLock.leaveBusy();
-        }
+                CompletableFuture<Replica> replicaFut = replicas.get(request.groupId());
+
+                HybridTimestamp requestTimestamp = extractTimestamp(request);
+
+                if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
+                    sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
+
+                    return null;
+                }
+
+                if (requestTimestamp != null) {
+                    clock.update(requestTimestamp);
+                }
+
+                boolean sendTimestamp = request instanceof TimestampAware || request instanceof ReadOnlyDirectReplicaRequest;
+
+                // replicaFut is always completed here.
+                Replica replica = replicaFut.join();
+
+                // TODO IGNITE-20296 Id of the node should come along with the message itself.
+                String senderId = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId).id();
+
+                CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
+
+                return resFut.handle((res, ex) -> {
+                    NetworkMessage msg;
+
+                    if (ex == null) {
+                        msg = prepareReplicaResponse(sendTimestamp, res.result());
+                    } else {
+                        LOG.warn("Failed to process replica request [request={}]", ex, request);
+
+                        msg = prepareReplicaErrorResponse(sendTimestamp, ex);
+                    }
+
+                    clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+
+                    if (request instanceof PrimaryReplicaRequest) {
+                        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
+                        if (!localNode.name().equals(replica.proposedPrimary())) {
+                            stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
+                        } else if (isConnectivityRelatedException(ex)) {
+                            stopLeaseProlongation(request.groupId(), null);
+                        }
+                    }
+
+                    if (res.replicationFuture() != null) {
+                        assert request instanceof PrimaryReplicaRequest;
+
+                        res.replicationFuture().handle((res0, ex0) -> {
+                            NetworkMessage msg0;
+
+                            LOG.debug("Sending delayed response for replica request [request={}]", request);
+
+                            if (ex == null) {
+                                msg0 = prepareReplicaResponse(sendTimestamp, res0);
+                            } else {
+                                LOG.warn("Failed to process delayed response [request={}]", ex, request);
+
+                                msg0 = prepareReplicaErrorResponse(sendTimestamp, ex);
+                            }
+
+                            // Using strong send here is important to avoid a reordering with a normal response.
+                            clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+
+                            return null;
+                        });
+                    }
+
+                    return null;
+                });
+            } finally {
+                busyLock.leaveBusy();
+            }
+        });
     }
 
     /**

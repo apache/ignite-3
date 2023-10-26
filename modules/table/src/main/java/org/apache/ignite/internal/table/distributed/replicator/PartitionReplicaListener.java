@@ -139,6 +139,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -400,75 +401,77 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processOperationRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
-        if (request instanceof ReadWriteSingleRowReplicaRequest) {
-            var req = (ReadWriteSingleRowReplicaRequest) request;
+        return OtelSpanManager.asyncSpan("PartitionReplicaListener.processOperationRequest", (span) -> {
+            if (request instanceof ReadWriteSingleRowReplicaRequest) {
+                var req = (ReadWriteSingleRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req, senderId));
-        } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
-            var req = (ReadWriteSingleRowPkReplicaRequest) request;
+                return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req, senderId));
+            } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
+                var req = (ReadWriteSingleRowPkReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req, senderId));
-        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-            var req = (ReadWriteMultiRowReplicaRequest) request;
+                return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req, senderId));
+            } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+                var req = (ReadWriteMultiRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req, senderId));
-        } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
-            var req = (ReadWriteMultiRowPkReplicaRequest) request;
+                return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req, senderId));
+            } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
+                var req = (ReadWriteMultiRowPkReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req, senderId));
-        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
-            var req = (ReadWriteSwapRowReplicaRequest) request;
+                return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req, senderId));
+            } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
+                var req = (ReadWriteSwapRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processTwoEntriesAction(req, senderId));
-        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
-            var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
+                return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processTwoEntriesAction(req, senderId));
+            } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
+                var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
-            // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
-                    .thenCompose(rows -> {
-                        if (allElementsAreNull(rows)) {
-                            return completedFuture(rows);
-                        } else {
-                            return validateAtTimestamp(req.transactionId())
-                                    .thenApply(ignored -> rows);
-                        }
-                    })
-                    .handle((rows, err) -> {
-                        if (req.full() && (err != null || rows.size() < req.batchSize())) {
-                            releaseTxLocks(req.transactionId());
-                        }
+                // Implicit RW scan can be committed locally on a last batch or error.
+                return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
+                        .thenCompose(rows -> {
+                            if (allElementsAreNull(rows)) {
+                                return completedFuture(rows);
+                            } else {
+                                return validateAtTimestamp(req.transactionId())
+                                        .thenApply(ignored -> rows);
+                            }
+                        })
+                        .handle((rows, err) -> {
+                            if (req.full() && (err != null || rows.size() < req.batchSize())) {
+                                releaseTxLocks(req.transactionId());
+                            }
 
-                        if (err != null) {
-                            ExceptionUtils.sneakyThrow(err);
-                        }
+                            if (err != null) {
+                                ExceptionUtils.sneakyThrow(err);
+                            }
 
-                        return rows;
-                    });
-        } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
-            processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
+                            return rows;
+                        });
+            } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
+                processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
-            return completedFuture(null);
-        } else if (request instanceof TxFinishReplicaRequest) {
-            return processTxFinishAction((TxFinishReplicaRequest) request, senderId);
-        } else if (request instanceof TxCleanupReplicaRequest) {
-            return processTxCleanupAction((TxCleanupReplicaRequest) request);
-        } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
-            return processReadOnlySingleEntryAction((ReadOnlySingleRowPkReplicaRequest) request, isPrimary);
-        } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
-            return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, isPrimary);
-        } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
-            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
-        } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
-        } else if (request instanceof BuildIndexReplicaRequest) {
-            return raftClient.run(toBuildIndexCommand((BuildIndexReplicaRequest) request));
-        } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
-            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request);
-        } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
-            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request);
-        } else {
-            throw new UnsupportedReplicaRequestException(request.getClass());
-        }
+                return completedFuture(null);
+            } else if (request instanceof TxFinishReplicaRequest) {
+                return processTxFinishAction((TxFinishReplicaRequest) request, senderId);
+            } else if (request instanceof TxCleanupReplicaRequest) {
+                return processTxCleanupAction((TxCleanupReplicaRequest) request);
+            } else if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
+                return processReadOnlySingleEntryAction((ReadOnlySingleRowPkReplicaRequest) request, isPrimary);
+            } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
+                return processReadOnlyMultiEntryAction((ReadOnlyMultiRowPkReplicaRequest) request, isPrimary);
+            } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
+                return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
+            } else if (request instanceof ReplicaSafeTimeSyncRequest) {
+                return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
+            } else if (request instanceof BuildIndexReplicaRequest) {
+                return raftClient.run(toBuildIndexCommand((BuildIndexReplicaRequest) request));
+            } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
+                return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request);
+            } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
+                return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request);
+            } else {
+                throw new UnsupportedReplicaRequestException(request.getClass());
+            }
+        });
     }
 
     /**
@@ -2053,7 +2056,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
     @WithSpan
-    private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(UpdateCommand cmd) {
+    private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(@SpanAttribute("cmd") UpdateCommand cmd) {
         if (!cmd.full()) {
             CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
                 // This check guaranties the result will never be lost. Currently always null.
@@ -2363,6 +2366,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Listener response.
      */
+    @WithSpan
     private CompletableFuture<ReplicaResult> processSingleEntryAction(ReadWriteSingleRowPkReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
         BinaryTuple primaryKey = resolvePk(request.primaryKey());
@@ -2655,63 +2659,65 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        Long expectedTerm;
+        return OtelSpanManager.asyncSpan("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
+            Long expectedTerm;
 
-        if (request instanceof ReadWriteReplicaRequest) {
-            expectedTerm = ((ReadWriteReplicaRequest) request).term();
+            if (request instanceof ReadWriteReplicaRequest) {
+                expectedTerm = ((ReadWriteReplicaRequest) request).term();
 
-            assert expectedTerm != null;
-        } else if (request instanceof TxFinishReplicaRequest) {
-            expectedTerm = ((TxFinishReplicaRequest) request).term();
+                assert expectedTerm != null;
+            } else if (request instanceof TxFinishReplicaRequest) {
+                expectedTerm = ((TxFinishReplicaRequest) request).term();
 
-            assert expectedTerm != null;
-        } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            expectedTerm = ((ReadOnlyDirectReplicaRequest) request).enlistmentConsistencyToken();
+                assert expectedTerm != null;
+            } else if (request instanceof ReadOnlyDirectReplicaRequest) {
+                expectedTerm = ((ReadOnlyDirectReplicaRequest) request).enlistmentConsistencyToken();
 
-            assert expectedTerm != null;
-        } else {
-            expectedTerm = null;
-        }
+                assert expectedTerm != null;
+            } else {
+                expectedTerm = null;
+            }
 
-        HybridTimestamp now = hybridClock.now();
+            HybridTimestamp now = hybridClock.now();
 
-        if (expectedTerm != null) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, now)
-                    .thenCompose(primaryReplica -> {
-                                if (primaryReplica == null) {
-                                    return failedFuture(new PrimaryReplicaMissException(localNode.name(), null));
-                                }
-
-                                long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
-
-                                if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
-                                    if (primaryReplica.getExpirationTime().before(now)) {
-                                        // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
-                                        return failedFuture(
-                                                new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
-                                    } else {
-                                        return completedFuture(null);
+            if (expectedTerm != null) {
+                return placementDriver.getPrimaryReplica(replicationGroupId, now)
+                        .thenCompose(primaryReplica -> {
+                                    if (primaryReplica == null) {
+                                        return failedFuture(new PrimaryReplicaMissException(localNode.name(), null));
                                     }
-                                } else {
-                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
+
+                                    long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
+
+                                    if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
+                                        if (primaryReplica.getExpirationTime().before(now)) {
+                                            // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
+                                            return failedFuture(
+                                                    new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
+                                        } else {
+                                            return completedFuture(null);
+                                        }
+                                    } else {
+                                        return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
+                                    }
                                 }
+                        );
+            } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
+                return placementDriver.getPrimaryReplica(replicationGroupId, now)
+                        .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
+            } else if (request instanceof BuildIndexReplicaRequest) {
+                return placementDriver.awaitPrimaryReplica(replicationGroupId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+                        .thenCompose(replicaMeta -> {
+                            if (isLocalPeer(replicaMeta.getLeaseholder())) {
+                                return completedFuture(null);
+                            } else {
+                                return failedFuture(new PrimaryReplicaMissException(localNode.name(), replicaMeta.getLeaseholder()));
                             }
-                    );
-        } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, now)
-                    .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
-        } else if (request instanceof BuildIndexReplicaRequest) {
-            return placementDriver.awaitPrimaryReplica(replicationGroupId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
-                    .thenCompose(replicaMeta -> {
-                        if (isLocalPeer(replicaMeta.getLeaseholder())) {
-                            return completedFuture(null);
-                        } else {
-                            return failedFuture(new PrimaryReplicaMissException(localNode.name(), replicaMeta.getLeaseholder()));
-                        }
-                    });
-        } else {
-            return completedFuture(null);
-        }
+                        });
+            } else {
+                return completedFuture(null);
+            }
+        });
     }
 
     /**

@@ -1195,6 +1195,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableDescriptor Catalog table descriptor.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
+    @WithSpan
     private CompletableFuture<?> createTableLocally(long causalityToken, int catalogVersion, CatalogTableDescriptor tableDescriptor) {
         return inBusyLockAsync(busyLock, () -> {
             int tableId = tableDescriptor.id();
@@ -2110,6 +2111,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
+    @WithSpan
     private CompletableFuture<Void> getOrCreatePartitionStorages(TableImpl table, PartitionSet partitions) {
         InternalTable internalTable = table.internalTable();
 

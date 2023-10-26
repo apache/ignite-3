@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
@@ -61,6 +62,8 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
+import org.apache.ignite.internal.tracing.Span;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -216,13 +219,15 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public CompletableFuture<Void> refreshLeader() {
-        Function<Peer, GetLeaderRequest> requestFactory = targetPeer -> factory.getLeaderRequest()
-                .peerId(peerId(targetPeer))
-                .groupId(groupId)
-                .build();
+        return OtelSpanManager.asyncSpan("RaftGroupServiceImpl.refreshLeader", (span) -> {
+            Function<Peer, GetLeaderRequest> requestFactory = targetPeer -> factory.getLeaderRequest()
+                    .peerId(peerId(targetPeer))
+                    .groupId(groupId)
+                    .build();
 
-        return this.<GetLeaderResponse>sendWithRetry(randomNode(), requestFactory)
-                .thenAccept(resp -> this.leader = parsePeer(resp.leaderId()));
+            return this.<GetLeaderResponse>sendWithRetry(randomNode(), requestFactory)
+                    .thenAccept(resp -> this.leader = parsePeer(resp.leaderId()));
+        });
     }
 
     @Override
@@ -441,20 +446,22 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
-        Peer leader = this.leader;
+        return asyncSpan("RaftGroupServiceImpl.run", (span) -> {
+            Peer leader = this.leader;
 
-        if (leader == null) {
-            return refreshLeader().thenCompose(res -> run(cmd));
-        }
+            if (leader == null) {
+                return refreshLeader().thenCompose(res -> run(cmd));
+            }
 
-        Function<Peer, ActionRequest> requestFactory = targetPeer -> factory.actionRequest()
-                .command(cmd)
-                .groupId(groupId)
-                .readOnlySafe(true)
-                .build();
+            Function<Peer, ActionRequest> requestFactory = targetPeer -> factory.actionRequest()
+                    .command(cmd)
+                    .groupId(groupId)
+                    .readOnlySafe(true)
+                    .build();
 
-        return this.<ActionResponse>sendWithRetry(leader, requestFactory)
-                .thenApply(resp -> (R) resp.result());
+            return this.<ActionResponse>sendWithRetry(leader, requestFactory)
+                    .thenApply(resp -> (R) resp.result());
+        });
     }
 
     // TODO: IGNITE-18636 Shutdown raft services on components' stop.
@@ -504,46 +511,52 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private <R extends NetworkMessage> void sendWithRetry(
             Peer peer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, CompletableFuture<R> fut
     ) {
-        if (!busyLock.enterBusy()) {
-            fut.cancel(true);
+        try (Span span = asyncSpan("RaftGroupServiceImpl.sendWithRetry")) {
+            fut.whenComplete(span::whenComplete);
 
-            return;
-        }
-
-        try {
-            if (currentTimeMillis() >= stopTime) {
-                fut.completeExceptionally(new TimeoutException());
+            if (!busyLock.enterBusy()) {
+                fut.cancel(true);
 
                 return;
             }
 
-            NetworkMessage request = requestFactory.apply(peer);
+            try {
+                if (currentTimeMillis() >= stopTime) {
+                    fut.completeExceptionally(new TimeoutException());
 
-            resolvePeer(peer)
-                    .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
-                    .whenComplete((resp, err) -> {
-                        if (LOG.isTraceEnabled()) {
-                            LOG.trace("sendWithRetry resp={} from={} to={} err={}",
-                                    S.toString(resp),
-                                    cluster.topologyService().localMember().address(),
-                                    peer.consistentId(),
-                                    err == null ? null : err.getMessage());
-                        }
+                    return;
+                }
 
-                        if (err != null) {
-                            handleThrowable(err, peer, request, requestFactory, stopTime, fut);
-                        } else if (resp instanceof ErrorResponse) {
-                            handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut);
-                        } else if (resp instanceof SMErrorResponse) {
-                            handleSmErrorResponse((SMErrorResponse) resp, fut);
-                        } else {
-                            leader = peer; // The OK response was received from a leader.
+                NetworkMessage request = requestFactory.apply(peer);
 
-                            fut.complete((R) resp);
-                        }
-                    });
-        } finally {
-            busyLock.leaveBusy();
+                span.addAttribute("req", request::toString);
+
+                resolvePeer(peer)
+                        .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
+                        .whenComplete((resp, err) -> {
+                            if (LOG.isTraceEnabled()) {
+                                LOG.trace("sendWithRetry resp={} from={} to={} err={}",
+                                        S.toString(resp),
+                                        cluster.topologyService().localMember().address(),
+                                        peer.consistentId(),
+                                        err == null ? null : err.getMessage());
+                            }
+
+                            if (err != null) {
+                                handleThrowable(err, peer, request, requestFactory, stopTime, fut);
+                            } else if (resp instanceof ErrorResponse) {
+                                handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut);
+                            } else if (resp instanceof SMErrorResponse) {
+                                handleSmErrorResponse((SMErrorResponse) resp, fut);
+                            } else {
+                                leader = peer; // The OK response was received from a leader.
+
+                                fut.complete((R) resp);
+                            }
+                        });
+            } finally {
+                busyLock.leaveBusy();
+            }
         }
     }
 

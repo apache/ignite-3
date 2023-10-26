@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -132,6 +133,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)
      */
+    @WithSpan
     @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
@@ -142,6 +144,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @param row Row (null to remove existing)
      * @param commitTs Commit timestamp.
      */
+    @WithSpan
     void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs);
 
     /**

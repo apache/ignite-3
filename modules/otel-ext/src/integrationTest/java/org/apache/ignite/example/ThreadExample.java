@@ -1,29 +1,34 @@
 package org.apache.ignite.example;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.rootSpan;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
 
-import io.opentelemetry.context.Context;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Tests for Thread.
+ * Tests for propagating context between threads.
  */
 public class ThreadExample {
-    @WithSpan
-    private static CompletableFuture<Void> process(Integer delay) {
-        try {
-            SECONDS.sleep(1L);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+    private static CompletableFuture<Integer> process(Integer delay) {
+        try (var ignored = span("process")) {
+            try {
+                SECONDS.sleep(delay);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
 
-        return CompletableFuture.completedFuture(null);
+                throw new RuntimeException(e);
+            }
+
+            return completedFuture(10);
+        }
     }
 
-    @WithSpan
     private static void complete(CompletableFuture<Integer> f) {
-        f.complete(10);
+        try (var ignored = span("complete")) {
+            f.complete(1);
+        }
     }
 
     /**
@@ -31,11 +36,20 @@ public class ThreadExample {
      *
      * @param args The command line arguments.
      */
-    @WithSpan
-    public static void main(String[] args) {
-        var f = new CompletableFuture<Integer>();
+    public static void main(String[] args) throws Exception {
+        try (var ignored = span("main1")) {
+            System.out.println(ignored);
+        }
 
-        new Thread(() -> f.thenCompose(ThreadExample::process)).start();
-        new Thread(Context.current().wrap(() -> complete(f))).start();
+        try (var rootSpan = rootSpan("main")) {
+            try (var ignored = span("main1")) {
+                System.out.println(ignored);
+            }
+
+            var f = new CompletableFuture<Integer>();
+
+            new Thread(() -> f.thenCompose(ThreadExample::process)).start();
+            new Thread(rootSpan.wrap(() -> complete(f))).start();
+        }
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.tracing.Span;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
@@ -193,7 +195,12 @@ public class ReplicaService {
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
-        return sendToReplica(node.name(), request);
+        try (Span span = asyncSpan("ReplicaService.invoke")) {
+            span.addAttribute("req", request::toString);
+
+            return this.<R>sendToReplica(node.name(), request)
+                .whenComplete(span::whenComplete);
+        }
     }
 
     /**

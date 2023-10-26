@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -157,6 +158,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param timestamp Timestamp.
      * @return Read result that corresponds to the key.
      */
+    @WithSpan
     ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
@@ -176,6 +178,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
+    @WithSpan
     @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
@@ -186,6 +189,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @return Previous uncommitted row version associated with the row id.
      * @throws StorageException If failed to write data to the storage.
      */
+    @WithSpan
     @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
     /**
@@ -195,6 +199,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
+    @WithSpan
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
@@ -209,6 +214,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
+    @WithSpan
     void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
 
     /**
@@ -220,6 +226,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param rowId Row id.
      * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
      */
+    @WithSpan
     Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
 
     /**
