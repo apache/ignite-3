@@ -318,7 +318,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException {
+    public CompletableFuture<Void> execute(List<CatalogCommand> commands) {
         if (nullOrEmpty(commands)) {
             return completedFuture(null);
         }
