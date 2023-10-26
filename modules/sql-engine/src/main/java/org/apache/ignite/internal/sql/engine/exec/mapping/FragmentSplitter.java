@@ -28,7 +28,6 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
-import org.apache.ignite.internal.sql.engine.prepare.IdGenerator;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -50,13 +49,16 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 class FragmentSplitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
+    private final IdGenerator idGenerator;
+
     private RelNode cutPoint;
 
     private FragmentProto curr;
 
     private boolean correlated = false;
 
-    FragmentSplitter(RelNode cutPoint) {
+    FragmentSplitter(IdGenerator idGenerator, RelNode cutPoint) {
+        this.idGenerator = idGenerator;
         this.cutPoint = cutPoint;
     }
 
@@ -64,7 +66,7 @@ class FragmentSplitter extends IgniteRelShuttle {
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
 
-        stack.push(new FragmentProto(IdGenerator.nextId(), fragment.correlated(), fragment.root()));
+        stack.push(new FragmentProto(idGenerator.nextId(), fragment.correlated(), fragment.root()));
 
         while (!stack.isEmpty()) {
             curr = stack.pop();
@@ -197,7 +199,7 @@ class FragmentSplitter extends IgniteRelShuttle {
         RelNode input = rel instanceof IgniteTrimExchange ? rel.getInput(0) : rel;
 
         long targetFragmentId = curr.id;
-        long sourceFragmentId = IdGenerator.nextId();
+        long sourceFragmentId = idGenerator.nextId();
         long exchangeId = sourceFragmentId;
 
         IgniteReceiver receiver = new IgniteReceiver(cluster, traits, rowType, exchangeId, sourceFragmentId);

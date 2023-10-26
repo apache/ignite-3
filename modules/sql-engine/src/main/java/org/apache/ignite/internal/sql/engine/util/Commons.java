@@ -84,6 +84,8 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
+import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
+import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
@@ -273,12 +275,12 @@ public final class Commons {
      * Standalone type factory.
      */
     public static IgniteTypeFactory typeFactory() {
-        return typeFactory(cluster());
+        return typeFactory(emptyCluster());
     }
 
     /** Row-expression builder. **/
     public static RexBuilder rexBuilder() {
-        return cluster().getRexBuilder();
+        return emptyCluster().getRexBuilder();
     }
 
     /**
@@ -750,8 +752,33 @@ public final class Commons {
         };
     }
 
-    public static RelOptCluster cluster() {
+    /**
+     * Returns cluster that can be used only as a stub to keep query tree in the cache.
+     *
+     * <p>Any attempt to invoke operation involving cluster on a tree attached to this cluster
+     * will result in an error.
+     *
+     * @return A stub of a cluster.
+     */
+    public static RelOptCluster emptyCluster() {
         return CLUSTER;
+    }
+
+    /**
+     * Returns cluster that may be used to acquire metadata from a relation tree, but should not
+     * be used for planning.
+     *
+     * @return A new cluster.
+     */
+    public static RelOptCluster cluster() {
+        RelOptCluster emptyCluster = emptyCluster();
+
+        RelOptCluster cluster = RelOptCluster.create(emptyCluster.getPlanner(), emptyCluster.getRexBuilder());
+
+        cluster.setMetadataProvider(IgniteMetadata.METADATA_PROVIDER);
+        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+
+        return cluster;
     }
 
     /**

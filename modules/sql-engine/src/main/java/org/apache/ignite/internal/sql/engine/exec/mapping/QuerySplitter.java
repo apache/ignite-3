@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -24,6 +24,8 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -37,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -45,9 +48,17 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public class QuerySplitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
 
+    private final RelOptCluster cluster;
+    private final IdGenerator idGenerator;
+
     private FragmentProto curr;
 
     private boolean correlated = false;
+
+    public QuerySplitter(IdGenerator idGenerator, RelOptCluster cluster) {
+        this.idGenerator = idGenerator;
+        this.cluster = cluster;
+    }
 
     /**
      * Go.
@@ -56,7 +67,7 @@ public class QuerySplitter extends IgniteRelShuttle {
     public List<Fragment> go(IgniteRel root) {
         ArrayList<Fragment> res = new ArrayList<>();
 
-        stack.push(new FragmentProto(IdGenerator.nextId(), false, root));
+        stack.push(new FragmentProto(idGenerator.nextId(), false, root));
 
         while (!stack.isEmpty()) {
             curr = stack.pop();
@@ -68,7 +79,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             //       V                       V
             //   IgniteSort#285            IgniteSort#285
             //   IgniteTableScan#180       IgniteTableScan#180
-            curr.root = Cloner.clone(curr.root);
+            curr.root = Cloner.clone(curr.root, cluster);
 
             correlated = curr.correlated;
 
@@ -110,7 +121,7 @@ public class QuerySplitter extends IgniteRelShuttle {
         RelOptCluster cluster = rel.getCluster();
 
         long targetFragmentId = curr.id;
-        long sourceFragmentId = IdGenerator.nextId();
+        long sourceFragmentId = idGenerator.nextId();
         long exchangeId = sourceFragmentId;
 
         IgniteReceiver receiver = new IgniteReceiver(cluster, rel.getTraitSet(), rel.getRowType(), exchangeId, sourceFragmentId);
@@ -126,7 +137,7 @@ public class QuerySplitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTrimExchange rel) {
-        return ((SourceAwareIgniteRel) processNode(rel)).clone(IdGenerator.nextId());
+        return ((SourceAwareIgniteRel) processNode(rel)).clone(idGenerator.nextId());
     }
 
     /** {@inheritDoc} */
@@ -140,7 +151,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.tables.add(table);
         }
 
-        return rel.clone(IdGenerator.nextId());
+        return rel.clone(idGenerator.nextId());
     }
 
     /** {@inheritDoc} */
@@ -154,7 +165,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.tables.add(table);
         }
 
-        return rel.clone(IdGenerator.nextId());
+        return rel.clone(idGenerator.nextId());
     }
 
     /** {@inheritDoc} */
@@ -182,7 +193,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.systemViews.add(view);
         }
 
-        return rel.clone(IdGenerator.nextId());
+        return rel.clone(idGenerator.nextId());
     }
 
     private static class FragmentProto {

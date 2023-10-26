@@ -61,7 +61,7 @@ public class MapReduceAggregatesTest {
                 .add("f2", SqlTypeName.INTEGER)
                 .build();
 
-        RelOptCluster cluster = Commons.cluster();
+        RelOptCluster cluster = Commons.emptyCluster();
         RelTraitSet traitSet = RelTraitSet.createEmpty();
 
         // Input to aggregate

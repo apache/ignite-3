@@ -34,7 +34,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import static org.apache.ignite.internal.sql.engine.SqlQueryType.QUERY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -47,11 +46,13 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -59,7 +60,35 @@ import org.mockito.Mockito;
 /**
  * Test class to verify {@link MappingServiceImpl}.
  */
+@SuppressWarnings("ThrowFromFinallyBlock")
 public class MappingServiceImplTest extends BaseIgniteAbstractTest {
+    private static final MultiStepPlan PLAN;
+
+    static {
+        //@formatter:off
+        TestCluster cluster = TestBuilders.cluster()
+                .nodes("N1")
+                .addTable()
+                        .name("T1")
+                        .addKeyColumn("ID", NativeTypes.INT32)
+                        .addColumn("VAL", NativeTypes.INT32)
+                        .end()
+                .build();
+        //@formatter:on
+
+        cluster.start();
+
+        try {
+            PLAN = (MultiStepPlan) cluster.node("N1").prepare("SELECT * FROM t1");
+        } finally {
+            try {
+                cluster.stop();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     @Test
     public void serviceInitializationTest() {
         String localNodeName = "NODE0";
@@ -67,8 +96,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         MappingServiceImpl mappingService = createMappingService(localNodeName, List.of(localNodeName));
         mappingService.onNodeJoined(Mockito.mock(LogicalNode.class), new LogicalTopologySnapshot(1, logicalNodes(localNodeName)));
 
-        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService
-                .map(new MultiStepPlan(QUERY, List.of(), new ResultSetMetadataImpl(List.of())));
+        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN);
 
         assertThat(mappingFuture, willSucceedFast());
     }
@@ -80,8 +108,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         MappingServiceImpl mappingService = createMappingService(localNodeName, nodeNames);
 
-        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService
-                .map(new MultiStepPlan(QUERY, List.of(), new ResultSetMetadataImpl(List.of())));
+        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN);
 
         // Mapping should wait for service initialization.
         assertFalse(mappingFuture.isDone());
@@ -94,7 +121,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         mappingService.onTopologyLeap(new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
 
         assertThat(mappingFuture, willSucceedFast());
-        assertThat(mappingService.map(new MultiStepPlan(QUERY, List.of(), new ResultSetMetadataImpl(List.of()))), willSucceedFast());
+        assertThat(mappingService.map(PLAN), willSucceedFast());
     }
 
     @Test
@@ -104,8 +131,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
 
         MappingServiceImpl mappingService = createMappingService(localNodeName, nodeNames);
 
-        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService
-                .map(new MultiStepPlan(QUERY, List.of(), new ResultSetMetadataImpl(List.of())));
+        CompletableFuture<List<MappedFragment>> mappingFuture = mappingService.map(PLAN);
 
         // Mapping should wait for service initialization.
         assertFalse(mappingFuture.isDone());
@@ -121,7 +147,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 new LogicalTopologySnapshot(2, logicalNodes("NODE", "NODE1", "NODE2")));
 
         assertThat(mappingFuture, willSucceedFast());
-        assertThat(mappingService.map(new MultiStepPlan(QUERY, List.of(), new ResultSetMetadataImpl(List.of()))), willSucceedFast());
+        assertThat(mappingService.map(PLAN), willSucceedFast());
     }
 
     private static List<LogicalNode> logicalNodes(String... nodeNames) {

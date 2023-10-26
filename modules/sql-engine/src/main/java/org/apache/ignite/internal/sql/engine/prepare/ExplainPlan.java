@@ -34,13 +34,13 @@ public class  ExplainPlan implements QueryPlan {
             new ColumnMetadataImpl("PLAN", ColumnType.STRING,
                     ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, true, null)));
 
-    private final String plan;
+    private final MultiStepPlan plan;
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExplainPlan(String plan) {
+    ExplainPlan(MultiStepPlan plan) {
         this.plan = plan;
     }
 
@@ -50,16 +50,11 @@ public class  ExplainPlan implements QueryPlan {
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
     @Override public ResultSetMetadata metadata() {
         return EXPLAIN_METADATA;
     }
 
-    public String plan() {
+    public MultiStepPlan plan() {
         return plan;
     }
 }

@@ -102,8 +102,6 @@ public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase i
     /** {@inheritDoc} */
     @Override
     public RelCollation collation() {
-        assert collation.equals(super.collation());
-
         return collation;
     }
 

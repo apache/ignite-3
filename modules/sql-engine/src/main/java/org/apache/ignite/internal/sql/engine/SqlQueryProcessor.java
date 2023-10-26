@@ -501,7 +501,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
         SqlQueryType queryType = plan.type();
-        assert queryType != null : "Expected a full plan but got a fragment: " + plan;
 
         numberOfOpenCursors.incrementAndGet();
 

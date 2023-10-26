@@ -31,13 +31,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
@@ -51,6 +50,8 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverte
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -226,26 +228,46 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareExplain(ParsedResult parsedResult, PlanningContext ctx) {
-        return CompletableFuture.supplyAsync(() -> {
-            IgnitePlanner planner = ctx.planner();
+        SqlNode parsedTree = parsedResult.parsedTree();
 
-            SqlNode sqlNode = parsedResult.parsedTree();
+        assert single(parsedTree);
+        assert parsedTree instanceof SqlExplain : parsedTree.getClass().getCanonicalName();
 
-            assert single(sqlNode);
+        SqlNode explicandum = ((SqlExplain) parsedTree).getExplicandum();
 
-            // Validate
-            // We extract query subtree inside the validator.
-            SqlNode explainNode = planner.validate(sqlNode);
-            // Extract validated query.
-            SqlNode validNode = ((SqlExplain) explainNode).getExplicandum();
+        SqlQueryType queryType = Commons.getQueryType(explicandum);
 
-            // Convert to Relational operators graph
-            IgniteRel igniteRel = optimize(validNode, planner);
+        if (queryType != SqlQueryType.QUERY && queryType != SqlQueryType.DML) {
+            return CompletableFuture.failedFuture(new SqlException(
+                    Sql.STMT_PARSE_ERR, "Failed to parse query: Incorrect syntax near the keyword " + queryType
+            ));
+        }
 
-            String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
+        ParsedResult newParsedResult = new ParsedResultImpl(
+                queryType,
+                parsedResult.originalQuery(),
+                explicandum.toString(),
+                parsedResult.dynamicParamsCount(),
+                explicandum
+        );
 
-            return new ExplainPlan(plan);
-        }, planningPool);
+        CompletableFuture<QueryPlan> result;
+        switch (queryType) {
+            case QUERY:
+                result = prepareQuery(newParsedResult, ctx);
+                break;
+            case DML:
+                result = prepareDml(newParsedResult, ctx);
+                break;
+            default:
+                throw new AssertionError("should not get here");
+        }
+
+        return result.thenApply(plan -> {
+            assert plan instanceof MultiStepPlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
+
+            return new ExplainPlan((MultiStepPlan) plan);
+        });
     }
 
     private static boolean single(SqlNode sqlNode) {
@@ -269,14 +291,16 @@ public class PrepareServiceImpl implements PrepareService {
 
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
-            // Split query plan to query fragments.
-            List<Fragment> fragments = new QuerySplitter().go(igniteRel);
+            // cluster keeps a lot of cached stuff that won't be used anymore.
+            // In order let GC collect that, let's reattach tree to an empty cluster
+            // before storing tree in plan cache
+            IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
-            return new MultiStepPlan(SqlQueryType.QUERY, fragments,
+            return new MultiStepPlan(SqlQueryType.QUERY, clonedTree,
                     resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
         }, planningPool));
 
-        return planFut.thenApply(QueryPlan::copy);
+        return planFut.thenApply(Function.identity());
     }
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
@@ -295,13 +319,15 @@ public class PrepareServiceImpl implements PrepareService {
             // Convert to Relational operators graph
             IgniteRel igniteRel = optimize(validatedNode, planner);
 
-            // Split query plan to query fragments.
-            List<Fragment> fragments = new QuerySplitter().go(igniteRel);
+            // cluster keeps a lot of cached stuff that won't be used anymore.
+            // In order let GC collect that, let's reattach tree to an empty cluster
+            // before storing tree in plan cache
+            IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
-            return new MultiStepPlan(SqlQueryType.DML, fragments, DML_METADATA);
+            return new MultiStepPlan(SqlQueryType.DML, clonedTree, DML_METADATA);
         }, planningPool));
 
-        return planFut.thenApply(QueryPlan::copy);
+        return planFut.thenApply(Function.identity());
     }
 
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
@@ -315,7 +341,7 @@ public class PrepareServiceImpl implements PrepareService {
         return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
-    private ResultSetMetadata resultSetMetadata(
+    private static ResultSetMetadata resultSetMetadata(
             RelDataType rowType,
             @Nullable List<List<String>> origins,
             List<String> aliases
@@ -343,5 +369,57 @@ public class PrepareServiceImpl implements PrepareService {
                     return new ResultSetMetadataImpl(fieldsMeta);
                 }
         );
+    }
+
+    private static class ParsedResultImpl implements ParsedResult {
+        private final SqlQueryType queryType;
+        private final String originalQuery;
+        private final String normalizedQuery;
+        private final int dynamicParamCount;
+        private final SqlNode parsedTree;
+
+        private ParsedResultImpl(
+                SqlQueryType queryType,
+                String originalQuery,
+                String normalizedQuery,
+                int dynamicParamCount,
+                SqlNode parsedTree
+        ) {
+            this.queryType = queryType;
+            this.originalQuery = originalQuery;
+            this.normalizedQuery = normalizedQuery;
+            this.dynamicParamCount = dynamicParamCount;
+            this.parsedTree = parsedTree;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlQueryType queryType() {
+            return queryType;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String originalQuery() {
+            return originalQuery;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String normalizedQuery() {
+            return normalizedQuery;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int dynamicParamsCount() {
+            return dynamicParamCount;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlNode parsedTree() {
+            return parsedTree;
+        }
     }
 }

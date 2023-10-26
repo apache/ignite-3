@@ -15,46 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.engine.util;
 
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Regular query or DML.
+ * Utility class to clone relational tree and optionally replace assigned {@link RelOptCluster cluster}
+ * to another one.
  */
-public class MultiStepPlan implements QueryPlan {
+public class Cloner {
+    private final RelOptCluster cluster;
 
-    private final SqlQueryType type;
-
-    private final ResultSetMetadata meta;
-
-    private final IgniteRel root;
-
-    /** Constructor. */
-    MultiStepPlan(SqlQueryType type, IgniteRel root, ResultSetMetadata meta) {
-        this.type = type;
-        this.root = root;
-        this.meta = meta;
+    private Cloner(RelOptCluster cluster) {
+        this.cluster = cluster;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public ResultSetMetadata metadata() {
-        return meta;
+    /**
+     * Clones a given relational tree and reassigns copy to a given cluster.
+     *
+     * @param root Root of the tree to clone.
+     * @param cluster Cluster to attach copy to.
+     * @return Copy of the given tree.
+     */
+    public static IgniteRel clone(IgniteRel root, RelOptCluster cluster) {
+        Cloner c = new Cloner(cluster);
+
+        return c.visit(root);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    @Nullable
-    public SqlQueryType type() {
-        return type;
-    }
-
-    /** Returns root of the query tree. */
-    public IgniteRel root() {
-        return root;
+    private IgniteRel visit(IgniteRel rel) {
+        return rel.clone(cluster, Commons.transform(rel.getInputs(), rel0 -> visit((IgniteRel) rel0)));
     }
 }

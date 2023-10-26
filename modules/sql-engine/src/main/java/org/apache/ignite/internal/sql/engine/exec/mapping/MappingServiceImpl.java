@@ -41,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
@@ -88,16 +87,17 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
-        List<Fragment> fragments = multiStepPlan.fragments();
 
         List<String> nodes = topologyHolder.nodes();
 
         MappingContext context = new MappingContext(localNodeName, nodes);
+        IdGenerator idGenerator = new IdGenerator();
 
-        List<Fragment> fragments0 = Commons.transform(fragments, fragment -> fragment.attach(context.cluster()));
+        List<Fragment> fragments = new QuerySplitter(idGenerator, context.cluster())
+                .go(multiStepPlan.root());
 
         List<CompletableFuture<IntObjectPair<ExecutionTarget>>> targets =
-                fragments0.stream().flatMap(fragment -> Stream.concat(
+                fragments.stream().flatMap(fragment -> Stream.concat(
                         fragment.tables().stream()
                                 .map(table -> targetProvider.forTable(context.targetFactory(), table)
                                         .thenApply(target -> IntObjectPair.of(table.id(), target))
@@ -127,7 +127,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                     Long2ObjectMap<List<String>> allSourcesByExchangeId = new Long2ObjectOpenHashMap<>();
                     Exception ex = null;
                     boolean lastAttemptSucceed = true;
-                    List<Fragment> fragmentsToMap = fragments0;
+                    List<Fragment> fragmentsToMap = fragments;
                     for (int attempt = 0; attempt < MAPPING_ATTEMPTS; attempt++) {
                         Fragment currentFragment = null;
                         try {
@@ -170,7 +170,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                             fragmentsToMap = replace(
                                     fragmentsToMap,
                                     currentFragment,
-                                    new FragmentSplitter(mappingException.node()).go(currentFragment)
+                                    new FragmentSplitter(idGenerator, mappingException.node()).go(currentFragment)
                             );
 
                             lastAttemptSucceed = false;

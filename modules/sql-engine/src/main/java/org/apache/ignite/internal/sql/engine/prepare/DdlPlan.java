@@ -37,7 +37,7 @@ public class DdlPlan implements QueryPlan {
 
     private final DdlCommand cmd;
 
-    public DdlPlan(DdlCommand cmd) {
+    DdlPlan(DdlCommand cmd) {
         this.cmd = cmd;
     }
 
@@ -55,12 +55,6 @@ public class DdlPlan implements QueryPlan {
     @Override
     public ResultSetMetadata metadata() {
         return DDL_METADATA;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public QueryPlan copy() {
-        return this;
     }
 
     /** {@inheritDoc} */
