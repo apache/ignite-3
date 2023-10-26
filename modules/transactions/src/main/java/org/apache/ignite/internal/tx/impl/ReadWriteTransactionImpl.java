@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
@@ -65,6 +64,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** The lock protects the transaction topology from concurrent modification during finishing. */
     private final ReentrantReadWriteLock enlistPartLock = new ReentrantReadWriteLock();
+
+    /** The future is initialized when this transaction starts committing or rolling back and is finished together with the transaction. */
+    private CompletableFuture<Void> finishFuture;
 
     /**
      * Constructs an explicit read-write transaction.
@@ -128,17 +130,17 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
         if (isFinalState(state())) {
-            return completedFuture(null);
+            return finishFuture;
         }
 
         try {
             enlistPartLock.writeLock().lock();
 
-            if (isFinalState(state())) {
-                return completedFuture(null);
+            if (!isFinalState(state())) {
+                finishFuture =  finishInternal(commit);
             }
 
-            return finishInternal(commit);
+            return finishFuture;
         } finally {
             enlistPartLock.writeLock().unlock();
         }
