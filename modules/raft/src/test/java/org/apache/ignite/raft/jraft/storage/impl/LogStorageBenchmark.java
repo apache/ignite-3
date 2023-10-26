@@ -106,11 +106,13 @@ public class LogStorageBenchmark {
 
     private void report(final String op, final long cost) {
         System.out.println("Test " + op + ":");
-        System.out.println("  Log number   :" + this.totalLogs);
-        System.out.println("  Log Size     :" + this.logSize);
-        System.out.println("  Batch Size   :" + this.batchSize);
-        System.out.println("  Cost time(s) :" + cost / 1000f);
-        System.out.println("  Total size   :" + (long) this.totalLogs * this.logSize);
+        System.out.println("  Log number      : " + this.totalLogs);
+        System.out.println("  Log Size        : " + this.logSize);
+        System.out.println("  Batch Size      : " + this.batchSize);
+        System.out.println("  Cost time(s)    : " + cost / 1000.0f);
+        System.out.println("  Total size      : " + (long) this.totalLogs * this.logSize);
+        System.out.println("  Throughput(bps) : " + 1000L * this.totalLogs * this.logSize / cost);
+        System.out.println("  Throughput(rps) : " + 1000L * this.totalLogs / cost);
     }
 
     private void doTest() {
@@ -145,7 +147,7 @@ public class LogStorageBenchmark {
         System.out.println("Test log storage path: " + testPath);
         int batchSize = 100;
         int logSize = 16 * 1024;
-        int totalLogs = 30 * 1024;
+        int totalLogs = 100 * 1024;
 
 //        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
         LogStorageFactory logStorageFactory = new LogitLogStorageFactory(testPath, new StoreOptions());
