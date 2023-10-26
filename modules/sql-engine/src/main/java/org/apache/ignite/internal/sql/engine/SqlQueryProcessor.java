@@ -569,7 +569,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             QueryContext context,
             ParsedResult parsedResult,
             Object[] params,
-            InternalTransaction outerTx) {
+            InternalTransaction outerTx
+    ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
 
