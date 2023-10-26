@@ -221,4 +221,14 @@ class SchemaCompatValidator {
             throw tableWasDroppedException(tableId);
         }
     }
+
+    void failIfRequestSchemaDiffersFromTxTs(HybridTimestamp txTs, int requestSchemaVersion, int tableId) {
+        CatalogTableDescriptor table = catalogService.table(tableId, txTs.longValue());
+
+        assert table != null : "No table " + tableId + " at " + txTs;
+
+        if (table.tableVersion() != requestSchemaVersion) {
+            throw new InternalSchemaVersionMismatchException();
+        }
+    }
 }

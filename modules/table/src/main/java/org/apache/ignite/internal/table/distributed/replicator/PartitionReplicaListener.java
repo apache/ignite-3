@@ -98,6 +98,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NullBinaryRow;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -472,34 +473,30 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        return waitForSchemasBeforeReading(request)
-                .thenCompose(unused -> validateTableExistence(request))
-                .thenCompose(opStartTimestamp -> processOperationRequest(request, isPrimary, senderId, opStartTimestamp));
+        HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
+
+        return validateTableExistence(request, opTsIfDirectRo)
+                .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
+                .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
+                .thenCompose(opStartTimestamp -> processOperationRequest(request, isPrimary, senderId, opTsIfDirectRo));
     }
 
     /**
-     * Makes sure that we have schemas corresponding to the moment of tx start; this makes PK extraction safe WRT
-     * {@link org.apache.ignite.internal.schema.SchemaRegistry#schema(int)}.
+     * Validates that the table exists at a timestamp corresponding to the request operation.
      *
-     * @param request Request that's being processed.
+     * <ul>
+     *     <li>For an RW read/write, it's 'now'</li>
+     *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
+     *     <li>For an RO direct read, it's the timestamp chosen (as 'now') to process the request</li>
+     * </ul>
+     *
+     * For other requests, the validation is skipped.
+     *
+     * @param request Replica request corresponding to the operation.
+     * @param opTsIfDirectRo Operation timestamp for a direct RO, {@code null} otherwise.
+     * @return Future completed when the validation is finished.
      */
-    private CompletableFuture<Void> waitForSchemasBeforeReading(ReplicaRequest request) {
-        // TODO: IGNITE-20715 - validate that input rows schema version matches the tx-bound schema version.
-
-        HybridTimestamp tsToWaitForSchemas;
-
-        if (request instanceof ReadWriteReplicaRequest) {
-            tsToWaitForSchemas = TransactionIds.beginTimestamp(((ReadWriteReplicaRequest) request).transactionId());
-        } else if (request instanceof ReadOnlyReplicaRequest) {
-            tsToWaitForSchemas = ((ReadOnlyReplicaRequest) request).readTimestamp();
-        } else {
-            tsToWaitForSchemas = null;
-        }
-
-        return tsToWaitForSchemas == null ? completedFuture(null) : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchemas);
-    }
-
-    private CompletableFuture<HybridTimestamp> validateTableExistence(ReplicaRequest request) {
+    private CompletableFuture<Void> validateTableExistence(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
         HybridTimestamp opStartTs;
 
         if (request instanceof ReadWriteScanCloseReplicaRequest) {
@@ -510,7 +507,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyReplicaRequest) {
             opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
         } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            opStartTs = hybridClock.now();
+            assert opTsIfDirectRo != null;
+
+            opStartTs = opTsIfDirectRo;
         } else {
             opStartTs = null;
         }
@@ -520,18 +519,84 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return schemaSyncService.waitForMetadataCompleteness(opStartTs)
-                .thenApply(unused -> {
-                    schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId());
+                .thenRun(() -> schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId()));
+    }
 
-                    return opStartTs;
+    /**
+     * Makes sure that {@link SchemaVersionAwareReplicaRequest#schemaVersion()} sent in a request matches table schema version
+     * corresponding to the operation.
+     *
+     * @param request Replica request corresponding to the operation.
+     * @param opTsIfDirectRo Operation timestamp for a direct RO, {@code null} otherwise.
+     * @return Future completed when the validation is finished.
+     */
+    private CompletableFuture<Void> validateSchemaMatch(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
+        if (!(request instanceof SchemaVersionAwareReplicaRequest)) {
+            return completedFuture(null);
+        }
+
+        SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
+
+        HybridTimestamp tsToWaitForSchema = getTxStartTimestamp(request);
+        if (tsToWaitForSchema == null) {
+            tsToWaitForSchema = opTsIfDirectRo;
+        }
+
+        if (tsToWaitForSchema == null) {
+            return completedFuture(null);
+        }
+
+        HybridTimestamp finalTsToWaitForSchema = tsToWaitForSchema;
+        return schemaSyncService.waitForMetadataCompleteness(finalTsToWaitForSchema)
+                .thenRun(() -> {
+                    schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
+                            finalTsToWaitForSchema,
+                            versionAwareRequest.schemaVersion(),
+                            tableId()
+                    );
                 });
+    }
+
+    /**
+     * Makes sure that we have schemas corresponding to the moment of tx start; this makes PK extraction safe WRT
+     * {@link SchemaRegistry#schema(int)}.
+     *
+     * @param request Replica request corresponding to the operation.
+     * @param opTsIfDirectRo Operation timestamp for a direct RO, {@code null} otherwise.
+     * @return Future completed when the validation is finished.
+     */
+    private CompletableFuture<Void> waitForSchemasBeforeReading(ReplicaRequest request, @Nullable HybridTimestamp opTsIfDirectRo) {
+        HybridTimestamp tsToWaitForSchema = getTxStartTimestamp(request);
+        if (tsToWaitForSchema == null) {
+            tsToWaitForSchema = opTsIfDirectRo;
+        }
+
+        return tsToWaitForSchema == null ? completedFuture(null) : schemaSyncService.waitForMetadataCompleteness(tsToWaitForSchema);
+    }
+
+    /**
+     * Returns timestamp of transaction start (for RW requests), of transaction itself (
+     *
+     * @param request
+     */
+    private static @Nullable HybridTimestamp getTxStartTimestamp(ReplicaRequest request) {
+        HybridTimestamp txStartTimestamp;
+
+        if (request instanceof ReadWriteReplicaRequest) {
+            txStartTimestamp = TransactionIds.beginTimestamp(((ReadWriteReplicaRequest) request).transactionId());
+        } else if (request instanceof ReadOnlyReplicaRequest) {
+            txStartTimestamp = ((ReadOnlyReplicaRequest) request).readTimestamp();
+        } else {
+            txStartTimestamp = null;
+        }
+        return txStartTimestamp;
     }
 
     private CompletableFuture<?> processOperationRequest(
             ReplicaRequest request,
             @Nullable Boolean isPrimary,
             String senderId,
-            HybridTimestamp opStartTimestamp
+            @Nullable HybridTimestamp opStartTsIfDirectRo
     ) {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
@@ -603,9 +668,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof BuildIndexReplicaRequest) {
             return raftClient.run(toBuildIndexCommand((BuildIndexReplicaRequest) request));
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
-            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTimestamp);
+            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
-            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTimestamp);
+            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
