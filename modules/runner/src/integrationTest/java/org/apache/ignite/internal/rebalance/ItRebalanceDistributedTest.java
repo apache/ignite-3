@@ -617,7 +617,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
 
             node.metaStorageManager
-                    .putAll(Map.of(partAssignmentsPendingKey, bytesPendingAssignments))
+                    .put(partAssignmentsPendingKey, bytesPendingAssignments)
                     .get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
         }
 
