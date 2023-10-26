@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isLeaseExpire;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeyAbsentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeysPresentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.makeIndexAvailableInCatalogWithoutFuture;
@@ -46,14 +47,15 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
 
 /**
- * Component responsible for restoring the algorithm from {@link IndexBuildController} if a node fails at some step.
+ * Component responsible for restoring the algorithm from {@link IndexAvailabilityController} if a node fails at some step.
  *
  * <p>Approximate recovery algorithm:</p>
  * <ul>
@@ -74,8 +76,8 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     </ul></li>
  * </ul>
  */
-public class IndexAvailabilityRestorer implements ManuallyCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityRestorer.class);
+public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityControllerRestorer.class);
 
     private final CatalogManager catalogManager;
 
@@ -85,6 +87,8 @@ public class IndexAvailabilityRestorer implements ManuallyCloseable {
 
     private final PlacementDriver placementDriver;
 
+    private final ClusterService clusterService;
+
     private final HybridClock clock;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -92,17 +96,19 @@ public class IndexAvailabilityRestorer implements ManuallyCloseable {
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
     /** Constructor. */
-    public IndexAvailabilityRestorer(
+    public IndexAvailabilityControllerRestorer(
             CatalogManager catalogManager,
             MetaStorageManager metaStorageManager,
             IndexManager indexManager,
             PlacementDriver placementDriver,
+            ClusterService clusterService,
             HybridClock clock
     ) {
         this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;
         this.indexManager = indexManager;
         this.placementDriver = placementDriver;
+        this.clusterService = clusterService;
         this.clock = clock;
     }
 
@@ -214,25 +220,36 @@ public class IndexAvailabilityRestorer implements ManuallyCloseable {
         int indexId = indexDescriptor.id();
         int tableId = indexDescriptor.tableId();
 
-        TablePartitionId replicationGroupId = new TablePartitionId(tableId, partitionId);
-
-        CompletableFuture<ReplicaMeta> getPrimaryReplicaFuture = placementDriver.getPrimaryReplica(replicationGroupId, clock.now());
-
         return indexManager.getMvTableStorage(recoveryRevision, tableId)
-                .thenCombine(getPrimaryReplicaFuture, (mvTableStorage, replicaMeta) -> inBusyLockAsync(busyLock, () -> {
-                    IndexStorage indexStorage = mvTableStorage.getIndex(partitionId, indexId);
+                .thenCompose(mvTableStorage -> inBusyLockAsync(busyLock, () -> {
+                    var replicationGroupId = new TablePartitionId(tableId, partitionId);
 
-                    assert indexStorage != null : "indexId=" + indexId + ", partitionId=" + partitionId;
+                    return placementDriver.getPrimaryReplica(replicationGroupId, clock.now())
+                            .thenCompose(primaryReplicaMeta -> inBusyLockAsync(busyLock, () -> {
+                                ClusterNode localNode = clusterService.topologyService().localMember();
 
-                    if (indexStorage.getNextRowIdToBuild() != null) {
-                        // Building of the index has not yet been completed, so we have nothing to do yet.
-                        return completedFuture(null);
-                    }
+                                if (primaryReplicaMeta == null || isLeaseExpire(primaryReplicaMeta, localNode, clock.now())) {
+                                    // Local node is not the primary replica, so we expect to elect the primary replica with applying the
+                                    // replication log. If a local node is elected, then IndexAvailabilityController will get rid of the
+                                    // partitionBuildIndexMetastoreKey from the metastore on its own by
+                                    // IndexBuildCompletionListener.onBuildCompletion event.
+                                    return completedFuture(null);
+                                }
 
-                    // Since we know that the index has already been build, we do not need to wait for the primary node for it to delete the
-                    // key. Also, since the index has already been built, the event of building the index during recovery (or quickly enough
-                    // after it) will not happen.
-                    return removeMetastoreKeyIfPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, partitionId));
+                                IndexStorage indexStorage = mvTableStorage.getIndex(partitionId, indexId);
+
+                                assert indexStorage != null : "indexId=" + indexId + ", partitionId=" + partitionId;
+
+                                if (indexStorage.getNextRowIdToBuild() != null) {
+                                    // Building of the index has not yet been completed, so we have nothing to do yet.
+                                    return completedFuture(null);
+                                }
+
+                                return removeMetastoreKeyIfPresent(
+                                        metaStorageManager,
+                                        partitionBuildIndexMetastoreKey(indexId, partitionId)
+                                );
+                            }));
                 }));
     }
 }

@@ -96,7 +96,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     prefix {@link IndexManagementUtils#PARTITION_BUILD_INDEX_KEY_PREFIX} is made by the whole cluster (and only one node makes a write to
  *     the metastore) as these events are global, but only one node (a primary replica owning a partition) handles
  *     {@link IndexBuildCompletionListener#onBuildCompletion} (form {@link IndexBuilder#listen}) event.</li>
- *     <li>Restoring index availability occurs in {@link IndexAvailabilityRestorer}.</li>
+ *     <li>Restoring index availability occurs in {@link IndexAvailabilityControllerRestorer}.</li>
  * </ul>
  *
  * @see CatalogIndexDescriptor#available()

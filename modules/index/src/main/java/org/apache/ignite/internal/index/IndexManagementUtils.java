@@ -40,13 +40,16 @@ import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.network.ClusterNode;
 
 /** Helper class for index management. */
 class IndexManagementUtils {
@@ -233,5 +236,17 @@ class IndexManagementUtils {
         String[] strings = key.split("\\.");
 
         return Integer.parseInt(strings[2]);
+    }
+
+    /**
+     * Returns {@code true} if the local node is no longer the primary replica at the timestamp of interest.
+     *
+     * @param primaryReplicaMeta Primary replica meta.
+     * @param localNode Local node.
+     * @param timestamp Timestamp of interest.
+     */
+    static boolean isLeaseExpire(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
+        // TODO: IGNITE-20678 We need to compare by IDs: localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
+        return !localNode.name().equals(primaryReplicaMeta.getLeaseholder()) && timestamp.after(primaryReplicaMeta.getExpirationTime());
     }
 }
