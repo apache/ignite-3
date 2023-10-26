@@ -339,7 +339,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      */
     protected void destroyRocksDb() throws IOException {
         // For unknown reasons, RocksDB#destroyDB(String, Options) throws RocksDBException with ".../LOCK: No such file or directory".
-        Files.deleteIfExists(dbPath);
+        IgniteUtils.deleteIfExists(dbPath);
+
         Files.createDirectories(dbPath);
     }
 
