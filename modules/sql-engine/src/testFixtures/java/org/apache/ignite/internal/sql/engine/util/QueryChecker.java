@@ -299,6 +299,8 @@ public interface QueryChecker {
 
     QueryChecker returnNothing();
 
+    QueryChecker returnSomething();
+
     QueryChecker columnNames(String... columns);
 
     QueryChecker columnTypes(Type... columns);

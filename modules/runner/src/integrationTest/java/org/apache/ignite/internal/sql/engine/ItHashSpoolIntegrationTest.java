@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Hash spool test.
  */
-public class ItHashSpoolIntegrationTest extends ClusterPerClassIntegrationTest {
+public class ItHashSpoolIntegrationTest extends BaseSqlIntegrationTest {
     @Test
     public void testNullsInSearchRow() {
         sql("CREATE TABLE t(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");

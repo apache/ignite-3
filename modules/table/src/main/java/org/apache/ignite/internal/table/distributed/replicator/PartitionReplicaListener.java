@@ -93,6 +93,7 @@ import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaReques
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
+import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -420,7 +421,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         for (UUID txId : txCleanupReadyFutures.keySet()) {
             txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-                if (txOps == null || isFinalState(txOps.state)) {
+                if (txOps == null) {
                     return null;
                 }
 
@@ -430,6 +431,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .toArray(CompletableFuture[]::new);
 
                     futs.add(allOf(txFuts).whenComplete((unused, throwable) -> releaseTxLocks(txId)));
+
+                    txOps.futures.clear();
                 }
 
                 return txOps;
@@ -456,6 +459,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
+        if (request instanceof SchemaVersionAwareReplicaRequest) {
+            assert ((SchemaVersionAwareReplicaRequest) request).schemaVersion() > 0 : "No schema version passed?";
+        }
+
         if (request instanceof CommittableTxRequest) {
             var req = (CommittableTxRequest) request;
 
@@ -477,7 +484,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Request that's being processed.
      */
     private CompletableFuture<Void> waitForSchemasBeforeReading(ReplicaRequest request) {
-        // TODO: IGNITE-20106 - validate that input rows schema version matches the tx-bound schema version.
+        // TODO: IGNITE-20715 - validate that input rows schema version matches the tx-bound schema version.
 
         HybridTimestamp tsToWaitForSchemas;
 
@@ -548,6 +555,13 @@ public class PartitionReplicaListener implements ReplicaListener {
             return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processTwoEntriesAction(req, senderId));
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
+
+            // Scan's request.full() has a slightly different semantics than the same field in other requests -
+            // it identifies an implicit transaction. Please note that request.full() is always false in the following `appendTxCommand`.
+            // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
+            // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
+            // If they don't fit the bucket, the transaction is treated as 2pc.
+            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
@@ -1403,7 +1417,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cleanupWithRetryOnReplica(commit, commitTimestamp, txId, partitionId, leaseHolder, attempts));
     }
 
-
     private CompletableFuture<Void> cleanupWithRetryOnReplica(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
@@ -1525,7 +1538,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // TODO https://issues.apache.org/jira/browse/IGNITE-18617
         txCleanupReadyFutures.compute(request.txId(), (id, txOps) -> {
             if (txOps == null) {
-                txOps = new TxCleanupReadyFutureList();
+                return null;
             }
 
             txOps.futures.forEach((opType, futures) -> {
@@ -1537,8 +1550,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             });
 
             txOps.futures.clear();
-
-            txOps.state = txState;
 
             return txOps;
         });
@@ -1700,7 +1711,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txOps = new TxCleanupReadyFutureList();
             }
 
-            if (isFinalState(txOps.state)) {
+            TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+            if (txStateMeta == null || isFinalState(txStateMeta.txState())) {
                 cleanupReadyFut.completeExceptionally(new Exception());
             } else {
                 txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(cleanupReadyFut);
@@ -2013,10 +2026,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     Map<UUID, BinaryRowMessage> convertedMap = rowsToInsert.entrySet().stream()
                             .collect(toMap(
                                     e -> e.getKey().uuid(),
-                                    e -> MSG_FACTORY.binaryRowMessage()
-                                            .binaryTuple(e.getValue().tupleSlice())
-                                            .schemaVersion(e.getValue().schemaVersion())
-                                            .build()
+                                    e -> binaryRowMessage(e.getValue())
                             ));
 
                     return allOf(insertLockFuts)
@@ -2067,14 +2077,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return allOf(rowIdFuts).thenCompose(ignore -> {
-                    List<BinaryRowMessage> searchRowMessages = request.binaryRowMessages();
-                    Map<UUID, BinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRowMessages.size());
+                    Map<UUID, BinaryRowMessage> rowsToUpdate = IgniteUtils.newHashMap(searchRows.size());
                     List<RowId> rows = new ArrayList<>();
 
-                    for (int i = 0; i < searchRowMessages.size(); i++) {
+                    for (int i = 0; i < searchRows.size(); i++) {
                         RowId lockedRow = rowIdFuts[i].join().get1();
 
-                        rowsToUpdate.put(lockedRow.uuid(), searchRowMessages.get(i));
+                        rowsToUpdate.put(lockedRow.uuid(), binaryRowMessage(searchRows.get(i)));
 
                         rows.add(lockedRow);
                     }
@@ -3016,7 +3025,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             ReadWriteSwapRowReplicaRequest request,
             String txCoordinatorId
     ) {
-        BinaryRow newRow = request.binaryRow();
+        BinaryRow newRow = request.newBinaryRow();
         BinaryRow expectedRow = request.oldBinaryRow();
         TablePartitionIdMessage commitPartitionId = request.commitPartitionId();
 
@@ -3365,15 +3374,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (row != null) {
-            BinaryRowMessage rowMessage = MSG_FACTORY.binaryRowMessage()
-                    .binaryTuple(row.tupleSlice())
-                    .schemaVersion(row.schemaVersion())
-                    .build();
-
-            bldr.rowMessage(rowMessage);
+            bldr.rowMessage(binaryRowMessage(row));
         }
 
         return bldr.build();
+    }
+
+    private static BinaryRowMessage binaryRowMessage(BinaryRow row) {
+        return MSG_FACTORY.binaryRowMessage()
+                .binaryTuple(row.tupleSlice())
+                .schemaVersion(row.schemaVersion())
+                .build();
     }
 
     private static UpdateAllCommand updateAllCommand(
@@ -3434,11 +3445,6 @@ public class PartitionReplicaListener implements ReplicaListener {
          * Operation type is mapped operation futures.
          */
         final Map<RequestType, List<CompletableFuture<?>>> futures = new EnumMap<>(RequestType.class);
-
-        /**
-         * Transaction state. {@code TxState#ABORTED} and {@code TxState#COMMITED} match the final transaction states.
-         */
-        TxState state = PENDING;
     }
 
     @Override

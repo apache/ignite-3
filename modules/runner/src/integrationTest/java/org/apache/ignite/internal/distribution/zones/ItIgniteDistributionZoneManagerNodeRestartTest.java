@@ -25,19 +25,25 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -47,8 +53,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -80,7 +88,9 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.If;
@@ -329,7 +339,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B, C)
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.attributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
@@ -344,6 +354,70 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         distributionZoneManager = getDistributionZoneManager(node);
 
         assertEquals(logicalTopology, distributionZoneManager.logicalTopology());
+    }
+
+    @Test
+    public void testCreationZoneWhenDataNodesAreDeletedIsNotSuccessful() throws Exception {
+        PartialNode node = startPartialNode(0);
+
+        node.logicalTopology().putNode(A);
+        node.logicalTopology().putNode(B);
+
+        node.logicalTopology().putNode(C);
+
+        Set<NodeWithAttributes> logicalTopology = Stream.of(A, B, C)
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .collect(toSet());
+
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+        DistributionZoneManager finalDistributionZoneManager = distributionZoneManager;
+
+        assertTrue(waitForCondition(() -> logicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
+
+        int zoneId = getZoneId(node, DEFAULT_ZONE_NAME);
+
+        assertValueInStorage(
+                metastore,
+                zoneDataNodesKey(zoneId),
+                (v) -> dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name(), B.name(), C.name()),
+                TIMEOUT_MILLIS
+        );
+
+        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+
+        byte[][] dataNodeKey = new byte[1][1];
+
+        // In this mock we catch invocation of DistributionZoneManager.initDataNodesAndTriggerKeysInMetaStorage, where condition is based
+        // on presence of data node key in ms. After that we make this data node as a tombstone, so when logic of creation of a zone is
+        // run, there won't be any initialisation of data nodes keys. We try to imitate concurrent removal of a zone.
+        doAnswer(invocation -> {
+            ByteArray dataNodeKeyForZone = new ByteArray(dataNodeKey[0]);
+
+            // Here we remove data nodes value for newly created zone, so it is tombstone
+            metastore.put(dataNodeKeyForZone, toBytes(toDataNodesMap(emptySet()))).get();
+
+            metastore.remove(dataNodeKeyForZone).get();
+
+            return invocation.callRealMethod();
+        }).when(metastore).invoke(argThat(iif -> {
+            If iif1 = MetaStorageWriteHandler.toIf(iif);
+
+            byte[][] keysFromIf = iif1.cond().keys();
+
+            Optional<byte[]> dataNodeKeyOptional = Arrays.stream(keysFromIf)
+                    .filter(op -> startsWith(op, zoneDataNodesKey().bytes()))
+                    .findFirst();
+
+            dataNodeKeyOptional.ifPresent(bytes -> dataNodeKey[0] = bytes);
+
+            return dataNodeKeyOptional.isPresent();
+        }));
+
+        createZone(node, "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE);
+
+        // Assert that after creation of a zone, data nodes are still tombstone, but not the logical topology, as for default zone.
+        assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
     }
 
     @Test

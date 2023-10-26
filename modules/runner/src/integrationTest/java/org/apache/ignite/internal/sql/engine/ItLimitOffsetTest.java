@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.Session;
@@ -33,7 +34,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Check LIMIT and\or OFFSET commands.
  */
-public class ItLimitOffsetTest extends ClusterPerClassIntegrationTest {
+public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
     @BeforeEach
     void beforeEach() {
         sql("CREATE TABLE test (pk INT PRIMARY KEY, col0 INT)");

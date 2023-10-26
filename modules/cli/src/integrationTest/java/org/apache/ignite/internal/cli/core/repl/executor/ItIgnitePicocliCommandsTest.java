@@ -266,7 +266,16 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
                 containsInAnyOrder(
-                        "rest", "clientConnector", "network", "cluster", "deployment", "nodeAttributes", "aimem", "aipersist", "rocksDb"
+                        "rest",
+                        "clientConnector",
+                        "network",
+                        "cluster",
+                        "deployment",
+                        "nodeAttributes",
+                        "aimem",
+                        "aipersist",
+                        "rocksDb",
+                        "storageProfiles"
                 )
         );
     }

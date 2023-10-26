@@ -23,9 +23,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.mockVaultZonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Collections;
@@ -208,11 +208,9 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
     //TODO: IGNITE-19955 Check if this test is needed.
     @Test
     void testStaleVaultRevisionOnZoneManagerStart() throws Exception {
-        long revision = 100;
-
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
 
-        keyValueStorage.put(zonesChangeTriggerKey(defaultZoneId).bytes(), longToBytes(revision), HybridTimestamp.MIN_VALUE);
+        keyValueStorage.put(zoneDataNodesKey(defaultZoneId).bytes(), toBytes(Collections.emptyMap()), HybridTimestamp.MIN_VALUE);
 
         Set<LogicalNode> nodes = Set.of(
                 new LogicalNode(new ClusterNodeImpl("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
@@ -223,6 +221,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         startDistributionZoneManager();
 
-        assertDataNodesForZone(defaultZoneId, null, keyValueStorage);
+        assertDataNodesForZone(defaultZoneId, Collections.emptySet(), keyValueStorage);
     }
 }
