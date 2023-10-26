@@ -680,21 +680,26 @@ public class DistributionZoneManager implements IgniteComponent {
         Entry nodeAttributesEntry = metaStorageManager.getLocally(zonesNodesAttributes(), revision);
 
         if (topologyEntry != null && topologyEntry.value() != null) {
-            assert nodeAttributesEntry != null : "Nodes' attributes cannot be null when logical topology is not null.";
-            assert nodeAttributesEntry.value() != null : "Nodes' attributes cannot be null when logical topology is not null.";
-
             logicalTopology = fromBytes(topologyEntry.value());
 
-            nodesAttributes = fromBytes(nodeAttributesEntry.value());
+            if (nodeAttributesEntry.value() != null) {
+                nodesAttributes = fromBytes(nodeAttributesEntry.value());
+            } else {
+                // This possible, if after CMG has notified about new topology, but cluster restarted in the middle of
+                // DistributionZoneManager.createMetastorageTopologyListener, so nodeAttributes has not been saved to MS.
+                // In that case, we can initialise it with the current logical topology.
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20603 restore nodeAttributes as well
+                logicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
+            }
         }
 
         assert topologyEntry == null || topologyEntry.value() == null || logicalTopology.equals(fromBytes(topologyEntry.value()))
-                : "Initial value of logical topology was changed after initialization from the vault manager.";
+                : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
 
         assert nodeAttributesEntry == null
                 || nodeAttributesEntry.value() == null
                 || nodesAttributes.equals(fromBytes(nodeAttributesEntry.value()))
-                : "Initial value of nodes' attributes was changed after initialization from the vault manager.";
+                : "Initial value of nodes' attributes was changed after initialization from the Meta Storage manager.";
     }
 
     /**
