@@ -107,7 +107,6 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -328,13 +327,6 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        // It's possible to have null txState if transaction isn't started yet.
-        if (tx != null && !(tx.state() == TxState.PENDING || tx.state() == null)) {
-            return failedFuture(new TransactionException(
-                    TX_FAILED_READ_WRITE_OPERATION_ERR,
-                    format("Transaction is already finished [id={}, state={}]", tx.id(), tx.state())));
-        }
-
         boolean implicit = tx == null;
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
@@ -527,7 +519,7 @@ public class InternalTableImpl implements InternalTable {
                 return failedFuture(
                         new TransactionException(TX_UNEXPECTED_STATE_ERR, format(
                                 "Failed to enlist a write operation into a transaction, tx is locked for updates "
-                                        + "[tableName={}, partId={}, txState={}]",
+                                        + "[tableName={}, partId={}, txState={}].",
                                 tableName,
                                 partId,
                                 tx.state()
@@ -631,7 +623,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException(
                         INTERNAL_ERR,
                         format(
-                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                                "Failed to invoke the replica request [tableName={}, partId={}].",
                                 tableName,
                                 partId
                         ),
@@ -682,7 +674,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException(
                         INTERNAL_ERR,
                         format(
-                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                                "Failed to invoke the replica request [tableName={}, partId={}].",
                                 tableName,
                                 partId
                         ),
@@ -1831,7 +1823,7 @@ public class InternalTableImpl implements InternalTable {
                     cancel(null, true);
 
                     subscriber.onError(new IllegalArgumentException(
-                            format("Invalid requested amount of items [requested={}, minValue=1]", n)));
+                            format("Invalid requested amount of items [requested={}, minValue=1].", n)));
                 }
 
                 if (canceled.get()) {
