@@ -23,13 +23,15 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface for {@link QueryChecker} factory.
  */
 public interface QueryCheckerFactory {
     /** Creates query checker instance. */
-    QueryChecker create(QueryProcessor queryProcessor, IgniteTransactions transactions, Transaction tx, String query);
+    QueryChecker create(QueryProcessor queryProcessor, IgniteTransactions transactions,
+            @Nullable Transaction tx, String query);
 
     /** Creates query checker with custom metadata validator. */
     QueryChecker create(

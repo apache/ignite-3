@@ -34,7 +34,7 @@ public class MultiStepPlan implements QueryPlan {
     protected final List<Fragment> fragments;
 
     /** Constructor. */
-    MultiStepPlan(SqlQueryType type, List<Fragment> fragments, ResultSetMetadata meta) {
+    public MultiStepPlan(SqlQueryType type, List<Fragment> fragments, ResultSetMetadata meta) {
         this.type = type;
         this.fragments = fragments;
         this.meta = meta;

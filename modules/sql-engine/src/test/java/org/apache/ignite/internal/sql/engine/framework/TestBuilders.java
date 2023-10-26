@@ -529,7 +529,7 @@ public class TestBuilders {
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
-                        var mappingService = new MappingServiceImpl(name, targetProvider);
+                        var mappingService = new MappingServiceImpl(name, targetProvider, Runnable::run);
 
                         mappingService.onTopologyLeap(new LogicalTopologySnapshot(1L, logicalNodes));
 
