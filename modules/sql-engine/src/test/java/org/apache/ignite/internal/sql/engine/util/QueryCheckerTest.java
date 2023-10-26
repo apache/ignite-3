@@ -179,7 +179,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                         .returns(1, 1)
                         .check(),
                 AssertionError.class,
-                "Expected: a collection with size <1>"
+                "Collections sizes are not equal"
         );
 
         // query returns less than expected
@@ -190,7 +190,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                         .returns(3, 3)
                         .check(),
                 AssertionError.class,
-                "Expected: a collection with size <3>"
+                "Collections sizes are not equal"
         );
 
         // query returns different values
