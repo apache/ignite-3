@@ -38,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -71,11 +70,10 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                     .name("T1")
                     .addKeyColumn("ID", NativeTypes.INT32)
                     .addColumn("VAL", NativeTypes.INT32)
-                    .distribution(IgniteDistributions.hash(List.of(0)))
-                    .defaultDataProvider(DataProvider.fromCollection(List.of(
-                            new Object[] {1, 1}, new Object[] {2, 2}
-                    )))
                     .end()
+            .dataProvider(NODE_NAME, "T1", TestBuilders.tableScan(DataProvider.fromCollection(List.of(
+                    new Object[] {1, 1}, new Object[] {2, 2}
+            ))))
             .build();
     // @formatter:on
 
