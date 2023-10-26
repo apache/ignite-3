@@ -347,25 +347,9 @@ public final class ExceptionUtils {
     }
 
     /**
-     * Unwraps the root cause of the provided {@code err}.
-     *
-     * @param e Throwable.
-     * @return Root cause.
-     */
-    public static <T extends Throwable> T unwrapRootCause(Throwable e) {
-        var cause = e;
-
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-
-        return (T) cause;
-    }
-
-    /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier and full error code are preserved.
+     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
+     * the original trace identifier and full error code are preserved.
      * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
@@ -380,8 +364,8 @@ public final class ExceptionUtils {
 
     /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier and full error code are preserved.
+     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
+     * the original trace identifier and full error code are preserved.
      * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
@@ -403,8 +387,8 @@ public final class ExceptionUtils {
     /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause
      * and full error code {@code code}.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier preserved.
+     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
+     * the original trace identifier preserved.
      * Otherwise, a newly generated trace identifier is used.
      *
      * @param supplier Reference to a exception constructor.
@@ -420,8 +404,8 @@ public final class ExceptionUtils {
     /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause,
      * full error code {@code code} and error message {@code message}.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier preserved.
+     * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
+     * the original trace identifier preserved.
      * Otherwise, a newly generated trace identifier is used.
      *
      * @param supplier Reference to a exception constructor.
@@ -456,12 +440,10 @@ public final class ExceptionUtils {
     ) {
         Throwable unwrapped = unwrapCause(t);
 
-        if (unwrapped instanceof IgniteInternalException) {
-            IgniteInternalException iie = (IgniteInternalException) unwrapped;
-            return supplier.apply(iie.traceId(), iie.code(), iie.getMessage(), t);
-        } else if (unwrapped instanceof IgniteInternalCheckedException) {
-            IgniteInternalCheckedException iice = (IgniteInternalCheckedException) unwrapped;
-            return supplier.apply(iice.traceId(), iice.code(), iice.getMessage(), t);
+        if (unwrapped instanceof TraceableException) {
+            TraceableException traceable = (TraceableException) unwrapped;
+
+            return supplier.apply(traceable.traceId(), traceable.code(), unwrapped.getMessage(), t);
         }
 
         return supplier.apply(UUID.randomUUID(), defaultCode, t.getMessage(), t);

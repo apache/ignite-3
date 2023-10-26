@@ -345,6 +345,9 @@ public class ErrorGroups {
 
         /** Failure due to an abandoned transaction. */
         public static final int TX_ABANDONED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Failure due to primary replica expiration. */
+        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Replicator error group. */

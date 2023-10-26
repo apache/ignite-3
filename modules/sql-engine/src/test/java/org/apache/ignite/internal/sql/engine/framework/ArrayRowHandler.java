@@ -17,13 +17,29 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
-import java.nio.ByteBuffer;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
-import org.apache.ignite.internal.schema.row.InternalTuple;
+import java.util.BitSet;
+import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Handler for rows that implemented as a simple objects array.
@@ -71,9 +87,14 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
     }
 
     @Override
-    public ByteBuffer toByteBuffer(Object[] row) {
-        byte[] raw = ByteUtils.toBytes(row);
-        return ByteBuffer.wrap(raw);
+    public BinaryTuple toBinaryTuple(Object[] row) {
+        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(row.length);
+
+        for (Object value : row) {
+            appendValue(tupleBuilder, value);
+        }
+
+        return new BinaryTuple(row.length, tupleBuilder.build());
     }
 
     /** {@inheritDoc} */
@@ -110,15 +131,135 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
             /** {@inheritDoc} */
             @Override
-            public Object[] create(ByteBuffer raw) {
-                return ByteUtils.fromBytes(raw.array());
-            }
-
-            /** {@inheritDoc} */
-            @Override
             public Object[] create(InternalTuple tuple) {
-                throw new UnsupportedOperationException();
+                Object[] row = new Object[tuple.elementCount()];
+
+                for (int i = 0; i < row.length; i++) {
+                    NativeType nativeType = RowSchemaTypes.toNativeType(rowSchema.fields().get(i));
+
+                    if (nativeType == null) {
+                        row[i] = null;
+
+                        continue;
+                    }
+
+                    row[i] = readValue(tuple, nativeType, i);
+                }
+
+                return row;
             }
         };
+    }
+
+    private static void appendValue(BinaryTupleBuilder builder, @Nullable Object value) {
+        if (value == null) {
+            builder.appendNull();
+
+            return;
+        }
+
+        NativeType nativeType = NativeTypes.fromObject(value);
+
+        assert nativeType != null;
+
+        value = TypeUtils.fromInternal(value, NativeTypeSpec.toClass(nativeType.spec(), true));
+
+        assert value != null : nativeType;
+
+        switch (nativeType.spec()) {
+            case BOOLEAN:
+                builder.appendBoolean((boolean) value);
+                break;
+
+            case INT8:
+                builder.appendByte((byte) value);
+                break;
+
+            case INT16:
+                builder.appendShort((short) value);
+                break;
+
+            case INT32:
+                builder.appendInt((int) value);
+                break;
+
+            case INT64:
+                builder.appendLong((long) value);
+                break;
+
+            case FLOAT:
+                builder.appendFloat((float) value);
+                break;
+
+            case DOUBLE:
+                builder.appendDouble((double) value);
+                break;
+
+            case NUMBER:
+                builder.appendNumberNotNull((BigInteger) value);
+                break;
+
+            case DECIMAL:
+                builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) nativeType).scale());
+                break;
+
+            case UUID:
+                builder.appendUuidNotNull((UUID) value);
+                break;
+
+            case BYTES:
+                builder.appendBytesNotNull((byte[]) value);
+                break;
+
+            case STRING:
+                builder.appendStringNotNull((String) value);
+                break;
+
+            case BITMASK:
+                builder.appendBitmaskNotNull((BitSet) value);
+                break;
+
+            case DATE:
+                builder.appendDateNotNull((LocalDate) value);
+                break;
+
+            case TIME:
+                builder.appendTimeNotNull((LocalTime) value);
+                break;
+
+            case DATETIME:
+                builder.appendDateTimeNotNull((LocalDateTime) value);
+                break;
+
+            case TIMESTAMP:
+                builder.appendTimestampNotNull((Instant) value);
+                break;
+
+            default:
+                throw new UnsupportedOperationException("Unknown type " + nativeType);
+        }
+    }
+
+    private static @Nullable Object readValue(InternalTuple tuple, NativeType nativeType, int fieldIndex) {
+        switch (nativeType.spec()) {
+            case BOOLEAN: return tuple.booleanValueBoxed(fieldIndex);
+            case INT8: return tuple.byteValueBoxed(fieldIndex);
+            case INT16: return tuple.shortValueBoxed(fieldIndex);
+            case INT32: return tuple.intValueBoxed(fieldIndex);
+            case INT64: return tuple.longValueBoxed(fieldIndex);
+            case FLOAT: return tuple.floatValueBoxed(fieldIndex);
+            case DOUBLE: return tuple.doubleValueBoxed(fieldIndex);
+            case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
+            case UUID: return tuple.uuidValue(fieldIndex);
+            case STRING: return tuple.stringValue(fieldIndex);
+            case BYTES: return tuple.bytesValue(fieldIndex);
+            case BITMASK: return tuple.bitmaskValue(fieldIndex);
+            case NUMBER: return tuple.numberValue(fieldIndex);
+            case DATE: return tuple.dateValue(fieldIndex);
+            case TIME: return tuple.timeValue(fieldIndex);
+            case DATETIME: return tuple.dateTimeValue(fieldIndex);
+            case TIMESTAMP: return tuple.timestampValue(fieldIndex);
+            default: throw new InvalidTypeException("Unknown element type: " + nativeType);
+        }
     }
 }

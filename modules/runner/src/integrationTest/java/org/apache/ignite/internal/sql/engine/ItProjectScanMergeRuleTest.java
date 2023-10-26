@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsPr
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,7 @@ import org.junit.jupiter.api.Test;
  * with only useful columns and. For example for tables: T1(f12, f12, f13) and T2(f21, f22, f23) sql execution: SELECT t1.f11, t2.f21 FROM
  * T1 t1 INNER JOIN T2 t2 on t1.f11 = t2.f22" need to eleminate all unused coluns and take into account only: f11, f21 and f22 cols.
  */
-public class ItProjectScanMergeRuleTest extends ClusterPerClassIntegrationTest {
+public class ItProjectScanMergeRuleTest extends BaseSqlIntegrationTest {
     public static final String IDX_CAT_ID = "IDX_CAT_ID";
 
     /**

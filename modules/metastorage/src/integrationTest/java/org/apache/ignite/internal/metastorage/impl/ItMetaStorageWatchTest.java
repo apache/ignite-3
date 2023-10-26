@@ -38,10 +38,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -88,6 +90,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     private static NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
+
+    @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
 
     private static class Node {
@@ -130,15 +135,22 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            var clusterInitializer = new ClusterInitializer(
+                    clusterService,
+                    hocon -> hocon,
+                    new TestConfigurationValidator()
+            );
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    new NodeAttributesCollector(nodeAttributes),
-                    new TestConfigurationValidator());
+                    new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
+            );
 
             components.add(cmgManager);
 

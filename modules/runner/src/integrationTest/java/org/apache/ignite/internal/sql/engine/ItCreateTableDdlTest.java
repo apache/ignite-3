@@ -27,16 +27,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.util.List;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Integration test for CREATE TABLE DDL command.
  */
-public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
+public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void dropTables() {
         dropAllTables();
@@ -119,17 +119,16 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
      * Check invalid colocation columns configuration: - not PK columns; - duplicates colocation columns.
      */
     @Test
-    @Disabled("IGNITE-20149")
     public void invalidColocationColumns() {
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Colocation columns must be subset of primary key",
+                "Failed to validate query. Colocation column 'VAL' is not part of PK",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
         );
 
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Colocation columns contains duplicates: [duplicates=[ID1]]]",
+                "Failed to validate query. Colocation column 'ID1' specified more that once",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
         );
     }
@@ -190,7 +189,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void checkSchemaUpdatedWithEqAlterColumn() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteImpl node = (IgniteImpl) CLUSTER_NODES.get(0);
+        IgniteImpl node = (IgniteImpl) CLUSTER.aliveNode();
 
         int tableVersionBefore = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
 

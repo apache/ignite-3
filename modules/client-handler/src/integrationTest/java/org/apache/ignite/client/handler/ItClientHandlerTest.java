@@ -36,7 +36,7 @@ import java.net.Socket;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,11 +58,11 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
     @SuppressWarnings("unused")
     @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
+    private SecurityConfiguration securityConfiguration;
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        testServer = new TestServer(null, authenticationConfiguration);
+        testServer = new TestServer(null, securityConfiguration);
         serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();
     }
@@ -456,9 +456,9 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     }
 
     private void setupAuthentication(String username, String password) {
-        authenticationConfiguration.change(change -> {
+        securityConfiguration.change(change -> {
             change.changeEnabled(true);
-            change.changeProviders().create("basic", authenticationProviderChange -> {
+            change.changeAuthentication().changeProviders().create("basic", authenticationProviderChange -> {
                 authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
                         .changeUsername(username)
                         .changePassword(password);

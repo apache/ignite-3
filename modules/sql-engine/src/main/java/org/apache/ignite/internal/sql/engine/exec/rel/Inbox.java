@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.calcite.util.Util.unexpected;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
@@ -163,15 +163,15 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param last Last batch flag.
      * @param rows Rows.
      */
-    public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<ByteBuffer> rows) throws Exception {
+    public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<BinaryTupleMessage> rows) throws Exception {
         RemoteSource<RowT> source = perNodeBuffers.get(srcNodeName);
 
         boolean waitingBefore = source.check() == State.WAITING;
 
         List<RowT> rows0 = new ArrayList<>(rows.size());
 
-        for (ByteBuffer row : rows) {
-            rows0.add(rowFactory.create(row));
+        for (BinaryTupleMessage row : rows) {
+            rows0.add(rowFactory.create(row.asBinaryTuple()));
         }
 
         source.onBatchReceived(batchId, last, rows0);
@@ -349,7 +349,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state)
                 .whenComplete((ignored, ex) -> {
                     if (ex != null) {
-                        IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                        IgniteInternalException wrapperEx = ExceptionUtils.withCause(
                                 IgniteInternalException::new,
                                 Common.INTERNAL_ERR,
                                 "Unable to request next batch: " + ex.getMessage(),

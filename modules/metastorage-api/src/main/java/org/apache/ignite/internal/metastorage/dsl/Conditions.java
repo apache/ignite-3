@@ -257,6 +257,19 @@ public final class Conditions {
     }
 
     /**
+     * Produces the condition of type {@link ConditionType#NOT_TOMBSTONE}. This condition tests that an entry's value, identified by the
+     * given key, is not a tombstone.
+     *
+     * @return The condition of type {@link ConditionType#NOT_TOMBSTONE}.
+     */
+    public static SimpleCondition notTombstone(ByteArray key) {
+        return MSG_FACTORY.simpleCondition()
+                .key(key.bytes())
+                .conditionType(ConditionType.NOT_TOMBSTONE.ordinal())
+                .build();
+    }
+
+    /**
      * Produces the condition of type {@link ConditionType#KEY_EXISTS}. This condition tests the existence of an entry identified by the
      * given key.
      *

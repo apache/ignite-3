@@ -17,32 +17,33 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Multiple row replica request.
  */
-public interface MultipleRowReplicaRequest extends ReplicaRequest {
-    List<BinaryRowMessage> binaryRowMessages();
+public interface MultipleRowReplicaRequest extends SchemaVersionAwareReplicaRequest {
+    List<ByteBuffer> binaryTuples();
 
     /**
-     * Deserializes binary row byte buffers into binary rows.
+     * Returns {@link BinaryRow}s contained in the request.
      */
     default List<BinaryRow> binaryRows() {
-        List<BinaryRowMessage> binaryRowMessages = binaryRowMessages();
+        List<ByteBuffer> tuples = binaryTuples();
+        List<BinaryRow> rows = new ArrayList<>(tuples.size());
 
-        var result = new ArrayList<BinaryRow>(binaryRowMessages.size());
-
-        for (BinaryRowMessage message : binaryRowMessages) {
-            result.add(message.asBinaryRow());
+        for (ByteBuffer tuple : tuples) {
+            rows.add(new BinaryRowImpl(schemaVersion(), tuple));
         }
 
-        return result;
+        return rows;
     }
 
     @Marshallable

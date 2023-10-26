@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -93,6 +92,14 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
 
     /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param action Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action);
+
+    /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
      *
      * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
@@ -112,7 +119,7 @@ public interface TxManager extends IgniteComponent {
      * @param recipientNode Recipient node.
      * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups with raft terms.
+     * @param enlistedGroups Enlisted partition groups with consistency token.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
@@ -121,7 +128,7 @@ public interface TxManager extends IgniteComponent {
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     );
 

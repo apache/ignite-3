@@ -89,10 +89,12 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -139,7 +141,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -219,6 +221,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -734,7 +739,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
-        private final CatalogSchemaManager schemaManager;
+        private final SchemaManager schemaManager;
 
         private final CatalogManager catalogManager;
 
@@ -811,15 +816,24 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
             var placementDriver = new TestPlacementDriver(name);
 
+            var clusterInitializer = new ClusterInitializer(
+                    clusterService,
+                    hocon -> hocon,
+                    new TestConfigurationValidator()
+            );
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes),
-                    new TestConfigurationValidator());
+                    new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
+            );
+
+            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
             replicaManager = spy(new ReplicaManager(
                     name,
@@ -827,7 +841,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     cmgManager,
                     hybridClock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                    placementDriver
+                    placementDriver,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
             ));
 
             ReplicaService replicaSvc = new ReplicaService(
@@ -835,8 +850,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock
             );
 
-            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()),
-                    () -> clusterService.topologyService().localMember().id());
+            txManager = new TxManagerImpl(
+                    replicaSvc,
+                    lockManager,
+                    hybridClock,
+                    new TransactionIdGenerator(addr.port()),
+                    () -> clusterService.topologyService().localMember().id(),
+                    placementDriver,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
+            );
 
             String nodeName = clusterService.nodeName();
 
@@ -909,10 +931,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
                     clockWaiter,
-                    delayDurationMsSupplier
+                    delayDurationMsSupplier,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
-            schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageManager);
+            schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);
 
             var schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 

@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.security.authentication;
 
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 
 /**
  * Authentication manager.
  */
-public interface AuthenticationManager extends Authenticator, ConfigurationListener<AuthenticationView> {
+public interface AuthenticationManager extends Authenticator, ConfigurationListener<SecurityView> {
 }

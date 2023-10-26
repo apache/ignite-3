@@ -39,4 +39,7 @@ public interface BuildIndexReplicaRequest extends ReplicaRequest {
 
     /** Returns {@code true} if this batch is the last one. */
     boolean finish();
+
+    /** Returns an enlistment consistency token is used to check that the lease is still actual while the message goes to the replica. */
+    long enlistmentConsistencyToken();
 }

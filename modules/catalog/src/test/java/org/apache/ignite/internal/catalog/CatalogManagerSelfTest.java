@@ -50,6 +50,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -57,6 +58,7 @@ import static org.apache.ignite.sql.ColumnType.NULL;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
@@ -962,7 +964,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
-        assertTrue(index.writeOnly());
+        assertFalse(index.available());
     }
 
     @Test
@@ -1003,7 +1005,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
         assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
-        assertTrue(index.writeOnly());
+        assertFalse(index.available());
     }
 
     @Test
@@ -1046,7 +1048,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogActivationTime() throws Exception {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, 0);
 
         manager.start();
 
@@ -1444,7 +1446,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         HybridTimestamp startTs = clock.now();
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, 0);
 
         manager.start();
 
@@ -1741,7 +1743,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(dropColumnParams(TABLE_NAME, "ID")),
-                willThrowFast(CatalogValidationException.class, "Deleting column belonging to primary key is not allowed")
+                willThrowFast(CatalogValidationException.class, "Deleting column `ID` belonging to primary key is not allowed")
         );
     }
 
@@ -1754,7 +1756,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 manager.execute(dropColumnParams(TABLE_NAME, "VAL")),
                 willThrowFast(
                         CatalogValidationException.class,
-                        "Deleting indexed column is not allowed"
+                        "Deleting column 'VAL' used by index(es) [myIndex], it is not allowed"
                 )
         );
     }
@@ -1868,13 +1870,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
-        assertFalse(index.writeOnly());
+        assertTrue(index.available());
     }
 
     @Test
@@ -1887,13 +1889,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) index(manager.latestCatalogVersion(), INDEX_NAME);
 
-        assertFalse(index.writeOnly());
+        assertTrue(index.available());
     }
 
     @Test
@@ -1926,11 +1928,38 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         });
 
         assertThat(
-                manager.execute(MakeIndexAvailableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void activationTimeIsStrictlyMonotonic() {
+        // Prepare schema changes.
+        ColumnParams column = ColumnParams.builder().name("ID").type(INT32).build();
+        CatalogCommand cmd1 = BaseCatalogManagerTest.createTableCommand(TABLE_NAME, List.of(column), List.of("ID"), null);
+        CatalogCommand cmd2 = BaseCatalogManagerTest.createTableCommand("test2", List.of(column), List.of("ID"), null);
+
+        // Make first schema change with delay = 1000.
+        delayDuration.set(10_000);
+        CompletableFuture<Void> schemaChangeFuture0 = manager.execute(cmd1);
+
+        // Make second schema change with delay = 1.
+        delayDuration.set(1);
+        CompletableFuture<Void> schemaChangeFuture1 = manager.execute(cmd2);
+
+        // Move clock forward to avoid awaiting.
+        clock.update(clock.now().addPhysicalTime(11_000));
+
+        assertThat(schemaChangeFuture0, willSucceedFast());
+        assertThat(schemaChangeFuture1, willSucceedFast());
+
+        // Make sure that we are getting the latest version of the schema using current timestamp.
+        int latestVer = manager.latestCatalogVersion();
+        int currentTsVer = manager.activeCatalogVersion(clock.now().longValue());
+        assertThat(currentTsVer, equalTo(latestVer));
     }
 
     private CompletableFuture<Void> changeColumn(
@@ -2000,5 +2029,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     private @Nullable CatalogIndexDescriptor index(int catalogVersion, String indexName) {
         return manager.schema(catalogVersion).index(indexName);
+    }
+
+    private int indexId(String indexName) {
+        CatalogIndexDescriptor index = manager.index(indexName, clock.nowLong());
+
+        assertNotNull(index, indexName);
+
+        return index.id();
     }
 }

@@ -19,10 +19,10 @@ package org.apache.ignite.internal.sql.engine.exec.row;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.toInternal;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -73,25 +73,19 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         int elementsCount = schema.fields().size();
 
         RowFactory<RowWrapper> factory = handler.factory(schema);
-        RowWrapper src = factory.create(sourceData);
+        RowWrapper src = factory.create(wrap(sourceData));
 
         // Serialization to binary tuple representation.
-        ByteBuffer buf = handler.toByteBuffer(src);
-
-        BinaryTuple tuple = new BinaryTuple(elementsCount, buf);
-        RowWrapper destWrap = factory.create(tuple);
-        RowWrapper dest = factory.create(buf);
+        BinaryTuple tuple = handler.toBinaryTuple(src);
+        RowWrapper dest = factory.create(tuple);
 
         for (int i = 0; i < elementsCount; i++) {
             String msg = schema.fields().get(i).toString();
 
-            assertThat(msg, handler.get(i, src), equalTo(sourceData[i]));
+            Object expected = toInternal(sourceData[i]);
 
-            // Binary tuple wrapper must return data in internal format.
-            Object expected = TypeUtils.toInternal(sourceData[i]);
-
+            assertThat(msg, handler.get(i, src), equalTo(expected));
             assertThat(msg, handler.get(i, dest), equalTo(expected));
-            assertThat(msg, handler.get(i, destWrap), equalTo(expected));
         }
     }
 
@@ -116,10 +110,10 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowSchema concatenatedSchema = builder.build();
 
         // Serialize.
-        ByteBuffer buf = handler.toByteBuffer(concatenated);
+        BinaryTuple tuple = handler.toBinaryTuple(concatenated);
 
         // Wrap into row.
-        RowWrapper result = handler.factory(concatenatedSchema).create(new BinaryTuple(totalElementsCount, buf));
+        RowWrapper result = handler.factory(concatenatedSchema).create(tuple);
 
         for (int i = 0; i < leftLen; i++) {
             assertThat(handler.get(i, result), equalTo(TypeUtils.toInternal(params.leftData[i])));
@@ -149,13 +143,13 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowFactory<RowWrapper> factory = handler.factory(schema);
 
         RowWrapper srcRow = factory.create(sourceData);
-        RowWrapper srcBinRow = factory.create(new BinaryTuple(handler.columnCount(srcRow), handler.toByteBuffer(srcRow)));
+        RowWrapper srcBinRow = factory.create(handler.toBinaryTuple(srcRow));
 
         RowWrapper mappedRow = handler.map(srcRow, mapping);
         RowWrapper mappedFromBinRow = handler.map(srcBinRow, mapping);
 
         RowSchema mappedSchema = rowSchema(columnTypes.subList(0, mapping.length), Arrays.copyOf(sourceData, mapping.length));
-        RowWrapper deserializedMappedBinRow = handler.factory(mappedSchema).create(handler.toByteBuffer(mappedFromBinRow));
+        RowWrapper deserializedMappedBinRow = handler.factory(mappedSchema).create(handler.toBinaryTuple(mappedFromBinRow));
 
         assertThat(handler.columnCount(mappedRow), equalTo(mapping.length));
         assertThat(handler.columnCount(mappedFromBinRow), equalTo(mapping.length));
@@ -213,6 +207,16 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         return values;
     }
 
+    private static Object[] wrap(Object[] values) {
+        Object[] newValues = new Object[values.length];
+
+        for (int i = 0; i < values.length; i++) {
+            newValues[i] = toInternal(values[i]);
+        }
+
+        return newValues;
+    }
+
     private List<ColumnType> columnTypes() {
         List<ColumnType> columnTypes = new ArrayList<>(
                 // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
@@ -244,11 +248,11 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             RowFactory<RowWrapper> factory1 = handler.factory(leftSchema);
             RowFactory<RowWrapper> factory2 = handler.factory(rightSchema);
 
-            RowWrapper left = factory1.create(leftData);
-            RowWrapper right = factory2.create(rightData);
+            RowWrapper left = factory1.create(wrap(leftData));
+            RowWrapper right = factory2.create(wrap(rightData));
 
-            this.left = leftTupleRequired ? factory1.create(handler.toByteBuffer(left)) : left;
-            this.right = rightTupleRequired ? factory2.create(handler.toByteBuffer(right)) : right;
+            this.left = leftTupleRequired ? factory1.create(handler.toBinaryTuple(left)) : left;
+            this.right = rightTupleRequired ? factory2.create(handler.toBinaryTuple(right)) : right;
         }
     }
 }

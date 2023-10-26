@@ -576,8 +576,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create logical topology with NODE_0.
         topology.putNode(NODE_0);
 
-        putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
-
         // Test steps.
 
         // Create a zone.

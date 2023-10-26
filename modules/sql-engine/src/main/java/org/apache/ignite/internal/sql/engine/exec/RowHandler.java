@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,12 +64,12 @@ public interface RowHandler<RowT> {
     int columnCount(RowT row);
 
     /**
-     * Assembly row representation as ByteBuffer.
+     * Assembly row representation as BinaryTuple.
      *
      * @param row Incoming data to be processed.
-     * @return {@link ByteBuffer} representation.
+     * @return {@link BinaryTuple} representation.
      */
-    ByteBuffer toByteBuffer(RowT row);
+    BinaryTuple toBinaryTuple(RowT row);
 
     /** String representation. */
     String toString(RowT row);
@@ -95,14 +95,6 @@ public interface RowHandler<RowT> {
          * @return Instantiation defined representation.
          */
         RowT create(Object... fields);
-
-        /**
-         * Create row using incoming {@link ByteBuffer}.
-         *
-         * @param raw {@link ByteBuffer} representation.
-         * @return Instantiation defined representation.
-         */
-        RowT create(ByteBuffer raw);
 
         /**
          * Create row using incoming binary tuple.

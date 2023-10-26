@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,11 +28,12 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
@@ -56,12 +55,11 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  *
  * <p>Each kind of rows is serialized to the same binary tuple format
- * using the {@link #toByteBuffer(RowWrapper) toByteBuffer} method.
+ * using the {@link #toBinaryTuple(RowWrapper)} method.
  *
- * <p>Factory methods {@link RowFactory#create(InternalTuple) wrap(InternalTuple)} and
- * {@link RowFactory#create(ByteBuffer) create(ByteBuffer)} allow create rows without
- * any additional conversions. But the fields in binary tuple must match the
- * factory {@link RowSchema row schema}.
+ * <p>Factory method {@link RowFactory#create(InternalTuple)} allows to
+ * create rows without any additional conversions. But the fields in
+ * binary tuple must match the factory {@link RowSchema row schema}.
  */
 public class SqlRowHandler implements RowHandler<RowWrapper> {
     public static final RowHandler<RowWrapper> INSTANCE = new SqlRowHandler();
@@ -139,8 +137,8 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     }
 
     @Override
-    public ByteBuffer toByteBuffer(RowWrapper row) {
-        return row.toByteBuffer();
+    public BinaryTuple toBinaryTuple(RowWrapper row) {
+        return row.toBinaryTuple();
     }
 
     @Override
@@ -170,12 +168,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
             /** {@inheritDoc} */
             @Override
-            public RowWrapper create(ByteBuffer buf) {
-                return create(new BinaryTuple(schemaLen, buf));
-            }
-
-            /** {@inheritDoc} */
-            @Override
             public RowWrapper create(InternalTuple tuple) {
                 assert schemaLen == tuple.elementCount() : format("schemaLen={}, tupleSize={}", schemaLen, tuple.elementCount());
 
@@ -194,9 +186,9 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         abstract @Nullable Object get(int field);
 
-        abstract void set(int field, Object value);
+        abstract void set(int field, @Nullable Object value);
 
-        abstract ByteBuffer toByteBuffer();
+        abstract BinaryTuple toBinaryTuple();
     }
 
     /**
@@ -227,18 +219,53 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         @Override
-        ByteBuffer toByteBuffer() {
-            BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(row.length);
+        BinaryTuple toBinaryTuple() {
+            int estimatedSize = 0;
+            boolean exactEstimate = true;
+            for (int i = 0; i < row.length; i++) {
+                NativeType nativeType = RowSchemaTypes.toNativeType(rowSchema.fields().get(i));
+
+                if (nativeType == null) {
+                    assert row[i] == null;
+
+                    continue;
+                }
+
+                Object value = row[i];
+
+                if (value == null) {
+                    continue;
+                }
+
+                if (nativeType.spec().fixedLength()) {
+                    estimatedSize += nativeType.sizeInBytes();
+                } else {
+                    if (value instanceof String) {
+                        // every character in the string may contain up to 4 bytes.
+                        // Let's be optimistic here and reserve buffer only for the smallest
+                        // possible variant
+
+                        estimatedSize += ((String) value).length();
+                        exactEstimate = false;
+                    } else if (value instanceof ByteString) {
+                        estimatedSize += ((ByteString) value).length();
+                    } else {
+                        assert (value instanceof BigDecimal) || (value instanceof BigInteger) : "unexpected value " + value.getClass();
+
+                        exactEstimate = false;
+                    }
+                }
+            }
+
+            BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(row.length, estimatedSize, exactEstimate);
 
             for (int i = 0; i < row.length; i++) {
                 Object value = row[i];
 
-                assert value != UNSPECIFIED_VALUE_PLACEHOLDER : "Invalid row value.";
-
                 appendValue(tupleBuilder, rowSchema.fields().get(i), value);
             }
 
-            return tupleBuilder.build();
+            return new BinaryTuple(row.length, tupleBuilder.build());
         }
 
         @Override
@@ -246,7 +273,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             return rowSchema;
         }
 
-        private void appendValue(BinaryTupleBuilder builder, TypeSpec schemaType, @Nullable Object value) {
+        private static void appendValue(BinaryTupleBuilder builder, TypeSpec schemaType, @Nullable Object value) {
             if (value == null) {
                 builder.appendNull();
 
@@ -377,8 +404,12 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         @Override
-        ByteBuffer toByteBuffer() {
-            return tuple.byteBuffer();
+        BinaryTuple toBinaryTuple() {
+            if (tuple instanceof BinaryTuple) {
+                return (BinaryTuple) tuple;
+            }
+
+            return new BinaryTuple(tuple.elementCount(), tuple.byteBuffer());
         }
 
         @Override
@@ -386,7 +417,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             return rowSchema;
         }
 
-        private @Nullable Object readValue(InternalTuple tuple, NativeType nativeType, int fieldIndex) {
+        private static @Nullable Object readValue(InternalTuple tuple, NativeType nativeType, int fieldIndex) {
             switch (nativeType.spec()) {
                 case BOOLEAN: return tuple.booleanValueBoxed(fieldIndex);
                 case INT8: return tuple.byteValueBoxed(fieldIndex);

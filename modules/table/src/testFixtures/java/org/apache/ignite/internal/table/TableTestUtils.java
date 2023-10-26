@@ -184,7 +184,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable Integer getIndexId(CatalogService catalogService, String indexName, long timestamp) {
-        CatalogIndexDescriptor index = catalogService.index(indexName, timestamp);
+        CatalogIndexDescriptor index = getIndex(catalogService, indexName, timestamp);
 
         return index == null ? null : index.id();
     }
@@ -198,10 +198,33 @@ public class TableTestUtils {
      * @throws AssertionError If table is absent.
      */
     public static int getIndexIdStrict(CatalogService catalogService, String indexName, long timestamp) {
-        Integer indexId = getIndexId(catalogService, indexName, timestamp);
+        return getIndexStrict(catalogService, indexName, timestamp).id();
+    }
 
-        assertNotNull(indexId, "indexName=" + indexName + ", timestamp=" + timestamp);
+    /**
+     * Returns index descriptor from the catalog, {@code null} if the table is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param indexName Index name.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable CatalogIndexDescriptor getIndex(CatalogService catalogService, String indexName, long timestamp) {
+        return catalogService.index(indexName, timestamp);
+    }
 
-        return indexId;
+    /**
+     * Returns index descriptor from the catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param indexName Index name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If table descriptor is absent.
+     */
+    public static CatalogIndexDescriptor getIndexStrict(CatalogService catalogService, String indexName, long timestamp) {
+        CatalogIndexDescriptor index = catalogService.index(indexName, timestamp);
+
+        assertNotNull(index, "indexName=" + indexName + ", timestamp=" + timestamp);
+
+        return index;
     }
 }

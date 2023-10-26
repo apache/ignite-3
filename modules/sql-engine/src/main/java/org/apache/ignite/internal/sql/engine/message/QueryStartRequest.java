@@ -28,11 +28,6 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(value = SqlQueryMessageGroup.QUERY_START_REQUEST)
 public interface QueryStartRequest extends ExecutionContextAwareMessage {
     /**
-     * Get schema name.
-     */
-    String schema();
-
-    /**
      * Get fragment description.
      */
     @Marshallable

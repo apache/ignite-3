@@ -35,9 +35,9 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.UnitContent;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,9 +63,9 @@ public class FileDeployerServiceTest {
         file1 = workDir.resolve("file1");
         file2 = workDir.resolve("file2");
         file3 = workDir.resolve("file3");
-        IgniteUtils.fillDummyFile(file1, 1024);
-        IgniteUtils.fillDummyFile(file2, 1024);
-        IgniteUtils.fillDummyFile(file3, 1024);
+        IgniteTestUtils.fillDummyFile(file1, 1024);
+        IgniteTestUtils.fillDummyFile(file2, 1024);
+        IgniteTestUtils.fillDummyFile(file3, 1024);
     }
 
     @Test

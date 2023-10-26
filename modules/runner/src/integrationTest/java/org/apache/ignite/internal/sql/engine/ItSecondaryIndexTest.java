@@ -28,6 +28,7 @@ import static org.hamcrest.Matchers.not;
 
 import java.time.LocalDate;
 import java.util.List;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Basic index tests.
  */
-public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
+public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     private static final String PK_SORTED_IDX = "PK_SORTED_IDX";
 
     private static final String DEPID_IDX = "DEPID_IDX";
@@ -51,7 +52,7 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
      * Before all.
      */
     @BeforeAll
-    static void initTestData() throws InterruptedException {
+    static void initTestData() {
         sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT)");
         sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");

@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -42,10 +43,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Various DML tests.
  */
-public class ItDmlTest extends ClusterPerClassIntegrationTest {
+public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 3;
     }
 
@@ -140,7 +141,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         log.info("Data was loaded.");
 
-        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
         sql(tx, "SELECT * FROM test WHERE val <= 1 ORDER BY val");
 
@@ -412,14 +413,14 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void scanExecutedWithinGivenTransaction() {
         sql("CREATE TABLE test (id int primary key, val int)");
 
-        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
         sql(tx, "INSERT INTO test VALUES (0, 0)");
 
         // just inserted row should be visible within the same transaction
         assertEquals(1, sql(tx, "select * from test").size());
 
-        Transaction anotherTx = CLUSTER_NODES.get(0).transactions().begin();
+        Transaction anotherTx = CLUSTER.aliveNode().transactions().begin();
 
         // just inserted row should not be visible until related transaction is committed
         assertEquals(0, sql(anotherTx, "select * from test").size());

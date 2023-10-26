@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -59,11 +61,16 @@ import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -103,7 +110,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -117,6 +124,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -149,6 +157,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(ConfigurationExtension.class)
 @Timeout(120)
+@WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "200")
 public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
@@ -167,6 +176,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -250,15 +262,24 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var placementDriver = new TestPlacementDriver(name);
 
+        var clusterInitializer = new ClusterInitializer(
+                clusterSvc,
+                hocon -> hocon,
+                new TestConfigurationValidator()
+        );
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
+                clusterInitializer,
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                new NodeAttributesCollector(nodeAttributes),
-                new TestConfigurationValidator());
+                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
+        );
+
+        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
@@ -266,7 +287,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 cmgManager,
                 hybridClock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                placementDriver
+                placementDriver,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
         var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
@@ -275,8 +297,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
 
-        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx),
-                () -> clusterSvc.topologyService().localMember().id());
+        var txManager = new TxManagerImpl(
+                replicaService,
+                lockManager,
+                hybridClock,
+                new TransactionIdGenerator(idx),
+                () -> clusterSvc.topologyService().localMember().id(),
+                placementDriver,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
+        );
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -341,10 +370,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        CatalogSchemaManager schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageMgr);
+        SchemaManager schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
@@ -631,11 +661,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         int intRes;
 
         try (Session session1 = ignite1.sql().createSession(); Session session2 = ignite2.sql().createSession()) {
+            createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
+
             session1.execute(null, "CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
 
-            waitForIndex(List.of(ignite1, ignite2), "idx1");
-
-            createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
+            waitForIndexToBecomeAvailable(List.of(ignite1, ignite2), "idx1");
 
             ResultSet<SqlRow> plan = session1.execute(null, "EXPLAIN PLAN FOR " + sql);
 
@@ -737,7 +767,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @Test
-    public void nodeWithDataTest() throws InterruptedException {
+    public void nodeWithDataTest() {
         IgniteImpl ignite = startNode(0);
 
         createTableWithData(List.of(ignite), TABLE_NAME, 1);
@@ -753,7 +783,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @ParameterizedTest
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     @ValueSource(booleans = {true, false})
     public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(2);
@@ -875,8 +904,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
-    public void testTwoNodesRestartDirect() throws InterruptedException {
+    public void testTwoNodesRestartDirect() {
         twoNodesRestart(true);
     }
 
@@ -884,8 +912,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
-    public void testTwoNodesRestartReverse() throws InterruptedException {
+    public void testTwoNodesRestartReverse() {
         twoNodesRestart(false);
     }
 
@@ -894,7 +921,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      *
      * @param directOrder When the parameter is true, nodes restart in direct order, otherwise they restart in reverse order.
      */
-    private void twoNodesRestart(boolean directOrder) throws InterruptedException {
+    private void twoNodesRestart(boolean directOrder) {
         List<IgniteImpl> nodes = startNodes(2);
 
         createTableWithData(nodes, TABLE_NAME, 2);
@@ -952,7 +979,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20137")
-    public void testOneNodeRestartWithGap() throws InterruptedException {
+    public void testOneNodeRestartWithGap() {
         IgniteImpl ignite = startNode(0);
 
         startNode(1);
@@ -1005,7 +1032,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
     @Test
-    public void testRestartDiffConfig() throws InterruptedException {
+    public void testRestartDiffConfig() {
         List<IgniteImpl> ignites = startNodes(2);
 
         createTableWithData(ignites, TABLE_NAME, 2);
@@ -1019,7 +1046,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
                 "[\"localhost:" + DEFAULT_NODE_PORT + "\"]",
-                DEFAULT_CLIENT_PORT + 11
+                DEFAULT_CLIENT_PORT + 11,
+                DEFAULT_HTTP_PORT + 11,
+                DEFAULT_HTTPS_PORT + 11
         );
 
         IgniteImpl node1 = startNode(1, cfgString);
@@ -1033,7 +1062,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    public void testCfgGapWithoutData() throws InterruptedException {
+    public void testCfgGapWithoutData() {
         List<IgniteImpl> nodes = startNodes(3);
 
         createTableWithData(nodes, TABLE_NAME, nodes.size());
@@ -1114,8 +1143,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
-    public void testCfgGap() throws InterruptedException {
+    public void testCfgGap() {
         List<IgniteImpl> nodes = startNodes(4);
 
         createTableWithData(nodes, "t1", nodes.size());
@@ -1230,15 +1258,31 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
     }
 
-    private void waitForIndex(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
-        // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the PK index.
-        assertTrue(waitForCondition(
-                () -> nodes.stream()
-                        .map(nodeImpl -> nodeImpl.catalogManager().index(indexName.toUpperCase(), nodeImpl.clock().nowLong()))
-                        .allMatch(Objects::nonNull),
-                TIMEOUT_MILLIS
-        ));
+    private void waitForIndexToBecomeAvailable(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(nodes.size());
+
+        nodes.forEach(node -> node.catalogManager().listen(CatalogEvent.INDEX_AVAILABLE, (event, ex) -> {
+            if (ex != null) {
+                return failedFuture(ex);
+            }
+
+            MakeIndexAvailableEventParameters availableEvent = (MakeIndexAvailableEventParameters) event;
+
+            CatalogIndexDescriptor index = node.catalogManager().index(availableEvent.indexId(), event.catalogVersion());
+
+            assertNotNull(index, "Cannot find an index by ID=" + availableEvent.indexId());
+
+            if (index.name().equalsIgnoreCase(indexName)) {
+                // That's our index.
+                latch.countDown();
+
+                return completedFuture(true);
+            }
+
+            return completedFuture(false);
+        }));
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
     }
 
     /**

@@ -120,6 +120,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     private static final String NODE_NAME = "node1";
 
+    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(NODE_NAME);
+
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
 
@@ -202,8 +204,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         for (int i = 0; i < nodes(); i++) {
             if (!txManagers.containsKey(i)) {
-                TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
-                        () -> "local");
+                TxManager txManager = new TxManagerImpl(
+                        replicaService,
+                        new HeapLockManager(),
+                        hybridClock,
+                        new TransactionIdGenerator(i),
+                        () -> NODE_NAME,
+                        TEST_PLACEMENT_DRIVER
+                );
 
                 txManager.start();
 
@@ -212,8 +220,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             }
         }
 
-        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1),
-                () -> "local");
+        TxManager txManager = new TxManagerImpl(
+                replicaService,
+                new HeapLockManager(),
+                hybridClock,
+                new TransactionIdGenerator(-1),
+                () -> NODE_NAME,
+                TEST_PLACEMENT_DRIVER
+        );
 
         txManager.start();
 
@@ -231,7 +245,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 replicaService,
                 hybridClock,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(NODE_NAME)
+                TEST_PLACEMENT_DRIVER
         );
 
         closeables.add(() -> table.close());
@@ -296,7 +310,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .txId(req0.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
-                        .rowMessage(req0.binaryRowMessage())
+                        .rowMessage(
+                                msgFactory.binaryRowMessage()
+                                        .schemaVersion(req0.schemaVersion())
+                                        .binaryTuple(req0.binaryTuple())
+                                        .build()
+                        )
                         .safeTimeLong(hybridClock.nowLong())
                         .txCoordinatorId(UUID.randomUUID().toString())
                         .build();
@@ -456,8 +475,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     );
 
                     TxManager txManager = txManagers.computeIfAbsent(index, k -> {
-                        TxManager txMgr = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock,
-                                new TransactionIdGenerator(index), () -> "local");
+                        TxManager txMgr = new TxManagerImpl(
+                                replicaService,
+                                new HeapLockManager(),
+                                hybridClock,
+                                new TransactionIdGenerator(index),
+                                () -> NODE_NAME,
+                                TEST_PLACEMENT_DRIVER
+                        );
                         txMgr.start();
                         closeables.add(txMgr::stop);
 

@@ -61,7 +61,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -71,9 +70,6 @@ import org.junit.jupiter.api.TestInfo;
 public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistributedTestSingleNode {
     /** A list of background cleanup futures. */
     private final List<CompletableFuture<?>> cleanupFutures = new CopyOnWriteArrayList<>();
-
-    /** A flag to drop async cleanup actions.  */
-    private volatile boolean ignoreAsyncCleanup;
 
     /**
      * The constructor.
@@ -98,14 +94,23 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                 timestampTracker
         ) {
             @Override
-            protected TxManagerImpl newTxManager(ReplicaService replicaSvc, HybridClock clock, TransactionIdGenerator generator,
-                    ClusterNode node) {
-                return new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, generator, node::id) {
+            protected TxManagerImpl newTxManager(
+                    ReplicaService replicaSvc,
+                    HybridClock clock,
+                    TransactionIdGenerator generator,
+                    ClusterNode node,
+                    PlacementDriver placementDriver
+            ) {
+                return new TxManagerImpl(
+                        replicaSvc,
+                        new HeapLockManager(),
+                        clock,
+                        generator,
+                        node::id,
+                        placementDriver
+                ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
-                        if (ignoreAsyncCleanup) {
-                            return completedFuture(null);
-                        }
                         CompletableFuture<Void> cleanupFuture = super.executeCleanupAsync(runnable);
 
                         cleanupFutures.add(cleanupFuture);
@@ -187,37 +192,12 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         log.info("Tables have been started");
     }
 
-    @Disabled("IGNITE-20560")
-    @Test
-    @Override
-    public void testTransactionAlreadyRolledback() {
-        super.testTransactionAlreadyRolledback();
-    }
-
-    @Disabled("IGNITE-20560")
-    @Test
-    @Override
-    public void testTransactionAlreadyCommitted() {
-        super.testTransactionAlreadyCommitted();
-    }
-
-    @Disabled("IGNITE-20395")
-    @Test
-    @Override
-    public void testBalance() throws InterruptedException {
-        super.testBalance();
-    }
-
-    @Disabled("IGNITE-20395")
     @Test
     public void testTwoReadWriteTransactions() throws TransactionException {
         Tuple key = makeKey(1);
 
         assertFalse(accounts.recordView().delete(null, key));
         assertNull(accounts.recordView().get(null, key));
-
-        // Disable background cleanup to avoid a race.
-        ignoreAsyncCleanup = true;
 
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         accounts.recordView().upsert(tx1, makeValue(1, 100.));

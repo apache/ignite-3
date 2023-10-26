@@ -24,37 +24,46 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.hasProperty;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -62,8 +71,10 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -106,6 +117,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -172,7 +184,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null, PLANNING_TIMEOUT, new MetricManager());
+        prepareService = new PrepareServiceImpl("test", 0, CaffeineCacheFactory.INSTANCE, null, PLANNING_TIMEOUT, new MetricManager());
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
@@ -549,8 +561,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 return CompletableFuture.completedFuture(null);
             } else {
                 // On other nodes, simulate that the node has already gone.
-                return CompletableFuture.failedFuture(new IgniteInternalException(Common.INTERNAL_ERR,
-                        "Connection refused to " + node.nodeName + ", message " + msg));
+                return CompletableFuture.failedFuture(new NodeLeftException(node.nodeName));
             }
         }));
 
@@ -558,7 +569,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         // Wait till the query fails due to nodes' unavailability.
-        assertThat(cursor.closeAsync(), willThrow(hasProperty("message", containsString("Unable to send fragment")), 10, TimeUnit.SECONDS));
+        ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.closeAsync().get(10, TimeUnit.SECONDS));
+        assertThat(eex.getCause(), instanceOf(NodeLeftException.class));
+        assertThat(eex.getCause().getMessage(), containsString("cause=Node left the cluster"));
+        assertThat(((NodeLeftException) eex.getCause()).code(), equalTo(NODE_LEFT_ERR));
 
         // Let the root fragment be executed.
         queryFailedLatch.countDown();
@@ -571,6 +585,115 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         });
         assertThat(stopFuture, willSucceedIn(10, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Tests the ability to run multiple statements using {@link QueryPrefetchCallback}. Each subsequent
+     * statement begins execution after the prefetching for the previous statement is completed.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testPrefetchCallbackInvocation() throws Exception {
+        String query = "SELECT * FROM test_tbl";
+        int totalStatements = 20;
+        Collection<AsyncCursor<List<Object>>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
+        List<String> queries = IntStream.range(0, totalStatements).boxed().map(n -> query).collect(Collectors.toList());
+        ArrayBlockingQueue<String> queriesQueue = new ArrayBlockingQueue<>(totalStatements, false, queries);
+        AtomicReference<AssertionError> errHolder = new AtomicReference<>();
+        ExecutionService execService = executionServices.get(0);
+
+        Function<QueryPrefetchCallback, BaseQueryContext> createCtx = (callback) -> BaseQueryContext.builder()
+                .cancel(new QueryCancel())
+                .prefetchCallback(callback)
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(wrap(schema))
+                                .build()
+                )
+                .logger(log)
+                .build();
+
+        QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
+            @Override
+            public void onPrefetchComplete(@Nullable Throwable err) {
+                try {
+                    assertThat(err, nullValue());
+
+                    String sql = queriesQueue.poll();
+
+                    assertThat(sql, notNullValue());
+
+                    BaseQueryContext ctx = createCtx.apply(queriesQueue.isEmpty() ? null : this);
+                    InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+                    QueryPlan plan = prepare(sql, ctx);
+
+                    resultCursors.add(
+                            execService.executePlan(tx, plan, ctx)
+                    );
+                } catch (AssertionError e) {
+                    errHolder.set(e);
+                } catch (Throwable t) {
+                    errHolder.set(new AssertionError(t));
+                }
+            }
+        };
+
+        // Start statements execution.
+        prefetchListener.onPrefetchComplete(null);
+
+        waitForCondition(() -> resultCursors.size() == queries.size(), TIMEOUT_IN_MS);
+
+        if (errHolder.get() != null) {
+            throw errHolder.get();
+        }
+
+        assertEquals(queries.size(), resultCursors.size());
+
+        resultCursors.forEach(AsyncCursor::closeAsync);
+    }
+
+    /**
+     * Test ensures that an exception during data prefetching is propagated to the callback.
+     */
+    @Test
+    public void testErrorIsPropagatedToPrefetchCallback() {
+        ExecutionService execService = executionServices.get(0);
+        CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
+        IgniteInternalException expectedException = new IgniteInternalException(Common.INTERNAL_ERR, "Expected exception");
+
+        BaseQueryContext ctx = BaseQueryContext.builder()
+                .cancel(new QueryCancel())
+                .prefetchCallback(prefetchFut::completeExceptionally)
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(wrap(schema))
+                                .build()
+                )
+                .logger(log)
+                .build();
+
+        testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                testCluster.node(nodeNames.get(2)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(((QueryStartRequest) msg).queryId())
+                        .fragmentId(((QueryStartRequest) msg).fragmentId())
+                        .error(expectedException)
+                        .build()
+                );
+            } else {
+                original.onMessage(nodeName, msg);
+            }
+
+            return CompletableFuture.completedFuture(null);
+        });
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+        AsyncCursor<List<Object>> cursor = execService.executePlan(new NoOpTransaction(nodeNames.get(0)), plan, ctx);
+
+        assertThat(prefetchFut, willThrow(equalTo(expectedException)));
+
+        cursor.closeAsync();
     }
 
     /** Creates an execution service instance for the node with given consistent id. */
@@ -614,7 +737,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         rootSch.add(schema.getName(), schema);
         SchemaPlus plus = rootSch.plus().getSubSchema(schema.getName());
 
-        when(schemaManagerMock.schema(any(), anyInt())).thenReturn(plus);
+        when(schemaManagerMock.schema(anyInt())).thenReturn(plus);
 
         var targetProvider = new ExecutionTargetProvider() {
             @Override
@@ -632,7 +755,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider);
+        var mappingService = new MappingServiceImpl(nodeName, targetProvider, taskExecutor);
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
@@ -912,8 +1035,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private static class CapturingMailboxRegistry implements MailboxRegistry {
         private final MailboxRegistry delegate;
 
-        private final Set<Inbox<?>> inboxes = Collections.newSetFromMap(new IdentityHashMap<>());
-        private final Set<Outbox<?>> outboxes = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<Inbox<?>> inboxes = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        private final Set<Outbox<?>> outboxes = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
         CapturingMailboxRegistry(MailboxRegistry delegate) {
             this.delegate = delegate;

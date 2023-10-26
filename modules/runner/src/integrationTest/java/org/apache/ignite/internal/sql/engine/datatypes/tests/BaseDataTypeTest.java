@@ -26,7 +26,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
@@ -66,7 +66,7 @@ import org.junit.jupiter.params.provider.Arguments;
  *
  * @param <T> A storage type of a data type.
  */
-public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterPerClassIntegrationTest {
+public abstract class BaseDataTypeTest<T extends Comparable<T>> extends BaseSqlIntegrationTest {
 
     protected DataTypeTestSpec<T> testTypeSpec;
 
@@ -112,7 +112,7 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
     protected final QueryChecker checkQuery(String query) {
         QueryTemplate queryTemplate = createQueryTemplate(query);
 
-        IgniteImpl node = (IgniteImpl) CLUSTER_NODES.get(0);
+        IgniteImpl node = (IgniteImpl) CLUSTER.aliveNode();
 
         return queryCheckerFactory.create(node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
     }

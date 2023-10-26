@@ -39,6 +39,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -51,9 +52,6 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -114,8 +112,14 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
-            TxManagerImpl txManager = new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl(),
-                    new TransactionIdGenerator(0xdeadbeef), () -> "local");
+            TxManagerImpl txManager = new TxManagerImpl(
+                    replicaSvc,
+                    new HeapLockManager(),
+                    new HybridClockImpl(),
+                    new TransactionIdGenerator(0xdeadbeef),
+                    () -> "local",
+                    new TestPlacementDriver("local")
+            );
 
             txManager.start();
 
@@ -129,8 +133,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
-            TableDescriptor descriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
-            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter, descriptor);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
                     partsWithTerms, null, null, null);
 

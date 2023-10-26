@@ -32,9 +32,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -52,9 +53,9 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
-public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
+public class ItCommonApiTest extends BaseSqlIntegrationTest {
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -105,7 +106,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         String kvTblName = "tbl_all_columns_sql";
         String keyCol = "KEY";
 
-        Ignite node = CLUSTER_NODES.get(0);
+        Ignite node = CLUSTER.aliveNode();
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19162 Trim all less than millisecond information from timestamp
         //String tsStr = "2023-03-29T08:22:33.005007Z";
@@ -160,7 +161,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         SqlSchemaManager oldManager =
                 (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
 
-        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
         try {
             sql(tx, "INSERT INTO PUBLIC.TEST VALUES(1, 1)");
@@ -205,13 +206,13 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable SchemaPlus schema(@Nullable String name, int version) {
+        public @Nullable SchemaPlus schema(int version) {
             return null;
         }
 
         /** {@inheritDoc} */
         @Override
-        public @Nullable SchemaPlus schema(@Nullable String name, long timestamp) {
+        public @Nullable SchemaPlus schema(long timestamp) {
             return null;
         }
 
@@ -219,6 +220,12 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         @Override
         public CompletableFuture<Void> schemaReadyFuture(int version) {
             throw new UnsupportedOperationException();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @Nullable IgniteTable table(int schemaVersion, int tableId) {
+            return null;
         }
     }
 }

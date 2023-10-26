@@ -26,7 +26,7 @@ public class Leases {
 
     private final byte[] leasesBytes;
 
-    Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
+    public Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
         this.leaseByGroupId = leaseByGroupId;
         this.leasesBytes = leasesBytes;
     }

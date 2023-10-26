@@ -51,7 +51,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -74,10 +74,10 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.schema.CatalogSqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
@@ -90,10 +90,11 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.systemview.SystemViewManager;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -137,15 +138,17 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final long DEFAULT_SESSION_IDLE_TIMEOUT = TimeUnit.MINUTES.toMillis(15);
 
     /** Name of the default schema. */
-    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private static final PropertiesHolder DEFAULT_PROPERTIES = PropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
             .set(SessionProperty.IDLE_TIMEOUT, DEFAULT_SESSION_IDLE_TIMEOUT)
             .build();
 
+    private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
+
     private final ParserService parserService = new ParserServiceImpl(
-            PARSED_RESULT_CACHE_SIZE, CaffeineCacheFactory.INSTANCE
+            PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
     );
 
     private final List<LifecycleAware> services = new ArrayList<>();
@@ -156,7 +159,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
-    private final CatalogSchemaManager schemaManager;
+    private final SchemaManager schemaManager;
 
     private final DataStorageManager dataStorageManager;
 
@@ -199,7 +202,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             ClusterService clusterSrvc,
             LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
-            CatalogSchemaManager schemaManager,
+            SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
@@ -222,8 +225,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
 
-        sqlSchemaManager = new CatalogSqlSchemaManager(
+        sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
+                CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
         );
     }
@@ -244,6 +248,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
                 PLAN_CACHE_SIZE,
+                CACHE_FACTORY,
                 dataStorageManager,
                 dataStorageFieldsSupplier.get(),
                 metricManager
@@ -265,7 +270,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var ddlCommandHandler = new DdlCommandHandler(catalogManager);
 
-        var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
+        var executableTableRegistry = new ExecutableTableRegistryImpl(
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clock, TABLE_CACHE_SIZE
+        );
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(
                 executableTableRegistry,
@@ -305,7 +312,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider);
+        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider, taskExecutor);
 
         logicalTopologyService.addEventListener(mappingService);
 
@@ -478,7 +485,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, HybridTimestamp timestamp) {
         try {
             return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(unused -> {
-                SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
+                SchemaPlus schema = sqlSchemaManager.schema(timestamp.longValue()).getSubSchema(schemaName);
 
                 if (schema == null) {
                     throw new SchemaNotFoundException(schemaName);
@@ -545,7 +552,6 @@ public class SqlQueryProcessor implements QueryProcessor {
      * @return Wrapper for an active transaction.
      * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
      */
-    // TODO: IGNITE-20539 - unify creation of implicit transactions.
     static QueryTransactionWrapper wrapTxOrStartImplicit(
             SqlQueryType queryType,
             IgniteTransactions transactions,
@@ -578,6 +584,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
+
+        if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+            String message = "Transaction control statement can not be executed as an independent statement";
+
+            throw new SqlException(STMT_VALIDATION_ERR, message);
+        }
 
         if (!allowedTypes.contains(queryType)) {
             String message = format("Invalid SQL statement type. Expected {} but got {}", allowedTypes, queryType);

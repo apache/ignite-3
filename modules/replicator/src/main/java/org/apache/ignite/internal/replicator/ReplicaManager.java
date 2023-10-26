@@ -19,6 +19,7 @@ package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -36,6 +37,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -81,8 +83,8 @@ import org.jetbrains.annotations.TestOnly;
  * This class allow to start/stop/get a replica.
  */
 public class ReplicaManager implements IgniteComponent {
-    /** Idle safe time propagation period. */
-    public static final int IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
+    /** Default Idle safe time propagation period for tests. */
+    public static final int DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
@@ -116,6 +118,8 @@ public class ReplicaManager implements IgniteComponent {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
+    private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
+
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
@@ -142,7 +146,9 @@ public class ReplicaManager implements IgniteComponent {
      * @param cmgMgr Cluster group manager.
      * @param clock A hybrid logical clock.
      * @param messageGroupsToHandle Message handlers.
+     * @param placementDriver A placement driver.
      */
+    @TestOnly
     public ReplicaManager(
             String nodeName,
             ClusterService clusterNetSvc,
@@ -151,6 +157,37 @@ public class ReplicaManager implements IgniteComponent {
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver
     ) {
+        this(
+                nodeName,
+                clusterNetSvc,
+                cmgMgr,
+                clock,
+                messageGroupsToHandle,
+                placementDriver,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+        );
+    }
+
+    /**
+     * Constructor for a replica service.
+     *
+     * @param nodeName Node name.
+     * @param clusterNetSvc Cluster network service.
+     * @param cmgMgr Cluster group manager.
+     * @param clock A hybrid logical clock.
+     * @param messageGroupsToHandle Message handlers.
+     * @param placementDriver A placement driver.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     */
+    public ReplicaManager(
+            String nodeName,
+            ClusterService clusterNetSvc,
+            ClusterManagementGroupManager cmgMgr,
+            HybridClock clock,
+            Set<Class<?>> messageGroupsToHandle,
+            PlacementDriver placementDriver,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier
+    ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
         this.clock = clock;
@@ -158,6 +195,7 @@ public class ReplicaManager implements IgniteComponent {
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
+        this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -272,7 +310,7 @@ public class ReplicaManager implements IgniteComponent {
                         }
                     }
 
-                    if (res.replicationFuture() != null) {
+                    if (ex == null && res.replicationFuture() != null) {
                         assert request instanceof PrimaryReplicaRequest;
 
                         res.replicationFuture().handle((res0, ex0) -> {
@@ -509,7 +547,7 @@ public class ReplicaManager implements IgniteComponent {
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,
-                IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                idleSafeTimePropagationPeriodMsSupplier.getAsLong(),
                 TimeUnit.MILLISECONDS
         );
 
@@ -677,5 +715,17 @@ public class ReplicaManager implements IgniteComponent {
     @TestOnly
     public Set<ReplicationGroupId> startedGroups() {
         return replicas.keySet();
+    }
+
+    /**
+     * TODO: to be removed after IGNITE-20499 is fixed. This was introduced in a rush because of a burning release, should be fixe asap.
+     */
+    public static long idleSafeTimePropagationPeriodMs() {
+        return Long.parseLong(
+                System.getProperty(
+                        IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY,
+                        Integer.toString(DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS)
+                )
+        );
     }
 }

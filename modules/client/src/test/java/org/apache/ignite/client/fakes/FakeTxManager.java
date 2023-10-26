@@ -19,11 +19,11 @@ package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -160,6 +160,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
+        return action.get();
+    }
+
+    @Override
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
     }
 
@@ -170,7 +175,7 @@ public class FakeTxManager implements TxManager {
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
         return null;

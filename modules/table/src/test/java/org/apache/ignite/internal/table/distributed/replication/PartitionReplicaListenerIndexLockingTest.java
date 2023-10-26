@@ -19,14 +19,17 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -38,6 +41,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -93,6 +97,8 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -207,7 +213,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
-                mock(TxManager.class),
+                newTxManager(),
                 LOCK_MANAGER,
                 Runnable::run,
                 PART_ID,
@@ -244,6 +250,34 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
     }
 
+    private static TxManager newTxManager() {
+        TxManager txManager = mock(TxManager.class);
+
+        ConcurrentHashMap<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
+
+        doAnswer(invocation -> txStateMap.get(invocation.getArgument(0)))
+                .when(txManager).stateMeta(any());
+
+        doAnswer(invocation -> {
+            UUID txId = invocation.getArgument(0);
+            Function<TxStateMeta, TxStateMeta> updater = invocation.getArgument(1);
+            txStateMap.compute(txId, (k, oldMeta) -> {
+                TxStateMeta newMeta = updater.apply(oldMeta);
+
+                if (newMeta == null) {
+                    return null;
+                }
+
+                TxState oldState = oldMeta == null ? null : oldMeta.txState();
+
+                return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
+            });
+            return null;
+        }).when(txManager).updateTxMeta(any(), any());
+
+        return txManager;
+    }
+
     @BeforeEach
     public void beforeTest() {
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();
@@ -274,6 +308,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
+                        .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
                         .requestType(arg.type)
                         .build();
@@ -291,7 +326,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
-                        .binaryRowMessage(binaryRowMessage(testBinaryRow))
+                        .schemaVersion(testBinaryRow.schemaVersion())
+                        .binaryTuple(testBinaryRow.tupleSlice())
                         .requestType(arg.type)
                         .build();
                 break;
@@ -354,6 +390,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
+                        .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
                         .requestType(arg.type)
                         .build();
@@ -368,7 +405,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
-                        .binaryRowMessages(rows.stream().map(PartitionReplicaListenerIndexLockingTest::binaryRowMessage).collect(toList()))
+                        .schemaVersion(rows.iterator().next().schemaVersion())
+                        .binaryTuples(binaryRowsToBuffers(rows))
                         .requestType(arg.type)
                         .build();
 

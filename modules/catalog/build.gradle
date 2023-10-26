@@ -29,6 +29,7 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
+    implementation project(':ignite-system-view-api')
 
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
@@ -50,6 +51,7 @@ dependencies {
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.mockito.junit
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation project(':ignite-system-view-api')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-vault')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))

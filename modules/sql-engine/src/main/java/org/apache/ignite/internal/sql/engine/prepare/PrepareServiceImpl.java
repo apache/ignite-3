@@ -41,7 +41,7 @@ import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -54,7 +54,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
-import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -102,6 +102,7 @@ public class PrepareServiceImpl implements PrepareService {
      *
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param cacheFactory A factory to create cache of query plans.
      * @param dataStorageManager Data storage manager.
      * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
      * @param metricManager Metric manager.
@@ -109,6 +110,7 @@ public class PrepareServiceImpl implements PrepareService {
     public static PrepareServiceImpl create(
             String nodeName,
             int cacheSize,
+            CacheFactory cacheFactory,
             DataStorageManager dataStorageManager,
             Map<String, Map<String, Class<?>>> dataStorageFields,
             MetricManager metricManager
@@ -116,6 +118,7 @@ public class PrepareServiceImpl implements PrepareService {
         return new PrepareServiceImpl(
                 nodeName,
                 cacheSize,
+                cacheFactory,
                 new DdlSqlToCommandConverter(dataStorageFields, DataStorageManager::defaultDataStorage),
                 DEFAULT_PLANNER_TIMEOUT,
                 metricManager
@@ -127,6 +130,7 @@ public class PrepareServiceImpl implements PrepareService {
      *
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param cacheFactory A factory to create cache of query plans.
      * @param ddlConverter A converter of the DDL-related AST to the actual command.
      * @param plannerTimeout Timeout in milliseconds to planning.
      * @param metricManager Metric manager.
@@ -134,6 +138,7 @@ public class PrepareServiceImpl implements PrepareService {
     public PrepareServiceImpl(
             String nodeName,
             int cacheSize,
+            CacheFactory cacheFactory,
             DdlSqlToCommandConverter ddlConverter,
             long plannerTimeout,
             MetricManager metricManager
@@ -144,7 +149,7 @@ public class PrepareServiceImpl implements PrepareService {
         this.metricManager = metricManager;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
-        cache = CaffeineCacheFactory.INSTANCE.create(cacheSize, sqlPlanCacheMetricSource);
+        cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource);
 
     }
 
@@ -194,7 +199,7 @@ public class PrepareServiceImpl implements PrepareService {
                                 "Planning of a query aborted due to planner timeout threshold is reached");
                     }
 
-                    throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicException(th));
+                    throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
     }
