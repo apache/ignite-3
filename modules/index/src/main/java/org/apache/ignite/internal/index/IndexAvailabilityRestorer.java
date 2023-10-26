@@ -36,6 +36,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -51,8 +52,28 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
-/** No-doc yet. */
-// TODO: IGNITE-20637 документация
+/**
+ * Component responsible for restoring the algorithm from {@link IndexBuildController} if a node fails at some step.
+ *
+ * <p>Approximate recovery algorithm:</p>
+ * <ul>
+ *     <li>For registered indexes: <ul>
+ *         <li>If the new index did not have time to add
+ *         {@link IndexManagementUtils#putBuildIndexMetastoreKeysIfAbsent(MetaStorageManager, int, int) index building keys}, then add them
+ *         to the metastore if they are <b>absent</b>.</li>
+ *         <li>If there are no {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building keys} left for
+ *         the index in the metastore, then we {@link MakeIndexAvailableCommand make the index available} in the catalog.</li>
+ *         <li>For partitions for which index building has not completed, we will wait until the primary replica is elected so that the
+ *         replication log will be applied. If after this we find out that the index has been build, we will remove the
+ *         {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building key} from the metastore if it is
+ *         <b>present</b>.</li>
+ *     </ul></li>
+ *     <li>For available indexes: <ul>
+ *         <li>Delete the {@link IndexManagementUtils#inProgressBuildIndexMetastoreKey(int) “index construction in progress” key} in the
+ *         metastore if it is <b>present</b>.</li>
+ *     </ul></li>
+ * </ul>
+ */
 public class IndexAvailabilityRestorer implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityRestorer.class);
 
