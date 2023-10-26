@@ -29,7 +29,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -246,7 +245,6 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
     /**
      * Ensure that explicit transaction can not be used, after it encounters an error.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20534")
     @ParameterizedTest
     @CsvSource({
             // dml or not | SQL statement
@@ -260,7 +258,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
             try (Statement stmt = conn.createStatement()) {
                 assertThrowsSqlException("/ by zero", () -> stmt.executeQuery("SELECT 1/0").next());
 
-                assertThrowsSqlException("Transaction is already finished",
+                assertThrowsSqlException("The operation is attempted for completed transaction",
                         () -> {
                             if (dml) {
                                 stmt.executeUpdate(sqlStmt);

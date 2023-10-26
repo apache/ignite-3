@@ -62,7 +62,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -724,7 +723,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20534")
     @Test
     public void testLockIsNotReleasedAfterTxRollback() {
         IgniteSql sql = igniteSql();
@@ -737,8 +735,14 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Transaction tx = igniteTx().begin();
 
             assertThrows(RuntimeException.class, () -> execute(tx, session, "SELECT 1/0"));
+
             tx.rollback();
-            session.execute(tx, "INSERT INTO tst VALUES (1, 1)");
+
+            assertThrowsSqlException(
+                    Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    "The operation is attempted for completed transaction",
+                    () -> session.execute(tx, "INSERT INTO tst VALUES (1, 1)")
+            );
         }
 
         try (Session session = sql.createSession()) {

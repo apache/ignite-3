@@ -21,6 +21,7 @@ import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_DELETE_ALL;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
@@ -70,7 +71,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -331,7 +331,8 @@ public class InternalTableImpl implements InternalTable {
         // It's possible to have null txState if transaction isn't started yet.
         if (tx != null && !(tx.state() == TxState.PENDING || tx.state() == null)) {
             return failedFuture(new TransactionException(
-                    "The operation is attempted for completed transaction"));
+                    TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    format("The operation is attempted for completed transaction [id={}, state={}]", tx.id(), tx.state())));
         }
 
         boolean implicit = tx == null;
@@ -524,7 +525,7 @@ public class InternalTableImpl implements InternalTable {
             // Track only write requests from explicit transactions.
             if (!txManager.addInflight(tx.id())) {
                 return failedFuture(
-                        new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
+                        new TransactionException(TX_UNEXPECTED_STATE_ERR, format(
                                 "Failed to enlist a write operation into a transaction, tx is locked for updates "
                                         + "[tableName={}, partId={}, txState={}]",
                                 tableName,
@@ -629,7 +630,7 @@ public class InternalTableImpl implements InternalTable {
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
-                        IgniteStringFormatter.format(
+                        format(
                                 "Failed to invoke the replica request [tableName={}, partId={}]",
                                 tableName,
                                 partId
@@ -680,7 +681,7 @@ public class InternalTableImpl implements InternalTable {
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
-                        IgniteStringFormatter.format(
+                        format(
                                 "Failed to invoke the replica request [tableName={}, partId={}]",
                                 tableName,
                                 partId
@@ -1451,7 +1452,7 @@ public class InternalTableImpl implements InternalTable {
     private void validatePartitionIndex(int p) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
-                    IgniteStringFormatter.format(
+                    format(
                             "Invalid partition [partition={}, minValue={}, maxValue={}].",
                             p,
                             0,
@@ -1829,8 +1830,7 @@ public class InternalTableImpl implements InternalTable {
                 if (n <= 0) {
                     cancel(null, true);
 
-                    subscriber.onError(new IllegalArgumentException(IgniteStringFormatter
-                            .format("Invalid requested amount of items [requested={}, minValue=1]", n))
+                    subscriber.onError(new IllegalArgumentException(format("Invalid requested amount of items [requested={}, minValue=1]", n))
                     );
                 }
 

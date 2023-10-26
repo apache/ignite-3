@@ -152,7 +152,6 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
 
     /** Check transaction change status with erroneous statements. */
     @Test
-    // TODO should be removed after https://issues.apache.org/jira/browse/IGNITE-20534  is fixed.
     public void testTxStateChangedOnErroneousOp() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
