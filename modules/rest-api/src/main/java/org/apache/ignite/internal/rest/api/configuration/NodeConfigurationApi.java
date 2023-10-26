@@ -93,6 +93,7 @@ public interface NodeConfigurationApi {
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.PROBLEM_JSON)
     @Patch
     CompletableFuture<Void> updateConfiguration(
             @Body @RequestBody(description = "The node configuration to update.") String updatedConfiguration

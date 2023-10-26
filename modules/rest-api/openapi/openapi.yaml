@@ -24,10 +24,6 @@ paths:
       responses:
         "200":
           description: Cluster initialized.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Void'
         "500":
           description: Internal error.
           content:
@@ -167,10 +163,6 @@ paths:
       responses:
         "200":
           description: Configuration updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Void'
         "500":
           description: Internal error.
           content:
@@ -272,10 +264,6 @@ paths:
       responses:
         "200":
           description: Configuration successfully updated.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Void'
         "500":
           description: Internal error.
           content:
@@ -495,8 +483,7 @@ paths:
           nullable: true
           allOf:
           - $ref: '#/components/schemas/deployMode'
-          - type: object
-            description: ALL or MAJORITY.
+          - description: ALL or MAJORITY.
       - name: initialNodes
         in: query
         schema:
@@ -519,6 +506,7 @@ paths:
                   items:
                     type: string
                     format: binary
+            encoding: {}
         required: true
       responses:
         "200":
@@ -749,13 +737,11 @@ components:
           description: Network address of this node.
           allOf:
           - $ref: '#/components/schemas/NetworkAddress'
-          - type: object
-            description: Cluster network address information.
+          - {}
         metadata:
           allOf:
           - $ref: '#/components/schemas/NodeMetadata'
-          - type: object
-            description: Node metadata information.
+          - description: Node metadata information.
       description: Information about the cluster node.
     ClusterState:
       type: object
@@ -778,8 +764,7 @@ components:
         clusterTag:
           allOf:
           - $ref: '#/components/schemas/ClusterTag'
-          - type: object
-            description: Unique tag that identifies the cluster.
+          - description: Unique tag that identifies the cluster.
       description: Information about current cluster state.
     ClusterTag:
       type: object
@@ -922,8 +907,7 @@ components:
         state:
           allOf:
           - $ref: '#/components/schemas/State'
-          - type: object
-            description: Node status.
+          - description: Node status.
       description: Node state.
     Problem:
       type: object
@@ -993,11 +977,8 @@ components:
         status:
           allOf:
           - $ref: '#/components/schemas/DeploymentStatus'
-          - type: object
-            description: Unit status.
+          - description: Unit status.
       description: Unit version and status.
-    Void:
-      type: object
     deployMode:
       type: string
       description: Initial set of nodes to deploy.
