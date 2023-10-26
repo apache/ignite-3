@@ -794,7 +794,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             if (tx != null && !(tx.state() == TxState.PENDING || tx.state() == null)) {
                 throw new TransactionException(
                         TX_FAILED_READ_WRITE_OPERATION_ERR,
-                        format("The operation is attempted for completed transaction [id={}, state={}]", tx.id(), tx.state()));
+                        format("Transaction is already finished [id={}, state={}]", tx.id(), tx.state()));
             }
 
             new IgniteRelShuttle() {

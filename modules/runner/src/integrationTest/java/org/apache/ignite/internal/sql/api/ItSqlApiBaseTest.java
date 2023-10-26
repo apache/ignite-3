@@ -740,7 +740,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             assertThrowsSqlException(
                     Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
-                    "The operation is attempted for completed transaction",
+                    "Transaction is already finished",
                     () -> session.execute(tx, "INSERT INTO tst VALUES (1, 1)")
             );
         }
