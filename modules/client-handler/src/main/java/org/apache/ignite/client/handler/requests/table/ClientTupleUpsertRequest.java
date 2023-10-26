@@ -20,11 +20,14 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.tx.tracing.TransactionScope.makeCurrent;
 
+import io.opentelemetry.context.Scope;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -48,9 +51,15 @@ public class ClientTupleUpsertRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            return readTuple(in, table, false).thenCompose(tuple -> {
-                return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
-            });
+
+            try (Scope ignored = makeCurrent(tx)) {
+                return OtelSpanManager.asyncSpan("ClientTupleUpsertRequest.process", (span) -> {
+                    return readTuple(in, table, false).thenCompose(tuple -> {
+                        return table.recordView().upsertAsync(tx, tuple)
+                                .thenAccept(v -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+                    });
+                });
+            }
         });
     }
 }

@@ -29,8 +29,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import io.opentelemetry.context.Context;
-import io.opentelemetry.instrumentation.annotations.AddingSpanAttributes;
-import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.BitSet;
 import java.util.EnumMap;
@@ -263,7 +261,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         ByteBuf byteBuf = (ByteBuf) msg;
@@ -390,7 +387,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
     }
 
-    @WithSpan
     private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
         int bytes = buf.readableBytes();
@@ -550,11 +546,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    @AddingSpanAttributes
     private @Nullable CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            @SpanAttribute("opCode") int opCode
+            int opCode
     ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:

@@ -26,6 +26,7 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -49,9 +50,12 @@ public class ClientTupleGetRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            return readTuple(in, table, true).thenCompose(keyTuple -> {
-                return table.recordView().getAsync(tx, keyTuple)
-                        .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));
+
+            return OtelSpanManager.asyncSpan("ClientTupleGetRequest.process", (span) -> {
+                return readTuple(in, table, true).thenCompose(keyTuple -> {
+                    return table.recordView().getAsync(tx, keyTuple)
+                            .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));
+                });
             });
         });
     }

@@ -327,7 +327,6 @@ public class ClientTableCommon {
      * @param table Table.
      * @return Schema descriptor future.
      */
-    @WithSpan
     public static CompletableFuture<SchemaDescriptor> readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
         var schemaId = unpacker.unpackInt();
 
@@ -346,7 +345,6 @@ public class ClientTableCommon {
      *                             <li>the node is stopping.</li>
      *                         </ul>
      */
-    @WithSpan
     public static CompletableFuture<TableImpl> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
         int tableId = unpacker.unpackInt();
 
@@ -372,7 +370,6 @@ public class ClientTableCommon {
      * @param resources Resource registry.
      * @return Transaction, if present, or null.
      */
-    @WithSpan
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in, ClientMessagePacker out, ClientResourceRegistry resources) {
         if (in.tryUnpackNil()) {

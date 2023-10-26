@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -48,9 +49,12 @@ public class ClientTupleUpsertAllRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
-            return readTuples(in, table, false).thenCompose(tuples -> {
-                return table.recordView().upsertAllAsync(tx, tuples)
-                        .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+
+            return OtelSpanManager.asyncRootSpan("ClientTupleUpsertAllRequest.process", (span) -> {
+                return readTuples(in, table, false).thenCompose(tuples -> {
+                    return table.recordView().upsertAllAsync(tx, tuples)
+                            .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+                });
             });
         });
     }
