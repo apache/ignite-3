@@ -1830,8 +1830,8 @@ public class InternalTableImpl implements InternalTable {
                 if (n <= 0) {
                     cancel(null, true);
 
-                    subscriber.onError(new IllegalArgumentException(format("Invalid requested amount of items [requested={}, minValue=1]", n))
-                    );
+                    subscriber.onError(new IllegalArgumentException(
+                            format("Invalid requested amount of items [requested={}, minValue=1]", n)));
                 }
 
                 if (canceled.get()) {
