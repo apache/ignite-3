@@ -23,11 +23,9 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributesVault;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -66,7 +64,6 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -321,9 +318,12 @@ public class DistributionZonesTestUtil {
      * Sets logical topology to Vault.
      *
      * @param nodes Logical topology
-     * @param vaultMgr Vault manager
+     * @param metaStorageManager Meta storage manager
      */
-    public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
+    public static void mockZonesLogicalTopologyAndAttributes(
+            Set<LogicalNode> nodes,
+            MetaStorageManager metaStorageManager
+    ) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
                 .collect(toSet());
@@ -332,11 +332,10 @@ public class DistributionZonesTestUtil {
 
         Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
         nodesWithAttributes.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
-        assertThat(vaultMgr.put(zonesNodesAttributesVault(), toBytes(nodesAttributes)), willCompleteSuccessfully());
+        assertThat(metaStorageManager.put(zonesNodesAttributes(), toBytes(nodesAttributes)), willCompleteSuccessfully());
 
-        assertThat(vaultMgr.put(zonesLogicalTopologyVault(), newLogicalTopology), willCompleteSuccessfully());
-
-        assertThat(vaultMgr.put(zonesGlobalStateRevision(), longToBytes(appliedRevision)), willCompleteSuccessfully());
+        assertThat(metaStorageManager.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
+        assertThat(metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(1L)), willCompleteSuccessfully());
     }
 
     /**
