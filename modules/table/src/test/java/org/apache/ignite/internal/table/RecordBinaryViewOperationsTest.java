@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -27,18 +29,29 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -49,11 +62,7 @@ import org.junit.jupiter.api.function.Executable;
 public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void insert() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                SCHEMA_VERSION,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -76,13 +85,18 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         assertNull(tbl.get(null, nonExistedTuple));
     }
 
-    @Test
-    public void upsert() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+    @NotNull
+    private static SchemaDescriptor schemaDescriptor() {
+        return new SchemaDescriptor(
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
         );
+    }
+
+    @Test
+    public void upsert() {
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -107,11 +121,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void getAndUpsert() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -133,11 +143,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void remove() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -158,11 +164,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void removeExact() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -206,11 +208,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void replace() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -236,11 +234,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void replaceExact() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -268,7 +262,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void validateSchema() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{
                         new Column("val".toUpperCase(), NativeTypes.INT64, true),
@@ -300,7 +294,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void defaultValues() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{
                         new Column("val".toUpperCase(), NativeTypes.INT64, true, constantProvider(28L)),
@@ -327,11 +321,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void getAll() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -353,11 +343,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void upsertAllAfterInsertAll() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -395,11 +381,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void deleteVsDeleteExact() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -423,7 +405,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void getAndReplace() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
         );
@@ -448,7 +430,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void getAndDelete() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
         );
@@ -469,7 +451,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void deleteAll() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
         );
@@ -522,7 +504,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void deleteExact() {
         SchemaDescriptor schema = new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
         );
@@ -575,11 +557,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
     @Test
     public void getAndReplaceVsGetAndUpsert() {
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
-        );
+        SchemaDescriptor schema = schemaDescriptor();
 
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
@@ -598,6 +576,26 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         assertNull(tbl.getAndReplace(null, tuple));
 
         assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
+    }
+
+    @Test
+    void retriesOnInternalSchemaVersionMismatchException() throws Exception {
+        SchemaDescriptor schema = schemaDescriptor();
+        InternalTable internalTable = spy(createInternalTable(schema));
+
+        RecordView<Tuple> view = new RecordBinaryViewImpl(internalTable, new DummySchemaManagerImpl(schema), schemaVersions);
+
+        BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));
+
+        doThrow(new InternalSchemaVersionMismatchException())
+                .doReturn(completedFuture(resultRow))
+                .when(internalTable).get(any(), any());
+
+        Tuple result = view.get(null, Tuple.create().set("id", 1L));
+
+        assertThat(result.longValue("val"), is(2L));
+
+        verify(internalTable, times(2)).get(any(), isNull());
     }
 
     /**

@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -95,15 +99,38 @@ abstract class AbstractTableView {
      * @return Whatever the action returns.
      */
     protected final <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, KvAction<T> action) {
-        // TODO: IGNITE-20106 - retry if our request is rejected by the server due to a changed schema version.
-
         CompletableFuture<Integer> schemaVersionFuture = tx == null
                 ? schemaVersions.schemaVersionAtNow(tbl.tableId())
                 : schemaVersions.schemaVersionAt(((InternalTransaction) tx).startTimestamp(), tbl.tableId());
 
-        CompletableFuture<T> future = schemaVersionFuture.thenCompose(action::act);
+        CompletableFuture<T> future = schemaVersionFuture.thenCompose(action::act)
+                .handle((BiFunction<T, Throwable, CompletableFuture<T>>) (res, ex) -> {
+                    if (ex != null && isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
+                        // Repeat.
+                        return withSchemaSync(tx, action);
+                    }
+
+                    if (ex != null) {
+                        return failedFuture(ex);
+                    }
+
+                    return completedFuture(res);
+                })
+                .thenCompose(f -> f);
 
         return convertToPublicFuture(future);
+    }
+
+    private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
+        if (ex == null) {
+            return false;
+        }
+
+        if (exceptionClass.isInstance(ex)) {
+            return true;
+        }
+
+        return isOrCausedBy(exceptionClass, ex.getCause());
     }
 
     /**
