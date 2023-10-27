@@ -46,6 +46,9 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
     /**
      * Creates a new primary meta with unbounded period.
      *
+     * <p>Notes: Delegates creation to a {@link TestReplicaMetaImpl#TestReplicaMetaImpl(String, String, HybridTimestamp, HybridTimestamp)},
+     * where {@code leaseholder} is {@link ClusterNode#name()} and {@code leaseholderId} is {@link ClusterNode#id()}.</p>
+     *
      * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      */
     TestReplicaMetaImpl(@Nullable ClusterNode leaseholder) {
@@ -64,6 +67,9 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
 
     /**
      * Creates a new primary meta.
+     *
+     * <p>Notes: Delegates creation to a {@link TestReplicaMetaImpl#TestReplicaMetaImpl(String, String, HybridTimestamp, HybridTimestamp)},
+     * where {@code leaseholder} is {@link ClusterNode#name()} and {@code leaseholderId} is {@link ClusterNode#id()}.</p>
      *
      * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      * @param startTime Start lease timestamp.

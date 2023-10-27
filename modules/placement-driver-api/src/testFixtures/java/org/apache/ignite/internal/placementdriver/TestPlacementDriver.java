@@ -31,6 +31,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -46,10 +47,16 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Nullable
     private BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> awaitPrimaryReplicaFunction = null;
 
+    /** Auxiliary constructor that will create replica meta by {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)} internally. */
     public TestPlacementDriver(ClusterNode leaseholder) {
         primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholder);
     }
 
+    /**
+     * Auxiliary constructor that allows you to create {@link TestPlacementDriver} in cases where the node ID will be known only after the
+     * start of the components/node. Will use {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)} from
+     * {@link TopologyService#localMember()} of {@link ClusterService#topologyService()} under the hood.
+     */
     public TestPlacementDriver(ClusterService clusterService) {
         primaryReplicaSupplier = () -> new TestReplicaMetaImpl(clusterService.topologyService().localMember());
     }
