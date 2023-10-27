@@ -53,6 +53,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -151,7 +152,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         // Let's put the inProgressBuildIndexMetastoreKey for only one index in the metastore.
         putInProgressBuildIndexMetastoreKeyInMetastore(indexId0);
 
-        // Restart the components and perform a recovery.
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
@@ -170,7 +170,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
 
-        // Restart the components and perform a recovery.
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
@@ -192,14 +191,16 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         TablePartitionId replicaGroupId = new TablePartitionId(tableId, partitionId);
         ClusterNode localNode = new ClusterNodeImpl(NODE_NAME + "_ID", NODE_NAME, mock(NetworkAddress.class));
-        ReplicaMeta primaryReplicaMeta = newPrimaryReplicaMeta(localNode, replicaGroupId, clock.now(), clock.now().addPhysicalTime(1_000));
+
+        HybridTimestamp startTime = clock.now();
+        HybridTimestamp expirationTime = startTime.addPhysicalTime(TimeUnit.DAYS.toMillis(1));
+        ReplicaMeta primaryReplicaMeta = newPrimaryReplicaMeta(localNode, replicaGroupId, startTime, expirationTime);
 
         // An empty array on purpose.
         setIndexStorageToIndexManager(replicaGroupId, indexId);
         setLocalNodeToClusterService(localNode);
         setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, primaryReplicaMeta);
 
-        // Restart the components and perform a recovery.
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
@@ -223,13 +224,15 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         TablePartitionId replicaGroupId = new TablePartitionId(tableId, partitionId);
         ClusterNode localNode = new ClusterNodeImpl(NODE_NAME + "_ID", NODE_NAME, mock(NetworkAddress.class));
-        ReplicaMeta primaryReplicaMeta = newPrimaryReplicaMeta(localNode, replicaGroupId, clock.now(), clock.now().addPhysicalTime(1_000));
+
+        HybridTimestamp startTime = clock.now();
+        HybridTimestamp expirationTime = startTime.addPhysicalTime(TimeUnit.DAYS.toMillis(1));
+        ReplicaMeta primaryReplicaMeta = newPrimaryReplicaMeta(localNode, replicaGroupId, startTime, expirationTime);
 
         setIndexStorageToIndexManager(replicaGroupId, indexId, new RowId(partitionId));
         setLocalNodeToClusterService(localNode);
         setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, primaryReplicaMeta);
 
-        // Restart the components and perform a recovery.
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
@@ -259,7 +262,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         setLocalNodeToClusterService(localNode);
         setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, null);
 
-        // Restart the components and perform a recovery.
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
@@ -293,7 +295,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         setLocalNodeToClusterService(localNode);
         setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, primaryReplicaMeta);
 
-        // Restart the components and perform a recovery.
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
@@ -363,7 +364,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         assertThat(metastoreRecoveryFuture, willBe(greaterThan(0L)));
 
-        return restorer.recovery(metastoreRecoveryFuture.join());
+        return restorer.recover(metastoreRecoveryFuture.join());
     }
 
     private void setIndexStorageToIndexManager(TablePartitionId replicaGroupId, int indexId, RowId... rowIdsToBuild) {

@@ -22,7 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
-import static org.apache.ignite.internal.index.IndexManagementUtils.isLeaseExpire;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isLeaseExpired;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeyAbsentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeysPresentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.makeIndexAvailableInCatalogWithoutFuture;
@@ -70,7 +70,7 @@ import org.apache.ignite.network.ClusterService;
  *         <b>present</b>.</li>
  *     </ul></li>
  *     <li>For available indexes: <ul>
- *         <li>Delete the {@link IndexManagementUtils#inProgressBuildIndexMetastoreKey(int) “index construction in progress” key} in the
+ *         <li>Delete the {@link IndexManagementUtils#inProgressBuildIndexMetastoreKey(int) “index construction from progress” key} in the
  *         metastore if it is <b>present</b>.</li>
  *     </ul></li>
  * </ul>
@@ -119,7 +119,7 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
      * @param recoveryRevision Metastore revision on recovery.
      * @return Future of recovery execution.
      */
-    public CompletableFuture<Void> recovery(long recoveryRevision) {
+    public CompletableFuture<Void> recover(long recoveryRevision) {
         return inBusyLockAsync(busyLock, () -> {
             // It is expected that the method will only be called on recovery, when the deploy of metastore watches has not yet occurred.
             int catalogVersion = catalogManager.latestCatalogVersion();
@@ -180,8 +180,8 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
         }
 
         if (!isMetastoreKeysPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), recoveryRevision)) {
-            // Without wait, since the deploy metastore watches will be only after the start of the components is completed and there will
-            // be dead lock.
+            // Without wait, since the metastore watches deployment will be only after the start of the components is completed and this
+            // will cause a dead lock.
             makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);
 
             return completedFuture(null);
@@ -227,7 +227,7 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
                             .thenCompose(primaryReplicaMeta -> inBusyLockAsync(busyLock, () -> {
                                 ClusterNode localNode = clusterService.topologyService().localMember();
 
-                                if (primaryReplicaMeta == null || isLeaseExpire(primaryReplicaMeta, localNode, clock.now())) {
+                                if (primaryReplicaMeta == null || isLeaseExpired(primaryReplicaMeta, localNode, clock.now())) {
                                     // Local node is not the primary replica, so we expect to elect the primary replica with applying the
                                     // replication log. If a local node is elected, then IndexAvailabilityController will get rid of the
                                     // partitionBuildIndexMetastoreKey from the metastore on its own by

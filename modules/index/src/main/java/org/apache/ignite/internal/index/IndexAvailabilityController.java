@@ -80,10 +80,10 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     {@link IndexBuildCompletionListener} (from {@link IndexBuilder#listen}); as a result of each of these events, the corresponding
  *     {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition building index key} will be deleted from
  *     metastore.</li>
- *     <li>When <b>all</b> the {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) buildig index key partition} in the
+ *     <li>When <b>all</b> the {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building key} in the
  *     metastore are deleted, {@link MakeIndexAvailableCommand} will be executed for the corresponding index.</li>
  *     <li>At {@link CatalogEvent#INDEX_AVAILABLE},
- *     {@link IndexManagementUtils#inProgressBuildIndexMetastoreKey(int) in progress building index key} in the metastore will be
+ *     {@link IndexManagementUtils#inProgressBuildIndexMetastoreKey(int) in progress index building key} in the metastore will be
  *     deleted.</li>
  * </ul>
  *

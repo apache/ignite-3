@@ -87,11 +87,11 @@ class IndexManagementUtils {
     }
 
     /**
-     * Removes a {@code key} in the metastore if <b>present</b>.
+     * Removes a {@code key} from the metastore if <b>present</b>.
      *
      * @param metaStorageManager Metastore manager.
      * @param key Key to remove.
-     * @return Future result {@code true} if success remove was applied, otherwise {@code false}.
+     * @return Future result {@code true} if actual removal happened, otherwise {@code false}.
      */
     static CompletableFuture<Boolean> removeMetastoreKeyIfPresent(MetaStorageManager metaStorageManager, ByteArray key) {
         return metaStorageManager.invoke(exists(key), remove(key), noop());
@@ -259,7 +259,7 @@ class IndexManagementUtils {
      * @param localNode Local node.
      * @param timestamp Timestamp of interest.
      */
-    static boolean isLeaseExpire(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
+    static boolean isLeaseExpired(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         // TODO: IGNITE-20678 We need to compare by IDs: localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
         return !localNode.name().equals(primaryReplicaMeta.getLeaseholder()) && timestamp.after(primaryReplicaMeta.getExpirationTime());
     }
