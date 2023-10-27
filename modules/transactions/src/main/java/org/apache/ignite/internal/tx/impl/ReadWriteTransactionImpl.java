@@ -63,7 +63,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private volatile TablePartitionId commitPart;
 
     /** The lock protects the transaction topology from concurrent modification during finishing. */
-    private final ReentrantReadWriteLock enlistPartLock = new ReentrantReadWriteLock();
+    private final ReentrantReadWriteLock enlistPartitionLock = new ReentrantReadWriteLock();
 
     /** The future is initialized when this transaction starts committing or rolling back and is finished together with the transaction. */
     private CompletableFuture<Void> finishFuture;
@@ -105,13 +105,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         checkEnlistReady();
 
         try {
-            enlistPartLock.readLock().lock();
+            enlistPartitionLock.readLock().lock();
 
             checkEnlistReady();
 
             return enlisted.computeIfAbsent(tablePartitionId, k -> nodeAndTerm);
         } finally {
-            enlistPartLock.readLock().unlock();
+            enlistPartitionLock.readLock().unlock();
         }
     }
 
@@ -134,20 +134,20 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         }
 
         try {
-            enlistPartLock.writeLock().lock();
+            enlistPartitionLock.writeLock().lock();
 
             if (!isFinalState(state())) {
-                finishFuture =  finishInternal(commit);
+                finishFuture = finishInternal(commit);
             }
 
             return finishFuture;
         } finally {
-            enlistPartLock.writeLock().unlock();
+            enlistPartitionLock.writeLock().unlock();
         }
     }
 
     /**
-     * Internal method to finishing this transaction.
+     * Internal method for finishing this transaction.
      *
      * @param commit {@code true} to commit, false to rollback.
      * @return The future of transaction completion.

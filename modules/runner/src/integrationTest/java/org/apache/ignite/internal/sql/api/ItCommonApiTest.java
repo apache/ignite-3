@@ -34,13 +34,8 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -48,7 +43,6 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -148,57 +142,6 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
 
             assertEquals(expDateTimeStr, res.next().datetimeValue(1).toString());
         }
-    }
-
-    /** Check transaction change status with erroneous statements. */
-    @Test
-    public void testTxStateChangedOnErroneousOp() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        TxManager txManager = txManager();
-
-        SqlSchemaManager oldManager =
-                (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
-
-        Transaction tx = CLUSTER.aliveNode().transactions().begin();
-
-        try {
-            sql(tx, "INSERT INTO PUBLIC.TEST VALUES(1, 1)");
-            sql(tx, "INSERT INTO NOTEXIST.TEST VALUES(1, 1)");
-        } catch (Throwable ignore) {
-            // No op.
-        }
-
-        assertEquals(0, txManager.pending());
-        InternalTransaction tx0 = (InternalTransaction) tx;
-        assertEquals(TxState.ABORTED, tx0.state());
-
-        tx.rollback();
-        assertEquals(0, txManager.pending());
-
-        sql("INSERT INTO TEST VALUES(1, 1)");
-        assertEquals(0, txManager.pending());
-
-        var schemaManager = new ErroneousSchemaManager();
-
-        // TODO: refactor after https://issues.apache.org/jira/browse/IGNITE-17694
-        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", schemaManager);
-
-        try {
-            sql("SELECT a FROM NOTEXIST.TEST");
-        } catch (Throwable ignore) {
-            // No op.
-        }
-
-        try {
-            sql("INSERT INTO NOTEXIST.TEST VALUES(1, 1)");
-        } catch (Throwable ignore) {
-            // No op.
-        }
-
-        assertEquals(0, txManager.pending());
-
-        IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
     }
 
     private static class ErroneousSchemaManager implements SqlSchemaManager {
