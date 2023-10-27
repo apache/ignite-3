@@ -48,11 +48,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
 
 /**
  * Util class for methods needed for the rebalance process.
@@ -466,17 +465,17 @@ public class RebalanceUtil {
     /**
      * Returns partition assignments from vault.
      *
-     * @param vaultManager Vault manager.
+     * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
      * @param partitionNumber Partition number.
+     * @param revision Revision.
      * @return Returns partition assignments from vault or {@code null} if assignments is absent.
      */
     public static Set<Assignment> partitionAssignments(
-            VaultManager vaultManager, int tableId, int partitionNumber) {
-        VaultEntry entry =
-                vaultManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber))).join();
+            MetaStorageManager metaStorageManager, int tableId, int partitionNumber, long revision) {
+        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)), revision);
 
-        return (entry == null) ? null : ByteUtils.fromBytes(entry.value());
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : ByteUtils.fromBytes(entry.value());
     }
 
     /**
@@ -517,23 +516,26 @@ public class RebalanceUtil {
     /**
      * Returns table assignments for all table partitions from vault.
      *
-     * @param vaultManager Vault manager.
+     * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
      * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
      * @return Future with table assignments as a value.
      */
     public static List<Set<Assignment>> tableAssignments(
-            VaultManager vaultManager,
+            MetaStorageManager metaStorageManager,
             int tableId,
-            int numberOfPartitions
+            int numberOfPartitions,
+            long revision
     ) {
         return IntStream.range(0, numberOfPartitions)
-                .mapToObj(i ->
-                        (Set<Assignment>) ByteUtils.fromBytes(
-                                vaultManager.get(
-                                        stablePartAssignmentsKey(new TablePartitionId(tableId, i))
-                                ).join().value())
-                )
+                .mapToObj(p -> {
+                    Entry e = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, p)), revision);
+
+                    assert !e.empty() && !e.tombstone() : e;
+
+                    return (Set<Assignment>) ByteUtils.fromBytes(e.value());
+                })
                 .collect(Collectors.toList());
     }
 }
