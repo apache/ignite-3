@@ -17,18 +17,28 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
+import java.util.Set;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -179,6 +189,65 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         res = sql("SELECT c4 FROM my WHERE c1=3");
 
         assertEquals(3, res.get(0).get(0));
+
+        // Checking the correctness of reading a row created on a different version of the schema.
+        sql("ALTER TABLE my ADD COLUMN (c5 VARCHAR, c6 BOOLEAN)");
+        sql("ALTER TABLE my DROP COLUMN c4");
+        assertQuery("SELECT * FROM my WHERE c1=3")
+                .returns(3, "2", 3, null, null)
+                .check();
+    }
+
+    /**
+     * Adds columns of all supported types and checks that the row
+     * created on the old schema version is read correctly.
+     */
+    @Test
+    public void testDropAndAddColumnsAllTypes() {
+        List<NativeType> allTypes = SchemaTestUtils.ALL_TYPES;
+
+        Set<NativeTypeSpec> unsupportedTypes = Set.of(
+                // TODO https://issues.apache.org/jira/browse/IGNITE-18431
+                NativeTypeSpec.BITMASK,
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19274
+                NativeTypeSpec.TIMESTAMP
+        );
+
+        // List of columns for 'ADD COLUMN' statement.
+        IgniteStringBuilder addColumnsList = new IgniteStringBuilder();
+        // List of columns for 'DROP COLUMN' statement.
+        IgniteStringBuilder dropColumnsList = new IgniteStringBuilder();
+
+        for (int i = 0; i < allTypes.size(); i++) {
+            NativeType type = allTypes.get(i);
+
+            if (unsupportedTypes.contains(type.spec())) {
+                continue;
+            }
+
+            RelDataType relDataType = TypeUtils.native2relationalType(Commons.typeFactory(), type);
+
+            if (addColumnsList.length() > 0) {
+                addColumnsList.app(',');
+                dropColumnsList.app(',');
+            }
+
+            addColumnsList.app("c").app(i).app(' ').app(relDataType.getSqlTypeName());
+            dropColumnsList.app("c").app(i);
+        }
+
+        sql("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO test VALUES (0, 1)");
+        sql(format("ALTER TABLE test ADD COLUMN ({})", addColumnsList.toString()));
+
+        List<List<Object>> res = sql("SELECT * FROM test");
+        assertThat(res.size(), is(1));
+        assertThat(res.get(0).size(), is(allTypes.size() - unsupportedTypes.size() + /* initial columns */ 2));
+
+        sql(format("ALTER TABLE test DROP COLUMN ({})", dropColumnsList.toString()));
+        assertQuery("SELECT * FROM test")
+                .returns(0, 1)
+                .check();
     }
 
     /**
