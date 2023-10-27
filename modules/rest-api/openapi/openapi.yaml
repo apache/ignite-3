@@ -734,10 +734,9 @@ components:
           type: string
           description: Unique cluster name.
         address:
-          description: Network address of this node.
           allOf:
           - $ref: '#/components/schemas/NetworkAddress'
-          - {}
+          - description: Cluster network address information.
         metadata:
           allOf:
           - $ref: '#/components/schemas/NodeMetadata'
