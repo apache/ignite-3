@@ -67,7 +67,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -490,7 +489,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      *     <li>For an RO direct read, it's the timestamp chosen (as 'now') to process the request</li>
      * </ul>
      *
-     * For other requests, the validation is skipped.
+     * <p>For other requests, the validation is skipped.
      *
      * @param request Replica request corresponding to the operation.
      * @param opTsIfDirectRo Operation timestamp for a direct RO, {@code null} otherwise.
@@ -575,9 +574,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Returns timestamp of transaction start (for RW requests), of transaction itself (
+     * Returns timestamp of transaction start (for RW/timestamped RO requests) or @{code null} for other requests.
      *
-     * @param request
+     * @param request Replica request corresponding to the operation.
      */
     private static @Nullable HybridTimestamp getTxStartTimestamp(ReplicaRequest request) {
         HybridTimestamp txStartTimestamp;
@@ -3558,14 +3557,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         } catch (TrackerClosedException ignored) {
             // No-op.
         }
-    }
-
-    private CatalogTableDescriptor getTableDescriptor(int tableId, int catalogVersion) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
-
-        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
-
-        return tableDescriptor;
     }
 
     private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request) {

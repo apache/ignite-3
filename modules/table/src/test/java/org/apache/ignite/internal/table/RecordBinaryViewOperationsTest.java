@@ -51,7 +51,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -85,7 +84,6 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         assertNull(tbl.get(null, nonExistedTuple));
     }
 
-    @NotNull
     private static SchemaDescriptor schemaDescriptor() {
         return new SchemaDescriptor(
                 SCHEMA_VERSION,
