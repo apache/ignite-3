@@ -239,6 +239,20 @@ class IndexManagementUtils {
     }
 
     /**
+     * Extracts a index ID from the key: {@value PARTITION_BUILD_INDEX_KEY_PREFIX} + {@code "<indexId>.<partitionId>"}.
+     *
+     * @param key Key.
+     * @return Index ID.
+     */
+    static int extractIndexIdFromPartitionBuildIndexKey(String key) {
+        assert key.startsWith(PARTITION_BUILD_INDEX_KEY_PREFIX) : key;
+
+        String[] strings = key.split("\\.");
+
+        return Integer.parseInt(strings[2]);
+    }
+
+    /**
      * Returns {@code true} if the local node is no longer the primary replica at the timestamp of interest.
      *
      * @param primaryReplicaMeta Primary replica meta.

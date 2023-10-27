@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.index.IndexManagementUtils.PARTITION_BUILD_INDEX_KEY_PREFIX;
-import static org.apache.ignite.internal.index.IndexManagementUtils.extractPartitionIdFromPartitionBuildIndexKey;
+import static org.apache.ignite.internal.index.IndexManagementUtils.extractIndexIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeyAbsentLocally;
@@ -228,7 +228,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
 
             String partitionBuildIndexKey = toPartitionBuildIndexMetastoreKeyString(entry.key());
 
-            int indexId = extractPartitionIdFromPartitionBuildIndexKey(partitionBuildIndexKey);
+            int indexId = extractIndexIdFromPartitionBuildIndexKey(partitionBuildIndexKey);
 
             long metastoreRevision = entry.revision();
 
