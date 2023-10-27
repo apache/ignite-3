@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -31,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -585,7 +586,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));
 
-        doThrow(new InternalSchemaVersionMismatchException())
+        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
                 .doReturn(completedFuture(resultRow))
                 .when(internalTable).get(any(), any());
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.DATE;
@@ -42,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -687,7 +688,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         BinaryRow resultRow = new KvMarshallerImpl<>(schema, keyMapper, valMapper)
                 .marshal(key, expectedValue);
 
-        doThrow(new InternalSchemaVersionMismatchException())
+        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
                 .doReturn(completedFuture(resultRow))
                 .when(internalTable).get(any(), any());
 

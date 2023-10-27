@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 
@@ -30,6 +31,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
  * <p>This exception should never reach the public API users (even as a cause or a suppressed exception),
  * that's why it has no error code attached.
  */
-public class InternalSchemaVersionMismatchException extends IgniteInternalException {
+public class InternalSchemaVersionMismatchException extends IgniteInternalException implements ExpectedReplicationException {
     private static final long serialVersionUID = 7695731405107811859L;
 }

@@ -19,9 +19,11 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -99,24 +101,36 @@ abstract class AbstractTableView {
      * @return Whatever the action returns.
      */
     protected final <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, KvAction<T> action) {
+        return withSchemaSync(tx, null, action);
+    }
+
+    private <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, @Nullable Integer previousSchemaVersion, KvAction<T> action) {
         CompletableFuture<Integer> schemaVersionFuture = tx == null
                 ? schemaVersions.schemaVersionAtNow(tbl.tableId())
                 : schemaVersions.schemaVersionAt(((InternalTransaction) tx).startTimestamp(), tbl.tableId());
 
-        CompletableFuture<T> future = schemaVersionFuture.thenCompose(action::act)
-                .handle((BiFunction<T, Throwable, CompletableFuture<T>>) (res, ex) -> {
-                    if (ex != null && isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
-                        // Repeat.
-                        return withSchemaSync(tx, action);
-                    }
+        CompletableFuture<T> future = schemaVersionFuture
+                .thenCompose(schemaVersion -> {
+                    return action.act(schemaVersion)
+                            .handle((BiFunction<T, Throwable, CompletableFuture<T>>) (res, ex) -> {
+                                if (ex != null && isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
+                                    assert tx == null : "Only for implicit transactions a retry might be requested";
+                                    assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
+                                            : "Same schema version (" + schemaVersion
+                                                    + ") on a retry: something is wrong, is this caused by the test setup?";
 
-                    if (ex != null) {
-                        return failedFuture(ex);
-                    }
+                                    // Repeat.
+                                    return withSchemaSync(tx, schemaVersion, action);
+                                }
 
-                    return completedFuture(res);
+                                if (ex != null) {
+                                    return failedFuture(ex);
+                                }
+
+                                return completedFuture(res);
+                            });
                 })
-                .thenCompose(f -> f);
+                .thenCompose(identity());
 
         return convertToPublicFuture(future);
     }
