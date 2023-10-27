@@ -2390,7 +2390,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 cmd.txId(),
                                 cmd.rowUuid(),
                                 cmd.tablePartitionId().asTablePartitionId(),
-                                cmd.row(),
+                                cmd.rowToUpdate(),
                                 true,
                                 null,
                                 null,
@@ -2415,7 +2415,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             cmd.txId(),
                             cmd.rowUuid(),
                             cmd.tablePartitionId().asTablePartitionId(),
-                            cmd.row(),
+                            cmd.rowToUpdate(),
                             false,
                             null,
                             cmd.safeTime(),
@@ -3434,11 +3434,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .requiredCatalogVersion(catalogVersion);
 
         if (lastCommitTimestamp != null) {
-            bldr.lastCommitTimestampLong(lastCommitTimestamp.longValue());
+            bldr.messageRowToUpdate(MSG_FACTORY.timedBinaryRowMessage()
+                    .timestamp(lastCommitTimestamp.longValue())
+                    .build());
         }
 
         if (row != null) {
-            bldr.rowMessage(binaryRowMessage(row));
+            bldr.messageRowToUpdate(MSG_FACTORY.timedBinaryRowMessage()
+                    .binaryRowMessage(binaryRowMessage(row))
+                    .build());
         }
 
         return bldr.build();

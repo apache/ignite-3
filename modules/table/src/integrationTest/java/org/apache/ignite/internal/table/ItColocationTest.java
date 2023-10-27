@@ -239,7 +239,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                         .build()
                         )
                         .rowUuid(UUID.randomUUID())
-                        .rowMessage(binaryRowMessage(singleRowReplicaRequest.binaryTuple(), singleRowReplicaRequest))
+                        .messageRowToUpdate(MSG_FACTORY.timedBinaryRowMessage()
+                                .binaryRowMessage(binaryRowMessage(singleRowReplicaRequest.binaryTuple(), singleRowReplicaRequest))
+                                .build())
                         .txId(TestTransactionIds.newTransactionId())
                         .txCoordinatorId(node.id())
                         .build());

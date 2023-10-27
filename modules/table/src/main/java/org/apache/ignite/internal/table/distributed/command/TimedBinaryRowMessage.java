@@ -41,7 +41,7 @@ public interface TimedBinaryRowMessage extends NetworkMessage {
      *
      * @return Timestamp as long.
      */
-    @Nullable long timestamp();
+    long timestamp();
 
     /**
      * Gets a binary row form this message or {@code null} if the binary row message is {@code null}.

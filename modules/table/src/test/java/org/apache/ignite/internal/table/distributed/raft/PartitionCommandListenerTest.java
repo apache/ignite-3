@@ -706,7 +706,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < KEY_COUNT; i++) {
             ReadResult readResult = readRow(getTestKey(i));
 
-            keyRows.put(readResult.rowId().uuid(), msgFactory.timedBinaryRowMessage().build());
+            keyRows.put(readResult.rowId().uuid(), msgFactory.timedBinaryRowMessage()
+                    .build());
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -755,7 +756,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(readResult.rowId().uuid())
-                            .rowMessage(row)
+                            .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                    .binaryRowMessage(row)
+                                    .build())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
                             .txCoordinatorId(UUID.randomUUID().toString())
@@ -872,7 +875,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(UUID.randomUUID())
-                            .rowMessage(getTestRow(i, i))
+                            .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                    .binaryRowMessage(getTestRow(i, i))
+                                    .build())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
                             .txCoordinatorId(UUID.randomUUID().toString())
