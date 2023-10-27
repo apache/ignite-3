@@ -39,9 +39,6 @@ import org.jetbrains.annotations.Nullable;
 public class Lease implements ReplicaMeta {
     private static final long serialVersionUID = 394641185393949608L;
 
-    /** The object is used when nothing holds the lease. Empty lease is always expired. */
-    public static Lease EMPTY_LEASE = new Lease(null, null, MIN_VALUE, MIN_VALUE, null);
-
     /** Node consistent ID (assigned to a node once), {@code null} if nothing holds the lease. */
     private final @Nullable String leaseholder;
 
@@ -60,8 +57,8 @@ public class Lease implements ReplicaMeta {
     /** The lease is available to prolong in the same leaseholder. */
     private final boolean prolongable;
 
-    /** ID of replication group, {@code null} if nothing holds the lease. */
-    private final @Nullable ReplicationGroupId replicationGroupId;
+    /** ID of replication group. */
+    private final ReplicationGroupId replicationGroupId;
 
     /**
      * Creates a new lease.
@@ -70,14 +67,14 @@ public class Lease implements ReplicaMeta {
      * @param leaseholderId Leaseholder node ID (changes on every node startup), {@code null} if nothing holds the lease.
      * @param startTime Start lease timestamp.
      * @param leaseExpirationTime Lease expiration timestamp.
-     * @param replicationGroupId ID of replication group, {@code null} if nothing holds the lease.
+     * @param replicationGroupId ID of replication group.
      */
     public Lease(
             @Nullable String leaseholder,
             @Nullable String leaseholderId,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
-            @Nullable ReplicationGroupId replicationGroupId
+            ReplicationGroupId replicationGroupId
     ) {
         this(leaseholder, leaseholderId, startTime, leaseExpirationTime, false, false, replicationGroupId);
     }
@@ -91,7 +88,7 @@ public class Lease implements ReplicaMeta {
      * @param leaseExpirationTime Lease expiration timestamp.
      * @param prolong Lease is available to prolong.
      * @param accepted The flag is {@code true} when the holder accepted the lease.
-     * @param replicationGroupId ID of replication group, {@code null} if nothing holds the lease.
+     * @param replicationGroupId ID of replication group.
      */
     public Lease(
             @Nullable String leaseholder,
@@ -100,10 +97,9 @@ public class Lease implements ReplicaMeta {
             HybridTimestamp leaseExpirationTime,
             boolean prolong,
             boolean accepted,
-            @Nullable ReplicationGroupId replicationGroupId
+            ReplicationGroupId replicationGroupId
     ) {
-        assert (leaseholder == null) == ((leaseholderId == null) && (replicationGroupId == null)) :
-                "leaseholder=" + leaseholder + ", leaseholderId=" + leaseholderId + ", replicationGroupId=" + replicationGroupId;
+        assert (leaseholder == null) == (leaseholderId == null) : "leaseholder=" + leaseholder + ", leaseholderId=" + leaseholderId;
 
         this.leaseholder = leaseholder;
         this.leaseholderId = leaseholderId;
@@ -180,8 +176,8 @@ public class Lease implements ReplicaMeta {
         return accepted;
     }
 
-    /** Returns ID of replication group, {@code null} if nothing holds the lease. */
-    public @Nullable ReplicationGroupId replicationGroupId() {
+    /** Returns ID of replication group. */
+    public ReplicationGroupId replicationGroupId() {
         return replicationGroupId;
     }
 
@@ -193,7 +189,7 @@ public class Lease implements ReplicaMeta {
     public byte[] bytes() {
         byte[] leaseholderBytes = stringToBytes(leaseholder);
         byte[] leaseholderIdBytes = stringToBytes(leaseholderId);
-        byte[] groupIdBytes = replicationGroupId == null ? null : ByteUtils.toBytes(replicationGroupId);
+        byte[] groupIdBytes = ByteUtils.toBytes(replicationGroupId);
 
         int bufSize = 2 // accepted + prolongable
                 + HYBRID_TIMESTAMP_SIZE * 2 // startTime + expirationTime
@@ -232,10 +228,18 @@ public class Lease implements ReplicaMeta {
         String leaseholder = stringFromBytes(getBytes(buf));
         String leaseholderId = stringFromBytes(getBytes(buf));
 
-        byte[] groupIdBytes = getBytes(buf);
-        ReplicationGroupId groupId = groupIdBytes == null ? null : ByteUtils.fromBytes(groupIdBytes);
+        ReplicationGroupId groupId = ByteUtils.fromBytes(getBytes(buf));
 
         return new Lease(leaseholder, leaseholderId, startTime, expirationTime, prolongable, accepted, groupId);
+    }
+
+    /**
+     * Returns a lease that no one holds and is always expired.
+     *
+     * @param replicationGroupId Replication group ID.
+     */
+    public static Lease emptyLease(ReplicationGroupId replicationGroupId) {
+        return new Lease(null, null, MIN_VALUE, MIN_VALUE, replicationGroupId);
     }
 
     @Override

@@ -35,7 +35,7 @@ public class LeaseSerializationTest {
         long now = System.currentTimeMillis();
         ReplicationGroupId groupId = new TablePartitionId(1, 1);
 
-        checksSerialization(Lease.EMPTY_LEASE);
+        checksSerialization(Lease.emptyLease(groupId));
 
         checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, true, groupId));
 
@@ -45,7 +45,7 @@ public class LeaseSerializationTest {
 
         checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, false, groupId));
 
-        checksSerialization(newLease(null, timestamp(1, 1), timestamp(2 + 1_000_000, 100), true, true, null));
+        checksSerialization(newLease(null, timestamp(1, 1), timestamp(2 + 1_000_000, 100), true, true, groupId));
 
         checksSerialization(newLease("node" + new String(new byte[1000]), timestamp(1, 1), timestamp(2, 100), false, false, groupId));
     }
@@ -75,7 +75,7 @@ public class LeaseSerializationTest {
             HybridTimestamp expirationTime,
             boolean prolong,
             boolean accepted,
-            @Nullable ReplicationGroupId replicationGroupId
+            ReplicationGroupId replicationGroupId
     ) {
         return new Lease(
                 leaseholder,
