@@ -18,19 +18,30 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.apache.ignite.internal.util.subscription.TransformingPublisher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -39,24 +50,65 @@ import org.junit.jupiter.api.Test;
  */
 public class TestClusterTest extends BaseIgniteAbstractTest {
 
-    private final DataProvider<Object[]> dataProvider = DataProvider.fromRow(
-            new Object[]{42, UUID.randomUUID().toString()}, 3_333
-    );
+    private final ScannableTable table = new ScannableTable() {
+        @Override
+        public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
+                @Nullable BitSet requiredColumns) {
+
+            return new TransformingPublisher<>(
+                    SubscriptionUtils.fromIterable(
+                            DataProvider.fromRow(
+                                    new Object[]{42, UUID.randomUUID().toString()}, 3_333
+                            )
+                    ), rowFactory::create
+            );
+        }
+
+        @Override
+        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
+                @Nullable BitSet requiredColumns) {
+
+            return new TransformingPublisher<>(
+                    SubscriptionUtils.fromIterable(
+                            DataProvider.fromRow(
+                                    new Object[]{42, UUID.randomUUID().toString()}, 10
+                            )
+                    ), rowFactory::create
+            );
+        }
+
+        @Override
+        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+
+            return new TransformingPublisher<>(
+                    SubscriptionUtils.fromIterable(
+                            DataProvider.fromRow(
+                                    new Object[]{42, UUID.randomUUID().toString()}, 1
+                            )
+                    ), rowFactory::create
+            );
+        }
+    };
 
     // @formatter:off
-    private final TestCluster cluster = TestBuilders.cluster().nodes("N1")
+    private final TestCluster cluster = TestBuilders.cluster()
+            .nodes("N1", "N2")
             .addTable()
-            .name("T1")
-            .distribution(IgniteDistributions.hash(List.of(0)))
-            .addColumn("ID", NativeTypes.INT32)
-            .addColumn("VAL", NativeTypes.stringOf(64))
-            .defaultDataProvider(dataProvider)
-            .addHashIndex()
-            .name("IDX_ID")
-            .addColumn("ID")
-            .defaultDataProvider(dataProvider)
-            .end()
-            .end()
+                .name("T1")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.stringOf(64))
+                .addSortedIndex()
+                    .name("SORTED_IDX")
+                    .addColumn("ID", Collation.ASC_NULLS_FIRST)
+                    .end()
+                .end()
+            .dataProvider("N1", "T1", table)
+            .dataProvider("N2", "T1", table)
+            // table T2 will be created later by DDL
+            .dataProvider("N1", "T2", table)
+            .dataProvider("N2", "T2", table)
             .build();
     // @formatter:on
 
@@ -85,11 +137,30 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         assertTrue(fragment.root().getInput(0) instanceof IgniteTableScan);
     }
 
-    /**
-     * Runs a SELECT query with condition.
-     */
     @Test
-    public void testQueryWithCondition() {
+    public void testSimpleFromCreatedTableByDdl() {
+        cluster.start();
+
+        var gatewayNode = cluster.node("N1");
+
+        gatewayNode.initSchema(
+                "CREATE TABLE t2 (id INT PRIMARY KEY, val VARCHAR(64))"
+        );
+
+        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t2");
+
+        for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+            assertNotNull(row);
+        }
+
+        // Ensure the plan contains full table scan.
+        assertTrue(plan instanceof MultiStepPlan);
+        Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
+        assertTrue(fragment.root().getInput(0) instanceof IgniteTableScan);
+    }
+
+    @Test
+    public void testSelectByKey() {
         cluster.start();
 
         TestNode gatewayNode = cluster.node("N1");
@@ -103,5 +174,24 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         assertTrue(plan instanceof MultiStepPlan);
         Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
         assertTrue(fragment.root().getInput(0) instanceof IgniteIndexScan);
+        assertEquals("T1_PK", ((IgniteIndexScan) fragment.root().getInput(0)).indexName());
+    }
+
+    @Test
+    public void testSelectRange() {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
+
+        for (List<?> row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+            assertNotNull(row);
+        }
+
+        // Ensure the plan uses index.
+        assertTrue(plan instanceof MultiStepPlan);
+        Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
+        assertTrue(fragment.root().getInput(0) instanceof IgniteIndexScan);
+        assertEquals("SORTED_IDX", ((IgniteIndexScan) fragment.root().getInput(0)).indexName());
     }
 }
