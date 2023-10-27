@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.placementdriver.leases;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ByteUtils.stringFromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -189,7 +192,7 @@ public class Lease implements ReplicaMeta {
     public byte[] bytes() {
         byte[] leaseholderBytes = stringToBytes(leaseholder);
         byte[] leaseholderIdBytes = stringToBytes(leaseholderId);
-        byte[] groupIdBytes = ByteUtils.toBytes(replicationGroupId);
+        byte[] groupIdBytes = toBytes(replicationGroupId);
 
         int bufSize = 2 // accepted + prolongable
                 + HYBRID_TIMESTAMP_SIZE * 2 // startTime + expirationTime
@@ -267,20 +270,8 @@ public class Lease implements ReplicaMeta {
         return Objects.hash(leaseholder, leaseholderId, accepted, startTime, expirationTime, prolongable, replicationGroupId);
     }
 
-    private static byte @Nullable [] stringToBytes(@Nullable String s) {
-        return s == null ? null : s.getBytes(UTF_8);
-    }
-
-    private static @Nullable String stringFromBytes(byte @Nullable [] bytes) {
-        return bytes == null ? null : new String(bytes, UTF_8);
-    }
-
     private static int bytesSizeForWrite(byte @Nullable [] bytes) {
-        return Short.BYTES + bytesLength(bytes);
-    }
-
-    private static short bytesLength(byte @Nullable [] bytes) {
-        return (short) (bytes == null ? 0 : bytes.length);
+        return Integer.BYTES + (bytes == null ? 0 : bytes.length);
     }
 
     private static void putBoolean(ByteBuffer buffer, boolean b) {
@@ -300,7 +291,7 @@ public class Lease implements ReplicaMeta {
     }
 
     private static void putBytes(ByteBuffer buffer, byte @Nullable [] bytes) {
-        buffer.putShort(bytesLength(bytes));
+        buffer.putInt(bytes == null ? -1 : bytes.length);
 
         if (bytes != null) {
             buffer.put(bytes);
@@ -308,10 +299,12 @@ public class Lease implements ReplicaMeta {
     }
 
     private static byte @Nullable [] getBytes(ByteBuffer buffer) {
-        short bytesLen = buffer.getShort();
+        int bytesLen = buffer.getInt();
 
-        if (bytesLen <= 0) {
+        if (bytesLen < 0) {
             return null;
+        } else if (bytesLen == 0) {
+            return BYTE_EMPTY_ARRAY;
         }
 
         byte[] bytes = new byte[bytesLen];
