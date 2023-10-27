@@ -22,7 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
@@ -37,8 +39,10 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.jetbrains.annotations.Nullable;
@@ -109,6 +113,22 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
             // table T2 will be created later by DDL
             .dataProvider("N1", "T2", table)
             .dataProvider("N2", "T2", table)
+            // Register system views
+            .addSystemView(SystemViews.<Object[]>clusterViewBuilder()
+                    .name("NODES")
+                    .addColumn("PID", NativeTypes.INT64, v -> v[0])
+                    .addColumn("OS_NAME", NativeTypes.stringOf(64), v -> v[1])
+                    .dataProvider(SubscriptionUtils.fromIterable(Collections.singleton(new Object[]{42L, "mango"})))
+                    .build())
+            .addSystemView(SystemViews.<Object[]>nodeViewBuilder()
+                    .name("NODE_N2")
+                    .nodeNameColumnAlias("NODE_NAME")
+                    .addColumn("RND", NativeTypes.INT32, v -> v[0])
+                    .dataProvider(SubscriptionUtils.fromIterable(Collections.singleton(new Object[]{42})))
+                    .build())
+            .registerSystemView("N1", "NODES")
+            .registerSystemView("N1", "NODES")
+            .registerSystemView("N2", "NODE_N2")
             .build();
     // @formatter:on
 
@@ -193,5 +213,18 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
         assertTrue(fragment.root().getInput(0) instanceof IgniteIndexScan);
         assertEquals("SORTED_IDX", ((IgniteIndexScan) fragment.root().getInput(0)).indexName());
+    }
+
+    @Test
+    public void testQuerySystemViews() {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+        QueryPlan plan = gatewayNode.prepare("SELECT * FROM SYSTEM.NODES, SYSTEM.NODE_N2");
+
+        BatchedResult<List<Object>> results = gatewayNode.executePlan(plan).requestNextAsync(10_000).join();
+        List<List<Object>> rows = new ArrayList<>(results.items());
+
+        assertEquals(List.of(List.of(42L, "mango", "N2", 42)), rows);
     }
 }
