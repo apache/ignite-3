@@ -470,12 +470,10 @@ public class LogitLogStorage implements LogStorage {
         try {
             final boolean ret = saveFirstLogIndex(firstIndexKept);
             if (ret) {
-                // TODO Fix the bug.
-//                Utils.runInThread(executor, () -> {
-                    this.indexDB.truncatePrefix(firstIndexKept);
-                    this.segmentLogDB.truncatePrefix(firstIndexKept);
-                    this.confDB.truncatePrefix(firstIndexKept);
-//                });
+                // TODO IGNITE-20754 Make async when possible.
+                this.indexDB.truncatePrefix(firstIndexKept);
+                this.segmentLogDB.truncatePrefix(firstIndexKept);
+                this.confDB.truncatePrefix(firstIndexKept);
             }
             return ret;
         } finally {
