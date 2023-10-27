@@ -64,4 +64,10 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     public void checkTransactionsWithDml() {
         super.checkTransactionsWithDml();
     }
+
+    @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20742")
+    public void testLockIsNotReleasedAfterTxRollback() {
+        super.testLockIsNotReleasedAfterTxRollback();
+    }
 }
