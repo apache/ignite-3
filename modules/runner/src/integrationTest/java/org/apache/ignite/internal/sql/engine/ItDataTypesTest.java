@@ -35,6 +35,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -49,7 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Test SQL data types.
  */
-public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
+public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     private static final String NUMERIC_OVERFLOW_ERROR = "Numeric field overflow";
 
@@ -60,7 +61,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
      */
     @AfterEach
     public void dropTables() {
-        var igniteTables = CLUSTER_NODES.get(0).tables();
+        var igniteTables = CLUSTER.aliveNode().tables();
 
         for (var table : igniteTables.tables()) {
             sql("DROP TABLE " + table.name());
@@ -573,7 +574,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 

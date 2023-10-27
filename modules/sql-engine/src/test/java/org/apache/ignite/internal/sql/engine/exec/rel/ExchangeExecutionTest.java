@@ -49,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ClusterServiceFactory;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.PredicateMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -93,9 +95,18 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private static final Map<String, QueryTaskExecutor> executors = new HashMap<>();
 
-    public static final CustomMatcher<Object[]> ODD_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 != 0, "odd key");
+    private static final CustomMatcher<Object[]> ODD_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 != 0, "odd key");
 
-    public static final CustomMatcher<Object[]> EVEN_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 == 0, "even key");
+    private static final CustomMatcher<Object[]> EVEN_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 == 0, "even key");
+
+    /**
+     * Schema of the rows used in the tests. All data providers created within this test class must
+     * conform to this row schema.
+     */
+    private static final RowSchema ROW_SCHEMA = RowSchema.builder()
+            .addField(NativeTypes.INT32)
+            .addField(NativeTypes.INT32)
+            .build();
 
     private final Map<String, MailboxRegistry> mailboxes = new HashMap<>();
     private final Map<String, ExchangeService> exchangeServices = new HashMap<>();
@@ -496,7 +507,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowFactory(),
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowHandler().factory(ROW_SCHEMA),
                 SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 

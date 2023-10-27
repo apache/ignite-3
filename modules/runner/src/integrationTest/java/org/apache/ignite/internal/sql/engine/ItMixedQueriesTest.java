@@ -26,13 +26,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-public class ItMixedQueriesTest extends ClusterPerClassIntegrationTest {
+public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
     /**
      * Before all.
      */

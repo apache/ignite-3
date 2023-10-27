@@ -1534,12 +1534,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                         watchProcessor.notifyWatches(updatedEntriesCopy, ts);
 
                         updatedEntries.clear();
+
+                        ts = timestampByRevision(revision);
                     }
 
                     lastSeenRevision = revision;
                 }
 
                 if (ts == null) {
+                    // This will only execute on first iteration.
                     ts = timestampByRevision(revision);
                 }
 
@@ -1548,7 +1551,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             RocksUtils.checkIterator(it);
 
-            // Notify about the events left after finishing the cycle above.
+            // Notify about the events left after finishing the loop above.
             if (!updatedEntries.isEmpty()) {
                 assert ts != null;
 

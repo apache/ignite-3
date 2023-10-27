@@ -37,6 +37,7 @@ import java.time.temporal.Temporal;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
@@ -49,7 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Test Ignite SQL functions.
  */
-public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
+public class ItFunctionsTest extends BaseSqlIntegrationTest {
     private static final Object[] NULL_RESULT = { null };
 
     @Test

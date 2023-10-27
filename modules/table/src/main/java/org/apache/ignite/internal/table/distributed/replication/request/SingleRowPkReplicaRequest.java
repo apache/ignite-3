@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Single row replica request involving a table's Primary Key.
  */
-public interface SingleRowPkReplicaRequest extends ReplicaRequest {
+public interface SingleRowPkReplicaRequest extends SchemaVersionAwareReplicaRequest {
     ByteBuffer primaryKey();
 
     @Marshallable

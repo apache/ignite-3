@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.streamer;
-
-import org.apache.ignite.Ignite;
+package org.apache.ignite.internal.replicator.message;
 
 /**
- * Integration test for server-side data streamer API.
+ * Requests that are aware about the schema version that must be used when processing them.
  */
-public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
-    @Override
-    Ignite ignite() {
-        return CLUSTER.aliveNode();
-    }
+public interface SchemaVersionAwareReplicaRequest extends ReplicaRequest {
+    /**
+     * Schema version in which input values are marshalled and that must be used when processing the request.
+     */
+    int schemaVersion();
 }

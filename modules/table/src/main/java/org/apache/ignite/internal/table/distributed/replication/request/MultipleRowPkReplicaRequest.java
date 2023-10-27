@@ -19,14 +19,14 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Multiple row replica request involving table's Primary Keys.
  */
-public interface MultipleRowPkReplicaRequest extends ReplicaRequest {
+public interface MultipleRowPkReplicaRequest extends SchemaVersionAwareReplicaRequest {
     List<ByteBuffer> primaryKeys();
 
     @Marshallable

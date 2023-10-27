@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -73,7 +73,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     };
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 2;
     }
 
@@ -116,7 +116,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     public void testCommitCommandKeyValueView() throws Exception {
         restartClusterWithNotAppliedCommands(
                 tx -> {
-                    var kvView = CLUSTER_NODES.get(0).tables().table(DEFAULT_TABLE_NAME).keyValueView();
+                    var kvView = CLUSTER.aliveNode().tables().table(DEFAULT_TABLE_NAME).keyValueView();
 
                     for (var row : dataSet) {
                         kvView.put(tx, Tuple.create().set("ID", row[0]), Tuple.create().set("NAME", row[1]).set("SALARY", row[2]));
@@ -139,7 +139,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 tx -> {
                 },
                 tx -> {
-                    var kvView = CLUSTER_NODES.get(0).tables().table(DEFAULT_TABLE_NAME).keyValueView();
+                    var kvView = CLUSTER.aliveNode().tables().table(DEFAULT_TABLE_NAME).keyValueView();
 
                     for (var row : dataSet) {
                         kvView.put(tx, Tuple.create().set("ID", row[0]), Tuple.create().set("NAME", row[1]).set("SALARY", row[2]));
@@ -162,8 +162,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
             Consumer<Transaction> afterBlock,
             Consumer<IgniteImpl> checkAction
     ) throws Exception {
-        var node0 = (IgniteImpl) CLUSTER_NODES.get(0);
-        var node1 = (IgniteImpl) CLUSTER_NODES.get(1);
+        var node0 = CLUSTER.node(0);
+        var node1 = CLUSTER.node(1);
 
         AtomicReference<IgniteBiTuple<ClusterNode, String>> leaderAndGroupRef = new AtomicReference<>();
 
@@ -204,14 +204,13 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
             tx.rollback();
         }
 
-        stopNodes();
+        CLUSTER.stopNode(0);
+        CLUSTER.stopNode(1);
 
         log.info("Restart the cluster");
 
-        startCluster();
-
-        var node0Started = (IgniteImpl) CLUSTER_NODES.get(0);
-        var node1Started = (IgniteImpl) CLUSTER_NODES.get(1);
+        var node0Started = CLUSTER.startNode(0);
+        var node1Started = CLUSTER.startNode(1);
 
         var ignite = isNode0Leader ? node1Started : node0Started;
 

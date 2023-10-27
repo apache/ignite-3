@@ -26,26 +26,22 @@ import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.sql.engine.util.Commons.getFieldFromBiRows;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -125,30 +121,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         assertArrayEquals(new Object[]{2, "Ivan", "Calcite"}, rows.get(0));
         assertArrayEquals(new Object[]{2, "Ivan", "Ignite"}, rows.get(1));
-    }
-
-    @Test
-    public void testRowFactoryAssembly() {
-        ExecutionContext<Object[]> ctx = executionContext(false);
-
-        RelDataType rowType = TypeUtils.createRowType(ctx.getTypeFactory(),
-                TypeUtils.native2relationalTypes(ctx.getTypeFactory(), NativeTypes.INT32, NativeTypes.STRING, NativeTypes.BOOLEAN));
-
-        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
-
-        Object[] row1 = rowFactory.create();
-
-        ctx.rowHandler().set(0, row1, 1);
-        ctx.rowHandler().set(1, row1, "2");
-        ctx.rowHandler().set(2, row1, false);
-
-        ByteBuffer bb = ctx.rowHandler().toByteBuffer(row1);
-
-        Object[] row2 = rowFactory.create(bb);
-
-        assertArrayEquals(row1, row2);
     }
 
     @Test
