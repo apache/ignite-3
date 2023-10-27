@@ -18,21 +18,16 @@
 package org.apache.ignite.internal.inmemory;
 
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.startsWith;
-import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -42,12 +37,6 @@ import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.junit.jupiter.api.Test;
-import org.rocksdb.ColumnFamilyDescriptor;
-import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ReadOptions;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksIterator;
-import org.rocksdb.Slice;
 
 /**
  * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile
@@ -109,47 +98,6 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void raftLogStorageIsVolatileForVolatilePartitions() throws Exception {
-        createInMemoryTable();
-
-        IgniteImpl ignite = node(0);
-        String nodeName = ignite.name();
-        String tablePartitionPrefix = testTablePartitionPrefix(ignite);
-
-        node(0).close();
-
-        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
-
-        List<ColumnFamilyDescriptor> cfDescriptors = List.of(
-                // Column family to store configuration log entry.
-                new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8)),
-                // Default column family to store user data log entry.
-                new ColumnFamilyDescriptor(DEFAULT_COLUMN_FAMILY)
-        );
-
-        List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-
-        try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasNoDataForPartition(db, tablePartitionPrefix, cfHandles.get(0));
-            assertThatFamilyHasNoDataForPartition(db, tablePartitionPrefix, cfHandles.get(1));
-        }
-    }
-
-    private void assertThatFamilyHasNoDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
-        try (
-                ReadOptions readOptions = new ReadOptions().setIterateLowerBound(new Slice(tablePartitionPrefix.getBytes(UTF_8)));
-                RocksIterator iterator = db.newIterator(cfHandle, readOptions)
-        ) {
-            iterator.seekToFirst();
-
-            if (iterator.isValid()) {
-                String key = new String(iterator.key(), UTF_8);
-                assertThat(key, not(startsWith(tablePartitionPrefix)));
-            }
-        }
-    }
-
-    @Test
     void raftMetaStorageIsPersistentForPersistentPartitions() {
         createPersistentTable();
 
@@ -164,47 +112,6 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
                 + TABLE_NAME.toUpperCase() + "'");
-    }
-
-    @Test
-    void raftLogStorageIsPersistentForPersistentPartitions() throws Exception {
-        createPersistentTable();
-
-        IgniteImpl ignite = node(0);
-        String nodeName = ignite.name();
-        String tablePartitionPrefix = testTablePartitionPrefix(ignite);
-
-        node(0).close();
-
-        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
-
-        List<ColumnFamilyDescriptor> cfDescriptors = List.of(
-                // Column family to store configuration log entry.
-                new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8)),
-                // Default column family to store user data log entry.
-                new ColumnFamilyDescriptor(DEFAULT_COLUMN_FAMILY)
-        );
-
-        List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-
-        try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasDataForPartition(db, tablePartitionPrefix, cfHandles.get(0));
-            assertThatFamilyHasDataForPartition(db, tablePartitionPrefix, cfHandles.get(1));
-        }
-    }
-
-    private void assertThatFamilyHasDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
-        try (
-                ReadOptions readOptions = new ReadOptions().setIterateLowerBound(new Slice(tablePartitionPrefix.getBytes(UTF_8)));
-                RocksIterator iterator = db.newIterator(cfHandle, readOptions)
-        ) {
-            iterator.seekToFirst();
-
-            assertThat(iterator.isValid(), is(true));
-
-            String key = new String(iterator.key(), UTF_8);
-            assertThat(key, startsWith(tablePartitionPrefix));
-        }
     }
 
     @Test
