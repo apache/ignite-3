@@ -14,6 +14,6 @@ The following examples are included:
 * `PersistentPageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with a persistent data region.
 * `RocksDbStorageExample` - demonstrates the usage of the RocksDB storage engine.
 
-Before running the examples, read about [cli](https://ignite.apache.org/docs/3.0.0-alpha/ignite-cli-tool).
+Before running the examples, read about [cli](https://ignite.apache.org/docs/3.0.0-beta/ignite-cli-tool).
 
 To run the examples, refer to their JavaDoc for instructions.

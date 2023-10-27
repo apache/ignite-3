@@ -755,7 +755,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider);
+        var mappingService = new MappingServiceImpl(nodeName, targetProvider, taskExecutor);
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))

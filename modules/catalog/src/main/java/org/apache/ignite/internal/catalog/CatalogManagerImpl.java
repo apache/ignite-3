@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -317,7 +318,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException {
+    public CompletableFuture<Void> execute(List<CatalogCommand> commands) {
+        if (nullOrEmpty(commands)) {
+            return completedFuture(null);
+        }
+
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
@@ -529,6 +534,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         return new Catalog(
                 update.version(),
+                // Remove this maxing when https://issues.apache.org/jira/browse/IGNITE-20499 is fixed and DelayDuration is truly constant.
                 Math.max(activationTimestamp, prevVersionActivationTimestamp),
                 catalog.objectIdGenState(),
                 catalog.zones(),

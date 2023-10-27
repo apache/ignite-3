@@ -52,9 +52,6 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -137,8 +134,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
-            TableDescriptor descriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
-            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter, descriptor);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
                     partsWithTerms, null, null, null);
 

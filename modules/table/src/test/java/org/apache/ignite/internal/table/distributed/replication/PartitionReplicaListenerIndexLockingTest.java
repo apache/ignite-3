@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
@@ -307,6 +308,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
+                        .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
                         .requestType(arg.type)
                         .build();
@@ -324,7 +326,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
-                        .binaryRowMessage(binaryRowMessage(testBinaryRow))
+                        .schemaVersion(testBinaryRow.schemaVersion())
+                        .binaryTuple(testBinaryRow.tupleSlice())
                         .requestType(arg.type)
                         .build();
                 break;
@@ -387,6 +390,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
+                        .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
                         .requestType(arg.type)
                         .build();
@@ -401,7 +405,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(tablePartitionId(PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
-                        .binaryRowMessages(rows.stream().map(PartitionReplicaListenerIndexLockingTest::binaryRowMessage).collect(toList()))
+                        .schemaVersion(rows.iterator().next().schemaVersion())
+                        .binaryTuples(binaryRowsToBuffers(rows))
                         .requestType(arg.type)
                         .build();
 

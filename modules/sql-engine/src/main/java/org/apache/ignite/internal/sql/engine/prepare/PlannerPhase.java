@@ -126,9 +126,6 @@ public enum PlannerPhase {
             FilterMergeRule.Config.DEFAULT
                     .withOperandFor(LogicalFilter.class).toRule(),
 
-            JoinPushThroughJoinRule.Config.LEFT
-                    .withOperandFor(LogicalJoin.class).toRule(),
-
             JoinPushThroughJoinRule.Config.RIGHT
                     .withOperandFor(LogicalJoin.class).toRule(),
 

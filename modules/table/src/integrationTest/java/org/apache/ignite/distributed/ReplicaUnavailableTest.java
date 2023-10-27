@@ -61,7 +61,6 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -149,14 +148,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
-                .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
-                .binaryRowMessage(createKeyValueRow(1L, 1L))
-                .requestType(RequestType.RW_GET)
-                .build();
+        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
@@ -185,20 +177,27 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         assertEquals(5, respFur.get().result());
     }
 
+    private ReadWriteSingleRowReplicaRequest getRequest(TablePartitionId tablePartitionId) {
+        BinaryRow binaryRow = createKeyValueRow(1L, 1L);
+
+        return tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                .groupId(tablePartitionId)
+                .transactionId(TestTransactionIds.newTransactionId())
+                .commitPartitionId(tablePartitionId())
+                .timestampLong(clock.nowLong())
+                .schemaVersion(binaryRow.schemaVersion())
+                .binaryTuple(binaryRow.tupleSlice())
+                .requestType(RequestType.RW_GET)
+                .build();
+    }
+
     @Test
     public void testStopReplicaException() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
-                .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
-                .binaryRowMessage(createKeyValueRow(1L, 1L))
-                .requestType(RequestType.RW_GET)
-                .build();
+        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
@@ -223,14 +222,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
-                .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
-                .binaryRowMessage(createKeyValueRow(1L, 1L))
-                .requestType(RequestType.RW_GET)
-                .build();
+        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
         Exception e0 = null;
         Exception e1 = null;
@@ -280,14 +272,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 }
         );
 
-        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
-                .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
-                .binaryRowMessage(createKeyValueRow(1L, 1L))
-                .requestType(RequestType.RW_GET)
-                .build();
+        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
         Exception e0 = null;
 
@@ -302,18 +287,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         assertEquals(REPLICA_TIMEOUT_ERR, ((ReplicationTimeoutException) unwrapCause(e0)).code());
     }
 
-    private BinaryRowMessage createKeyValueRow(long id, long value) {
+    private BinaryRow createKeyValueRow(long id, long value) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        BinaryRow row = rowBuilder.build();
-
-        return tableMessagesFactory.binaryRowMessage()
-                .binaryTuple(row.tupleSlice())
-                .schemaVersion(row.schemaVersion())
-                .build();
+        return rowBuilder.build();
     }
 
     private TablePartitionIdMessage tablePartitionId() {

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,7 +48,7 @@ public interface ExchangeService extends LifecycleAware {
      *      which completes when the data has been sent.
      */
     CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
-            List<ByteBuffer> rows);
+            List<BinaryTupleMessage> rows);
 
     /**
      * Asynchronously requests data from the specified node.
