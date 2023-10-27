@@ -37,6 +37,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
@@ -399,7 +401,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .map(mgr -> mgr.close(true))
                 .toArray(CompletableFuture[]::new)
         );
-        f.join();
+
+        try {
+            f.get(30, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            LOG.warn("Could not stop in 30 seconds, something is wrong", e);
+
+            throw e;
+        }
     }
 
     /** {@inheritDoc} */
