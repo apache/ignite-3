@@ -48,12 +48,12 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Fork(3)
+@Fork(1)
 @State(Scope.Benchmark)
 public class TpchPrepareBenchmark {
 
     /**
-     * Identifiers of TPC-H queries. See {@link TpchQueries#getQuery(String)}.
+     * Identifiers of TPC-H queries. See {@link TpchHelper#getQuery(String)}.
      */
     @Param({
             "1", "2", "3", "4", "5", "6", "7", "8", "8v", "9", "10", "11", "12", "12v",
@@ -70,15 +70,15 @@ public class TpchPrepareBenchmark {
     /** Starts the cluster and prepares the plan of the query. */
     @Setup
     public void setUp() {
-        var clusterBuilder = TestBuilders.cluster().nodes("N1");
-        TpchSchema.registerTables(clusterBuilder, 1, 10);
-
-        testCluster = clusterBuilder.build();
+        testCluster = TestBuilders.cluster().nodes("N1").build();
 
         testCluster.start();
+
         gatewayNode = testCluster.node("N1");
 
-        String query = TpchQueries.getQuery(queryId);
+        gatewayNode.initSchema(TpchHelper.getSchemaDefinitionScript());
+
+        String query = TpchHelper.getQuery(queryId);
         parsedResult = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
     }
 

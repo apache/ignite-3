@@ -36,6 +36,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NullBinaryRow;
@@ -204,8 +206,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             RaftGroupService r = groupRafts.get(request.groupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                Map<UUID, BinaryRowMessage> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRowMessages()
-                        .stream()
+                ReadWriteMultiRowReplicaRequest multiRowReplicaRequest = (ReadWriteMultiRowReplicaRequest) request;
+                Map<UUID, BinaryRowMessage> rows = multiRowReplicaRequest.binaryTuples().stream()
+                        .map(tupleBuffer -> binaryRowMessage(tupleBuffer, multiRowReplicaRequest))
                         .collect(toMap(row -> TestTransactionIds.newTransactionId(), Function.identity()));
 
                 return r.run(MSG_FACTORY.updateAllCommand()
@@ -221,6 +224,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
 
+                ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
+
                 return r.run(MSG_FACTORY.updateCommand()
                         .tablePartitionId(
                                 MSG_FACTORY.tablePartitionIdMessage()
@@ -229,7 +234,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                         .build()
                         )
                         .rowUuid(UUID.randomUUID())
-                        .rowMessage(((ReadWriteSingleRowReplicaRequest) request).binaryRowMessage())
+                        .rowMessage(binaryRowMessage(singleRowReplicaRequest.binaryTuple(), singleRowReplicaRequest))
                         .txId(TestTransactionIds.newTransactionId())
                         .txCoordinatorId(node.id())
                         .build());
@@ -250,6 +255,13 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 observableTimestampTracker,
                 new TestPlacementDriver(clusterNode.name())
         );
+    }
+
+    private static BinaryRowMessage binaryRowMessage(ByteBuffer tupleBuffer, SchemaVersionAwareReplicaRequest request) {
+        return MSG_FACTORY.binaryRowMessage()
+                .schemaVersion(request.schemaVersion())
+                .binaryTuple(tupleBuffer)
+                .build();
     }
 
     @AfterAll

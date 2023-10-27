@@ -200,7 +200,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("SINH(1)").returns(Math.sinh(1)).check();
         assertExpression("TAN(1)").returns(Math.tan(1)).check();
         assertExpression("TANH(1)").returns(Math.tanh(1)).check();
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20311
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20725
         // assertExpression("TRUNCATE(1.7)").returns(BigDecimal.valueOf(1)).check();
         assertExpression("PI").returns(Math.PI).check();
     }

@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -33,9 +35,17 @@ import org.apache.ignite.internal.util.IgniteUtils;
  */
 public class TestCluster implements LifecycleAware {
     private final Map<String, TestNode> nodeByName;
+    private final List<LifecycleAware> components;
+    private final Runnable initClosure;
 
-    TestCluster(Map<String, TestNode> nodeByName) {
+    TestCluster(
+            Map<String, TestNode> nodeByName,
+            List<LifecycleAware> components,
+            Runnable initClosure
+    ) {
         this.nodeByName = nodeByName;
+        this.components = components;
+        this.initClosure = initClosure;
     }
 
     /**
@@ -51,16 +61,25 @@ public class TestCluster implements LifecycleAware {
     /** {@inheritDoc} */
     @Override
     public void start() {
+        components.forEach(LifecycleAware::start);
+
         nodeByName.values().forEach(TestNode::start);
+
+
+        initClosure.run();
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        List<AutoCloseable> closeables = nodeByName.values().stream()
+        List<AutoCloseable> closeables = Stream.concat(
+                        components.stream(),
+                        nodeByName.values().stream()
+                )
                 .map(node -> ((AutoCloseable) node::stop))
                 .collect(Collectors.toList());
 
+        Collections.reverse(closeables);
         IgniteUtils.closeAll(closeables);
     }
 }
