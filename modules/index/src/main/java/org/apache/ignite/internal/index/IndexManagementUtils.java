@@ -235,7 +235,7 @@ class IndexManagementUtils {
 
         String[] strings = key.split("\\.");
 
-        return Integer.parseInt(strings[2]);
+        return Integer.parseInt(strings[3]);
     }
 
     /**

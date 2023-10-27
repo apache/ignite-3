@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.removeMetast
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -180,7 +179,7 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
             );
         }
 
-        if (isMetastoreKeysPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), recoveryRevision)) {
+        if (!isMetastoreKeysPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), recoveryRevision)) {
             // Without wait, since the deploy metastore watches will be only after the start of the components is completed and there will
             // be dead lock.
             makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);
@@ -201,8 +200,8 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
 
         try (Cursor<Entry> cursor = metaStorageManager.prefixLocally(partitionBuildIndexMetastoreKeyPrefix(indexId), recoveryRevision)) {
             CompletableFuture<?>[] futures = cursor.stream()
-                    .map(Entry::value)
-                    .filter(Objects::nonNull)
+                    .filter(entry -> entry.value() != null)
+                    .map(Entry::key)
                     .map(IndexManagementUtils::toPartitionBuildIndexMetastoreKeyString)
                     .mapToInt(IndexManagementUtils::extractPartitionIdFromPartitionBuildIndexKey)
                     .mapToObj(partitionId -> recoveryForPartitionOfRegisteredIndexBusy(indexDescriptor, partitionId, recoveryRevision))

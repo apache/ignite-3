@@ -20,11 +20,15 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.awaitTillGlobalMetastoreRevisionIsApplied;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.nullValue;
@@ -40,7 +44,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -67,14 +70,6 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link IndexAvailabilityController} testing. */
 public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
-    private static final String NODE_NAME = "test-node";
-
-    private static final String TABLE_NAME = "test-table";
-
-    private static final String COLUMN_NAME = "test-column";
-
-    private static final String INDEX_NAME = "test-index";
-
     private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 100500;
 
     private final HybridClock clock = new HybridClockImpl();
@@ -113,14 +108,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         assertThat(partitions, greaterThan(4));
 
-        TableTestUtils.createTable(
-                catalogManager,
-                DEFAULT_SCHEMA_NAME,
-                DEFAULT_ZONE_NAME,
-                TABLE_NAME,
-                List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()),
-                List.of(COLUMN_NAME)
-        );
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 
     @AfterEach
@@ -140,7 +128,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied();
+        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         assertInProgressBuildIndexKeyExists(indexId);
 
@@ -164,7 +152,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         finishBuildingIndexForPartition(indexId, 0);
 
-        awaitTillGlobalMetastoreRevisionIsApplied();
+        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         assertInProgressBuildIndexKeyExists(indexId);
 
@@ -190,7 +178,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             );
         }
 
-        awaitTillGlobalMetastoreRevisionIsApplied();
+        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
@@ -209,7 +197,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied();
+        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
@@ -235,7 +223,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied();
+        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
@@ -256,7 +244,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied();
+        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
@@ -277,25 +265,13 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied();
+        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
         }
-    }
-
-    private void awaitTillGlobalMetastoreRevisionIsApplied() throws Exception {
-        assertTrue(
-                waitForCondition(() -> {
-                    CompletableFuture<Long> currentRevisionFuture = metaStorageManager.getService().currentRevision();
-
-                    assertThat(currentRevisionFuture, willCompleteSuccessfully());
-
-                    return currentRevisionFuture.join() == metaStorageManager.appliedRevision();
-                }, 1_000)
-        );
     }
 
     private void createIndex(String indexName) {
