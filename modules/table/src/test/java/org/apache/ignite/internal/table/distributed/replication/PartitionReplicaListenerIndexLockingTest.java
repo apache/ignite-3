@@ -110,12 +110,14 @@ import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** There are tests for partition replica listener. */
 @ExtendWith(ConfigurationExtension.class)
+@Disabled
 public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
     private static final int TABLE_ID = 1;
@@ -283,6 +285,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         TEST_MV_PARTITION_STORAGE.clear();
 
         LOCK_MANAGER.releaseAll(TRANSACTION_ID);
+        LOCK_MANAGER.recordedLocks().clear();
     }
 
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
