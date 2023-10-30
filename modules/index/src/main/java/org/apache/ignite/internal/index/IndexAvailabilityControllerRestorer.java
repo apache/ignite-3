@@ -22,9 +22,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isAnyMetastoreKeyPresentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLeaseExpired;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeyAbsentLocally;
-import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeysPresentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.makeIndexAvailableInCatalogWithoutFuture;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKeyPrefix;
@@ -65,7 +65,7 @@ import org.apache.ignite.network.ClusterService;
  *         <li>If there are no {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building keys} left for
  *         the index in the metastore, then we {@link MakeIndexAvailableCommand make the index available} in the catalog.</li>
  *         <li>For partitions for which index building has not completed, we will wait until the primary replica is elected so that the
- *         replication log will be applied. If after this we find out that the index has been build, we will remove the
+ *         replication log will be applied. If after this we find out that the index has been built, we will remove the
  *         {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building key} from the metastore if it is
  *         <b>present</b>.</li>
  *     </ul></li>
@@ -179,7 +179,7 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
             );
         }
 
-        if (!isMetastoreKeysPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), recoveryRevision)) {
+        if (!isAnyMetastoreKeyPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), recoveryRevision)) {
             // Without wait, since the metastore watches deployment will be only after the start of the components is completed and this
             // will cause a dead lock.
             makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);

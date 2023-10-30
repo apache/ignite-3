@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.PARTITION_BU
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractIndexIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isAnyMetastoreKeyPresentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeyAbsentLocally;
-import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeysPresentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.makeIndexAvailableInCatalogWithoutFuture;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKeyPrefix;
@@ -232,7 +232,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
 
             long metastoreRevision = entry.revision();
 
-            if (isMetastoreKeysPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), metastoreRevision)
+            if (isAnyMetastoreKeyPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), metastoreRevision)
                     || isMetastoreKeyAbsentLocally(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId), metastoreRevision)) {
                 return completedFuture(null);
             }

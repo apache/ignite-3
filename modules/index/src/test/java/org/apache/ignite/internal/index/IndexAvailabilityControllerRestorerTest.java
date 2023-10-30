@@ -179,7 +179,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @Test
     void testRemovePartitionBuildIndexMetastoreKeyForRegisteredIndex() throws Exception {
-        // Let's make preparations.
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
         int tableId = tableId(catalogManager, TABLE_NAME, clock);
@@ -212,7 +211,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @Test
     void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfBuildingIndexNotComplete() throws Exception {
-        // Let's make preparations.
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
         int tableId = tableId(catalogManager, TABLE_NAME, clock);
@@ -244,7 +242,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @Test
     void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfPrimaryReplicaMetaNull() throws Exception {
-        // Let's make preparations.
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
         int tableId = tableId(catalogManager, TABLE_NAME, clock);
@@ -273,7 +270,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @Test
     void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfPrimaryReplicaMetaChanges() throws Exception {
-        // Let's make preparations.
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
         int tableId = tableId(catalogManager, TABLE_NAME, clock);

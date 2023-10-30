@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_N
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.awaitTillGlobalMetastoreRevisionIsApplied;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -128,7 +127,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         int indexId = indexId(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
         assertInProgressBuildIndexKeyExists(indexId);
 
@@ -152,7 +151,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         finishBuildingIndexForPartition(indexId, 0);
 
-        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
         assertInProgressBuildIndexKeyExists(indexId);
 
@@ -178,7 +177,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             );
         }
 
-        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
@@ -197,7 +196,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
@@ -223,7 +222,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
@@ -244,7 +243,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
@@ -265,13 +264,17 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         dropIndex(INDEX_NAME);
 
-        awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
+        awaitTillGlobalMetastoreRevisionIsApplied();
 
         assertInProgressBuildIndexKeyAbsent(indexId);
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
         }
+    }
+
+    private void awaitTillGlobalMetastoreRevisionIsApplied() throws Exception {
+        TestIndexManagementUtils.awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
     }
 
     private void createIndex(String indexName) {

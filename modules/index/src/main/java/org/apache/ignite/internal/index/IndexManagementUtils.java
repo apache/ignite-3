@@ -80,7 +80,7 @@ class IndexManagementUtils {
      * @param keyPrefix Key prefix to check.
      * @param revUpperBound Upper bound of metastore revision.
      */
-    static boolean isMetastoreKeysPresentLocally(MetaStorageManager metastore, ByteArray keyPrefix, long revUpperBound) {
+    static boolean isAnyMetastoreKeyPresentLocally(MetaStorageManager metastore, ByteArray keyPrefix, long revUpperBound) {
         try (Cursor<Entry> cursor = metastore.prefixLocally(keyPrefix, revUpperBound)) {
             return cursor.stream().map(Entry::value).anyMatch(Objects::nonNull);
         }
@@ -261,6 +261,6 @@ class IndexManagementUtils {
      */
     static boolean isLeaseExpired(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         // TODO: IGNITE-20678 We need to compare by IDs: localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
-        return !localNode.name().equals(primaryReplicaMeta.getLeaseholder()) && timestamp.after(primaryReplicaMeta.getExpirationTime());
+        return !localNode.name().equals(primaryReplicaMeta.getLeaseholder()) || timestamp.after(primaryReplicaMeta.getExpirationTime());
     }
 }
