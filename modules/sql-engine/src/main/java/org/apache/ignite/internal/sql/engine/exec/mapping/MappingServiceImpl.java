@@ -319,7 +319,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         return templatesCache.get(plan.id(), key -> {
             IdGenerator idGenerator = new IdGenerator(0);
 
-            List<Fragment> fragments = new QuerySplitter(idGenerator, context.cluster()).go(plan.root());
+            List<Fragment> fragments = new QuerySplitter(idGenerator, context.cluster()).split(plan.root());
 
             return new FragmentsTemplate(
                     idGenerator.nextId(), context.cluster(), fragments

@@ -57,17 +57,17 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  *     Here is a relation tree representing the query:
  *
  *      IgniteExchange(distribution=[single]) ------------| we've got exchange here because table distributed by affinity, meaning
- *          IgniteTableScan(table=[[PUBLIC, TEST]])       | every node owns ony a few partitions of that table. Thus, in order to
+ *          IgniteTableScan(table=[[PUBLIC, TEST]])       | every node owns only a few partitions of that table. Thus, in order to
  *                                                        | get all rows in a single place, we need to resend them. In general it
  *                                                        | means, that messages will be sent over network, but in some cases it
  *     After splitting it will be represented             | may be local call as well (for instance, it is a single node cluster)
  *     by two fragments:
  *
  *     Fragment#1:
- *          IgniteReceiver(source=Fragment#2, exchangeId=2)
+ *          IgniteReceiver(source=Fragment#2, exchangeId=3)
  *
  *     Fragment#2:
- *          IgniteSender(target=Fragment#1, exchangeId=2)
+ *          IgniteSender(target=Fragment#1, exchangeId=3)
  *              IgniteTableScan(table=[[PUBLIC, TEST]])
  * </pre>
  */
@@ -91,7 +91,7 @@ public class QuerySplitter extends IgniteRelShuttle {
      *
      * <p>See class-level javadoc for details.
      */
-    public List<Fragment> go(IgniteRel root) {
+    public List<Fragment> split(IgniteRel root) {
         ArrayList<Fragment> res = new ArrayList<>();
 
         stack.push(new FragmentProto(idGenerator.nextId(), false, root));
