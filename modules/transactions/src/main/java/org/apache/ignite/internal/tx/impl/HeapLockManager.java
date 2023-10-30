@@ -55,8 +55,8 @@ import org.jetbrains.annotations.Nullable;
  * A {@link LockManager} implementation which stores lock queues in the heap.
  *
  * <p>Lock waiters are placed in the queue, ordered according to comparator provided by {@link HeapLockManager#deadlockPreventionPolicy}.
- * When a new waiter is placed in the queue, it's validated against current lock owner: if there is an owner with a higher transaction id
- * lock request is denied.
+ * When a new waiter is placed in the queue, it's validated against current lock owner: if there is an owner with a higher priority
+ * (as defined by comparator) lock request is denied.
  *
  * <p>Read lock can be upgraded to write lock (only available for the lowest read-locked entry of
  * the queue).
