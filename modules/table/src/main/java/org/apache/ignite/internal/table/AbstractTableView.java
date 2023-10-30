@@ -132,15 +132,7 @@ abstract class AbstractTableView {
     }
 
     private static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
-        if (ex == null) {
-            return false;
-        }
-
-        if (exceptionClass.isInstance(ex)) {
-            return true;
-        }
-
-        return isOrCausedBy(exceptionClass, ex.getCause());
+        return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
     }
 
     /**
