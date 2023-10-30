@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.UUID;
