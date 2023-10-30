@@ -1,0 +1,117 @@
+N1
+SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule')*/ * FROM
+  (SELECT * FROM t1_n1 UNION SELECT * FROM t2_n1)
+---
+Fragment#0 root
+  nodes: [N1]
+  remoteFragments: [1, 2]
+  tree:
+    IgniteReduceHashAggregate
+      IgniteMapHashAggregate
+        IgniteUnionAll
+          IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+          IgniteReceiver(sourceFragment=2, exchange=2, distribution=single)
+
+Fragment#2
+  target:
+    nodes: [N1]
+    sources: [-1, 1, 2]
+  tables: [T2_N1]
+  nodes: [N1]
+  tree:
+    IgniteSender(targetFragment=0, exchange=2, distribution=single)
+      IgniteTableScan(name=PUBLIC.T2_N1, source=3, distribution=affinity[table: T2_N1])
+
+Fragment#1
+  target:
+    nodes: [N1]
+    sources: [-1, 1, 2]
+  tables: [T1_N1]
+  nodes: [N1]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteTableScan(name=PUBLIC.T1_N1, source=4, distribution=affinity[table: T1_N1])
+---
+
+N1
+SELECT /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule')*/ * FROM
+  (SELECT * FROM t1_n1 UNION SELECT * FROM t2_n1)
+---
+Fragment#0 root
+  nodes: [N1]
+  remoteFragments: [1]
+  tree:
+    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  target:
+    nodes: [N1]
+    sources: [-1, 1]
+  tables: [T1_N1, T2_N1]
+  nodes: [N1]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteColocatedHashAggregate
+        IgniteUnionAll
+          IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1])
+          IgniteTableScan(name=PUBLIC.T2_N1, source=3, distribution=affinity[table: T2_N1])
+---
+
+N1
+SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule')*/ * FROM
+  (SELECT * FROM t1_n1n2 UNION SELECT * FROM t2_n1n2)
+---
+Fragment#0 root
+  nodes: [N1]
+  remoteFragments: [1, 2]
+  tree:
+    IgniteReduceHashAggregate
+      IgniteMapHashAggregate
+        IgniteUnionAll
+          IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+          IgniteReceiver(sourceFragment=2, exchange=2, distribution=single)
+
+Fragment#2
+  target:
+    nodes: [N1]
+    sources: [-1, 1, 2]
+  tables: [T2_N1N2]
+  nodes: [N1, N2]
+  tree:
+    IgniteSender(targetFragment=0, exchange=2, distribution=single)
+      IgniteTableScan(name=PUBLIC.T2_N1N2, source=3, distribution=affinity[table: T2_N1N2])
+
+Fragment#1
+  target:
+    nodes: [N1]
+    sources: [-1, 1, 2]
+  tables: [T1_N1N2]
+  nodes: [N1, N2]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteTableScan(name=PUBLIC.T1_N1N2, source=4, distribution=affinity[table: T1_N1N2])
+---
+
+N1
+SELECT /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule')*/ * FROM
+  (SELECT * FROM t1_n1n2 UNION SELECT * FROM t2_n1n2)
+---
+Fragment#0 root
+  nodes: [N1]
+  remoteFragments: [1]
+  tree:
+    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  target:
+    nodes: [N1]
+    sources: [-1, 1]
+  tables: [T1_N1N2, T2_N1N2]
+  nodes: [N1, N2]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteColocatedHashAggregate
+        IgniteUnionAll
+          IgniteTableScan(name=PUBLIC.T1_N1N2, source=2, distribution=affinity[table: T1_N1N2])
+          IgniteTableScan(name=PUBLIC.T2_N1N2, source=3, distribution=affinity[table: T2_N1N2])
+---

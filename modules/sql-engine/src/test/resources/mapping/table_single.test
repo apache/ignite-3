@@ -1,0 +1,101 @@
+N0
+SELECT * FROM ct1_n1, ct2_n1
+---
+Fragment#0 root
+  nodes: [N0]
+  remoteFragments: [1]
+  tree:
+    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  target:
+    nodes: [N0]
+    sources: [-1, 1]
+  tables: [CT1_N1, CT2_N1]
+  nodes: [N1]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteNestedLoopJoin
+        IgniteTableScan(name=PUBLIC.CT1_N1, source=2, distribution=single)
+        IgniteTableScan(name=PUBLIC.CT2_N1, source=3, distribution=single)
+---
+
+N1
+SELECT * FROM ct1_n1, ct2_n1
+---
+Fragment#0 root
+  tables: [CT1_N1, CT2_N1]
+  nodes: [N1]
+  tree:
+    IgniteNestedLoopJoin
+      IgniteTableScan(name=PUBLIC.CT1_N1, source=1, distribution=single)
+      IgniteTableScan(name=PUBLIC.CT2_N1, source=2, distribution=single)
+---
+
+N0
+SELECT * FROM ct1_n1, ct2_n2
+---
+Fragment#0 root
+  nodes: [N0]
+  remoteFragments: [1]
+  tree:
+    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#2
+  target:
+    nodes: [N2]
+    sources: [-1, 2, 4]
+    assignments: [N2:1]
+  tables: [CT1_N1]
+  nodes: [N1]
+  tree:
+    IgniteSender(targetFragment=1, exchange=2, distribution=single)
+      IgniteTableScan(name=PUBLIC.CT1_N1, source=3, distribution=single)
+
+Fragment#1
+  target:
+    nodes: [N0]
+    sources: [-1, 1]
+  tables: [CT2_N2]
+  nodes: [N2]
+  remoteFragments: [2]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteNestedLoopJoin
+        IgniteReceiver(sourceFragment=2, exchange=2, distribution=single)
+        IgniteTableScan(name=PUBLIC.CT2_N2, source=4, distribution=single)
+---
+
+N1
+SELECT * FROM ct1_n1, ct2_n2
+---
+Fragment#0 root
+  nodes: [N1]
+  remoteFragments: [1]
+  tree:
+    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#2
+  target:
+    nodes: [N2]
+    sources: [-1, 2, 4]
+    assignments: [N2:1]
+  tables: [CT1_N1]
+  nodes: [N1]
+  tree:
+    IgniteSender(targetFragment=1, exchange=2, distribution=single)
+      IgniteTableScan(name=PUBLIC.CT1_N1, source=3, distribution=single)
+
+Fragment#1
+  target:
+    nodes: [N1]
+    sources: [-1, 1]
+  tables: [CT2_N2]
+  nodes: [N2]
+  remoteFragments: [2]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteNestedLoopJoin
+        IgniteReceiver(sourceFragment=2, exchange=2, distribution=single)
+        IgniteTableScan(name=PUBLIC.CT2_N2, source=4, distribution=single)
+---
