@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +40,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -65,7 +68,6 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -80,6 +82,7 @@ import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -98,9 +101,9 @@ import org.jetbrains.annotations.Nullable;
 public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
     private static final int CACHE_SIZE = 1024;
 
-    private final ConcurrentMap<String, IgniteRel> physNodesCache = Caffeine.newBuilder()
+    private final ConcurrentMap<FragmentCacheKey, IgniteRel> physNodesCache = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
-            .<String, IgniteRel>build()
+            .<FragmentCacheKey, IgniteRel>build()
             .asMap();
 
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
@@ -248,10 +251,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .build();
     }
 
-    private IgniteRel relationalTreeFromJsonString(String jsonFragment, BaseQueryContext ctx) {
-        IgniteRel plan = physNodesCache.computeIfAbsent(jsonFragment, ser -> fromJson(ctx, ser));
-
-        return new Cloner(Commons.cluster()).visit(plan);
+    private IgniteRel relationalTreeFromJsonString(int schemaVersion, String jsonFragment, BaseQueryContext ctx) {
+        return physNodesCache.computeIfAbsent(
+                new FragmentCacheKey(schemaVersion, jsonFragment),
+                key -> fromJson(ctx, key.fragmentString)
+        );
     }
 
     /** {@inheritDoc} */
@@ -320,7 +324,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
-        List<List<Object>> res = List.of(List.of(plan.plan()));
+        IgniteRel clonedRoot = Cloner.clone(plan.plan().root(), Commons.cluster());
+
+        String planString = RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+
+        List<List<Object>> res = List.of(List.of(planString));
 
         if (callback != null) {
             taskExecutor.execute(() -> callback.onPrefetchComplete(null));
@@ -616,7 +624,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
 
             start.thenCompose(none -> {
-                IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
+                IgniteRel treeRoot = relationalTreeFromJsonString(schemaVersion, fragmentString, ctx);
 
                 return dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion)
                         .thenComposeAsync(deps -> executeFragment(treeRoot, deps, context), exec);
@@ -974,5 +982,36 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     public interface ImplementorFactory<RowT> {
         /** Creates the relational node implementor with the given context. */
         LogicalRelImplementor<RowT> create(ExecutionContext<RowT> ctx, ResolvedDependencies resolvedDependencies);
+    }
+
+    private static class FragmentCacheKey {
+        private final int schemaVersion;
+        private final String fragmentString;
+
+        FragmentCacheKey(int schemaVersion, String fragmentString) {
+            this.schemaVersion = schemaVersion;
+            this.fragmentString = fragmentString;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            FragmentCacheKey that = (FragmentCacheKey) o;
+
+            return schemaVersion == that.schemaVersion
+                    && fragmentString.equals(that.fragmentString);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(schemaVersion, fragmentString);
+        }
     }
 }

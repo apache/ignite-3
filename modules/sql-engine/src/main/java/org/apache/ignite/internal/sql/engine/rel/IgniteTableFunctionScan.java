@@ -33,7 +33,7 @@ import org.apache.calcite.rel.metadata.RelColumnMapping;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.sql.engine.prepare.QuerySplitter;
+import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 
 /**
  * Relational operator for table function scan.

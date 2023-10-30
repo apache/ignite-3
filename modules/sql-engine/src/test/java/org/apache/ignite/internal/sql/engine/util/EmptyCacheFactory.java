@@ -56,7 +56,7 @@ public class EmptyCacheFactory implements CacheFactory {
 
         @Override
         public V get(K key, Function<? super K, ? extends V> mappingFunction) {
-            return null;
+            return mappingFunction.apply(key);
         }
 
         @Override
