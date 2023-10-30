@@ -486,7 +486,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * <ul>
      *     <li>For a read/write in an RW transaction, it's 'now'</li>
      *     <li>For an RO read (with readTimestamp), it's readTimestamp (matches readTimestamp in the transaction)</li>
-     *     <li>For an RO direct read, it's the timestamp chosen (as 'now') to process the request</li>
+     *     <li>For a direct read in an RO implicit transaction, it's the timestamp chosen (as 'now') to process the request</li>
      * </ul>
      *
      * <p>For other requests, the validation is skipped.
