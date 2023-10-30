@@ -44,6 +44,32 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Splits a query into a list of query fragments.
+ *
+ * <p>Distributed query tree may have number of {@link IgniteExchange} operators. These operators
+ * represents points where one distribution should be converted to another. In runtime, this operation
+ * implemented as physical exchange of messages between two nodes (or itself, it's intentional tradeoff).
+ *
+ * <p>{@link QuerySplitter} is meant to find all {@link IgniteExchange} operators, cut the tree in that places,
+ * and replace single exchange with {@link IgniteReceiver} and {@link IgniteSender} on target and source fragments
+ * accordingly. Here is an example for a simple `SELECT * FROM test` query:
+ *
+ * <pre>
+ *     Here is a relation tree representing the query:
+ *
+ *      IgniteExchange(distribution=[single]) ------------| we've got exchange here because table distributed by affinity, meaning
+ *          IgniteTableScan(table=[[PUBLIC, TEST]])       | every node owns ony a few partitions of that table. Thus, in order to
+ *                                                        | get all rows in a single place, we need to resend them. In general it
+ *                                                        | means, that messages will be sent over network, but in some cases it
+ *     After splitting it will be represented             | may be local call as well (for instance, it is a single node cluster)
+ *     by two fragments:
+ *
+ *     Fragment#1:
+ *          IgniteReceiver(source=Fragment#2, exchangeId=2)
+ *
+ *     Fragment#2:
+ *          IgniteSender(target=Fragment#1, exchangeId=2)
+ *              IgniteTableScan(table=[[PUBLIC, TEST]])
+ * </pre>
  */
 public class QuerySplitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
@@ -61,8 +87,9 @@ public class QuerySplitter extends IgniteRelShuttle {
     }
 
     /**
-     * Go.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Splits given relation tree on a list of {@link Fragment fragments}.
+     *
+     * <p>See class-level javadoc for details.
      */
     public List<Fragment> go(IgniteRel root) {
         ArrayList<Fragment> res = new ArrayList<>();
