@@ -573,7 +573,7 @@ public class TestBuilders {
                     .map(name -> {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
                         var targetProvider = new TestNodeExecutionTargetProvider(systemViewManager, owningNodesByTableName);
-                        var mappingService = new MappingServiceImpl(name, targetProvider, Runnable::run);
+                        var mappingService = new MappingServiceImpl(name, targetProvider, EmptyCacheFactory.INSTANCE, 0, Runnable::run);
 
                         systemViewManager.register(() -> systemViews);
 

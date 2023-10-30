@@ -310,7 +310,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider, taskExecutor);
+        var mappingService = new MappingServiceImpl(
+                nodeName, executionTargetProvider, CACHE_FACTORY, PLAN_CACHE_SIZE, taskExecutor
+        );
 
         logicalTopologyService.addEventListener(mappingService);
 
@@ -501,7 +503,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
         SqlQueryType queryType = plan.type();
-        assert queryType != null : "Expected a full plan but got a fragment: " + plan;
 
         numberOfOpenCursors.incrementAndGet();
 

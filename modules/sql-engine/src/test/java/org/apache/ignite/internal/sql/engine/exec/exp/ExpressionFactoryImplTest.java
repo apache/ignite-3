@@ -197,7 +197,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         RexNode val1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
         RexNode val2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
 
-        RelDataTypeSystem typeSystem = Commons.cluster().getTypeFactory().getTypeSystem();
+        RelDataTypeSystem typeSystem = Commons.emptyCluster().getTypeFactory().getTypeSystem();
 
         RexLocalRef ref1 = rexBuilder.makeLocalRef(new BasicSqlType(typeSystem, SqlTypeName.INTEGER), conditionSatisfyIdx ? 1 : 3);
         RexLocalRef ref2 = rexBuilder.makeLocalRef(new BasicSqlType(typeSystem, SqlTypeName.INTEGER), 2);
@@ -215,7 +215,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .build();
 
         // build bounds for two sequential columns also belongs to index
-        List<SearchBounds> bounds = RexUtils.buildSortedSearchBounds(Commons.cluster(),
+        List<SearchBounds> bounds = RexUtils.buildSortedSearchBounds(Commons.emptyCluster(),
                 RelCollations.of(ImmutableIntList.of(1, 2)), andCondition, rowType, ImmutableBitSet.of(0, 1, 2));
 
         if (!conditionSatisfyIdx) {

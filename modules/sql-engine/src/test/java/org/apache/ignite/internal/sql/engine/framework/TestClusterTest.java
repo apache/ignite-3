@@ -33,10 +33,10 @@ import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.systemview.api.SystemViews;
@@ -153,8 +153,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         // Ensure the plan contains full table scan.
         assertTrue(plan instanceof MultiStepPlan);
-        Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
-        assertTrue(fragment.root().getInput(0) instanceof IgniteTableScan);
+        assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteTableScan);
     }
 
     @Test
@@ -175,8 +174,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         // Ensure the plan contains full table scan.
         assertTrue(plan instanceof MultiStepPlan);
-        Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
-        assertTrue(fragment.root().getInput(0) instanceof IgniteTableScan);
+        assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteTableScan);
     }
 
     @Test
@@ -192,9 +190,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         // Ensure the plan uses index.
         assertTrue(plan instanceof MultiStepPlan);
-        Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
-        assertTrue(fragment.root().getInput(0) instanceof IgniteIndexScan);
-        assertEquals("T1_PK", ((IgniteIndexScan) fragment.root().getInput(0)).indexName());
+        assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteIndexScan);
+        assertEquals("T1_PK", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).root())).indexName());
     }
 
     @Test
@@ -210,9 +207,16 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         // Ensure the plan uses index.
         assertTrue(plan instanceof MultiStepPlan);
-        Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
-        assertTrue(fragment.root().getInput(0) instanceof IgniteIndexScan);
-        assertEquals("SORTED_IDX", ((IgniteIndexScan) fragment.root().getInput(0)).indexName());
+        assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteIndexScan);
+        assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).root())).indexName());
+    }
+
+    private static IgniteRel lastNode(IgniteRel root) {
+        while (!root.getInputs().isEmpty()) {
+            root = (IgniteRel) root.getInput(0);
+        }
+
+        return root;
     }
 
     @Test
