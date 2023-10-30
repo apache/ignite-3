@@ -113,7 +113,7 @@ abstract class AbstractTableView {
                 .thenCompose(schemaVersion -> {
                     return action.act(schemaVersion)
                             .handle((BiFunction<T, Throwable, CompletableFuture<T>>) (res, ex) -> {
-                                if (ex != null && isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
+                                if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
                                     assert tx == null : "Only for implicit transactions a retry might be requested";
                                     assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
                                             : "Same schema version (" + schemaVersion
@@ -121,13 +121,9 @@ abstract class AbstractTableView {
 
                                     // Repeat.
                                     return withSchemaSync(tx, schemaVersion, action);
+                                } else {
+                                    return ex != null ? failedFuture(ex) : completedFuture(res);
                                 }
-
-                                if (ex != null) {
-                                    return failedFuture(ex);
-                                }
-
-                                return completedFuture(res);
                             });
                 })
                 .thenCompose(identity());
