@@ -1969,7 +1969,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFinished(true, (transaction, uuid) -> {
+        testTransactionAlreadyFinished(true, true, (transaction, uuid) -> {
             transaction.commit();
 
             log.info("Committed transaction {}", uuid);
@@ -1978,7 +1978,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFinished(false, (transaction, uuid) -> {
+        testTransactionAlreadyFinished(false, true, (transaction, uuid) -> {
             transaction.rollback();
 
             log.info("Rolled back transaction {}", uuid);
@@ -2083,7 +2083,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      *
      * @param commit True when transaction is committed, false the transaction is rolled back.
      */
-    protected void testTransactionAlreadyFinished(boolean commit, BiConsumer<Transaction, UUID> finisher) {
+    protected void testTransactionAlreadyFinished(boolean commit, boolean checkLocks, BiConsumer<Transaction, UUID> finisher) {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
@@ -2113,7 +2113,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         ex = assertThrows(TransactionException.class, () -> accountsRv.upsert(tx, makeValue(2, 300.)));
         assertTrue(ex.getMessage().contains("Failed to enlist"));
 
-        assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
+        if (checkLocks) {
+            assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
+        }
 
         if (commit) {
             res = accountsRv.getAll(null, List.of(makeKey(1), makeKey(2)));

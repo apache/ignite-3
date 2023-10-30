@@ -27,9 +27,9 @@ import java.nio.charset.StandardCharsets;
 /**
  * Provides utility methods to work with queries defined by the TPC-H benchmark.
  */
-public final class TpchQueries {
+public final class TpchHelper {
 
-    private TpchQueries() {
+    private TpchHelper() {
 
     }
 
@@ -65,8 +65,16 @@ public final class TpchQueries {
         }
     }
 
+    /**
+     * Returns a string representing DDL script with all the tables' and indexes' definitions
+     * required execute queries from TPC-H suite.
+     */
+    public static String getSchemaDefinitionScript() {
+        return loadFromResource("tpch/schema_definition_ddl.sql");
+    }
+
     private static String loadFromResource(String resource) {
-        try (InputStream is = TpchQueries.class.getClassLoader().getResourceAsStream(resource)) {
+        try (InputStream is = TpchHelper.class.getClassLoader().getResourceAsStream(resource)) {
             if (is == null) {
                 throw new IllegalArgumentException("Resource does not exist: " + resource);
             }

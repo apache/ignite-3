@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
@@ -44,7 +45,7 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Dynamic parameters checks. */
-public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
+public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     @BeforeEach
     public void createTable() {
@@ -278,7 +279,7 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 

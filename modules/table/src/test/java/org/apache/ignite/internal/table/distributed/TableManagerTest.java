@@ -86,8 +86,8 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -199,7 +199,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private DataStorageManager dsm;
 
-    private CatalogSchemaManager sm;
+    private SchemaManager sm;
 
     private DistributionZoneManager distributionZoneManager;
 
@@ -703,7 +703,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,
                 msm,
-                sm = new CatalogSchemaManager(revisionUpdater, catalogManager, msm),
+                sm = new SchemaManager(revisionUpdater, catalogManager, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
