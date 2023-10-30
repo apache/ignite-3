@@ -115,6 +115,7 @@ import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessageBuilder;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
@@ -3433,16 +3434,18 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion);
 
-        if (lastCommitTimestamp != null) {
-            bldr.messageRowToUpdate(MSG_FACTORY.timedBinaryRowMessage()
-                    .timestamp(lastCommitTimestamp.longValue())
-                    .build());
-        }
+        if (lastCommitTimestamp != null || row != null) {
+            TimedBinaryRowMessageBuilder rowMsgBldr = MSG_FACTORY.timedBinaryRowMessage();
 
-        if (row != null) {
-            bldr.messageRowToUpdate(MSG_FACTORY.timedBinaryRowMessage()
-                    .binaryRowMessage(binaryRowMessage(row))
-                    .build());
+            if (lastCommitTimestamp != null) {
+                rowMsgBldr.timestamp(lastCommitTimestamp.longValue());
+            }
+
+            if (row != null) {
+                rowMsgBldr.binaryRowMessage(binaryRowMessage(row));
+            }
+
+            bldr.messageRowToUpdate(rowMsgBldr.build());
         }
 
         return bldr.build();

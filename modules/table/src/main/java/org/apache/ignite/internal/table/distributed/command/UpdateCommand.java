@@ -53,6 +53,6 @@ public interface UpdateCommand extends PartitionCommand {
     default @Nullable HybridTimestamp lastCommitTimestamp() {
         TimedBinaryRowMessage tsRoMsg = messageRowToUpdate();
 
-        return nullableHybridTimestamp(tsRoMsg == null ? NULL_HYBRID_TIMESTAMP : tsRoMsg.timestamp());
+        return tsRoMsg == null ? null : nullableHybridTimestamp(tsRoMsg.timestamp());
     }
 }

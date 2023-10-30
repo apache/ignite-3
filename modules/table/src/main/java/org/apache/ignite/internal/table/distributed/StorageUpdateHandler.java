@@ -194,7 +194,7 @@ public class StorageUpdateHandler {
 
                     locker.lock(rowId);
 
-                    performStorageCleanupIfNeeded(txId, rowId, entry.getValue().commitTimestamp());
+                    performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
 
                     if (commitTs != null) {
                         storage.addWriteCommitted(rowId, row, commitTs);
