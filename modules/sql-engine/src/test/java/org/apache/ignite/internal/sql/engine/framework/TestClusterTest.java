@@ -222,7 +222,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         TestNode gatewayNode = cluster.node("N1");
         QueryPlan plan = gatewayNode.prepare("SELECT * FROM SYSTEM.NODES, SYSTEM.NODE_N2");
 
-        BatchedResult<List<Object>> results = gatewayNode.executePlan(plan).requestNextAsync(10_000).join();
+        BatchedResult<List<Object>> results = await(gatewayNode.executePlan(plan).requestNextAsync(10_000));
         List<List<Object>> rows = new ArrayList<>(results.items());
 
         assertEquals(List.of(List.of(42L, "mango", "N2", 42)), rows);
