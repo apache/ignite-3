@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -89,7 +91,8 @@ public class TestNode implements LifecycleAware {
             SqlSchemaManager schemaManager,
             MappingService mappingService,
             ExecutableTableRegistry tableRegistry,
-            DdlCommandHandler ddlCommandHandler
+            DdlCommandHandler ddlCommandHandler,
+            SystemViewManager systemViewManager
     ) {
         this.nodeName = nodeName;
         this.parserService = parserService;
@@ -110,7 +113,7 @@ public class TestNode implements LifecycleAware {
                 mailboxRegistry, messageService
         ));
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
-                tableRegistry, null
+                tableRegistry, view -> () -> systemViewManager.scanView(view.name())
         );
 
         executionService = registerService(ExecutionServiceImpl.create(
@@ -125,6 +128,8 @@ public class TestNode implements LifecycleAware {
                 mappingService,
                 dependencyResolver
         ));
+
+        registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));
     }
 
     /** {@inheritDoc} */
@@ -232,5 +237,24 @@ public class TestNode implements LifecycleAware {
         services.add(service);
 
         return service;
+    }
+
+    private static class IgniteComponentLifecycleAwareAdapter implements LifecycleAware {
+
+        final IgniteComponent component;
+
+        private IgniteComponentLifecycleAwareAdapter(IgniteComponent component) {
+            this.component = component;
+        }
+
+        @Override
+        public void start() {
+            component.start();
+        }
+
+        @Override
+        public void stop() throws Exception {
+            component.stop();
+        }
     }
 }

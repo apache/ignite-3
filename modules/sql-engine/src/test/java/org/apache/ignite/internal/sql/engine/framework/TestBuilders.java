@@ -39,7 +39,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
@@ -86,9 +86,13 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -99,8 +103,10 @@ import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -257,6 +263,15 @@ public class TestBuilders {
         ClusterTableBuilder addTable();
 
         /**
+         * Adds the given system view to the cluster.
+         *
+         * @param systemView System view.
+         * @return {@code this} for chaining.
+         * @param <T> System view data type.
+         */
+        <T> ClusterBuilder addSystemView(SystemView<T> systemView);
+
+        /**
          * Builds the cluster object.
          *
          * @return Created cluster object.
@@ -272,6 +287,15 @@ public class TestBuilders {
          * @return {@code this} for chaining.
          */
         ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table);
+
+        /**
+         * Registers a previously added system view (see {@link #addSystemView(SystemView)}) on the specified node.
+         *
+         * @param nodeName Name of the node the view is going to be registered at.
+         * @param systemViewName Name of previously registered system.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder registerSystemView(String nodeName, String systemViewName);
     }
 
     /**
@@ -446,6 +470,8 @@ public class TestBuilders {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
         private final Map<String, Map<String, ScannableTable>> nodeName2tableName2table = new HashMap<>();
+        private final List<SystemView<?>> systemViews = new ArrayList<>();
+        private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
 
         /** {@inheritDoc} */
         @Override
@@ -465,8 +491,21 @@ public class TestBuilders {
         }
 
         @Override
+        public <T> ClusterBuilder addSystemView(SystemView<T> systemView) {
+            systemViews.add(systemView);
+            return this;
+        }
+
+        @Override
         public ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table) {
             nodeName2tableName2table.computeIfAbsent(nodeName, key -> new HashMap<>()).put(tableName, table);
+
+            return this;
+        }
+
+        @Override
+        public ClusterBuilder registerSystemView(String nodeName, String systemViewName) {
+            nodeName2SystemView.computeIfAbsent(nodeName, key -> new HashSet<>()).add(systemViewName);
 
             return this;
         }
@@ -480,7 +519,8 @@ public class TestBuilders {
 
             var clusterName = "test_cluster";
 
-            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, new HybridClockImpl());
+            CatalogManagerImpl catalogManager = (CatalogManagerImpl)
+                    CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, new HybridClockImpl());
 
             var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
@@ -493,6 +533,15 @@ public class TestBuilders {
                 }
             }
 
+            Map<String, List<String>> systemViewsByNode = new HashMap<>();
+
+            for (Entry<String, Set<String>> entry : nodeName2SystemView.entrySet()) {
+                String nodeName = entry.getKey();
+                for (String systemViewName : entry.getValue()) {
+                    systemViewsByNode.computeIfAbsent(nodeName, (k) -> new ArrayList<>()).add(systemViewName);
+                }
+            }
+
             List<CatalogCommand> initialSchema = tableBuilders.stream()
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
@@ -501,37 +550,36 @@ public class TestBuilders {
 
             var ddlHandler = new DdlCommandHandler(catalogManager);
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
-            var targetProvider = new ExecutionTargetProvider() {
-                @Override
-                public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-                    List<String> owningNodes = owningNodesByTableName.get(table.name());
-
-                    if (nullOrEmpty(owningNodes)) {
-                        throw new AssertionError("DataProvider is not configured for table " + table.name());
-                    }
-
-                    ExecutionTarget target = factory.partitioned(owningNodes.stream()
-                            .map(name -> new NodeWithTerm(name, 1))
-                            .collect(Collectors.toList()));
-
-                    return CompletableFuture.completedFuture(target);
-                }
-
-                @Override
-                public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                    return CompletableFuture.failedFuture(new AssertionError("Not supported"));
-                }
-            };
 
             List<LogicalNode> logicalNodes = nodeNames.stream()
-                    .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
+                    .map(name -> {
+                        List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
+                        NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
+                        LogicalNode logicalNode = new LogicalNode(name, name, addr);
+
+                        if (systemViewForNode.isEmpty()) {
+                            return logicalNode;
+                        } else {
+                            String attrName = SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
+                            String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
+                            String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
+
+                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), Map.of());
+                        }
+                    })
                     .collect(Collectors.toList());
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
+                        var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
+                        var targetProvider = new TestNodeExecutionTargetProvider(systemViewManager, owningNodesByTableName);
                         var mappingService = new MappingServiceImpl(name, targetProvider, Runnable::run);
 
-                        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1L, logicalNodes));
+                        systemViewManager.register(() -> systemViews);
+
+                        LogicalTopologySnapshot newTopology = new LogicalTopologySnapshot(1L, logicalNodes);
+                        mappingService.onTopologyLeap(newTopology);
+                        systemViewManager.onTopologyLeap(newTopology);
 
                         return new TestNode(
                                 name,
@@ -541,7 +589,8 @@ public class TestBuilders {
                                 schemaManager,
                                 mappingService,
                                 new TestExecutableTableRegistry(nodeName2tableName2table.get(name), schemaManager),
-                                ddlHandler
+                                ddlHandler,
+                                systemViewManager
                         );
                     })
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
@@ -1199,5 +1248,50 @@ public class TestBuilders {
         }
 
         return newRow;
+    }
+
+    private static class TestNodeExecutionTargetProvider implements ExecutionTargetProvider {
+
+        final SystemViewManager systemViewManager;
+
+        final Map<String, List<String>> owningNodesByTableName;
+
+        private TestNodeExecutionTargetProvider(SystemViewManager systemViewManager, Map<String, List<String>> owningNodesByTableName) {
+            this.systemViewManager = systemViewManager;
+            this.owningNodesByTableName = owningNodesByTableName;
+        }
+
+        @Override
+        public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
+            List<String> owningNodes = owningNodesByTableName.get(table.name());
+
+            if (nullOrEmpty(owningNodes)) {
+                throw new AssertionError("DataProvider is not configured for table " + table.name());
+            }
+
+            ExecutionTarget target = factory.partitioned(owningNodes.stream()
+                    .map(name -> new NodeWithTerm(name, 1))
+                    .collect(Collectors.toList()));
+
+            return CompletableFuture.completedFuture(target);
+        }
+
+        @Override
+        public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+            List<String> nodes = systemViewManager.owningNodes(view.name());
+
+            if (nullOrEmpty(nodes)) {
+                return CompletableFuture.failedFuture(
+                        new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                                + " any active nodes in the cluster", view.name()))
+                );
+            }
+
+            return CompletableFuture.completedFuture(
+                    view.distribution() == IgniteDistributions.single()
+                            ? factory.oneOf(nodes)
+                            : factory.allOf(nodes)
+            );
+        }
     }
 }
