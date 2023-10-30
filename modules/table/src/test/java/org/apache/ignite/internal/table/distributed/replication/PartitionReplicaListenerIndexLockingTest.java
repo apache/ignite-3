@@ -117,7 +117,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /** There are tests for partition replica listener. */
 @ExtendWith(ConfigurationExtension.class)
-@Disabled
 public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest {
     private static final int PART_ID = 0;
     private static final int TABLE_ID = 1;
