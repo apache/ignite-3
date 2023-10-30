@@ -169,6 +169,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
+     * @param schema Schema.
+     */
+    public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage, SchemaDescriptor schema) {
+        this(replicaSvc, mvPartStorage, schema, new TestPlacementDriver(LOCAL_NODE.name()));
+    }
+
+
+    /**
+     * Creates a new local table.
+     *
+     * @param replicaSvc Replica service.
+     * @param mvPartStorage Multi version partition storage.
      * @param schema Schema descriptor.
      */
     public DummyInternalTableImpl(
@@ -200,6 +212,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
      * @param tracker Observable timestamp tracker.
+     * @param placementDriver Placement driver.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
