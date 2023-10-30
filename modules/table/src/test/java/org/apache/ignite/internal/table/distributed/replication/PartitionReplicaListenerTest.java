@@ -1909,13 +1909,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         RwListenerInvocation invocation = null;
 
         if (RequestTypes.isSingleRowRwPkOnly(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
-            };
+            invocation = (targetTxId, key) -> doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
         } else if (RequestTypes.isSingleRowRwFullRow(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
-            };
+            invocation = (targetTxId, key) -> doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
         } else {
             fail("Uncovered type: " + requestType);
         }
@@ -1990,13 +1986,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         RwListenerInvocation invocation = null;
 
         if (RequestTypes.isMultipleRowsRwPkOnly(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
-            };
+            invocation = (targetTxId, key)
+                    -> doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
         } else if (RequestTypes.isMultipleRowsRwFullRows(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
-            };
+            invocation = (targetTxId, key)
+                    -> doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
         } else {
             fail("Uncovered type: " + requestType);
         }
@@ -2056,13 +2050,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         RwListenerInvocation invocation = null;
 
         if (RequestTypes.isSingleRowRwPkOnly(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
-            };
+            invocation = (targetTxId, key) -> doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
         } else if (RequestTypes.isSingleRowRwFullRow(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
-            };
+            invocation = (targetTxId, key) -> doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
         } else {
             fail("Uncovered type: " + requestType);
         }
@@ -2107,13 +2097,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         RwListenerInvocation invocation = null;
 
         if (RequestTypes.isMultipleRowsRwPkOnly(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
-            };
+            invocation = (targetTxId, key)
+                    -> doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
         } else if (RequestTypes.isMultipleRowsRwFullRows(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
-            };
+            invocation = (targetTxId, key)
+                    -> doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
         } else {
             fail("Uncovered type: " + requestType);
         }
@@ -2264,13 +2252,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         RwListenerInvocation invocation = null;
 
         if (RequestTypes.isSingleRowRwPkOnly(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
-            };
+            invocation = (targetTxId, key) -> doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
         } else if (RequestTypes.isSingleRowRwFullRow(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
-            };
+            invocation = (targetTxId, key) -> doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, full);
         } else {
             fail("Uncovered type: " + requestType);
         }
@@ -2307,13 +2291,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         RwListenerInvocation invocation = null;
 
         if (RequestTypes.isMultipleRowsRwPkOnly(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
-            };
+            invocation = (targetTxId, key)
+                    -> doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
         } else if (RequestTypes.isMultipleRowsRwFullRows(requestType)) {
-            invocation = (targetTxId, key) -> {
-                return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
-            };
+            invocation = (targetTxId, key)
+                    -> doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
         } else {
             fail("Uncovered type: " + requestType);
         }
