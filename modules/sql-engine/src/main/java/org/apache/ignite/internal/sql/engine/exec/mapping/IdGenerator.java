@@ -18,12 +18,16 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 /**
- * A simple id generator that returns monotonically increasing long value started from 0.
+ * A simple id generator that returns monotonically increasing long value started from given initial id.
  *
  * <p>Not thread safe.
  */
 public class IdGenerator {
-    private long currentId = 0;
+    private long currentId;
+
+    public IdGenerator(long initialId) {
+        this.currentId = initialId;
+    }
 
     /** Returns next id. */
     long nextId() {

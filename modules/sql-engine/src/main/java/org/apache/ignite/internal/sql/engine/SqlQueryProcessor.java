@@ -310,7 +310,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider, taskExecutor);
+        var mappingService = new MappingServiceImpl(
+                nodeName, executionTargetProvider, CACHE_FACTORY, PLAN_CACHE_SIZE, taskExecutor
+        );
 
         logicalTopologyService.addEventListener(mappingService);
 

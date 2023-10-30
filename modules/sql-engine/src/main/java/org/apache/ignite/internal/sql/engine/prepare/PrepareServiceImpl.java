@@ -26,11 +26,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.rel.type.RelDataType;
@@ -83,6 +85,9 @@ public class PrepareServiceImpl implements PrepareService {
     private static final long THREAD_TIMEOUT_MS = 60_000;
 
     private static final int THREAD_COUNT = 4;
+
+    private final UUID prepareServiceId = UUID.randomUUID();
+    private final AtomicLong planIdGen = new AtomicLong();
 
     private final DdlSqlToCommandConverter ddlConverter;
 
@@ -224,7 +229,7 @@ public class PrepareServiceImpl implements PrepareService {
 
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
-        return CompletableFuture.completedFuture(new DdlPlan(ddlConverter.convert((SqlDdl) sqlNode, ctx)));
+        return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
     }
 
     private CompletableFuture<QueryPlan> prepareExplain(ParsedResult parsedResult, PlanningContext ctx) {
@@ -266,7 +271,7 @@ public class PrepareServiceImpl implements PrepareService {
         return result.thenApply(plan -> {
             assert plan instanceof MultiStepPlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
 
-            return new ExplainPlan((MultiStepPlan) plan);
+            return new ExplainPlan(nextPlanId(), (MultiStepPlan) plan);
         });
     }
 
@@ -296,11 +301,15 @@ public class PrepareServiceImpl implements PrepareService {
             // before storing tree in plan cache
             IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
-            return new MultiStepPlan(SqlQueryType.QUERY, clonedTree,
+            return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree,
                     resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases()));
         }, planningPool));
 
         return planFut.thenApply(Function.identity());
+    }
+
+    private PlanId nextPlanId() {
+        return new PlanId(prepareServiceId, planIdGen.getAndIncrement());
     }
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
@@ -324,7 +333,7 @@ public class PrepareServiceImpl implements PrepareService {
             // before storing tree in plan cache
             IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
-            return new MultiStepPlan(SqlQueryType.DML, clonedTree, DML_METADATA);
+            return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA);
         }, planningPool));
 
         return planFut.thenApply(Function.identity());

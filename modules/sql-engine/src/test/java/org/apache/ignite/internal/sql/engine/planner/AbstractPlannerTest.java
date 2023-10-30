@@ -644,7 +644,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         assertNotNull(rel);
         assertFalse(schemas.isEmpty());
 
-        List<Fragment> fragments = new QuerySplitter(new IdGenerator(), rel.getCluster()).go(rel);
+        List<Fragment> fragments = new QuerySplitter(new IdGenerator(0), rel.getCluster()).go(rel);
         List<String> serialized = new ArrayList<>(fragments.size());
 
         for (Fragment fragment : fragments) {

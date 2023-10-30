@@ -26,6 +26,11 @@ import org.apache.ignite.sql.ResultSetMetadata;
  */
 public interface QueryPlan {
     /**
+     * Get a unique identifier of a plan.
+     */
+    PlanId id();
+
+    /**
      * Get query type, or {@code null} if this is a fragment.
      */
     SqlQueryType type();

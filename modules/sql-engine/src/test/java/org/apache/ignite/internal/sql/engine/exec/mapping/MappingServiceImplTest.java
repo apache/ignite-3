@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.NetworkAddress;
@@ -169,6 +170,6 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        return new MappingServiceImpl(localNodeName, targetProvider, Runnable::run);
+        return new MappingServiceImpl(localNodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, Runnable::run);
     }
 }

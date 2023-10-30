@@ -27,17 +27,25 @@ import org.jetbrains.annotations.Nullable;
  */
 public class MultiStepPlan implements QueryPlan {
 
+    private final PlanId id;
+
     private final SqlQueryType type;
 
     private final ResultSetMetadata meta;
 
     private final IgniteRel root;
 
-    /** Constructor. */
-    MultiStepPlan(SqlQueryType type, IgniteRel root, ResultSetMetadata meta) {
+    MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta) {
+        this.id = id;
         this.type = type;
         this.root = root;
         this.meta = meta;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PlanId id() {
+        return id;
     }
 
     /** {@inheritDoc} */

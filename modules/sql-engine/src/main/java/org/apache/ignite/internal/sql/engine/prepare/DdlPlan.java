@@ -35,14 +35,22 @@ public class DdlPlan implements QueryPlan {
     private static final ResultSetMetadata DDL_METADATA = new ResultSetMetadataImpl(List.of(
             new ColumnMetadataImpl("APPLIED", ColumnType.BOOLEAN, 1, ColumnMetadata.UNDEFINED_SCALE, false, null)));
 
+    private final PlanId id;
     private final DdlCommand cmd;
 
-    DdlPlan(DdlCommand cmd) {
+    DdlPlan(PlanId id, DdlCommand cmd) {
+        this.id = id;
         this.cmd = cmd;
     }
 
     public DdlCommand command() {
         return cmd;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PlanId id() {
+        return id;
     }
 
     /** {@inheritDoc} */
@@ -58,7 +66,8 @@ public class DdlPlan implements QueryPlan {
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return cmd.toString();
     }
 }

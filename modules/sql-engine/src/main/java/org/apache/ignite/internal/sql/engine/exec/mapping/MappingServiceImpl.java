@@ -33,14 +33,18 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
@@ -57,6 +61,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
     private final String localNodeName;
     private final ExecutionTargetProvider targetProvider;
+    private final Cache<PlanId, FragmentsTemplate> templatesCache;
     private final Executor taskExecutor;
 
 
@@ -65,15 +70,20 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
      *
      * @param localNodeName Name of the current Ignite node.
      * @param targetProvider Execution target provider.
+     * @param cacheFactory A factory to create cache of fragments.
+     * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param taskExecutor Mapper service task executor.
      */
     public MappingServiceImpl(
             String localNodeName,
             ExecutionTargetProvider targetProvider,
+            CacheFactory cacheFactory,
+            int cacheSize,
             Executor taskExecutor
     ) {
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
+        this.templatesCache = cacheFactory.create(cacheSize);
         this.taskExecutor = taskExecutor;
     }
 
@@ -87,14 +97,13 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     }
 
     private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
-
         List<String> nodes = topologyHolder.nodes();
-
         MappingContext context = new MappingContext(localNodeName, nodes);
-        IdGenerator idGenerator = new IdGenerator();
 
-        List<Fragment> fragments = new QuerySplitter(idGenerator, context.cluster())
-                .go(multiStepPlan.root());
+        FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, context);
+
+        IdGenerator idGenerator = new IdGenerator(template.nextId);
+        List<Fragment> fragments = new ArrayList<>(template.fragments);
 
         List<CompletableFuture<IntObjectPair<ExecutionTarget>>> targets =
                 fragments.stream().flatMap(fragment -> Stream.concat(
@@ -120,7 +129,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                         targetsById.put(pair.firstInt(), pair.second());
                     }
 
-                    FragmentMapper mapper = new FragmentMapper(context.cluster().getMetadataQuery(), context, targetsById);
+                    FragmentMapper mapper = new FragmentMapper(template.cluster.getMetadataQuery(), context, targetsById);
 
                     Long2ObjectMap<FragmentMapping> mappingByFragmentId = new Long2ObjectOpenHashMap<>();
                     Long2ObjectMap<ColocationGroup> groupsBySourceId = new Long2ObjectOpenHashMap<>();
@@ -302,6 +311,31 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
             return topology.nodes().stream()
                     .map(LogicalNode::name)
                     .collect(Collectors.toUnmodifiableList());
+        }
+    }
+
+    private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan, MappingContext context) {
+        // QuerySplitter is deterministic, thus we can cache result in order to reuse it next time
+        return templatesCache.get(plan.id(), key -> {
+            IdGenerator idGenerator = new IdGenerator(0);
+
+            List<Fragment> fragments = new QuerySplitter(idGenerator, context.cluster()).go(plan.root());
+
+            return new FragmentsTemplate(
+                    idGenerator.nextId(), context.cluster(), fragments
+            );
+        });
+    }
+
+    private static class FragmentsTemplate {
+        private final long nextId;
+        private final RelOptCluster cluster;
+        private final List<Fragment> fragments;
+
+        FragmentsTemplate(long nextId, RelOptCluster cluster, List<Fragment> fragments) {
+            this.nextId = nextId;
+            this.cluster = cluster;
+            this.fragments = fragments;
         }
     }
 }

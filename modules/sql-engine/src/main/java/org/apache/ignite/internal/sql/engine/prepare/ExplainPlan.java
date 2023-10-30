@@ -28,29 +28,35 @@ import org.apache.ignite.sql.ResultSetMetadata;
 /**
  * Query explain plan.
  */
-public class  ExplainPlan implements QueryPlan {
+public class ExplainPlan implements QueryPlan {
     /** Explain metadata holder. */
     private static final ResultSetMetadata EXPLAIN_METADATA = new ResultSetMetadataImpl(List.of(
             new ColumnMetadataImpl("PLAN", ColumnType.STRING,
                     ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, true, null)));
 
+    private final PlanId id;
     private final MultiStepPlan plan;
 
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    ExplainPlan(MultiStepPlan plan) {
+    ExplainPlan(PlanId id, MultiStepPlan plan) {
+        this.id = id;
         this.plan = plan;
     }
 
     /** {@inheritDoc} */
-    @Override public SqlQueryType type() {
+    @Override
+    public PlanId id() {
+        return id;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SqlQueryType type() {
         return SqlQueryType.EXPLAIN;
     }
 
     /** {@inheritDoc} */
-    @Override public ResultSetMetadata metadata() {
+    @Override
+    public ResultSetMetadata metadata() {
         return EXPLAIN_METADATA;
     }
 
