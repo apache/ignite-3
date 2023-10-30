@@ -534,8 +534,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(null);
         }
 
-        SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
-
         HybridTimestamp tsToWaitForSchema = getTxStartTimestamp(request);
         if (tsToWaitForSchema == null) {
             tsToWaitForSchema = opTsIfDirectRo;
@@ -548,6 +546,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp finalTsToWaitForSchema = tsToWaitForSchema;
         return schemaSyncService.waitForMetadataCompleteness(finalTsToWaitForSchema)
                 .thenRun(() -> {
+                    SchemaVersionAwareReplicaRequest versionAwareRequest = (SchemaVersionAwareReplicaRequest) request;
+
                     schemaCompatValidator.failIfRequestSchemaDiffersFromTxTs(
                             finalTsToWaitForSchema,
                             versionAwareRequest.schemaVersion(),
