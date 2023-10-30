@@ -18,14 +18,15 @@
 package org.apache.ignite.internal.cli.commands.connect;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OR_NAME_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
 
 import jakarta.inject.Inject;
+import java.net.URL;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.converters.UrlConverter;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
@@ -39,8 +40,8 @@ import picocli.CommandLine.Parameters;
 public class ConnectReplCommand extends BaseCommand implements Runnable {
 
     /** Node URL option. */
-    @Parameters(description = NODE_URL_OR_NAME_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private NodeNameOrUrl nodeNameOrUrl;
+    @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = UrlConverter.class)
+    private URL nodeUrl;
 
     @ArgGroup(exclusive = false)
     private ConnectOptions connectOptions;
@@ -54,7 +55,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
+        question.askQuestionIfConnected(nodeUrl.toString())
                 .map(this::connectCallInput)
                 .then(Flows.fromCall(connectCall))
                 .onSuccess(() -> question.askQuestionToStoreCredentials(username(connectOptions), password(connectOptions)))

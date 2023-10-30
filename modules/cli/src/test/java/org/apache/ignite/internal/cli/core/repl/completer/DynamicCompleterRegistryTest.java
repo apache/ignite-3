@@ -324,20 +324,20 @@ class DynamicCompleterRegistryTest {
         // Given completer for single positional parameter
         registry.register(
                 CompleterConf.builder()
-                        .command("connect") // should be real commands
+                        .command("cluster", "config", "show") // should be real commands
                         .singlePositionalParameter()
                         .build(),
                 words -> completer1
         );
 
         // When there is no positional argument typed
-        List<DynamicCompleter> connectCompleter = registry.findCompleters(words("connect"));
+        List<DynamicCompleter> connectCompleter = registry.findCompleters(words("cluster", "config", "show"));
 
         // Then completer is returned
         assertThat(connectCompleter, both(hasSize(1)).and(containsInAnyOrder(completer1)));
 
         // When there is one positional argument typed
-        List<DynamicCompleter> connectCompleterWithPositional = registry.findCompleters(words("connect", "arg1", ""));
+        List<DynamicCompleter> connectCompleterWithPositional = registry.findCompleters(words("cluster", "config", "show", "arg1", ""));
 
         // Then completer is not returned
         assertThat(connectCompleterWithPositional, hasSize(0));

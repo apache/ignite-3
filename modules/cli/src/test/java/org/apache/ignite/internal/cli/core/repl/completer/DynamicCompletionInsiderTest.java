@@ -31,12 +31,6 @@ class DynamicCompletionInsiderTest {
 
     private static Stream<Arguments> typedWordsSource() {
         return Stream.of(
-                // connect command needs a parameter
-                Arguments.of(new String[]{"connect"}, false),
-                // technically, we have a parameter, but it could be typing in progress
-                Arguments.of(new String[]{"connect", "node"}, false),
-                // here we have completed parameter
-                Arguments.of(new String[]{"connect", "node", ""}, true),
                 Arguments.of(new String[]{"cluster", "unit", "undeploy"}, false),
                 Arguments.of(new String[]{"cluster", "unit", "undeploy", "unit.id", "--version"}, true),
                 Arguments.of(new String[]{"cluster", "unit", "undeploy", "unit.id", "--version", "1.0.0"}, true),
