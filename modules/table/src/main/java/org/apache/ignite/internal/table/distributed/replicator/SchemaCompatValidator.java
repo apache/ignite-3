@@ -222,6 +222,15 @@ class SchemaCompatValidator {
         }
     }
 
+    /**
+     * Throws an {@link InternalSchemaVersionMismatchException} if the schema version passed in the request differs from the schema version
+     * corresponding to the transaction timestamp.
+     *
+     * @param txTs Transaction timestamp.
+     * @param requestSchemaVersion Schema version passed in the operation request.
+     * @param tableId ID of the table.
+     * @throws InternalSchemaVersionMismatchException Thrown if the schema versions are different.
+     */
     void failIfRequestSchemaDiffersFromTxTs(HybridTimestamp txTs, int requestSchemaVersion, int tableId) {
         CatalogTableDescriptor table = catalogService.table(tableId, txTs.longValue());
 
