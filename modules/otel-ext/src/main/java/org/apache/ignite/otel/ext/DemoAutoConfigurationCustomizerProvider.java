@@ -46,7 +46,7 @@ public class DemoAutoConfigurationCustomizerProvider implements AutoConfiguratio
     @Override
     public void customize(AutoConfigurationCustomizer autoConfiguration) {
         autoConfiguration
-                .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIncludedMethods)
+//                .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIncludedMethods)
                 .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIgniteExecutors)
                 .addSamplerCustomizer(DemoAutoConfigurationCustomizerProvider::customizeSampler);
     }
@@ -68,8 +68,8 @@ public class DemoAutoConfigurationCustomizerProvider implements AutoConfiguratio
     private static Map<String, String> customizeIncludedMethods(ConfigProperties configProperties) {
         String existed = configProperties.getString("otel.instrumentation.methods.include");
         Set<String> methods = Set.of(
-//                "org.apache.ignite.internal.replicator.ReplicaService"
-//                        + "[invoke,sendToReplica]",
+                "org.apache.ignite.internal.replicator.ReplicaService"
+                        + "[invoke,sendToReplica]",
                 "org.apache.ignite.internal.catalog.CatalogManagerImpl"
                         + "[createTable,dropTable,addColumn,dropColumn,alterColumn,createIndex,dropIndex,createZone,dropZone,alterZone,"
                         + "renameZone,saveUpdate,saveUpdateAndWaitForActivation]",

@@ -556,7 +556,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             this.commands = producers;
         }
 
-        @WithSpan
         @Override
         public List<UpdateEntry> get(Catalog catalog) {
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();

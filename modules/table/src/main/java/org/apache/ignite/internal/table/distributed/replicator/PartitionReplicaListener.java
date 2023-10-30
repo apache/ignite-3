@@ -27,6 +27,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
@@ -536,7 +537,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             String senderId,
             HybridTimestamp opStartTimestamp
     ) {
-        return OtelSpanManager.asyncSpan("PartitionReplicaListener.processOperationRequest", (span) -> {
+        return OtelSpanManager.span("PartitionReplicaListener.processOperationRequest", (span) -> {
             if (request instanceof ReadWriteSingleRowReplicaRequest) {
                 var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -3121,7 +3122,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        return OtelSpanManager.asyncSpan("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
+        return OtelSpanManager.span("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
             Long expectedTerm;
 
             if (request instanceof ReadWriteReplicaRequest) {
@@ -3137,8 +3138,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 assert expectedTerm != null;
             } else if (request instanceof BuildIndexReplicaRequest) {
-            expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
-        } else {
+                expectedTerm = ((BuildIndexReplicaRequest) request).enlistmentConsistencyToken();
+            } else {
                 expectedTerm = null;
             }
 
@@ -3147,23 +3148,23 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (expectedTerm != null) {
                 return placementDriver.getPrimaryReplica(replicationGroupId, now)
                         .thenCompose(primaryReplicaMeta -> {
-                                    if (primaryReplicaMeta == null) {
-                                        return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, expectedTerm, null,null));
-                                    }
+                            if (primaryReplicaMeta == null) {
+                                return failedFuture(new PrimaryReplicaMissException(localNode.name(), null, expectedTerm, null, null));
+                            }
 
-                                    long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
+                            long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
-
-                                            // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
-                            if (expectedTerm != currentEnlistmentConsistencyToken || primaryReplicaMeta.getExpirationTime().before(now)) {                return failedFuture(
-                                                    new PrimaryReplicaMissException(localNode.name(),
-                                    primaryReplicaMeta.getLeaseholder(),
-                                    expectedTerm,
-                                        currentEnlistmentConsistencyToken,
-                                            null
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
+                            if (expectedTerm != currentEnlistmentConsistencyToken || primaryReplicaMeta.getExpirationTime().before(now)) {
+                                return failedFuture(
+                                        new PrimaryReplicaMissException(localNode.name(),
+                                                primaryReplicaMeta.getLeaseholder(),
+                                                expectedTerm,
+                                                currentEnlistmentConsistencyToken,
+                                                null
                                         ));
-                                    }
-                                        return completedFuture(null);
+                            }
+                            return completedFuture(null);
                         });
             } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
                 return placementDriver.getPrimaryReplica(replicationGroupId, now)

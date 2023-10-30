@@ -24,7 +24,7 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.tracing.NoopSpan;
+import org.apache.ignite.internal.tracing.NoopTraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
@@ -47,9 +47,9 @@ public class ClientTransactionRollbackRequest {
         long resourceId = in.unpackLong();
 
         var tx = resources.remove(resourceId).get(InternalTransaction.class);
-        var parent = tx == null ? NoopSpan.INSTANCE : tx.txSpan();
+        var parent = tx == null ? NoopTraceSpan.INSTANCE : tx.traceSpan();
 
-        return asyncSpan("ClientTransactionRollbackRequest.process", parent, (span) -> {
+        return asyncSpan("ClientTransactionRollbackRequest.process", null, (span) -> {
             return tx.rollbackAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());
         });
     }

@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -116,73 +118,76 @@ public class SchemaManager implements IgniteComponent {
         registriesVv.complete(causalityToken);
     }
 
-    @WithSpan
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
-        if (ex != null) {
-            return failedFuture(ex);
-        }
-
-        CreateTableEventParameters creationEvent = (CreateTableEventParameters) event;
-
-        return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken());
-    }
-
-    @WithSpan
-    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
-        if (ex != null) {
-            return failedFuture(ex);
-        }
-
-        assert event instanceof TableEventParameters;
-
-        TableEventParameters tableEvent = ((TableEventParameters) event);
-
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableEvent.tableId(), tableEvent.catalogVersion());
-
-        assert tableDescriptor != null;
-
-        return onTableCreatedOrAltered(tableDescriptor, event.causalityToken());
-    }
-
-    @WithSpan
-    private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            int tableId = tableDescriptor.id();
-            int newSchemaVersion = tableDescriptor.tableVersion();
-
-            if (searchSchemaByVersion(tableId, newSchemaVersion) != null) {
-                return completedFuture(false);
+        return OtelSpanManager.span("SchemaManager.onTableCreated", (span) -> {
+            if (ex != null) {
+                return failedFuture(ex);
             }
 
-            SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(tableDescriptor);
+            CreateTableEventParameters creationEvent = (CreateTableEventParameters) event;
+
+            return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken());
+        });
+    }
+
+    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
+        return OtelSpanManager.span("SchemaManager.onTableAltered", (span) -> {
+            if (ex != null) {
+                return failedFuture(ex);
+            }
+
+            assert event instanceof TableEventParameters;
+
+            TableEventParameters tableEvent = ((TableEventParameters) event);
+
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tableEvent.tableId(), tableEvent.catalogVersion());
+
+            assert tableDescriptor != null;
+
+            return onTableCreatedOrAltered(tableDescriptor, event.causalityToken());
+        });
+    }
+
+    private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
+        return OtelSpanManager.span("SchemaManager.onTableCreatedOrAltered", (span) -> {
+            if (!busyLock.enterBusy()) {
+                return failedFuture(new NodeStoppingException());
+            }
 
             try {
-                setColumnMapping(newSchema, tableId);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                int tableId = tableDescriptor.id();
+                int newSchemaVersion = tableDescriptor.tableVersion();
 
-                return failedFuture(e);
-            } catch (ExecutionException e) {
-                return failedFuture(e);
-            }
-
-            return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
-                if (e != null) {
-                    return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
-                            "Cannot create a schema for the table [tblId={}, ver={}]", tableId, newSchemaVersion), e)
-                    );
+                if (searchSchemaByVersion(tableId, newSchemaVersion) != null) {
+                    return completedFuture(false);
                 }
 
-                return saveSchemaDescriptor(tableId, newSchema)
-                        .thenApply(Context.current().wrapFunction(t -> registerSchema(registries, tableId, newSchema)));
-            })).thenApply(ignored -> false);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(tableDescriptor);
+
+                try {
+                    setColumnMapping(newSchema, tableId);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+
+                    return failedFuture(e);
+                } catch (ExecutionException e) {
+                    return failedFuture(e);
+                }
+
+                return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
+                    if (e != null) {
+                        return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
+                                "Cannot create a schema for the table [tblId={}, ver={}]", tableId, newSchemaVersion), e)
+                        );
+                    }
+
+                    return saveSchemaDescriptor(tableId, newSchema)
+                            .thenApply(Context.current().wrapFunction(t -> registerSchema(registries, tableId, newSchema)));
+                })).thenApply(ignored -> false);
+            } finally {
+                busyLock.leaveBusy();
+            }
+        });
     }
 
     private void setColumnMapping(SchemaDescriptor schema, int tableId) throws ExecutionException, InterruptedException {

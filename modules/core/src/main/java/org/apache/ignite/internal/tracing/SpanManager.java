@@ -17,49 +17,17 @@
 
 package org.apache.ignite.internal.tracing;
 
-import java.util.function.Supplier;
-
-public enum NoopSpan implements Span {
-    /** Instance. */
-    INSTANCE;
-
-    @Override
-    public Span addEvent(Supplier<String> evtSupplier) {
-        return this;
-    }
-
-    @Override
-    public void addAttribute(String attrName, Supplier<String> attrValSupplier) {
-        // No-op.
-    }
-
-    @Override
-    public void recordException(Throwable exception) {
-        // No-op.
-    }
-
-    @Override
-    public boolean isValid() {
-        return false;
-    }
-
-    @Override
-    public <T, R extends Throwable> void whenComplete(T val, R throwable) {
-        // No-op.
-    }
-
-    @Override
-    public Runnable wrap(Runnable runnable) {
-        return runnable;
-    }
-
-    @Override
-    public void end() {
-        // No-op.
-    }
-
-    @Override
-    public void close() {
-        // No-op.
-    }
+/**
+ * Manager for {@link TraceSpan} instances.
+ */
+public interface SpanManager {
+    /**
+     * Creates Span with given name.
+     *
+     * @param spanName Span name to create.
+     * @param parent Parent context.
+     * @param rootSpan Root span.
+     * @return Created span.
+     */
+    public TraceSpan createSpan(String spanName, TraceSpan parent, boolean rootSpan, boolean endRequired);
 }

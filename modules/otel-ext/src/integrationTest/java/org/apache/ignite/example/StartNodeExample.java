@@ -37,6 +37,9 @@ public class StartNodeExample {
     /** Base thin client port number. */
     private static final int BASE_CLIENT_PORT = 10800;
 
+    /** Base REST port number. */
+    private static final int BASE_REST_PORT = 10300;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
@@ -46,7 +49,8 @@ public class StartNodeExample {
             + "      netClusterNodes:  [ {} ] \n"
             + "    }\n"
             + "  },\n"
-            + "  clientConnector: { port:{} }\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest: { port:{} }\n"
             + "}";
 
     /**
@@ -73,7 +77,8 @@ public class StartNodeExample {
                 NODE_BOOTSTRAP_CFG_TEMPLATE,
                 BASE_PORT + nodeIndex,
                 connectNodeAddr,
-                BASE_CLIENT_PORT + nodeIndex
+                BASE_CLIENT_PORT + nodeIndex,
+                BASE_REST_PORT + nodeIndex
         );
 
         var igniteFuture = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));

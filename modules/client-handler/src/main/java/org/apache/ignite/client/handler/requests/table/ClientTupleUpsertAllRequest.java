@@ -50,7 +50,7 @@ public class ClientTupleUpsertAllRequest {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
 
-            return OtelSpanManager.asyncRootSpan("ClientTupleUpsertAllRequest.process", (span) -> {
+            return OtelSpanManager.rootSpan("ClientTupleUpsertAllRequest.process", (span) -> {
                 return readTuples(in, table, false).thenCompose(tuples -> {
                     return table.recordView().upsertAllAsync(tx, tuples)
                             .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));

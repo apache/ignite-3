@@ -137,7 +137,7 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        return OtelSpanManager.asyncSpan("Replica.processRequest", (span) -> listener.invoke(request, senderId));
+        return OtelSpanManager.span("Replica.processRequest", (span) -> listener.invoke(request, senderId));
     }
 
     /**

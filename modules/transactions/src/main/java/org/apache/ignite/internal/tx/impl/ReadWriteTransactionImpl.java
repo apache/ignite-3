@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -31,7 +32,8 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tracing.Span;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -65,7 +67,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      */
-    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id, Span txSpan) {
+    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id, TraceSpan txSpan) {
         super(txManager, id, txSpan);
 
         this.observableTsTracker = observableTsTracker;
@@ -96,47 +98,50 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        if (!enlisted.isEmpty()) {
-            Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
-                    .collect(Collectors.toMap(
-                            Entry::getKey,
-                            entry -> entry.getValue().get2()
-                    ));
+        return OtelSpanManager.span("ReadWriteTransactionImpl.finish", (span -> {
+            if (!enlisted.isEmpty()) {
+                Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Entry::getKey,
+                                entry -> entry.getValue().get2()
+                        ));
 
-            IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
+                IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
 
-            ClusterNode recipientNode = nodeAndTerm.get1();
-            Long term = nodeAndTerm.get2();
+                ClusterNode recipientNode = nodeAndTerm.get1();
+                Long term = nodeAndTerm.get2();
 
-            LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
-                    recipientNode, term, commit, id(), enlistedGroups);
+                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
+                        recipientNode, term, commit, id(), enlistedGroups);
 
-            assert recipientNode != null;
-            assert term != null;
+                assert recipientNode != null;
+                assert term != null;
 
-            return txManager.finish(
-                    observableTsTracker,
-                    commitPart,
-                    recipientNode,
-                    term,
-                    commit,
-                    enlistedGroups,
-                    id()
-            );
-        } else {
-            return txManager.finish(
-                    observableTsTracker,
-                    null,
-                    null,
-                    null,
-                    commit,
-                    Collections.emptyMap(),
-                    id()
-            );
-        }
+                return txManager.finish(
+                                observableTsTracker,
+                                commitPart,
+                                recipientNode,
+                                term,
+                                commit,
+                                enlistedGroups,
+                                id()
+                        )
+                        .whenComplete(traceSpan::whenComplete);
+            } else {
+                return txManager.finish(
+                                observableTsTracker,
+                                null,
+                                null,
+                                null,
+                                commit,
+                                Collections.emptyMap(),
+                                id()
+                        )
+                        .whenComplete(traceSpan::whenComplete);
+            }
+        }));
     }
 
     /** {@inheritDoc} */

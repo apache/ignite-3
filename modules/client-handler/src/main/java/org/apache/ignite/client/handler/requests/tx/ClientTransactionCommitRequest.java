@@ -24,7 +24,7 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.tracing.NoopSpan;
+import org.apache.ignite.internal.tracing.NoopTraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
@@ -47,7 +47,7 @@ public class ClientTransactionCommitRequest {
         long resourceId = in.unpackLong();
 
         var tx = resources.remove(resourceId).get(InternalTransaction.class);
-        var parent = tx == null ? NoopSpan.INSTANCE : tx.txSpan();
+        var parent = tx == null ? NoopTraceSpan.INSTANCE : tx.traceSpan();
 
         return asyncSpan("ClientTransactionCommitRequest.process", parent, (span) -> {
             return tx.commitAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());

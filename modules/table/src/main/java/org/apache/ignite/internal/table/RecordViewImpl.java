@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +37,7 @@ import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerI
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -68,22 +71,22 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public R get(@Nullable Transaction tx, R keyRec) {
         return sync(getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec) {
-        Objects.requireNonNull(keyRec);
+        return OtelSpanManager.span("RecordViewImpl.getAsync", span -> {
+            Objects.requireNonNull(keyRec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
 
-            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+                return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            });
         });
     }
 

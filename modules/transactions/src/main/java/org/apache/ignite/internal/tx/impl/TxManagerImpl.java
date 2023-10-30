@@ -23,7 +23,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncRootSpan;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
@@ -33,8 +33,8 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
-import java.util.Collection;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -68,7 +68,6 @@ import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -213,7 +212,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestampTracker timestampTracker,
             boolean readOnly
     ) {
-        try (var span = span("TxManagerImpl.begin")) {
+        try (var opSpan = asyncSpan("tx operation");
+                var span = span("TxManagerImpl.begin")) {
             span.addAttribute("timestampTracker", timestampTracker::toString);
             span.addAttribute("readOnly", () -> String.valueOf(readOnly));
 
@@ -222,7 +222,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
             if (!readOnly) {
-                return new ReadWriteTransactionImpl(this, timestampTracker, txId, span);
+                return new ReadWriteTransactionImpl(this, timestampTracker, txId, opSpan);
             }
 
             HybridTimestamp observableTimestamp = timestampTracker.get();
@@ -250,7 +250,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     return new CompletableFuture<>();
                 });
 
-                return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp, span);
+                return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp, opSpan);
             } finally {
                 lowWatermarkReadWriteLock.readLock().unlock();
             }
@@ -307,7 +307,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitTimestamp()));
     }
 
-    @WithSpan
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,

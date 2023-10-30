@@ -19,53 +19,62 @@ package org.apache.ignite.internal.tracing;
 
 import static io.opentelemetry.api.GlobalOpenTelemetry.getTracer;
 
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Tracing context.
  */
-public class OtelSpanManager {
+public class OtelSpanManager implements SpanManager {
+    /** Instance. */
+    private static final OtelSpanManager INSTANCE = new OtelSpanManager();
+
     /**
-     * ddd.
+     * Creates Span with given name.
      *
      * @param spanName Span name to create.
      * @param parent Parent context.
      * @param rootSpan Root span.
+     * @param endRequired Root span.
      * @return Created span.
      */
-    private static Span generateSpan(String spanName, @Nullable Span parent, boolean rootSpan, boolean sync) {
-        if (!rootSpan && !io.opentelemetry.api.trace.Span.current().getSpanContext().isValid()) {
-            return NoopSpan.INSTANCE;
+    @Override
+    public TraceSpan createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired) {
+        boolean isBeginOfTrace = !Span.current().getSpanContext().isValid();
+
+        if (isBeginOfTrace && !rootSpan && parent == null) {
+            return NoopTraceSpan.INSTANCE;
         }
 
-        if (parent instanceof OtelSpan) {
-            ((OtelSpan) parent).span.makeCurrent();
+        var spanBuilder = getTracer(null).spanBuilder(spanName);
+
+        if (parent != null) {
+            spanBuilder.setParent(parent.getContext());
         }
 
-        var span = getTracer(null).spanBuilder(spanName).startSpan();
+        var span = spanBuilder.startSpan();
         var scope = span.makeCurrent();
+        var ctx = Context.current();
 
-        return new OtelSpan(scope, span, sync);
+        return new OtelTraceSpan(ctx, scope, span, endRequired);
     }
 
-    public static Span rootSpan(String spanName) {
-        return generateSpan(spanName, null, true, true);
-    }
-
-    public static <R> R asyncRootSpan(String spanName, Function<Span, R> closure) {
-        return asyncSpan(spanName, null, true, closure);
-    }
-
-    public static Span span(String spanName) {
-        return generateSpan(spanName, null, false, true);
-    }
-
-    private static <R> R asyncSpan(String spanName, Span parent, boolean rootSpan, Function<Span, R> closure) {
-        Span span = generateSpan(spanName, parent, rootSpan, false);
+    /**
+     * Creates Span with given name.
+     *
+     * @param spanName Span name to create.
+     * @param parent Parent context.
+     * @param rootSpan Root span.
+     * @param closure Closure.
+     * @return Created span.
+     */
+    private static <R> R createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure) {
+        TraceSpan span = INSTANCE.createSpan(spanName, parent, rootSpan, false);
 
         try (span) {
             var res = closure.apply(span);
@@ -84,19 +93,108 @@ public class OtelSpanManager {
         }
     }
 
-    public static <R> R asyncSpan(String spanName, Span parent, Function<Span, R> closure) {
-        return asyncSpan(spanName, parent, true, closure);
+    /**
+     * Creates span given name.
+     *
+     * @param spanName Name of span to create.
+     * @return Created span.
+     */
+    public static TraceSpan rootSpan(String spanName) {
+        return INSTANCE.createSpan(spanName, null, true, true);
     }
 
-    public static <R> R asyncSpan(String spanName, Function<Span, R> closure) {
-        return asyncSpan(spanName, null, false, closure);
+    /**
+     * Creates span given name.
+     *
+     * @param spanName Name of span to create.
+     * @param closure Closure.
+     * @return Created span.
+     */
+    public static <R> R rootSpan(String spanName, Function<TraceSpan, R> closure) {
+        return createSpan(spanName, null, true, closure);
     }
 
-    public static Span asyncSpan(String spanName) {
-        return generateSpan(spanName, NoopSpan.INSTANCE, false, false);
+    /**
+     * Creates span given name.
+     *
+     * @param spanName Name of span to create.
+     * @return Created span.
+     */
+    public static TraceSpan span(String spanName) {
+        return INSTANCE.createSpan(spanName, null, false, true);
     }
 
-    public static Span asyncSpan(String spanName, Span parent) {
-        return generateSpan(spanName, parent, false, false);
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
+     * @param closure Closure.
+     * @return Closure result.
+     */
+    public static <R> R span(String spanName, Function<TraceSpan, R> closure) {
+        return createSpan(spanName, null, false, closure);
+    }
+
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
+     * @param closure Closure.
+     */
+    public static void span(String spanName, Consumer<TraceSpan> closure) {
+        TraceSpan span = INSTANCE.createSpan(spanName, null, false, true);
+
+        try (span) {
+            closure.accept(span);
+        } catch (Throwable ex) {
+            span.recordException(ex);
+
+            throw ex;
+        }
+    }
+
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
+     * @return Created span.
+     */
+    public static TraceSpan asyncSpan(String spanName) {
+        return INSTANCE.createSpan(spanName, null, false, false);
+    }
+
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
+     * @param parent Parent context.
+     * @return Created span.
+     */
+    public static TraceSpan asyncSpan(String spanName, TraceSpan parent) {
+        return INSTANCE.createSpan(spanName, parent, false, false);
+    }
+
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
+     * @param parent Parent context.
+     * @param closure Closure.
+     * @return Created span.
+     */
+    public static <R> R asyncSpan(String spanName, TraceSpan parent, Function<TraceSpan, R> closure) {
+        return createSpan(spanName, parent, true, closure);
+    }
+
+    /**
+     * Returns a {@link Runnable} that makes this the {@linkplain Context#current() current context}
+     * and then invokes the input {@link Runnable}.
+     */
+    public static Runnable wrap(Runnable runnable) {
+        return () -> {
+            try (Scope ignored = Context.current().makeCurrent()) {
+                runnable.run();
+            }
+        };
     }
 }

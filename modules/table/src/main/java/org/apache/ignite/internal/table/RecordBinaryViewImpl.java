@@ -68,9 +68,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public Tuple get(@Nullable Transaction tx, Tuple keyRec) {
-        try (var ignored = span("RecordBinaryViewImpl.get")) {
+        return span("RecordBinaryViewImpl.get", (span) -> {
             return sync(getAsync(tx, keyRec));
-        }
+        });
     }
 
     /** {@inheritDoc} */

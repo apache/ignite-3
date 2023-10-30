@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -42,7 +43,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignme
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
 import io.opentelemetry.context.Context;
-import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
@@ -161,6 +161,7 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -603,9 +604,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    @WithSpan
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
-        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor());
+        return OtelSpanManager.span("TableManager.onTableCreate", (span) ->
+                createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor())
+        );
     }
 
     private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(
@@ -1195,44 +1197,45 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableDescriptor Catalog table descriptor.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
-    @WithSpan
     private CompletableFuture<?> createTableLocally(long causalityToken, int catalogVersion, CatalogTableDescriptor tableDescriptor) {
-        return inBusyLockAsync(busyLock, () -> {
-            int tableId = tableDescriptor.id();
-            int zoneId = tableDescriptor.zoneId();
+        return OtelSpanManager.span("TableManager.createTableLocally", (span) ->
+                inBusyLockAsync(busyLock, () -> {
+                    int tableId = tableDescriptor.id();
+                    int zoneId = tableDescriptor.zoneId();
 
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-            CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
+                    CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
 
-            // Check if the table already has assignments in the vault.
-            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
-            // TODO: IGNITE-20210 Fix it
-            if (partitionAssignments(vaultManager, tableId, 0) != null) {
-                assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
-            } else {
-                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, zoneId)
-                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
-                                dataNodes,
-                                zoneDescriptor.partitions(),
-                                zoneDescriptor.replicas()
-                        ));
-            }
-
-            return createTableLocally(
-                    causalityToken,
-                    tableDescriptor,
-                    zoneDescriptor,
-                    assignmentsFuture,
-                    catalogVersion
-            ).whenComplete((v, e) -> {
-                if (e == null) {
-                    for (var listener : assignmentsChangeListeners) {
-                        listener.accept(this);
+                    // Check if the table already has assignments in the vault.
+                    // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
+                    // TODO: IGNITE-20210 Fix it
+                    if (partitionAssignments(vaultManager, tableId, 0) != null) {
+                        assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
+                    } else {
+                        assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, zoneId)
+                                .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                                        dataNodes,
+                                        zoneDescriptor.partitions(),
+                                        zoneDescriptor.replicas()
+                                ));
                     }
-                }
-            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
-        });
+
+                    return createTableLocally(
+                            causalityToken,
+                            tableDescriptor,
+                            zoneDescriptor,
+                            assignmentsFuture,
+                            catalogVersion
+                    ).whenComplete((v, e) -> {
+                        if (e == null) {
+                            for (var listener : assignmentsChangeListeners) {
+                                listener.accept(this);
+                            }
+                        }
+                    }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
+                })
+        );
     }
 
     /**
@@ -1620,13 +1623,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    @WithSpan
     @Override
     public TableImpl tableImpl(String name) {
         return join(tableImplAsync(name));
     }
 
-    @WithSpan
     @Override
     public CompletableFuture<TableImpl> tableImplAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
@@ -1638,23 +1639,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    @WithSpan
     public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
-        return inBusyLockAsync(busyLock, () -> {
-            HybridTimestamp now = clock.now();
+        return OtelSpanManager.span("TableManager.tableAsyncInternal", (span) ->
+                inBusyLockAsync(busyLock, () -> {
+                    HybridTimestamp now = clock.now();
 
-            return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
-                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
-                        CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
+                    return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
+                            .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                                CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
 
-                        // Check if the table has been deleted.
-                        if (tableDescriptor == null) {
-                            return completedFuture(null);
-                        }
+                                // Check if the table has been deleted.
+                                if (tableDescriptor == null) {
+                                    return completedFuture(null);
+                                }
 
-                        return tableAsyncInternalBusy(tableDescriptor.id());
-                    }));
-        });
+                                return tableAsyncInternalBusy(tableDescriptor.id());
+                            }));
+                })
+        );
     }
 
     private CompletableFuture<TableImpl> tableAsyncInternalBusy(int tableId) {

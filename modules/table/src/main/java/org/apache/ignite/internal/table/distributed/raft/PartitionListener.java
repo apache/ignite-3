@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -148,7 +149,7 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        OtelSpanManager.asyncSpan("PartitionListener.onWrite", (span) -> {
+        OtelSpanManager.span("PartitionListener.onWrite", (span) -> {
             iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
                 Command command = clo.command();
 
@@ -300,50 +301,52 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        UUID txId = cmd.txId();
+        span("PartitionListener.handleFinishTxCommand", (span) -> {
+            UUID txId = cmd.txId();
 
-        TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
+            TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
 
-        TxMeta txMetaToSet = new TxMeta(
-                stateToSet,
-                cmd.tablePartitionIds()
-                        .stream()
-                        .map(TablePartitionIdMessage::asTablePartitionId)
-                        .collect(toList()),
-                cmd.commitTimestamp()
-        );
-
-        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
-
-        boolean txStateChangeRes = txStateStorage.compareAndSet(
-                txId,
-                null,
-                txMetaToSet,
-                commandIndex,
-                commandTerm
-        );
-
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
-
-        LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
-
-        if (!txStateChangeRes) {
-            UUID traceId = UUID.randomUUID();
-
-            String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
-                            + " expected state = null, state to set = {}",
-                    txId,
-                    txMetaBeforeCas,
-                    txMetaToSet
+            TxMeta txMetaToSet = new TxMeta(
+                    stateToSet,
+                    cmd.tablePartitionIds()
+                            .stream()
+                            .map(TablePartitionIdMessage::asTablePartitionId)
+                            .collect(toList()),
+                    cmd.commitTimestamp()
             );
 
-            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
+            TxMeta txMetaBeforeCas = txStateStorage.get(txId);
 
-            // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
-            LOG.error(errorMsg);
+            boolean txStateChangeRes = txStateStorage.compareAndSet(
+                    txId,
+                    null,
+                    txMetaToSet,
+                    commandIndex,
+                    commandTerm
+            );
 
-            throw stateChangeException;
-        }
+            markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
+
+            LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
+
+            if (!txStateChangeRes) {
+                UUID traceId = UUID.randomUUID();
+
+                String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
+                                + " expected state = null, state to set = {}",
+                        txId,
+                        txMetaBeforeCas,
+                        txMetaToSet
+                );
+
+                IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
+
+                // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
+                LOG.error(errorMsg);
+
+                throw stateChangeException;
+            }
+        });
     }
 
 

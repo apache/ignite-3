@@ -63,7 +63,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tracing.OtelSpanManager;
-import org.apache.ignite.internal.tracing.Span;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -219,7 +219,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public CompletableFuture<Void> refreshLeader() {
-        return OtelSpanManager.asyncSpan("RaftGroupServiceImpl.refreshLeader", (span) -> {
+        return OtelSpanManager.span("RaftGroupServiceImpl.refreshLeader", (span) -> {
             Function<Peer, GetLeaderRequest> requestFactory = targetPeer -> factory.getLeaderRequest()
                     .peerId(peerId(targetPeer))
                     .groupId(groupId)
@@ -446,7 +446,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
-        return asyncSpan("RaftGroupServiceImpl.run", (span) -> {
+        return OtelSpanManager.span("RaftGroupServiceImpl.run", (span) -> {
             Peer leader = this.leader;
 
             if (leader == null) {
@@ -511,7 +511,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private <R extends NetworkMessage> void sendWithRetry(
             Peer peer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, CompletableFuture<R> fut
     ) {
-        try (Span span = asyncSpan("RaftGroupServiceImpl.sendWithRetry")) {
+        try (TraceSpan span = asyncSpan("RaftGroupServiceImpl.sendWithRetry")) {
             fut.whenComplete(span::whenComplete);
 
             if (!busyLock.enterBusy()) {

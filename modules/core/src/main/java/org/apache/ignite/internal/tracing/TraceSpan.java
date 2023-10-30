@@ -18,18 +18,19 @@
 package org.apache.ignite.internal.tracing;
 
 import java.util.function.Supplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Logical piece of a trace that represents a single operation.
  */
-public interface Span extends AutoCloseable {
+public interface TraceSpan extends AutoCloseable {
     /**
      * Adds an event to the Span. The timestamp of the event will be the current time
      *
      * @param evtSupplier Event supplier.
      * @return {@code this} for chaining.
      */
-    Span addEvent(Supplier<String> evtSupplier);
+    TraceSpan addEvent(Supplier<String> evtSupplier);
 
     /**
      * Adds attribute to span with {@code String} value.
@@ -40,23 +41,40 @@ public interface Span extends AutoCloseable {
     void addAttribute(String attrName, Supplier<String> attrValSupplier);
 
     /**
-     * Records information about the {@link Throwable} to the {@link Span}.
-
-     * @param exception the {@link Throwable} to record.
-     */
-    void recordException(Throwable exception);
-
-    /**
      * Returns {@code true} if this {@code SpanContext} is valid.
      *
      * @return {@code true} if this {@code SpanContext} is valid.
      */
     boolean isValid();
 
+    /**
+     *  Context instance to which the current proxy delegates operations.
+     *
+     *  @return Context instance to which the current proxy delegates operations.
+     */
+    <T> @Nullable T getContext();
+
+    /**
+     * Future handled that ,arks the end of {@code Span} execution.
+     *
+     * <p>Only the timing of the first end call for a given {@code Span} will be recorded, and
+     * implementations are free to ignore all further calls.
+     */
     <T, R extends Throwable> void whenComplete(T val, R throwable);
 
-    Runnable wrap(Runnable runnable);
+    /**
+     * Records information about the {@link Throwable} to the {@link TraceSpan}.
 
+     * @param exception the {@link Throwable} to record.
+     */
+    void recordException(Throwable exception);
+
+    /**
+     * Marks the end of {@code Span} execution.
+     *
+     * <p>Only the timing of the first end call for a given {@code Span} will be recorded, and
+     * implementations are free to ignore all further calls.
+     */
     void end();
 
     @Override

@@ -17,22 +17,27 @@
 
 package org.apache.ignite.internal.tracing;
 
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import java.util.function.Supplier;
+import org.jetbrains.annotations.Nullable;
 
-public class OtelSpan implements Span {
+public class OtelTraceSpan implements TraceSpan {
+    protected final Context ctx;
     protected final Scope scope;
-    protected final io.opentelemetry.api.trace.Span span;
-    protected final boolean sync;
+    protected final Span span;
+    protected final boolean endRequired;
 
-    public OtelSpan(Scope scope, io.opentelemetry.api.trace.Span span, boolean sync) {
+    public OtelTraceSpan(Context ctx, Scope scope, Span span, boolean endRequired) {
+        this.ctx = ctx;
         this.scope = scope;
         this.span = span;
-        this.sync = sync;
+        this.endRequired = endRequired;
     }
 
     @Override
-    public Span addEvent(Supplier<String> evtSupplier) {
+    public TraceSpan addEvent(Supplier<String> evtSupplier) {
         span.addEvent(evtSupplier.get());
 
         return this;
@@ -44,13 +49,13 @@ public class OtelSpan implements Span {
     }
 
     @Override
-    public void recordException(Throwable exception) {
-        span.recordException(exception);
+    public boolean isValid() {
+        return span.getSpanContext().isValid();
     }
 
     @Override
-    public boolean isValid() {
-        return span.getSpanContext().isValid();
+    public <T> @Nullable T getContext() {
+        return (T) ctx;
     }
 
     @Override
@@ -63,12 +68,8 @@ public class OtelSpan implements Span {
     }
 
     @Override
-    public Runnable wrap(Runnable runnable) {
-        return () -> {
-            try (Scope ignored = span.makeCurrent()) {
-                runnable.run();
-            }
-        };
+    public void recordException(Throwable exception) {
+        span.recordException(exception);
     }
 
     @Override
@@ -78,7 +79,7 @@ public class OtelSpan implements Span {
 
     @Override
     public void close() {
-        if (sync) {
+        if (endRequired) {
             end();
         }
 

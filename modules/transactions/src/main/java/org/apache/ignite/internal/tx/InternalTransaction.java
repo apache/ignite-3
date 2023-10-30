@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tracing.Span;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -99,7 +99,7 @@ public interface InternalTransaction extends Transaction {
      *
      * @return Context that is used to combine all operation in transaction.
      */
-    public Span txSpan();
+    public TraceSpan traceSpan();
 
     /**
      * Finishes a read-only transaction with a specific execution timestamp.

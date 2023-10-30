@@ -24,7 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tracing.Span;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -43,7 +43,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     protected final TxManager txManager;
 
     /** The transaction context. */
-    private final Span txSpan;
+    protected final TraceSpan traceSpan;
 
     /**
      * The constructor.
@@ -51,10 +51,10 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * @param txManager The tx manager.
      * @param id The id.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, Span txSpan) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, TraceSpan traceSpan) {
         this.txManager = txManager;
         this.id = id;
-        this.txSpan = txSpan;
+        this.traceSpan = traceSpan;
     }
 
     /** {@inheritDoc} */
@@ -110,8 +110,8 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
     /** {@inheritDoc} */
     @Override
-    public Span txSpan() {
-        return txSpan;
+    public TraceSpan traceSpan() {
+        return traceSpan;
     }
 
     /**

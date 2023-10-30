@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -33,8 +35,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRI
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
-import io.opentelemetry.instrumentation.annotations.SpanAttribute;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -105,6 +105,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.SingleRo
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
@@ -257,47 +258,48 @@ public class InternalTableImpl implements InternalTable {
      * @param noWriteChecker Used to handle operations producing no updates.
      * @return The future.
      */
-    @WithSpan
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
             IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
             BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        // Check whether proposed tx is read-only. Complete future exceptionally if true.
-        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
-        // won't be rolled back automatically - it's up to the user or outer engine.
-        if (tx != null && tx.isReadOnly()) {
-            return failedFuture(
-                    new TransactionException(
-                            TX_FAILED_READ_WRITE_OPERATION_ERR,
-                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
-                    )
-            );
-        }
+        return OtelSpanManager.span("InternalTableImpl.enlistInTx", (span) -> {
+            // Check whether proposed tx is read-only. Complete future exceptionally if true.
+            // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself,
+            // thus read-write transaction won't be rolled back automatically - it's up to the user or outer engine.
+            if (tx != null && tx.isReadOnly()) {
+                return failedFuture(
+                        new TransactionException(
+                                TX_FAILED_READ_WRITE_OPERATION_ERR,
+                                "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                        )
+                );
+            }
 
-        boolean implicit = tx == null;
-        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
+            boolean implicit = tx == null;
+            InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
-        int partId = partitionId(row);
+            int partId = partitionId(row);
 
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = actualTx.enlistedNodeAndTerm(partGroupId);
+            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = actualTx.enlistedNodeAndTerm(partGroupId);
 
-        CompletableFuture<R> fut;
+            CompletableFuture<R> fut;
 
-        if (primaryReplicaAndTerm != null) {
-            assert !implicit;
+            if (primaryReplicaAndTerm != null) {
+                assert !implicit;
 
-            fut = trackingInvoke(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), false, primaryReplicaAndTerm,
-                    noWriteChecker);
-        } else {
-            fut = enlistWithRetry(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION,
-                    implicit, noWriteChecker);
-        }
+                fut = trackingInvoke(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), false, primaryReplicaAndTerm,
+                        noWriteChecker);
+            } else {
+                fut = enlistWithRetry(actualTx, partId, term -> fac.apply(actualTx, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION,
+                        implicit, noWriteChecker);
+            }
 
-        return postEnlist(fut, false, actualTx, implicit);
+            return postEnlist(fut, false, actualTx, implicit);
+        });
     }
 
     /**
@@ -310,7 +312,6 @@ public class InternalTableImpl implements InternalTable {
      * @param noOpChecker Used to handle no-op operations (producing no updates).
      * @return The future.
      */
-    @WithSpan
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
@@ -320,64 +321,67 @@ public class InternalTableImpl implements InternalTable {
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker
     ) {
-        // Check whether proposed tx is read-only. Complete future exceptionally if true.
-        // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
-        // won't be rolled back automatically - it's up to the user or outer engine.
-        if (tx != null && tx.isReadOnly()) {
-            return failedFuture(
-                    new TransactionException(
-                            TX_FAILED_READ_WRITE_OPERATION_ERR,
-                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
-                    )
-            );
-        }
-
-        // It's possible to have null txState if transaction isn't started yet.
-        if (tx != null && !(tx.state() == TxState.PENDING || tx.state() == null)) {
-            return failedFuture(new TransactionException(
-                    "The operation is attempted for completed transaction"));
-        }
-
-        boolean implicit = tx == null;
-        InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
-
-        Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
-
-        boolean singlePart = rowBatchByPartitionId.size() == 1;
-        boolean full = implicit && singlePart;
-
-        for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-            int partitionId = partitionRowBatch.getIntKey();
-            RowBatch rowBatch = partitionRowBatch.getValue();
-
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
-
-            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = actualTx.enlistedNodeAndTerm(partGroupId);
-
-            CompletableFuture<T> fut;
-
-            if (primaryReplicaAndTerm != null) {
-                assert !implicit;
-
-                fut = trackingInvoke(actualTx, partitionId, term -> fac.apply(rowBatch.requestedRows, actualTx, partGroupId, term, false),
-                        false, primaryReplicaAndTerm, noOpChecker);
-            } else {
-                fut = enlistWithRetry(
-                        actualTx,
-                        partitionId,
-                        term -> fac.apply(rowBatch.requestedRows, actualTx, partGroupId, term, full),
-                        ATTEMPTS_TO_ENLIST_PARTITION,
-                        full,
-                        noOpChecker
+        return OtelSpanManager.span("InternalTableImpl.enlistInTx", (span) -> {
+            // Check whether proposed tx is read-only. Complete future exceptionally if true.
+            // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself,
+            // thus read-write transaction won't be rolled back automatically - it's up to the user or outer engine.
+            if (tx != null && tx.isReadOnly()) {
+                return failedFuture(
+                        new TransactionException(
+                                TX_FAILED_READ_WRITE_OPERATION_ERR,
+                                "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                        )
                 );
             }
 
-            rowBatch.resultFuture = fut;
-        }
+            // It's possible to have null txState if transaction isn't started yet.
+            if (tx != null && !(tx.state() == TxState.PENDING || tx.state() == null)) {
+                return failedFuture(new TransactionException(
+                        "The operation is attempted for completed transaction"));
+            }
 
-        CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
+            boolean implicit = tx == null;
+            InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
-        return postEnlist(fut, implicit && !singlePart, actualTx, full);
+            Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
+
+            boolean singlePart = rowBatchByPartitionId.size() == 1;
+            boolean full = implicit && singlePart;
+
+            for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
+                int partitionId = partitionRowBatch.getIntKey();
+                RowBatch rowBatch = partitionRowBatch.getValue();
+
+                TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
+
+                IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = actualTx.enlistedNodeAndTerm(partGroupId);
+
+                CompletableFuture<T> fut;
+
+                if (primaryReplicaAndTerm != null) {
+                    assert !implicit;
+
+                    fut = trackingInvoke(actualTx, partitionId,
+                            term -> fac.apply(rowBatch.requestedRows, actualTx, partGroupId, term, false),
+                            false, primaryReplicaAndTerm, noOpChecker);
+                } else {
+                    fut = enlistWithRetry(
+                            actualTx,
+                            partitionId,
+                            term -> fac.apply(rowBatch.requestedRows, actualTx, partGroupId, term, full),
+                            ATTEMPTS_TO_ENLIST_PARTITION,
+                            full,
+                            noOpChecker
+                    );
+                }
+
+                rowBatch.resultFuture = fut;
+            }
+
+            CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
+
+            return postEnlist(fut, implicit && !singlePart, actualTx, full);
+        });
     }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
@@ -399,7 +403,6 @@ public class InternalTableImpl implements InternalTable {
      * @param implicit {@code True} if the implicit txn.
      * @return Batch of retrieved rows.
      */
-    @WithSpan
     private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
             InternalTransaction tx,
             int partId,
@@ -413,34 +416,36 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BitSet columnsToInclude,
             boolean implicit
     ) {
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+        return OtelSpanManager.span("InternalTableImpl.enlistCursorInTx", (span) -> {
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
+            IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
 
-        CompletableFuture<Collection<BinaryRow>> fut;
+            CompletableFuture<Collection<BinaryRow>> fut;
 
-        ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
-                .groupId(partGroupId)
-                .timestampLong(clock.nowLong())
-                .transactionId(tx.id())
-                .scanId(scanId)
-                .indexToUse(indexId)
-                .exactKey(binaryTupleMessage(exactKey))
-                .lowerBoundPrefix(binaryTupleMessage(lowerBound))
-                .upperBoundPrefix(binaryTupleMessage(upperBound))
-                .flags(flags)
-                .columnsToInclude(columnsToInclude)
-                .full(implicit) // Intent for one phase commit.
-                .batchSize(batchSize);
+            ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+                    .groupId(partGroupId)
+                    .timestampLong(clock.nowLong())
+                    .transactionId(tx.id())
+                    .scanId(scanId)
+                    .indexToUse(indexId)
+                    .exactKey(binaryTupleMessage(exactKey))
+                    .lowerBoundPrefix(binaryTupleMessage(lowerBound))
+                    .upperBoundPrefix(binaryTupleMessage(upperBound))
+                    .flags(flags)
+                    .columnsToInclude(columnsToInclude)
+                    .full(implicit) // Intent for one phase commit.
+                    .batchSize(batchSize);
 
-        if (primaryReplicaAndTerm != null) {
-            ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
-            fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
-        } else {
-            fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION, false, null);
-        }
+            if (primaryReplicaAndTerm != null) {
+                ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
+                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+            } else {
+                fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION, false, null);
+            }
 
-        return postEnlist(fut, false, tx, false);
+            return postEnlist(fut, false, tx, false);
+        });
     }
 
     private @Nullable BinaryTupleMessage binaryTupleMessage(@Nullable BinaryTupleReader binaryTuple) {
@@ -465,38 +470,43 @@ public class InternalTableImpl implements InternalTable {
      * @param noWriteChecker Used to handle operations producing no updates.
      * @return The future.
      */
-    @WithSpan
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
-            @SpanAttribute("partId") int partId,
+            int partId,
             Function<Long, ReplicaRequest> mapFunc,
-            @SpanAttribute("attempts") int attempts,
-            @SpanAttribute("full") boolean full,
+            int attempts,
+            boolean full,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        CompletableFuture<R> result = new CompletableFuture<>();
+        return OtelSpanManager.span("InternalTableImpl.enlistWithRetry", (span) -> {
+            span.addAttribute("partId", () -> Objects.toString(partId));
+            span.addAttribute("attempts", () -> Objects.toString(attempts));
+            span.addAttribute("full", () -> Objects.toString(full));
 
-        enlist(partId, tx).thenCompose(
-                        primaryReplicaAndTerm -> trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndTerm, noWriteChecker))
-                .handle((res0, e) -> {
-                    if (e != null) {
-                        if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
-                            return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noWriteChecker).handle((r2, e2) -> {
-                                if (e2 != null) {
-                                    return result.completeExceptionally(e2);
-                                } else {
-                                    return result.complete(r2);
-                                }
-                            });
+            CompletableFuture<R> result = new CompletableFuture<>();
+
+            enlist(partId, tx).thenCompose(
+                            primaryReplicaAndTerm -> trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndTerm, noWriteChecker))
+                    .handle((res0, e) -> {
+                        if (e != null) {
+                            if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
+                                return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full, noWriteChecker).handle((r2, e2) -> {
+                                    if (e2 != null) {
+                                        return result.completeExceptionally(e2);
+                                    } else {
+                                        return result.complete(r2);
+                                    }
+                                });
+                            }
+
+                            return result.completeExceptionally(e);
                         }
 
-                        return result.completeExceptionally(e);
-                    }
+                        return result.complete(res0);
+                    });
 
-                    return result.complete(res0);
-                });
-
-        return result;
+            return result;
+        });
     }
 
     /**
@@ -510,7 +520,6 @@ public class InternalTableImpl implements InternalTable {
      * @param noWriteChecker Used to handle operations producing no updates.
      * @return The future.
      */
-    @WithSpan
     private <R> CompletableFuture<R> trackingInvoke(
             InternalTransaction tx,
             int partId,
@@ -519,40 +528,42 @@ public class InternalTableImpl implements InternalTable {
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        ReplicaRequest request = mapFunc.apply(primaryReplicaAndTerm.get2());
+        return OtelSpanManager.span("InternalTableImpl.trackingInvoke", (span) -> {
+            ReplicaRequest request = mapFunc.apply(primaryReplicaAndTerm.get2());
 
-        boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
-                || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
-                || request instanceof SingleRowPkReplicaRequest && ((SingleRowPkReplicaRequest) request).requestType() != RW_GET
-                || request instanceof MultipleRowPkReplicaRequest && ((MultipleRowPkReplicaRequest) request).requestType() != RW_GET_ALL
-                || request instanceof SwapRowReplicaRequest;
+            boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
+                    || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
+                    || request instanceof SingleRowPkReplicaRequest && ((SingleRowPkReplicaRequest) request).requestType() != RW_GET
+                    || request instanceof MultipleRowPkReplicaRequest && ((MultipleRowPkReplicaRequest) request).requestType() != RW_GET_ALL
+                    || request instanceof SwapRowReplicaRequest;
 
-        if (write && !full) {
-            // Track only write requests from explicit transactions.
-            if (!txManager.addInflight(tx.id())) {
-                return failedFuture(
-                        new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
-                                "Failed to enlist a write operation into a transaction, tx is locked for updates "
-                                        + "[tableName={}, partId={}, txState={}]",
-                                tableName,
-                                partId,
-                                tx.state()
-                        )));
-            }
-
-            return replicaSvc.<R>invoke(primaryReplicaAndTerm.get1(), request).thenApply(res -> {
-                assert noWriteChecker != null;
-
-                // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                if (noWriteChecker.test(res, request)) {
-                    txManager.removeInflight(tx.id());
+            if (write && !full) {
+                // Track only write requests from explicit transactions.
+                if (!txManager.addInflight(tx.id())) {
+                    return failedFuture(
+                            new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
+                                    "Failed to enlist a write operation into a transaction, tx is locked for updates "
+                                            + "[tableName={}, partId={}, txState={}]",
+                                    tableName,
+                                    partId,
+                                    tx.state()
+                            )));
                 }
 
-                return res;
-            });
-        } else {
-            return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
-        }
+                return replicaSvc.<R>invoke(primaryReplicaAndTerm.get1(), request).thenApply(res -> {
+                    assert noWriteChecker != null;
+
+                    // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
+                    if (noWriteChecker.test(res, request)) {
+                        txManager.removeInflight(tx.id());
+                    }
+
+                    return res;
+                });
+            } else {
+                return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+            }
+        });
     }
 
     /**
@@ -565,38 +576,39 @@ public class InternalTableImpl implements InternalTable {
      * @param <T> Operation return type.
      * @return The future.
      */
-    @WithSpan
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full) {
         assert !(autoCommit && full) : "Invalid combination of flags";
+        return OtelSpanManager.span("InternalTableImpl.postEnlist", (span) -> {
+            return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
+                if (full) { // Full txn is already finished remotely. Just update local state.
+                    txManager.finishFull(observableTimestampTracker, tx0.id(), e == null);
+                    tx0.traceSpan().end();
 
-        return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
-            if (full) { // Full txn is already finished remotely. Just update local state.
-                txManager.finishFull(observableTimestampTracker, tx0.id(), e == null);
-
-                return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
-            }
-
-            if (e != null) {
-                RuntimeException e0 = wrapReplicationException(e);
-
-                return tx0.rollbackAsync().handle((ignored, err) -> {
-                    if (err != null) {
-                        e0.addSuppressed(err);
-                    }
-                    throw e0;
-                }); // Preserve failed state.
-            } else {
-                if (autoCommit) {
-                    return tx0.commitAsync()
-                            .exceptionally(ex -> {
-                                throw wrapReplicationException(ex);
-                            })
-                            .thenApply(ignored -> r);
-                } else {
-                    return completedFuture(r);
+                    return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
                 }
-            }
-        }).thenCompose(x -> x);
+
+                if (e != null) {
+                    RuntimeException e0 = wrapReplicationException(e);
+
+                    return tx0.rollbackAsync().handle((ignored, err) -> {
+                        if (err != null) {
+                            e0.addSuppressed(err);
+                        }
+                        throw e0;
+                    }); // Preserve failed state.
+                } else {
+                    if (autoCommit) {
+                        return tx0.commitAsync()
+                                .exceptionally(ex -> {
+                                    throw wrapReplicationException(ex);
+                                })
+                                .thenApply(ignored -> r);
+                    } else {
+                        return completedFuture(r);
+                    }
+                }
+            }).thenCompose(x -> x);
+        });
     }
 
     /**
@@ -733,63 +745,65 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        if (tx == null) {
-            return evaluateReadOnlyPrimaryNode(
+        return OtelSpanManager.span("InternalTableImpl.get", (span) -> {
+            if (tx == null) {
+                return evaluateReadOnlyPrimaryNode(
+                        keyRow,
+                        (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
+                                .groupId(groupId)
+                                .enlistmentConsistencyToken(consistencyToken)
+                                .schemaVersion(keyRow.schemaVersion())
+                                .primaryKey(keyRow.tupleSlice())
+                                .requestType(RequestType.RO_GET)
+                                .build()
+                );
+            }
+
+            if (tx.isReadOnly()) {
+                return evaluateReadOnlyRecipientNode(partitionId(keyRow))
+                        .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
+            }
+
+            return enlistInTx(
                     keyRow,
-                    (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
                             .groupId(groupId)
-                            .enlistmentConsistencyToken(consistencyToken)
                             .schemaVersion(keyRow.schemaVersion())
                             .primaryKey(keyRow.tupleSlice())
-                            .requestType(RequestType.RO_GET)
-                            .build()
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RW_GET)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> false
             );
-        }
-
-        if (tx.isReadOnly()) {
-            return evaluateReadOnlyRecipientNode(partitionId(keyRow))
-                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
-        }
-
-        return enlistInTx(
-                keyRow,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
-                        .groupId(groupId)
-                        .schemaVersion(keyRow.schemaVersion())
-                        .primaryKey(keyRow.tupleSlice())
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RW_GET)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> false
-        );
+        });
     }
 
-    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        int partId = partitionId(keyRow);
-        ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
+        return OtelSpanManager.span("InternalTableImpl.get", (span) -> {
+            int partId = partitionId(keyRow);
+            ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
 
-        return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowPkReplicaRequest()
-                .groupId(partGroupId)
-                .schemaVersion(keyRow.schemaVersion())
-                .primaryKey(keyRow.tupleSlice())
-                .requestType(RequestType.RO_GET)
-                .readTimestampLong(readTimestamp.longValue())
-                .build()
-        );
+            return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowPkReplicaRequest()
+                    .groupId(partGroupId)
+                    .schemaVersion(keyRow.schemaVersion())
+                    .primaryKey(keyRow.tupleSlice())
+                    .requestType(RequestType.RO_GET)
+                    .readTimestampLong(readTimestamp.longValue())
+                    .build()
+            );
+        });
     }
 
     /**
@@ -815,69 +829,71 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
-        if (CollectionUtils.nullOrEmpty(keyRows)) {
-            return completedFuture(Collections.emptyList());
-        }
+        return OtelSpanManager.span("InternalTableImpl.getAll", (span) -> {
+            if (CollectionUtils.nullOrEmpty(keyRows)) {
+                return completedFuture(Collections.emptyList());
+            }
 
-        if (tx == null && isSinglePartitionBatch(keyRows)) {
-            return evaluateReadOnlyPrimaryNode(
-                    keyRows,
-                    (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
-                            .groupId(groupId)
-                            .enlistmentConsistencyToken(consistencyToken)
-                            .schemaVersion(keyRows.iterator().next().schemaVersion())
-                            .primaryKeys(serializeBinaryTuples(keyRows))
-                            .requestType(RequestType.RO_GET_ALL)
-                            .build()
-            );
-        }
+            if (tx == null && isSinglePartitionBatch(keyRows)) {
+                return evaluateReadOnlyPrimaryNode(
+                        keyRows,
+                        (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
+                                .groupId(groupId)
+                                .enlistmentConsistencyToken(consistencyToken)
+                                .schemaVersion(keyRows.iterator().next().schemaVersion())
+                                .primaryKeys(serializeBinaryTuples(keyRows))
+                                .requestType(RequestType.RO_GET_ALL)
+                                .build()
+                );
+            }
 
-        if (tx != null && tx.isReadOnly()) {
-            BinaryRowEx firstRow = keyRows.iterator().next();
+            if (tx != null && tx.isReadOnly()) {
+                BinaryRowEx firstRow = keyRows.iterator().next();
 
-            return evaluateReadOnlyRecipientNode(partitionId(firstRow))
+                return evaluateReadOnlyRecipientNode(partitionId(firstRow))
                         .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
-        }
+            }
 
-        return enlistInTx(
-                keyRows,
-                tx,
+            return enlistInTx(
+                    keyRows,
+                    tx,
                     (keyRows0, txo, groupId, term, full) -> {
                         return readWriteMultiRowPkReplicaRequest(RW_GET_ALL, keyRows0, txo, groupId, term, full);
                     },
-                InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder,
-                (res, req) -> false
-        );
+                    InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder,
+                    (res, req) -> false
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
+        return OtelSpanManager.span("InternalTableImpl.getAll", (span) -> {
+            Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
-        for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-            ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partitionRowBatch.getIntKey()).groupId();
+            for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
+                ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partitionRowBatch.getIntKey()).groupId();
 
-            ReadOnlyMultiRowPkReplicaRequest request = tableMessagesFactory.readOnlyMultiRowPkReplicaRequest()
-                    .groupId(partGroupId)
-                    .schemaVersion(partitionRowBatch.getValue().requestedRows.get(0).schemaVersion())
-                    .primaryKeys(serializeBinaryTuples(partitionRowBatch.getValue().requestedRows))
-                    .requestType(RequestType.RO_GET_ALL)
-                    .readTimestampLong(readTimestamp.longValue())
-                    .build();
+                ReadOnlyMultiRowPkReplicaRequest request = tableMessagesFactory.readOnlyMultiRowPkReplicaRequest()
+                        .groupId(partGroupId)
+                        .schemaVersion(partitionRowBatch.getValue().requestedRows.get(0).schemaVersion())
+                        .primaryKeys(serializeBinaryTuples(partitionRowBatch.getValue().requestedRows))
+                        .requestType(RequestType.RO_GET_ALL)
+                        .readTimestampLong(readTimestamp.longValue())
+                        .build();
 
-            partitionRowBatch.getValue().resultFuture = replicaSvc.invoke(recipientNode, request);
-        }
+                partitionRowBatch.getValue().resultFuture = replicaSvc.invoke(recipientNode, request);
+            }
 
-        return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
+            return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
+        });
     }
 
     private ReadWriteMultiRowPkReplicaRequest readWriteMultiRowPkReplicaRequest(
@@ -951,125 +967,131 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, InternalTransaction tx) {
-        return enlistInTx(
-                row,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(row.schemaVersion())
-                        .binaryTuple(row.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_UPSERT)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> false
-        );
+        return OtelSpanManager.span("InternalTableImpl.upsert", (span) -> {
+            return enlistInTx(
+                    row,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(row.schemaVersion())
+                            .binaryTuple(row.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_UPSERT)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> false
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return enlistInTx(
-                rows,
-                tx,
-                this::upsertAllInternal,
-                RowBatch::allResultFutures,
-                (res, req) -> false
-        );
+        return OtelSpanManager.span("InternalTableImpl.upsertAll", (span) -> {
+            return enlistInTx(
+                    rows,
+                    tx,
+                    this::upsertAllInternal,
+                    RowBatch::allResultFutures,
+                    (res, req) -> false
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker);
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
+        return OtelSpanManager.span("InternalTableImpl.upsertAll", (span) -> {
+            InternalTransaction tx = txManager.begin(observableTimestampTracker);
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
-        CompletableFuture<Void> fut = enlistWithRetry(
-                tx,
-                partition,
-                term -> upsertAllInternal(rows, tx, partGroupId, term, true),
-                ATTEMPTS_TO_ENLIST_PARTITION,
-                true,
-                null
-        );
+            CompletableFuture<Void> fut = enlistWithRetry(
+                    tx,
+                    partition,
+                    term -> upsertAllInternal(rows, tx, partGroupId, term, true),
+                    ATTEMPTS_TO_ENLIST_PARTITION,
+                    true,
+                    null
+            );
 
-        return postEnlist(fut, false, tx, true); // Will be committed in one RTT.
+            return postEnlist(fut, false, tx, true); // Will be committed in one RTT.
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
-        return enlistInTx(
-                row,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(row.schemaVersion())
-                        .binaryTuple(row.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_GET_AND_UPSERT)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> false
-        );
+        return OtelSpanManager.span("InternalTableImpl.getAndUpsert", (span) -> {
+            return enlistInTx(
+                    row,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(row.schemaVersion())
+                            .binaryTuple(row.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_GET_AND_UPSERT)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> false
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, InternalTransaction tx) {
-        return enlistInTx(
-                row,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(row.schemaVersion())
-                        .binaryTuple(row.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_INSERT)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> !res
-        );
+        return OtelSpanManager.span("InternalTableImpl.insert", (span) -> {
+            return enlistInTx(
+                    row,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(row.schemaVersion())
+                            .binaryTuple(row.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_INSERT)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> !res
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return enlistInTx(
-                rows,
-                tx,
-                (keyRows0, txo, groupId, term, full) -> {
-                    return readWriteMultiRowReplicaRequest(RequestType.RW_INSERT_ALL, keyRows0, txo, groupId, term, full);
-                },
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
-                (res, req) -> {
-                    for (BinaryRow row : res) {
-                        if (row != null) {
-                            return false;
+        return OtelSpanManager.span("InternalTableImpl.insertAll", (span) -> {
+            return enlistInTx(
+                    rows,
+                    tx,
+                    (keyRows0, txo, groupId, term, full) -> {
+                        return readWriteMultiRowReplicaRequest(RequestType.RW_INSERT_ALL, keyRows0, txo, groupId, term, full);
+                    },
+                    InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                    (res, req) -> {
+                        for (BinaryRow row : res) {
+                            if (row != null) {
+                                return false;
+                            }
                         }
-                    }
 
-                    // All values are null, this means nothing was deleted.
-                    return true;
-                }
-        );
+                        // All values are null, this means nothing was deleted.
+                        return true;
+                    }
+            );
+        });
     }
 
     private ReadWriteMultiRowReplicaRequest readWriteMultiRowReplicaRequest(
@@ -1096,190 +1118,198 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, InternalTransaction tx) {
-        return enlistInTx(
-                row,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(row.schemaVersion())
-                        .binaryTuple(row.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_REPLACE_IF_EXIST)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> !res
-        );
+        return OtelSpanManager.span("InternalTableImpl.replace", (span) -> {
+            return enlistInTx(
+                    row,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(row.schemaVersion())
+                            .binaryTuple(row.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_REPLACE_IF_EXIST)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> !res
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, InternalTransaction tx) {
         assert oldRow.schemaVersion() == newRow.schemaVersion()
                 : "Mismatching schema versions: old " + oldRow.schemaVersion() + ", new " + newRow.schemaVersion();
 
-        return enlistInTx(
-                newRow,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(oldRow.schemaVersion())
-                        .oldBinaryTuple(oldRow.tupleSlice())
-                        .newBinaryTuple(newRow.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_REPLACE)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> !res
-        );
+        return OtelSpanManager.span("InternalTableImpl.replace", (span) -> {
+            return enlistInTx(
+                    newRow,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSwapRowReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(oldRow.schemaVersion())
+                            .oldBinaryTuple(oldRow.tupleSlice())
+                            .newBinaryTuple(newRow.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_REPLACE)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> !res
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
-        return enlistInTx(
-                row,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(row.schemaVersion())
-                        .binaryTuple(row.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_GET_AND_REPLACE)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> res == null
-        );
+        return OtelSpanManager.span("InternalTableImpl.getAndReplace", (span) -> {
+            return enlistInTx(
+                    row,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(row.schemaVersion())
+                            .binaryTuple(row.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_GET_AND_REPLACE)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> res == null
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, InternalTransaction tx) {
-        return enlistInTx(
-                keyRow,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(keyRow.schemaVersion())
-                        .primaryKey(keyRow.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_DELETE)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> !res
-        );
+        return OtelSpanManager.span("InternalTableImpl.delete", (span) -> {
+            return enlistInTx(
+                    keyRow,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(keyRow.schemaVersion())
+                            .primaryKey(keyRow.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_DELETE)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> !res
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, InternalTransaction tx) {
-        return enlistInTx(
-                oldRow,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(oldRow.schemaVersion())
-                        .binaryTuple(oldRow.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_DELETE_EXACT)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> !res
-        );
+        return OtelSpanManager.span("InternalTableImpl.deleteExact", (span) -> {
+            return enlistInTx(
+                    oldRow,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(oldRow.schemaVersion())
+                            .binaryTuple(oldRow.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_DELETE_EXACT)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> !res
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
-        return enlistInTx(
-                row,
-                tx,
-                (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
-                        .groupId(groupId)
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .schemaVersion(row.schemaVersion())
-                        .primaryKey(row.tupleSlice())
-                        .transactionId(txo.id())
-                        .term(term)
-                        .requestType(RequestType.RW_GET_AND_DELETE)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .build(),
-                (res, req) -> res == null
-        );
+        return OtelSpanManager.span("InternalTableImpl.getAndDelete", (span) -> {
+            return enlistInTx(
+                    row,
+                    tx,
+                    (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
+                            .groupId(groupId)
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .schemaVersion(row.schemaVersion())
+                            .primaryKey(row.tupleSlice())
+                            .transactionId(txo.id())
+                            .term(term)
+                            .requestType(RequestType.RW_GET_AND_DELETE)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .build(),
+                    (res, req) -> res == null
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return enlistInTx(
-                rows,
-                tx,
-                (keyRows0, txo, groupId, term, full) -> {
-                    return readWriteMultiRowPkReplicaRequest(RW_DELETE_ALL, keyRows0, txo, groupId, term, full);
-                },
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
-                (res, req) -> {
-                    for (BinaryRow row : res) {
-                        if (row != null) {
-                            return false;
+        return OtelSpanManager.span("InternalTableImpl.deleteAll", (span) -> {
+            return enlistInTx(
+                    rows,
+                    tx,
+                    (keyRows0, txo, groupId, term, full) -> {
+                        return readWriteMultiRowPkReplicaRequest(RW_DELETE_ALL, keyRows0, txo, groupId, term, full);
+                    },
+                    InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                    (res, req) -> {
+                        for (BinaryRow row : res) {
+                            if (row != null) {
+                                return false;
+                            }
                         }
-                    }
 
-                    // All values are null, this means nothing was deleted.
-                    return true;
-                }
-        );
+                        // All values are null, this means nothing was deleted.
+                        return true;
+                    }
+            );
+        });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<List<BinaryRow>> deleteAllExact(
             Collection<BinaryRowEx> rows,
             InternalTransaction tx
     ) {
-        return enlistInTx(
-                rows,
-                tx,
-                (keyRows0, txo, groupId, term, full) -> {
-                    return readWriteMultiRowReplicaRequest(RequestType.RW_DELETE_EXACT_ALL, keyRows0, txo, groupId, term, full);
-                },
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
-                (res, req) -> {
-                    for (BinaryRow row : res) {
-                        if (row != null) {
-                            return false;
+        return OtelSpanManager.span("InternalTableImpl.deleteAllExact", (span) -> {
+            return enlistInTx(
+                    rows,
+                    tx,
+                    (keyRows0, txo, groupId, term, full) -> {
+                        return readWriteMultiRowReplicaRequest(RequestType.RW_DELETE_EXACT_ALL, keyRows0, txo, groupId, term, full);
+                    },
+                    InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                    (res, req) -> {
+                        for (BinaryRow row : res) {
+                            if (row != null) {
+                                return false;
+                            }
                         }
-                    }
 
-                    // All values are null, this means nothing was deleted.
-                    return true;
-                }
-        );
+                        // All values are null, this means nothing was deleted.
+                        return true;
+                    }
+            );
+        });
     }
 
     @Override
@@ -1561,19 +1591,20 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public RaftGroupService partitionRaftGroupService(int partition) {
-        RaftGroupService raftGroupService = raftGroupServiceByPartitionId.get(partition);
-        if (raftGroupService == null) {
-            throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
-        }
+        return OtelSpanManager.span("InternalTableImpl.partitionRaftGroupService", (span) -> {
+            RaftGroupService raftGroupService = raftGroupServiceByPartitionId.get(partition);
+            if (raftGroupService == null) {
+                throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
+            }
 
-        if (raftGroupService.leader() == null) {
-            raftGroupService.refreshLeader().join();
-        }
+            if (raftGroupService.leader() == null) {
+                raftGroupService.refreshLeader().join();
+            }
 
-        return raftGroupService;
+            return raftGroupService;
+        });
     }
 
     /** {@inheritDoc} */
@@ -1582,17 +1613,18 @@ public class InternalTableImpl implements InternalTable {
         return txStateStorage;
     }
 
-    @WithSpan
     private void awaitLeaderInitialization() {
-        List<CompletableFuture<Void>> futs = new ArrayList<>();
+        span("InternalTableImpl.awaitLeaderInitialization", (span) -> {
+            List<CompletableFuture<Void>> futs = new ArrayList<>();
 
-        for (RaftGroupService raftSvc : raftGroupServiceByPartitionId.values()) {
-            if (raftSvc.leader() == null) {
-                futs.add(raftSvc.refreshLeader());
+            for (RaftGroupService raftSvc : raftGroupServiceByPartitionId.values()) {
+                if (raftSvc.leader() == null) {
+                    futs.add(raftSvc.refreshLeader());
+                }
             }
-        }
 
-        CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new)).join();
+            CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new)).join();
+        });
     }
 
     /** {@inheritDoc} */
@@ -1743,36 +1775,37 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction.
      * @return The enlist future (then will a leader become known).
      */
-    @WithSpan
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
-        tx.assignCommitPartition(tablePartitionId);
+        return OtelSpanManager.span("InternalTableImpl.enlist", (span) -> {
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+            tx.assignCommitPartition(tablePartitionId);
 
-        HybridTimestamp now = clock.now();
+            HybridTimestamp now = clock.now();
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
-                now,
-                AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                SECONDS
-        );
+            CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
+                    tablePartitionId,
+                    now,
+                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                    SECONDS
+            );
 
-        return primaryReplicaFuture.handle((primaryReplica, e) -> {
-            if (e != null) {
-                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                        + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
-            }
+            return primaryReplicaFuture.handle((primaryReplica, e) -> {
+                if (e != null) {
+                    throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
+                            + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
+                }
 
-            ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
+                ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
 
-            if (node == null) {
-                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
-                        + primaryReplica.getLeaseholder() + ']');
-            }
+                if (node == null) {
+                    throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
+                            + primaryReplica.getLeaseholder() + ']');
+                }
 
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+                TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-            return tx.enlist(partGroupId, new IgniteBiTuple<>(node, primaryReplica.getStartTime().longValue()));
+                return tx.enlist(partGroupId, new IgniteBiTuple<>(node, primaryReplica.getStartTime().longValue()));
+            });
         });
     }
 

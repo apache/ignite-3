@@ -24,7 +24,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tracing.NoopSpan;
+import org.apache.ignite.internal.tracing.NoopTraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
         HybridTimestamp readTimestamp = new HybridClockImpl().now();
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp);
 
-        var tx = new ReadOnlyTransactionImpl(txManager, new HybridTimestampTracker(), txId, readTimestamp, NoopSpan.INSTANCE);
+        var tx = new ReadOnlyTransactionImpl(txManager, new HybridTimestampTracker(), txId, readTimestamp, NoopTraceSpan.INSTANCE);
 
         assertThat(tx.startTimestamp(), is(readTimestamp));
     }
