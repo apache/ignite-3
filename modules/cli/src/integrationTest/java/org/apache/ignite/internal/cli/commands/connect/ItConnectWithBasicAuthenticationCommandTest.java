@@ -292,4 +292,119 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                         configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_PASSWORD))
         );
     }
+
+    @Test
+    void reconnectWithDifferentAuthenticationParameters() throws IOException {
+        // Given basic authentication is configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect with auth parameters
+        execute("connect", "--username", "admin", "--password", "password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // And prompt shows username and node name
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+
+        resetOutput();
+
+        // Should ask user to reconnect with different user, answer "y"
+        bindAnswers("y");
+
+        // When connect with different auth parameters
+        execute("connect", "--username", "admin1", "--password", "password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // And prompt shows username and node name
+        assertThat(getPrompt()).isEqualTo("[admin1:" + nodeName() + "]> ");
+    }
+
+    @Test
+    void reconnectWithAuthenticationParametersOverridingConfig() throws IOException {
+        // Given basic authentication is configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect without auth parameters
+        execute("connect");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // And prompt shows username and node name
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+
+        resetOutput();
+
+        // Should ask user to reconnect with different user, answer "y"
+        bindAnswers("y");
+
+        // When connect with different auth parameters
+        execute("connect", "--username", "admin1", "--password", "password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // And prompt shows username and node name
+        assertThat(getPrompt()).isEqualTo("[admin1:" + nodeName() + "]> ");
+    }
+
+    @Test
+    void reconnectWithAuthenticationParametersFromConfig() throws IOException {
+        // Given basic authentication is configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect with auth parameters overriding config
+        execute("connect", "--username", "admin1", "--password", "password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // And prompt shows username from parameters and node name
+        assertThat(getPrompt()).isEqualTo("[admin1:" + nodeName() + "]> ");
+
+        resetOutput();
+
+        // Should ask user to reconnect with different user, answer "y"
+        bindAnswers("y");
+
+        // When connect without auth parameters
+        execute("connect");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // And prompt shows username from config and node name
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+    }
+
 }

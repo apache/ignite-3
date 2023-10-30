@@ -57,4 +57,9 @@ public class UiElements {
     public static UiElement yesNo() {
         return new MarkedUiElement("[Y/n]", fg(Color.GRAY));
     }
+
+    /** Unmarked UI element. */
+    public static UiElement string(String content) {
+        return () -> content;
+    }
 }

@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import io.micronaut.http.HttpStatus;
 import jakarta.inject.Singleton;
 import java.util.Objects;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -54,16 +56,25 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private final ConnectionChecker connectionChecker;
 
+    private final ConfigManagerProvider configManagerProvider;
+
     /**
      * Constructor.
      */
-    public ConnectCall(Session session, ApiClientFactory clientFactory, EventPublisher eventPublisher,
-            ConnectSuccessCall connectSuccessCall, ConnectionChecker connectionChecker) {
+    public ConnectCall(
+            Session session,
+            ApiClientFactory clientFactory,
+            EventPublisher eventPublisher,
+            ConnectSuccessCall connectSuccessCall,
+            ConnectionChecker connectionChecker,
+            ConfigManagerProvider configManagerProvider
+    ) {
         this.session = session;
         this.clientFactory = clientFactory;
         this.eventPublisher = eventPublisher;
         this.connectSuccessCall = connectSuccessCall;
         this.connectionChecker = connectionChecker;
+        this.configManagerProvider = configManagerProvider;
     }
 
     @Override
@@ -71,8 +82,14 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         String nodeUrl = input.url();
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null && Objects.equals(sessionInfo.nodeUrl(), nodeUrl)) {
-            MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
-            return DefaultCallOutput.success(message.render());
+            // This username will be used for connect by the connection checker.
+            String username = input.username() != null
+                    ? input.username()
+                    : configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+            if (Objects.equals(sessionInfo.username(), username)) {
+                MessageUiComponent message = MessageUiComponent.fromMessage("You are already connected to %s", UiElements.url(nodeUrl));
+                return DefaultCallOutput.success(message.render());
+            }
         }
         try {
             // Try without authentication first to check whether the authentication is enabled on the cluster.

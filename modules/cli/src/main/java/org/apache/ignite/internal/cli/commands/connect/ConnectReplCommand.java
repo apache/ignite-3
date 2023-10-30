@@ -55,8 +55,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfConnected(nodeUrl.toString())
-                .map(this::connectCallInput)
+        question.askQuestionIfConnected(connectCallInput(nodeUrl.toString()))
                 .then(Flows.fromCall(connectCall))
                 .onSuccess(() -> question.askQuestionToStoreCredentials(username(connectOptions), password(connectOptions)))
                 .verbose(verbose)
