@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
-import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
+import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -145,7 +145,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
         assert leases != null : "Leases not initialized, probably the local placement driver actor hasn't started lease tracking.";
 
-        return leases.leaseByGroupId().getOrDefault(grpId, EMPTY_LEASE);
+        Lease lease = leases.leaseByGroupId().get(grpId);
+
+        return lease == null ? emptyLease(grpId) : lease;
     }
 
     /** Returns collection of leases, ordered by replication group. */
@@ -230,7 +232,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return inBusyLockAsync(busyLock, () -> {
-            Lease lease = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
+            Lease lease = getLease(replicationGroupId);
 
             if (lease.isAccepted() && lease.getExpirationTime().after(timestamp)) {
                 return completedFuture(lease);
@@ -240,7 +242,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     .clusterTime()
                     .waitFor(timestamp.addPhysicalTime(CLOCK_SKEW))
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                        Lease lease0 = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
+                        Lease lease0 = getLease(replicationGroupId);
 
                         if (lease0.isAccepted() && lease0.getExpirationTime().after(timestamp)) {
                             return lease0;

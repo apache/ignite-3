@@ -73,7 +73,6 @@ import org.junit.jupiter.api.Test;
  * Tests execution flow of TableScanNode.
  */
 public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
-
     private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
 
     // Ensures that all data from TableScanNode is being propagated correctly.
@@ -112,13 +111,15 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
+            String leaseholder = "local";
+
             TxManagerImpl txManager = new TxManagerImpl(
                     replicaSvc,
                     new HeapLockManager(),
                     new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef),
-                    () -> "local",
-                    new TestPlacementDriver("local")
+                    () -> leaseholder,
+                    new TestPlacementDriver(leaseholder, leaseholder)
             );
 
             txManager.start();

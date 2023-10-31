@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -280,7 +281,9 @@ public class ItTxTestCluster {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
 
-        placementDriver = new TestPlacementDriver(cluster.get(0).nodeName());
+        ClusterNode firstNode = first(cluster).topologyService().localMember();
+
+        placementDriver = new TestPlacementDriver(firstNode);
 
         LOG.info("The cluster has been started");
 

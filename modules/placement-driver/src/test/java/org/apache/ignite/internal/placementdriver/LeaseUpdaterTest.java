@@ -114,7 +114,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         when(mcEntriesCursor.iterator()).thenReturn(List.of(entry).iterator());
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         lenient().when(leaseTracker.leasesCurrent()).thenReturn(leases);
-        lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).thenReturn(Lease.EMPTY_LEASE);
+        lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
         when(metaStorageManager.getLocally(any(ByteArray.class), any(ByteArray.class), anyLong())).thenReturn(mcEntriesCursor);
         when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, List.of(node))));
