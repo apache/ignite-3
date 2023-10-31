@@ -31,14 +31,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
@@ -403,11 +402,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         );
 
         try {
-            f.get(30, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            LOG.warn("Could not stop in 30 seconds, something is wrong", e);
-
-            throw e;
+            // Using get() without a timeout to exclude situations when it's not clear whether the node has actually stopped or not.
+            f.get();
+        } catch (CancellationException e) {
+            LOG.warn("The stop future was cancelled, going to proceed the stop procedure", e);
         }
     }
 
