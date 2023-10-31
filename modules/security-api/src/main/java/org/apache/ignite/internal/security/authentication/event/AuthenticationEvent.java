@@ -15,27 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.security.authentication;
-
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.configuration.SecurityView;
+package org.apache.ignite.internal.security.authentication.event;
 
 /**
- * Authentication manager.
+ * Represents the authentication event.
  */
-public interface AuthenticationManager extends Authenticator, ConfigurationListener<SecurityView> {
+public interface AuthenticationEvent {
     /**
-     * Listen to authentication events.
+     * Returns the event type.
      *
-     * @param listener Listener.
+     * @return the event type.
      */
-    void listen(AuthenticationListener listener);
-
-    /**
-     * Stop listen to authentication events.
-     *
-     * @param listener Listener.
-     */
-    void stopListen(AuthenticationListener listener);
+    EventType type();
 }

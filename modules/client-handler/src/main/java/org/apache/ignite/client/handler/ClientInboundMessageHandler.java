@@ -80,8 +80,6 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -105,7 +103,9 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
-import org.apache.ignite.internal.security.configuration.SecurityView;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEvent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -126,7 +126,7 @@ import org.jetbrains.annotations.Nullable;
  * Handles messages from thin clients.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements ConfigurationListener<SecurityView> {
+public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements AuthenticationListener {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -302,7 +302,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
 
             Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
-            UserDetails userDetails = authenticate(extensions);
+            AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
+            UserDetails userDetails = authenticationManager.authenticate(authenticationRequest);
 
             clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
@@ -354,12 +355,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         } finally {
             unpacker.close();
         }
-    }
-
-    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
-        AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
-
-        return authenticationManager.authenticate(authenticationRequest);
     }
 
     private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
@@ -719,14 +714,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ctx.close();
     }
 
-    @Override
-    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<SecurityView> ctx) {
-        if (clientContext != null && channelHandlerContext != null) {
-            channelHandlerContext.close();
-        }
-        return CompletableFuture.completedFuture(null);
-    }
-
     private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
         int mapSize = unpacker.unpackInt();
@@ -771,5 +758,29 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
 
         return clock.now().longValue();
+    }
+
+    @Override
+    public void onEvent(AuthenticationEvent event) {
+        switch (event.type()) {
+            case AUTHENTICATION_ENABLED:
+                closeConnection();
+                break;
+            case AUTHENTICATION_PROVIDER_REMOVED:
+            case AUTHENTICATION_PROVIDER_UPDATED:
+                AuthenticationProviderEvent providerEvent = (AuthenticationProviderEvent) event;
+                if (clientContext != null && clientContext.userDetails().providerName().equals(providerEvent.name())) {
+                    closeConnection();
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void closeConnection() {
+        if (channelHandlerContext != null) {
+            channelHandlerContext.close();
+        }
     }
 }
