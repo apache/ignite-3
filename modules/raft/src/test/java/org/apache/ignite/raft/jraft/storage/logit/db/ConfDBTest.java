@@ -24,6 +24,8 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -48,10 +50,13 @@ public class ConfDBTest extends BaseLogitStorageTest {
     private LogEntryDecoder decoder;
     private LogEntryEncoder encoder;
 
+    private ScheduledExecutorService checkpointExecutor;
+
     @BeforeEach
     @Override
     public void setup() throws Exception {
         super.setup();
+        checkpointExecutor = Executors.newSingleThreadScheduledExecutor();
         this.confStorePath = this.path + File.separator + "conf";
         Files.createDirectories(Path.of(confStorePath));
         this.logEntryCodecFactory = LogEntryV1CodecFactory.getInstance();
@@ -61,13 +66,14 @@ public class ConfDBTest extends BaseLogitStorageTest {
     }
 
     public void init() {
-        this.confDB = new ConfDB(this.confStorePath);
+        this.confDB = new ConfDB(this.confStorePath, checkpointExecutor);
         this.confDB.init(this.logStoreFactory);
     }
 
     @AfterEach
     public void teardown() throws Exception {
         this.confDB.shutdown();
+        checkpointExecutor.shutdown();
     }
 
     @Test

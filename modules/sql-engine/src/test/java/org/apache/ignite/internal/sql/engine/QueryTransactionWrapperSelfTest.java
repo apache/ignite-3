@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.wrapTxOrStartImplicit;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -33,7 +32,6 @@ import static org.mockito.Mockito.when;
 import java.util.EnumSet;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
@@ -48,15 +46,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Mock
     private IgniteTransactions transactions;
-
-    @Test
-    public void throwsExceptionForDdlWithExternalTransaction() {
-        //noinspection ThrowableNotThrown
-        assertThrowsSqlException(ErrorGroups.Sql.STMT_VALIDATION_ERR,
-                "DDL doesn't support transactions",
-                () -> wrapTxOrStartImplicit(SqlQueryType.DDL, transactions, new NoOpTransaction("test")));
-        verifyNoInteractions(transactions);
-    }
 
     @Test
     public void testImplicitTransactionAttributes() {

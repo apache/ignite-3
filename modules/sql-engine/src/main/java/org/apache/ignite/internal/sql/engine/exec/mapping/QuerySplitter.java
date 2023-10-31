@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -24,6 +24,8 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -37,26 +39,62 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Splits a query into a list of query fragments.
+ *
+ * <p>Distributed query tree may have number of {@link IgniteExchange} operators. These operators
+ * represents points where one distribution should be converted to another. In runtime, this operation
+ * implemented as physical exchange of messages between two nodes (or itself, it's intentional tradeoff).
+ *
+ * <p>{@link QuerySplitter} is meant to find all {@link IgniteExchange} operators, cut the tree in that places,
+ * and replace single exchange with {@link IgniteReceiver} and {@link IgniteSender} on target and source fragments
+ * accordingly. Here is an example for a simple `SELECT * FROM test` query:
+ *
+ * <pre>
+ *     Here is a relation tree representing the query:
+ *
+ *      IgniteExchange(distribution=[single]) ------------| we've got exchange here because table distributed by affinity, meaning
+ *          IgniteTableScan(table=[[PUBLIC, TEST]])       | every node owns only a few partitions of that table. Thus, in order to
+ *                                                        | get all rows in a single place, we need to resend them. In general it
+ *                                                        | means, that messages will be sent over network, but in some cases it
+ *     After splitting it will be represented             | may be local call as well (for instance, it is a single node cluster)
+ *     by two fragments:
+ *
+ *     Fragment#1:
+ *          IgniteReceiver(source=Fragment#2, exchangeId=3)
+ *
+ *     Fragment#2:
+ *          IgniteSender(target=Fragment#1, exchangeId=3)
+ *              IgniteTableScan(table=[[PUBLIC, TEST]])
+ * </pre>
  */
 public class QuerySplitter extends IgniteRelShuttle {
     private final Deque<FragmentProto> stack = new LinkedList<>();
+
+    private final RelOptCluster cluster;
+    private final IdGenerator idGenerator;
 
     private FragmentProto curr;
 
     private boolean correlated = false;
 
+    public QuerySplitter(IdGenerator idGenerator, RelOptCluster cluster) {
+        this.idGenerator = idGenerator;
+        this.cluster = cluster;
+    }
+
     /**
-     * Go.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Splits given relation tree on a list of {@link Fragment fragments}.
+     *
+     * <p>See class-level javadoc for details.
      */
-    public List<Fragment> go(IgniteRel root) {
+    public List<Fragment> split(IgniteRel root) {
         ArrayList<Fragment> res = new ArrayList<>();
 
-        stack.push(new FragmentProto(IdGenerator.nextId(), false, root));
+        stack.push(new FragmentProto(idGenerator.nextId(), false, root));
 
         while (!stack.isEmpty()) {
             curr = stack.pop();
@@ -68,7 +106,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             //       V                       V
             //   IgniteSort#285            IgniteSort#285
             //   IgniteTableScan#180       IgniteTableScan#180
-            curr.root = Cloner.clone(curr.root);
+            curr.root = Cloner.clone(curr.root, cluster);
 
             correlated = curr.correlated;
 
@@ -110,7 +148,7 @@ public class QuerySplitter extends IgniteRelShuttle {
         RelOptCluster cluster = rel.getCluster();
 
         long targetFragmentId = curr.id;
-        long sourceFragmentId = IdGenerator.nextId();
+        long sourceFragmentId = idGenerator.nextId();
         long exchangeId = sourceFragmentId;
 
         IgniteReceiver receiver = new IgniteReceiver(cluster, rel.getTraitSet(), rel.getRowType(), exchangeId, sourceFragmentId);
@@ -126,7 +164,7 @@ public class QuerySplitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTrimExchange rel) {
-        return ((SourceAwareIgniteRel) processNode(rel)).clone(IdGenerator.nextId());
+        return ((SourceAwareIgniteRel) processNode(rel)).clone(idGenerator.nextId());
     }
 
     /** {@inheritDoc} */
@@ -140,7 +178,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.tables.add(table);
         }
 
-        return rel.clone(IdGenerator.nextId());
+        return rel.clone(idGenerator.nextId());
     }
 
     /** {@inheritDoc} */
@@ -154,7 +192,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.tables.add(table);
         }
 
-        return rel.clone(IdGenerator.nextId());
+        return rel.clone(idGenerator.nextId());
     }
 
     /** {@inheritDoc} */
@@ -182,7 +220,7 @@ public class QuerySplitter extends IgniteRelShuttle {
             curr.systemViews.add(view);
         }
 
-        return rel.clone(IdGenerator.nextId());
+        return rel.clone(idGenerator.nextId());
     }
 
     private static class FragmentProto {

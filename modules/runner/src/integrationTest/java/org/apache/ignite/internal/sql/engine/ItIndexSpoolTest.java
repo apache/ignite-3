@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.table.Table;
@@ -46,7 +47,7 @@ public class ItIndexSpoolTest extends ClusterPerClassIntegrationTest {
             LOG.info("Start cleanUp()");
         }
 
-        for (Table table : CLUSTER_NODES.get(0).tables().tables()) {
+        for (Table table : CLUSTER.aliveNode().tables().tables()) {
             sql("DROP TABLE " + table.name());
             sql("DROP ZONE " + "ZONE_" + table.name().toUpperCase());
         }

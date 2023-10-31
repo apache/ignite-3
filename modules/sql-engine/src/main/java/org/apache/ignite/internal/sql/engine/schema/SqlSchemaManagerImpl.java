@@ -17,24 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-
-import com.github.benmanes.caffeine.cache.Caffeine;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -48,47 +47,49 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Implementation of {@link SqlSchemaManager} backed by {@link CatalogService}.
  */
-public class CatalogSqlSchemaManager implements SqlSchemaManager {
+public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final CatalogManager catalogManager;
 
-    private final ConcurrentMap<CacheKey, SchemaPlus> cache;
+    private final Cache<Integer, SchemaPlus> schemaCache;
+
+    private final Cache<Long, IgniteTable> tableCache;
 
     /** Constructor. */
-    public CatalogSqlSchemaManager(CatalogManager catalogManager, int cacheSize) {
+    public SqlSchemaManagerImpl(CatalogManager catalogManager, CacheFactory factory, int cacheSize) {
         this.catalogManager = catalogManager;
-        this.cache = Caffeine.newBuilder()
-                .initialCapacity(cacheSize)
-                .maximumSize(cacheSize)
-                .<CacheKey, SchemaPlus>build()
-                .asMap();
+        this.schemaCache = factory.create(cacheSize);
+        this.tableCache = factory.create(cacheSize);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String name, int schemaVersion) {
-        String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
-
-        return cache.computeIfAbsent(cacheKey(schemaVersion, schemaName),
-                (e) -> createSqlSchema(e.schemaVersion(), catalogManager.schema(e.schemaName(), e.schemaVersion())));
+    public SchemaPlus schema(int schemaVersion) {
+        return schemaCache.get(
+                schemaVersion,
+                version -> createRootSchema(catalogManager.catalog(version))
+        );
     }
 
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String name, long timestamp) {
+    public SchemaPlus schema(long timestamp) {
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
 
-        return schema(name, catalogVersion);
+        return schema(catalogVersion);
     }
 
     /** {@inheritDoc} */
@@ -98,7 +99,63 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         return catalogManager.catalogReadyFuture(version);
     }
 
-    private static SchemaPlus createSqlSchema(int catalogVersion, CatalogSchemaDescriptor schemaDescriptor) {
+    @Override
+    public IgniteTable table(int schemaVersion, int tableId) {
+        return tableCache.get(tableCacheKey(schemaVersion, tableId), key -> {
+            SchemaPlus rootSchema = schemaCache.get(schemaVersion);
+
+            if (rootSchema != null) {
+                for (String name : rootSchema.getSubSchemaNames()) {
+                    SchemaPlus subSchema = rootSchema.getSubSchema(name);
+
+                    assert subSchema != null : name;
+
+                    IgniteSchema schema = subSchema.unwrap(IgniteSchema.class);
+
+                    assert schema != null : "unknown schema " + subSchema;
+
+                    IgniteTable table = schema.tableByIdOpt(tableId);
+
+                    if (table != null) {
+                        return table;
+                    }
+                }
+            }
+
+            Catalog catalog = catalogManager.catalog(schemaVersion);
+
+            if (catalog == null) {
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Catalog of given version not found: " + schemaVersion);
+            }
+
+            CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
+
+            if (tableDescriptor == null) {
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Table with given id not found: " + tableId);
+            }
+
+            return createTable(tableDescriptor, createTableDescriptorForTable(tableDescriptor), Map.of());
+        });
+    }
+
+    private static long tableCacheKey(int schemaVersion, int tableId) {
+        long cacheKey = schemaVersion;
+        cacheKey <<= 32;
+        return cacheKey | tableId;
+    }
+
+    private static SchemaPlus createRootSchema(Catalog catalog) {
+        SchemaPlus rootSchema = Frameworks.createRootSchema(false);
+
+        for (CatalogSchemaDescriptor schemaDescriptor : catalog.schemas()) {
+            IgniteSchema igniteSchema = createSqlSchema(catalog.version(), schemaDescriptor);
+            rootSchema.add(igniteSchema.getName(), igniteSchema);
+        }
+
+        return rootSchema;
+    }
+
+    private static IgniteSchema createSqlSchema(int catalogVersion, CatalogSchemaDescriptor schemaDescriptor) {
         String schemaName = schemaDescriptor.name();
 
         int numTables = schemaDescriptor.tables().length;
@@ -131,23 +188,12 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         // Assemble tables.
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
             int tableId = tableDescriptor.id();
-            String tableName = tableDescriptor.name();
             TableDescriptor descriptor = tableDescriptorMap.get(tableId);
             assert descriptor != null;
 
-            //TODO IGNITE-19558: The table is not available at planning stage.
-            // Let's fix table statistics keeping in mind IGNITE-19558 issue.
-            IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, descriptor.distribution());
             Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
 
-            IgniteTable schemaTable = new IgniteTableImpl(
-                    tableName,
-                    tableId,
-                    tableDescriptor.tableVersion(),
-                    descriptor,
-                    statistic,
-                    tableIndexMap
-            );
+            IgniteTable schemaTable = createTable(tableDescriptor, descriptor, tableIndexMap);
 
             schemaDataSources.add(schemaTable);
         }
@@ -166,10 +212,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             schemaDataSources.add(schemaTable);
         }
 
-        // create root schema
-        SchemaPlus rootSchema = Frameworks.createRootSchema(false);
-        IgniteSchema igniteSchema = new IgniteSchema(schemaName, catalogVersion, schemaDataSources);
-        return rootSchema.add(schemaName, igniteSchema);
+        return new IgniteSchema(schemaName, catalogVersion, schemaDataSources);
     }
 
     private static IgniteIndex createSchemaIndex(CatalogIndexDescriptor indexDescriptor, TableDescriptor tableDescriptor) {
@@ -188,20 +231,22 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     private static TableDescriptor createTableDescriptorForTable(CatalogTableDescriptor descriptor) {
         List<ColumnDescriptor> colDescriptors = new ArrayList<>();
-        List<Integer> colocationColumns = new ArrayList<>(descriptor.colocationColumns().size());
 
         List<CatalogTableColumnDescriptor> columns = descriptor.columns();
+        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>();
         for (int i = 0; i < columns.size(); i++) {
             CatalogTableColumnDescriptor col = columns.get(i);
             boolean key = descriptor.isPrimaryKeyColumn(col.name());
             CatalogColumnDescriptor columnDescriptor = createColumnDescriptor(col, key, i);
 
-            if (descriptor.isColocationColumn(col.name())) {
-                colocationColumns.add(i);
-            }
+            columnToIndex.put(col.name(), i);
 
             colDescriptors.add(columnDescriptor);
         }
+
+        List<Integer> colocationColumns = descriptor.colocationColumns().stream()
+                .map(columnToIndex::getInt)
+                .collect(Collectors.toList());
 
         // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         int tableId = descriptor.id();
@@ -289,42 +334,25 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         return columnDescriptor;
     }
 
-    private static CacheKey cacheKey(int schemaVersion, String schemaName) {
-        return new CacheKey(schemaVersion, schemaName);
-    }
+    private static IgniteTable createTable(
+            CatalogTableDescriptor catalogTableDescriptor,
+            TableDescriptor tableDescriptor,
+            Map<String, IgniteIndex> indexes
+    ) {
+        int tableId = catalogTableDescriptor.id();
+        String tableName = catalogTableDescriptor.name();
 
-    private static class CacheKey {
-        private final int schemaVersion;
-        private final String schemaName;
+        //TODO IGNITE-19558: The table is not available at planning stage.
+        // Let's fix table statistics keeping in mind IGNITE-19558 issue.
+        IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, tableDescriptor.distribution());
 
-        CacheKey(int schemaVersion, String schemaName) {
-            this.schemaVersion = schemaVersion;
-            this.schemaName = schemaName;
-        }
-
-        public int schemaVersion() {
-            return schemaVersion;
-        }
-
-        public String schemaName() {
-            return schemaName;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            CacheKey cacheKey = (CacheKey) o;
-            return schemaVersion == cacheKey.schemaVersion && Objects.equals(schemaName, cacheKey.schemaName);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(schemaVersion, schemaName);
-        }
+        return new IgniteTableImpl(
+                tableName,
+                tableId,
+                catalogTableDescriptor.tableVersion(),
+                tableDescriptor,
+                statistic,
+                indexes
+        );
     }
 }

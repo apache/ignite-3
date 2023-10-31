@@ -122,7 +122,7 @@ import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -278,7 +278,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Schema manager. */
-    private final CatalogSchemaManager schemaManager;
+    private final SchemaManager schemaManager;
 
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
@@ -386,7 +386,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             DataStorageManager dataStorageMgr,
             Path storagePath,
             MetaStorageManager metaStorageMgr,
-            CatalogSchemaManager schemaManager,
+            SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
@@ -950,7 +950,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txStatePartitionStorage,
                 transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
-                new NonHistoricSchemas(schemaManager),
+                new NonHistoricSchemas(schemaManager, schemaSyncService),
                 localNode(),
                 schemaSyncService,
                 catalogService,

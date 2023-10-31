@@ -15,13 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.cluster.management.configuration;
+
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
 /**
- * Contains hacks needed for the whole codebase. Should be removed as quickly as possible.
+ * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
  */
-public class Hacks {
-    // TODO: Remove after IGNITE-20499 is fixed.
-    /** Name of the property overriding idle safe time propagation period (in milliseconds). */
-    public static final String IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY = "IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS";
+@ConfigurationRoot(rootName = "storageProfiles", type = ConfigurationType.LOCAL)
+public class StorageProfilesConfigurationSchema {
+    /**
+     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+     */
+    @NamedConfigValue
+    public StorageProfileConfigurationSchema storageProfiles;
 }

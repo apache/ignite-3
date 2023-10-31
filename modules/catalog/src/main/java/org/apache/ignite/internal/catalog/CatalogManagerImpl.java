@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,9 +89,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private static final int SYSTEM_VIEW_STRING_COLUMN_LENGTH = Short.MAX_VALUE;
 
     /** Safe time to wait before new Catalog version activation. */
-    private static final int DEFAULT_DELAY_DURATION = 0;
+    static final int DEFAULT_DELAY_DURATION = 0;
 
-    private static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
+    static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
 
     /** Initial update token for a catalog descriptor, this token is valid only before the first call of
      * {@link UpdateEntry#applyUpdate(Catalog, long)}.
@@ -296,7 +297,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return versionTracker.waitFor(version);
     }
 
-    private Catalog catalog(int version) {
+    @Override
+    public Catalog catalog(int version) {
         return catalogByVer.get(version);
     }
 
@@ -316,7 +318,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException {
+    public CompletableFuture<Void> execute(List<CatalogCommand> commands) {
+        if (nullOrEmpty(commands)) {
+            return completedFuture(null);
+        }
+
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
@@ -524,10 +530,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
         long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
+        long prevVersionActivationTimestamp = catalog.time() + 1;
 
         return new Catalog(
                 update.version(),
-                activationTimestamp,
+                // Remove this maxing when https://issues.apache.org/jira/browse/IGNITE-20499 is fixed and DelayDuration is truly constant.
+                Math.max(activationTimestamp, prevVersionActivationTimestamp),
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 catalog.schemas()

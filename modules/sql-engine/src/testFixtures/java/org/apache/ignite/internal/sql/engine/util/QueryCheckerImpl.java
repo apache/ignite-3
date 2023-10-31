@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -36,6 +38,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -55,14 +59,15 @@ import org.hamcrest.Matcher;
  * Query checker base class.
  */
 abstract class QueryCheckerImpl implements QueryChecker {
+    private static final IgniteLogger LOG = Loggers.forClass(QueryCheckerImpl.class);
 
-    final QueryTemplate queryTemplate;
+    private final QueryTemplate queryTemplate;
 
     private final ArrayList<Matcher<String>> planMatchers = new ArrayList<>();
 
     private final ArrayList<String> disabledRules = new ArrayList<>();
 
-    private List<List<?>> expectedResult;
+    private ResultChecker resultChecker;
 
     private List<ColumnMatcher> metadataMatchers;
 
@@ -146,11 +151,15 @@ abstract class QueryCheckerImpl implements QueryChecker {
      */
     @Override
     public QueryChecker returns(Object... res) {
-        assert expectedResult != QueryChecker.EMPTY_RES
-                : "Erroneous awaiting results mixing, impossible to simultaneously wait something and nothing";
+        assert resultChecker == null || resultChecker instanceof RowByRowResultChecker
+                : "Result checker already set to " + resultChecker.getClass().getSimpleName();
 
-        if (expectedResult == null) {
-            expectedResult = new ArrayList<>();
+        RowByRowResultChecker rowByRowResultChecker = (RowByRowResultChecker) resultChecker;
+
+        if (rowByRowResultChecker == null) {
+            rowByRowResultChecker = new RowByRowResultChecker();
+
+            resultChecker = rowByRowResultChecker;
         }
 
         // let's interpret null array as simple single null.
@@ -158,7 +167,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
             res = QueryChecker.NULL_AS_VARARG;
         }
 
-        expectedResult.add(Arrays.asList(res));
+        rowByRowResultChecker.expectedResult.add(Arrays.asList(res));
 
         return this;
     }
@@ -170,9 +179,18 @@ abstract class QueryCheckerImpl implements QueryChecker {
      */
     @Override
     public QueryChecker returnNothing() {
-        assert expectedResult == null : "Erroneous awaiting results mixing, impossible to simultaneously wait nothing and something";
+        assert resultChecker == null : "Result checker already set to " + resultChecker.getClass().getSimpleName();
 
-        expectedResult = QueryChecker.EMPTY_RES;
+        resultChecker = new EmptyResultChecker();
+
+        return this;
+    }
+
+    @Override
+    public QueryChecker returnSomething() {
+        assert resultChecker == null : "Result checker already set to " + resultChecker.getClass().getSimpleName();
+
+        resultChecker = new NotEmptyResultChecker();
 
         return this;
     }
@@ -252,6 +270,8 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         String qry = queryTemplate.createQuery();
 
+        LOG.info("Executing query: {}", qry);
+
         try {
 
             if (!CollectionUtils.nullOrEmpty(planMatchers)) {
@@ -293,22 +313,10 @@ abstract class QueryCheckerImpl implements QueryChecker {
                 assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
             }
 
-            var res = getAllFromCursor(cur);
+            List<List<?>> res = Commons.cast(getAllFromCursor(cur));
 
-            if (expectedResult != null) {
-                if (Objects.equals(expectedResult, QueryChecker.EMPTY_RES)) {
-                    assertEquals(0, res.size(), "Empty result expected");
-
-                    return;
-                }
-
-                if (!ordered) {
-                    // Avoid arbitrary order.
-                    res.sort(new ListComparator());
-                    expectedResult.sort(new ListComparator());
-                }
-
-                QueryChecker.assertEqualsCollections(expectedResult, res);
+            if (resultChecker != null) {
+                resultChecker.check(res, ordered);
             }
         } finally {
             await(qryProc.closeSession(sessionId));
@@ -412,6 +420,40 @@ abstract class QueryCheckerImpl implements QueryChecker {
             } else {
                 return qry;
             }
+        }
+    }
+
+    @FunctionalInterface
+    interface ResultChecker {
+        void check(List<List<?>> rows, boolean ordered);
+    }
+
+    private static class EmptyResultChecker implements ResultChecker {
+        @Override
+        public void check(List<List<?>> rows, boolean ordered) {
+            assertThat(rows, empty());
+        }
+    }
+
+    private static class NotEmptyResultChecker implements ResultChecker {
+        @Override
+        public void check(List<List<?>> rows, boolean ordered) {
+            assertThat(rows, not(empty()));
+        }
+    }
+
+    private static class RowByRowResultChecker implements ResultChecker {
+        private final List<List<?>> expectedResult = new ArrayList<>();
+
+        @Override
+        public void check(List<List<?>> rows, boolean ordered) {
+            if (!ordered) {
+                // Avoid arbitrary order.
+                rows.sort(new ListComparator());
+                expectedResult.sort(new ListComparator());
+            }
+
+            QueryChecker.assertEqualsCollections(expectedResult, rows);
         }
     }
 }

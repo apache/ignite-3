@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
@@ -27,7 +26,6 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -66,11 +64,12 @@ public class SqlBenchmark {
             .nodes("N1", "N2", "N3")
             .addTable()
                     .name("T1")
-                    .distribution(IgniteDistributions.hash(List.of(0)))
-                    .addColumn("ID", NativeTypes.INT32)
+                    .addKeyColumn("ID", NativeTypes.INT32)
                     .addColumn("VAL", NativeTypes.stringOf(64))
-                    .defaultDataProvider(dataProvider)
                     .end()
+            .dataProvider("N1", "T1", TestBuilders.tableScan(dataProvider))
+            .dataProvider("N2", "T1", TestBuilders.tableScan(dataProvider))
+            .dataProvider("N3", "T1", TestBuilders.tableScan(dataProvider))
             .build();
     // @formatter:on
 

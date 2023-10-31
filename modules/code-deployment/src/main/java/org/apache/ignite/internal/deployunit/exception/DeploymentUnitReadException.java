@@ -39,4 +39,13 @@ public class DeploymentUnitReadException extends IgniteException {
     public DeploymentUnitReadException(Throwable cause) {
         super(CodeDeployment.UNIT_CONTENT_READ_ERR, cause);
     }
+
+    /**
+     * Constructor.
+     *
+     * @param message error message.
+     */
+    public DeploymentUnitReadException(String message) {
+        super(CodeDeployment.UNIT_CONTENT_READ_ERR, message);
+    }
 }

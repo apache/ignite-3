@@ -19,10 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster.SmallClusterFactory;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
-import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -49,10 +46,7 @@ class MappingContext {
 
     public RelOptCluster cluster() {
         if (cluster == null) {
-            cluster = RelOptCluster.create(Commons.cluster().getPlanner(), Commons.cluster().getRexBuilder());
-            cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER,
-                    Commons.cluster().getPlanner()));
-            cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+            cluster = Commons.cluster();
         }
 
         return cluster;

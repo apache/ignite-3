@@ -22,14 +22,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.framework.TestStatistic;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -57,7 +62,10 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
     private TableManager tableManager;
 
     @Mock
-    private CatalogSchemaManager schemaManager;
+    private SchemaManager schemaManager;
+
+    @Mock
+    private SqlSchemaManager sqlSchemaManager;
 
     @Mock
     private TableDescriptor descriptor;
@@ -121,7 +129,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
         }
 
         Tester(int cacheSize) {
-            registry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, cacheSize);
+            registry = new ExecutableTableRegistryImpl(tableManager, schemaManager, sqlSchemaManager, replicaService, clock, cacheSize);
         }
 
         CompletableFuture<ExecutableTable> getTable(int tableId) {
@@ -133,10 +141,16 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
-            when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
             when(descriptor.iterator()).thenReturn(emptyIterator());
+            when(schemaRegistry.schema(tableVersion)).thenReturn(schemaDescriptor);
 
-            return registry.getTable(tableId, tableVersion, descriptor);
+            IgniteTable sqlTable = new IgniteTableImpl(
+                    table.name(), tableId, tableVersion, descriptor, new TestStatistic(1_000.0), Map.of()
+            );
+
+            when(sqlSchemaManager.table(schemaVersion, tableId)).thenReturn(sqlTable);
+
+            return registry.getTable(schemaVersion, tableId);
         }
     }
 }

@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
-
-import java.util.concurrent.atomic.AtomicLong;
+package org.apache.ignite.internal.replicator.message;
 
 /**
- * IdGenerator.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Requests that are aware about the schema version that must be used when processing them.
  */
-public class IdGenerator {
-    private static final AtomicLong ID_GEN = new AtomicLong();
-
-    private IdGenerator() {
-    }
-
-    public static long nextId() {
-        return ID_GEN.getAndIncrement();
-    }
+public interface SchemaVersionAwareReplicaRequest extends ReplicaRequest {
+    /**
+     * Schema version in which input values are marshalled and that must be used when processing the request.
+     */
+    int schemaVersion();
 }

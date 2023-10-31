@@ -36,10 +36,14 @@ public class LogicalNode extends ClusterNodeImpl {
      *         documentation</a>
      */
     @IgniteToStringInclude
-    private final Map<String, String> attributes;
+    private final Map<String, String> userAttributes;
 
     @IgniteToStringInclude
     private final Map<String, String> systemAttributes;
+
+    // TODO: add javadoc https://issues.apache.org/jira/browse/IGNITE-20564
+    @IgniteToStringInclude
+    private final Map<String, String> storageProfiles;
 
     /**
      * Constructor.
@@ -55,32 +59,40 @@ public class LogicalNode extends ClusterNodeImpl {
     ) {
         super(id, name, address);
 
-        this.attributes = Collections.emptyMap();
+        this.userAttributes = Collections.emptyMap();
         this.systemAttributes = Collections.emptyMap();
+        this.storageProfiles = Collections.emptyMap();
     }
 
     /**
      * Constructor.
      *
      * @param clusterNode Represents a node in a cluster.
-     * @param attributes  Node attributes defined in configuration.
+     * @param userAttributes  Node attributes defined in configuration.
      */
-    public LogicalNode(ClusterNode clusterNode, Map<String, String> attributes) {
-        this(clusterNode, attributes, Collections.emptyMap());
+    public LogicalNode(ClusterNode clusterNode, Map<String, String> userAttributes) {
+        this(clusterNode, userAttributes, Collections.emptyMap(), Collections.emptyMap());
     }
 
     /**
      * Constructor.
      *
      * @param clusterNode Represents a node in a cluster.
-     * @param attributes Node attributes defined in configuration.
+     * @param userAttributes Node attributes defined in configuration.
      * @param systemAttributes Internal node attributes provided by system components at startup.
+     * @param storageProfiles TODO: add javadoc https://issues.apache.org/jira/browse/IGNITE-20564
      */
-    public LogicalNode(ClusterNode clusterNode, Map<String, String> attributes, Map<String, String> systemAttributes) {
+    public LogicalNode(
+            ClusterNode clusterNode,
+            Map<String, String> userAttributes,
+            Map<String, String> systemAttributes,
+            Map<String, String> storageProfiles
+    ) {
         super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());
 
-        this.attributes = attributes == null ? Collections.emptyMap() : attributes;
+        this.userAttributes = userAttributes == null ? Collections.emptyMap() : userAttributes;
         this.systemAttributes = systemAttributes == null ? Collections.emptyMap() : systemAttributes;
+        this.storageProfiles = storageProfiles == null ? Collections.emptyMap() : storageProfiles;
     }
 
     /**
@@ -89,16 +101,16 @@ public class LogicalNode extends ClusterNodeImpl {
      * @param clusterNode    Represents a node in a cluster.
      */
     public LogicalNode(ClusterNode clusterNode) {
-        this(clusterNode, Collections.emptyMap(), Collections.emptyMap());
+        this(clusterNode, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
     }
 
     /**
-     * Returns node's attributes defined in node's configuration.
+     * Returns node's attributes provided by user using node's configuration.
      *
-     * @return Node's attributes defined in node's configuration.
+     * @return Node's attributes provided by user using node's configuration.
      */
-    public Map<String, String> attributes() {
-        return attributes;
+    public Map<String, String> userAttributes() {
+        return userAttributes;
     }
 
     /**
@@ -108,6 +120,15 @@ public class LogicalNode extends ClusterNodeImpl {
      */
     public Map<String, String> systemAttributes() {
         return systemAttributes;
+    }
+
+    /**
+     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+     *
+     * @return add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+     */
+    public Map<String, String> storageProfiles() {
+        return storageProfiles;
     }
 
     /** {@inheritDoc} */

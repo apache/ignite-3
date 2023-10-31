@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
@@ -278,28 +277,6 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asserts {@link DistributionZonesUtil#zonesChangeTriggerKey(int)} revision.
-     *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param keyValueStorage Key-value storage.
-     * @throws InterruptedException If thread was interrupted.
-     */
-    public static void assertZonesChangeTriggerKey(
-            long revision,
-            int zoneId,
-            KeyValueStorage keyValueStorage
-    ) throws InterruptedException {
-        assertValueInStorage(
-                keyValueStorage,
-                zonesChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::bytesToLong,
-                revision,
-                1000
-        );
-    }
-
-    /**
      * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyKey()} value.
      *
      * @param clusterNodes Expected cluster nodes.
@@ -312,7 +289,7 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.attributes())).collect(toSet());
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes())).collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -348,7 +325,7 @@ public class DistributionZonesTestUtil {
      */
     public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.attributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
                 .collect(toSet());
 
         byte[] newLogicalTopology = toBytes(nodesWithAttributes);
