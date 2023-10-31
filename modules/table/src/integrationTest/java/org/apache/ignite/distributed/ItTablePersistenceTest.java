@@ -310,12 +310,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .txId(req0.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
-                        .rowMessage(
-                                msgFactory.binaryRowMessage()
+                        .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                .binaryRowMessage(msgFactory.binaryRowMessage()
                                         .schemaVersion(req0.schemaVersion())
                                         .binaryTuple(req0.binaryTuple())
-                                        .build()
-                        )
+                                        .build())
+                                .build())
                         .safeTimeLong(hybridClock.nowLong())
                         .txCoordinatorId(UUID.randomUUID().toString())
                         .build();

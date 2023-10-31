@@ -17,41 +17,38 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * State machine command to update a row specified by a row id.
+ * The message type represent a binary row and a timestamp.
  */
-@Transferable(TableMessageGroup.Commands.UPDATE)
-public interface UpdateCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
-
-    UUID rowUuid();
-
-    @Nullable TimedBinaryRowMessage messageRowToUpdate();
-
-    String txCoordinatorId();
-
-    /** Returns the row to update or {@code null} if the row should be removed. */
-    default @Nullable BinaryRow rowToUpdate() {
-        TimedBinaryRowMessage tsRoMsg = messageRowToUpdate();
-
-        return tsRoMsg == null ? null : tsRoMsg.binaryRow();
-    }
+@Transferable(TableMessageGroup.TIMED_BINARY_ROW_MESSAGE)
+public interface TimedBinaryRowMessage extends NetworkMessage {
+    /**
+     * Gets a binary row message.
+     *
+     * @return binary row message.
+     */
+    @Nullable BinaryRowMessage binaryRowMessage();
 
     /**
-     * Returns the timestamp of the last committed entry.
+     * Gets a timestamp.
+     *
+     * @return Timestamp as long.
      */
-    default @Nullable HybridTimestamp lastCommitTimestamp() {
-        TimedBinaryRowMessage tsRoMsg = messageRowToUpdate();
+    long timestamp();
 
-        return tsRoMsg == null ? null : nullableHybridTimestamp(tsRoMsg.timestamp());
+    /**
+     * Gets a binary row form this message or {@code null} if the binary row message is {@code null}.
+     *
+     * @return Binary row or {@code null}.
+     */
+    default @Nullable BinaryRow binaryRow() {
+        return binaryRowMessage() == null ? null : binaryRowMessage().asBinaryRow();
     }
 }
