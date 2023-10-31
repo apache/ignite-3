@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.HashMap;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -102,7 +104,7 @@ public class ClientCompute implements IgniteCompute {
         try {
             return this.<R>executeAsync(nodes, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
         }
     }
 
@@ -168,7 +170,7 @@ public class ClientCompute implements IgniteCompute {
         try {
             return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
         }
     }
 
@@ -185,7 +187,7 @@ public class ClientCompute implements IgniteCompute {
         try {
             return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
         }
     }
 

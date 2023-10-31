@@ -56,6 +56,7 @@ import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -327,8 +328,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             metrics.requestsActiveDecrement();
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-20436
-            throw ExceptionUtils.wrap(t);
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(t));
         }
     }
 
@@ -434,7 +434,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param unpacker Unpacker.
      * @return Exception.
      */
-    private static <T extends Throwable> T readError(ClientMessageUnpacker unpacker) {
+    private static Throwable readError(ClientMessageUnpacker unpacker) {
         var traceId = unpacker.unpackUuid();
         var code = unpacker.unpackInt();
 
@@ -460,24 +460,22 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             if (expectedSchemaVersion == -1) {
-                return (T) new IgniteException(
+                return new IgniteException(
                         traceId, PROTOCOL_ERR, "Expected schema version is not specified in error extension map.", causeWithStackTrace);
             }
 
-            return (T) new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
+            return new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
         }
 
         try {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-20436
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
-            if (IgniteException.class.isAssignableFrom(errCls) || IgniteCheckedException.class.isAssignableFrom(errCls)) {
-                return copyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);
-            }
+            Throwable err = copyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);
+            return IgniteExceptionMapperUtil.mapToPublicException(err);
         } catch (ClassNotFoundException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.
         }
 
-        return (T) new IgniteException(traceId, code, errClassName + ": " + errMsg, causeWithStackTrace);
+        return new IgniteException(traceId, code, errClassName + ": " + errMsg, causeWithStackTrace);
     }
 
     /** {@inheritDoc} */

@@ -94,6 +94,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -449,13 +450,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(INTERNAL_ERR);
         }
 
+        // No need to send internal errors to client.
+        Throwable pubErr = IgniteExceptionMapperUtil.mapToPublicException(err);
+
         // Class name and message.
-        packer.packString(err.getClass().getName());
-        packer.packString(err.getMessage());
+        packer.packString(pubErr.getClass().getName());
+        packer.packString(pubErr.getMessage());
 
         // Stack trace.
         if (configuration.sendServerExceptionStackTraceToClient()) {
-            packer.packString(ExceptionUtils.getFullStackTrace(err));
+            packer.packString(ExceptionUtils.getFullStackTrace(pubErr));
         } else {
             packer.packNil();
         }
