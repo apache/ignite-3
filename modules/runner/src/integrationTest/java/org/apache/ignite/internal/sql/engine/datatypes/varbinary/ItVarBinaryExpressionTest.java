@@ -93,6 +93,10 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
                 .withParams(new byte[0])
                 .returns(0).check();
 
+        checkQuery("SELECT OCTET_LENGTH(?)")
+                .withParams("123")
+                .returns(3).check();
+
         checkQuery("SELECT LENGTH(?)")
                 .withParams(new byte[]{1, 2, 3})
                 .returns(3).check();
