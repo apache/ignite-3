@@ -244,7 +244,6 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
         TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
 
-        // TODO: IGNITE-20678 There should be a node ID change only
         ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(
                 new ClusterNodeImpl(NODE_ID + "_ID_OLD", NODE_NAME + "_OLD", mock(NetworkAddress.class)),
                 replicaGroupId

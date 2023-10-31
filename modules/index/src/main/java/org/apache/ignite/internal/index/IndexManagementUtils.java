@@ -260,7 +260,7 @@ class IndexManagementUtils {
      * @param timestamp Timestamp of interest.
      */
     static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
-        // TODO: IGNITE-20678 We need to compare by IDs: localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
-        return localNode.name().equals(primaryReplicaMeta.getLeaseholder()) && timestamp.before(primaryReplicaMeta.getExpirationTime());
+        return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
+                && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
     }
 }

@@ -22,8 +22,11 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -100,7 +103,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
             return completedFuture(mvTableStorage);
         });
 
-        ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> localNode));
+        ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> LOCAL_NODE));
 
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
         catalogManager.start();
@@ -129,7 +132,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
     }
@@ -146,7 +149,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
 
@@ -156,7 +159,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
     }
@@ -196,7 +199,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
 
@@ -206,7 +209,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
     }

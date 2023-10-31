@@ -114,8 +114,10 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
         ReplicaMeta replicaMeta0 = newPrimaryReplicaMeta(otherNode, replicaGroupId, startTime0, startTime0.addPhysicalTime(dayInMillis));
         ReplicaMeta replicaMeta1 = newPrimaryReplicaMeta(LOCAL_NODE, replicaGroupId, startTime1, startTime1.addPhysicalTime(hourInMillis));
+        ReplicaMeta replicaMeta2 = newPrimaryReplicaMeta(LOCAL_NODE, replicaGroupId, now, now);
 
         assertFalse(isPrimaryReplica(replicaMeta0, LOCAL_NODE, clock.now()));
         assertFalse(isPrimaryReplica(replicaMeta1, LOCAL_NODE, clock.now()));
+        assertFalse(isPrimaryReplica(replicaMeta2, LOCAL_NODE, now));
     }
 }

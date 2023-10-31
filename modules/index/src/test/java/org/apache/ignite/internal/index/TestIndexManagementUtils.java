@@ -121,6 +121,6 @@ class TestIndexManagementUtils {
             HybridTimestamp startTime,
             HybridTimestamp expirationTime
     ) {
-        return new Lease(clusterNode.name(), startTime, expirationTime, replicaGroupId);
+        return new Lease(clusterNode.name(), clusterNode.id(), startTime, expirationTime, replicaGroupId);
     }
 }
