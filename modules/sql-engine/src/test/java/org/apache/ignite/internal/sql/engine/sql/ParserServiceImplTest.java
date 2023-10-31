@@ -118,11 +118,11 @@ public class ParserServiceImplTest {
     /**
      * Checks the parsing of a query containing multiple statements.
      *
-     * <p>Parsing multiple statements is only supported using the {@link ParserService#parseScript(String)} method,
-     * so {@link ParserService#parse(String)}} should fail with a validation error.
+     * <p>This parsing mode is only supported using the {@link ParserService#parseScript(String)} method,
+     * so {@link ParserService#parse(String)}} must fail with a validation error.
      *
-     * <p>It is expected that after parsing multi statement query, several results will be obtained, each of which
-     * must correspond to the result of parsing the corresponding single statement.
+     * <p>Parsing produces a list of parsing results, each of which must match the parsing
+     * result of the corresponding single statement.
      */
     @Test
     void parseMultiStatementQuery() {
