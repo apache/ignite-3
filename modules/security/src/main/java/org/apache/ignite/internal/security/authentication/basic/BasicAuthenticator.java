@@ -26,11 +26,21 @@ import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeExcepti
 
 /** Implementation of basic authenticator. */
 public class BasicAuthenticator implements Authenticator {
+    private final String authenticatorName;
+
     private final String username;
 
     private final String password;
 
-    public BasicAuthenticator(String username, String password) {
+    /**
+     * Constructor.
+     *
+     * @param authenticatorName Authenticator name.
+     * @param username Username.
+     * @param password Password.
+     */
+    public BasicAuthenticator(String authenticatorName, String username, String password) {
+        this.authenticatorName = authenticatorName;
         this.username = username;
         this.password = password;
     }
@@ -44,7 +54,7 @@ public class BasicAuthenticator implements Authenticator {
         }
 
         if (username.equals(authenticationRequest.getIdentity()) && password.equals(authenticationRequest.getSecret())) {
-            return new UserDetails(username);
+            return new UserDetails(username, authenticatorName);
         } else {
             throw new InvalidCredentialsException("Invalid credentials");
         }

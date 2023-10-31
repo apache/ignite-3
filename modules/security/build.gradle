@@ -37,6 +37,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.typesafe.config
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
 }
