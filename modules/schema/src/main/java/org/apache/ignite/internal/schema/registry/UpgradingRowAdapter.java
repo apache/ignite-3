@@ -113,6 +113,34 @@ public class UpgradingRowAdapter extends Row {
 
     /** {@inheritDoc} */
     @Override
+    public boolean booleanValue(int colIdx) {
+        int mappedId = mapColumn(colIdx);
+
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
+
+        if (NativeTypeSpec.BOOLEAN != column.type().spec()) {
+            throw new SchemaException("Type conversion is not supported yet.");
+        }
+
+        return mappedId < 0 ? (boolean) column.defaultValue() : super.booleanValue(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Boolean booleanValueBoxed(int colIdx) {
+        int mappedId = mapColumn(colIdx);
+
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
+
+        if (NativeTypeSpec.BOOLEAN != column.type().spec()) {
+            throw new SchemaException("Type conversion is not supported yet.");
+        }
+
+        return mappedId < 0 ? (Boolean) column.defaultValue() : super.booleanValueBoxed(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public byte byteValue(int colIdx) throws InvalidTypeException {
         int mappedId = mapColumn(colIdx);
 

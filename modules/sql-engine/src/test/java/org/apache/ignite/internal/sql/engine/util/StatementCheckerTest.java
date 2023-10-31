@@ -140,7 +140,7 @@ public class StatementCheckerTest extends BaseIgniteAbstractTest {
 
         RexLiteral lit = rexBuilder.makeLiteral("1");
 
-        IgniteValues values = new IgniteValues(Commons.cluster(), rowType, ImmutableList.<ImmutableList<RexLiteral>>builder()
+        IgniteValues values = new IgniteValues(Commons.emptyCluster(), rowType, ImmutableList.<ImmutableList<RexLiteral>>builder()
                 .add(ImmutableList.of(lit))
                 .add(ImmutableList.of(lit)).build(), RelTraitSet.createEmpty());
 
