@@ -17,7 +17,8 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.storage.db;
 
-import java.util.concurrent.ScheduledExecutorService;import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileType;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileType;
 
 /**
  * DB that stores logEntry

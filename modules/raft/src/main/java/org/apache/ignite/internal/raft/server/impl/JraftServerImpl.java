@@ -100,7 +100,10 @@ import org.jetbrains.annotations.TestOnly;
  * Raft server implementation on top of forked JRaft library.
  */
 public class JraftServerImpl implements RaftServer {
-    /** Enables logit log storage. {@code true} by default. */
+    /**
+     * Enables logit log storage. {@code true} by default.
+     * This is a temporary property, that should only be used for testing and comparing the two storages.
+     */
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
 
     /** Cluster service. */

@@ -24,7 +24,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
-import org.apache.ignite.raft.jraft.option.RaftOptions;import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
 
 /**
  *  * File header:
@@ -102,6 +103,8 @@ public class SegmentFile extends AbstractFile {
                     getFilePath(), logIndex, pos, this.header.getFirstLogIndex(), getLastLogIndex());
                 return null;
             }
+            // Original jraft code did the comparison with flushed position. In didn't work in cases where leader would write log entry
+            // locally, wouldn't flush it, and then will try replicating it. I don't know whether it's correct, but this is how it works.
             if (pos > getWrotePosition()) {
                 LOG.warn(
                     "Try to read data from segment file {} out of written position, logIndex={}, readPos={}, wrotePos={}, flushPos={}.",
