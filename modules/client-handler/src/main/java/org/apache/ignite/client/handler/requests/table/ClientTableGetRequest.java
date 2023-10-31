@@ -41,7 +41,7 @@ public class ClientTableGetRequest {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-        return OtelSpanManager.span("ClientTableGetRequest.process", (span) -> {
+        return OtelSpanManager.spanWithResult("ClientTableGetRequest.process", (span) -> {
             String tableName = in.unpackString();
 
             return tables.tableAsync(tableName).thenAccept(table -> {

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
@@ -68,7 +69,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public Tuple get(@Nullable Transaction tx, Tuple keyRec) {
-        return span("RecordBinaryViewImpl.get", (span) -> {
+        return OtelSpanManager.spanWithResult("RecordBinaryViewImpl.get", (span) -> {
             return sync(getAsync(tx, keyRec));
         });
     }

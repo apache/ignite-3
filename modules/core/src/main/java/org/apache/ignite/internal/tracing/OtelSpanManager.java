@@ -129,17 +129,6 @@ public class OtelSpanManager implements SpanManager {
      *
      * @param spanName Name of span to create.
      * @param closure Closure.
-     * @return Closure result.
-     */
-    public static <R> R span(String spanName, Function<TraceSpan, R> closure) {
-        return createSpan(spanName, null, false, closure);
-    }
-
-    /**
-     * Call closure in span with given name.
-     *
-     * @param spanName Name of span to create.
-     * @param closure Closure.
      */
     public static void span(String spanName, Consumer<TraceSpan> closure) {
         TraceSpan span = INSTANCE.createSpan(spanName, null, false, true);
@@ -151,6 +140,17 @@ public class OtelSpanManager implements SpanManager {
 
             throw ex;
         }
+    }
+
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Name of span to create.
+     * @param closure Closure.
+     * @return Closure result.
+     */
+    public static <R> R spanWithResult(String spanName, Function<TraceSpan, R> closure) {
+        return createSpan(spanName, null, false, closure);
     }
 
     /**

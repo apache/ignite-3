@@ -219,7 +219,7 @@ public class ReplicaManager implements IgniteComponent {
             return;
         }
 
-        OtelSpanManager.span("ReplicaManager.onReplicaMessageReceived", (span) -> {
+        OtelSpanManager.spanWithResult("ReplicaManager.onReplicaMessageReceived", (span) -> {
             ReplicaRequest request = (ReplicaRequest) message;
 
             if (!busyLock.enterBusy()) {

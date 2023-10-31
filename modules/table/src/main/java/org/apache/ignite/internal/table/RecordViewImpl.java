@@ -79,7 +79,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec) {
-        return OtelSpanManager.span("RecordViewImpl.getAsync", span -> {
+        return OtelSpanManager.spanWithResult("RecordViewImpl.getAsync", span -> {
             Objects.requireNonNull(keyRec);
 
             return withSchemaSync(tx, (schemaVersion) -> {

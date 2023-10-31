@@ -537,7 +537,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             String senderId,
             HybridTimestamp opStartTimestamp
     ) {
-        return OtelSpanManager.span("PartitionReplicaListener.processOperationRequest", (span) -> {
+        return OtelSpanManager.spanWithResult("PartitionReplicaListener.processOperationRequest", (span) -> {
             if (request instanceof ReadWriteSingleRowReplicaRequest) {
                 var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -3122,7 +3122,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        return OtelSpanManager.span("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
+        return OtelSpanManager.spanWithResult("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
             Long expectedTerm;
 
             if (request instanceof ReadWriteReplicaRequest) {

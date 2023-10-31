@@ -219,7 +219,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public CompletableFuture<Void> refreshLeader() {
-        return OtelSpanManager.span("RaftGroupServiceImpl.refreshLeader", (span) -> {
+        return OtelSpanManager.spanWithResult("RaftGroupServiceImpl.refreshLeader", (span) -> {
             Function<Peer, GetLeaderRequest> requestFactory = targetPeer -> factory.getLeaderRequest()
                     .peerId(peerId(targetPeer))
                     .groupId(groupId)
@@ -446,7 +446,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
-        return OtelSpanManager.span("RaftGroupServiceImpl.run", (span) -> {
+        return OtelSpanManager.spanWithResult("RaftGroupServiceImpl.run", (span) -> {
             Peer leader = this.leader;
 
             if (leader == null) {

@@ -17,7 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -38,25 +39,33 @@ public class ClientTablePartitionAssignmentGetRequest {
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
      */
-    @WithSpan
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTablesInternal tables
     ) throws NodeStoppingException {
-        int tableId = in.unpackInt();
+        var span = span("ClientTablePartitionAssignmentGetRequest.process");
 
-        return tables.assignmentsAsync(tableId).thenAccept(assignment -> {
-            if (assignment == null) {
-                out.packInt(0);
-                return;
-            }
+        try (span) {
+            int tableId = in.unpackInt();
 
-            out.packInt(assignment.size());
+            return tables.assignmentsAsync(tableId).thenAccept(assignment -> {
+                if (assignment == null) {
+                    out.packInt(0);
+                    return;
+                }
 
-            for (String leaderNodeId : assignment) {
-                out.packString(leaderNodeId);
-            }
-        });
+                out.packInt(assignment.size());
+
+                for (String leaderNodeId : assignment) {
+                    out.packString(leaderNodeId);
+                }
+            })
+                    .whenComplete(span::whenComplete);
+        } catch (Exception e) {
+            span.recordException(e);
+
+            throw e;
+        }
     }
 }

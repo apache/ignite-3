@@ -17,12 +17,14 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -53,22 +55,23 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        long fetched0 = fetched.addAndGet(rows);
-        return cur.requestNextAsync(rows).thenApply(batch -> {
-            if (maxRows == 0 || fetched0 < maxRows) {
-                return batch;
-            }
+        return OtelSpanManager.spanWithResult("JdbcQueryCursor.requestNextAsync", (span) -> {
+            long fetched0 = fetched.addAndGet(rows);
+            return cur.requestNextAsync(rows).thenApply(batch -> {
+                if (maxRows == 0 || fetched0 < maxRows) {
+                    return batch;
+                }
 
-            int remainCnt = (int) (maxRows - fetched0 + rows);
+                int remainCnt = (int) (maxRows - fetched0 + rows);
 
-            List<T> remainItems = remainCnt < batch.items().size()
-                    ? batch.items().subList(0, remainCnt)
-                    : batch.items();
+                List<T> remainItems = remainCnt < batch.items().size()
+                        ? batch.items().subList(0, remainCnt)
+                        : batch.items();
 
-            return new BatchedResult<>(remainItems, false);
+                return new BatchedResult<>(remainItems, false);
+            });
         });
     }
 

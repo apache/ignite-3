@@ -31,6 +31,8 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.spanWithResult;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -161,7 +163,6 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -605,7 +606,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
-        return OtelSpanManager.span("TableManager.onTableCreate", (span) ->
+        return spanWithResult("TableManager.onTableCreate", (span) ->
                 createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor())
         );
     }
@@ -1198,7 +1199,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(long causalityToken, int catalogVersion, CatalogTableDescriptor tableDescriptor) {
-        return OtelSpanManager.span("TableManager.createTableLocally", (span) ->
+        return spanWithResult("TableManager.createTableLocally", (span) ->
                 inBusyLockAsync(busyLock, () -> {
                     int tableId = tableDescriptor.id();
                     int zoneId = tableDescriptor.zoneId();
@@ -1208,7 +1209,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
 
                     // Check if the table already has assignments in the vault.
-                    // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
+                    // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation
+                    // for the new ones.
                     // TODO: IGNITE-20210 Fix it
                     if (partitionAssignments(vaultManager, tableId, 0) != null) {
                         assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
@@ -1640,7 +1642,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
     public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
-        return OtelSpanManager.span("TableManager.tableAsyncInternal", (span) ->
+        return spanWithResult("TableManager.tableAsyncInternal", (span) ->
                 inBusyLockAsync(busyLock, () -> {
                     HybridTimestamp now = clock.now();
 

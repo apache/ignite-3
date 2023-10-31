@@ -100,7 +100,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        return OtelSpanManager.span("ReadWriteTransactionImpl.finish", (span -> {
+        return OtelSpanManager.spanWithResult("ReadWriteTransactionImpl.finish", (span -> {
             if (!enlisted.isEmpty()) {
                 Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
                         .collect(Collectors.toMap(

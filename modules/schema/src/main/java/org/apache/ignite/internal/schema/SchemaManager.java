@@ -119,7 +119,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
-        return OtelSpanManager.span("SchemaManager.onTableCreated", (span) -> {
+        return OtelSpanManager.spanWithResult("SchemaManager.onTableCreated", (span) -> {
             if (ex != null) {
                 return failedFuture(ex);
             }
@@ -131,7 +131,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
-        return OtelSpanManager.span("SchemaManager.onTableAltered", (span) -> {
+        return OtelSpanManager.spanWithResult("SchemaManager.onTableAltered", (span) -> {
             if (ex != null) {
                 return failedFuture(ex);
             }
@@ -149,7 +149,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
-        return OtelSpanManager.span("SchemaManager.onTableCreatedOrAltered", (span) -> {
+        return OtelSpanManager.spanWithResult("SchemaManager.onTableCreatedOrAltered", (span) -> {
             if (!busyLock.enterBusy()) {
                 return failedFuture(new NodeStoppingException());
             }

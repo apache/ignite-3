@@ -149,7 +149,7 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        OtelSpanManager.span("PartitionListener.onWrite", (span) -> {
+        OtelSpanManager.spanWithResult("PartitionListener.onWrite", (span) -> {
             iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
                 Command command = clo.command();
 
