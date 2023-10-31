@@ -64,10 +64,10 @@ import org.apache.ignite.network.ClusterService;
  *         to the metastore if they are <b>absent</b>.</li>
  *         <li>If there are no {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building keys} left for
  *         the index in the metastore, then we {@link MakeIndexAvailableCommand make the index available} in the catalog.</li>
- *         <li>For partitions for which index building has not completed, we will wait until the primary replica is elected so that the
- *         replication log will be applied. If after this we find out that the index has been built, we will remove the
- *         {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building key} from the metastore if it is
- *         <b>present</b>.</li>
+ *         <li>For partitions for which index building has not completed, we will wait until the primary replica is elected (which will make
+ *         sure it has applied all the commands from the replication log). If after this we find out that the index has been built, we will
+ *         remove the {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building key} from the metastore
+ *         if it is <b>present</b>.</li>
  *     </ul></li>
  *     <li>For available indexes: <ul>
  *         <li>Delete the {@link IndexManagementUtils#inProgressBuildIndexMetastoreKey(int) “index construction from progress” key} in the
@@ -228,10 +228,10 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
                                 ClusterNode localNode = clusterService.topologyService().localMember();
 
                                 if (primaryReplicaMeta == null || isPrimaryReplica(primaryReplicaMeta, localNode, clock.now())) {
-                                    // Local node is not the primary replica, so we expect to elect the primary replica with applying the
-                                    // replication log. If a local node is elected, then IndexAvailabilityController will get rid of the
-                                    // partitionBuildIndexMetastoreKey from the metastore on its own by
-                                    // IndexBuildCompletionListener.onBuildCompletion event.
+                                    // Local node is not the primary replica, so we expect a primary replica to be elected (which will make
+                                    // sure it has applied all the commands from the replication log). If a local node is elected, then
+                                    // IndexAvailabilityController will get rid of the partitionBuildIndexMetastoreKey from the metastore on
+                                    // its own by IndexBuildCompletionListener.onBuildCompletion event.
                                     return completedFuture(null);
                                 }
 
