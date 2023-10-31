@@ -587,6 +587,61 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         verifyThatRaftNodesAndReplicasWereStartedOnlyOnce();
     }
 
+    @Test
+    void testRaftClientsUpdatesAfterRebalance() throws Exception {
+        Node node = getNode(0);
+
+        createZone(node, ZONE_NAME, 1, 1);
+
+        createTable(node, ZONE_NAME, TABLE_NAME);
+
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        Set<Assignment> assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
+
+        String newNodeNameForAssignment = nodes.stream()
+                .map(n -> Assignment.forPeer(n.clusterService.nodeName()))
+                .filter(assignment -> !assignmentsBeforeRebalance.contains(assignment))
+                .findFirst()
+                .orElseThrow()
+                .consistentId();
+
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
+
+        // Write the new assignments to metastore as a pending assignments.
+        {
+            TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
+
+            ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+
+            byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
+
+            node.metaStorageManager
+                    .put(partAssignmentsPendingKey, bytesPendingAssignments)
+                    .get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
+        }
+
+        // Wait for rebalance to complete.
+        assertTrue(waitForCondition(
+                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
+
+        // Check that raft clients on all nodes were updated with the new list of peers.
+        assertTrue(waitForCondition(
+                () -> nodes.stream().allMatch(n ->
+                        n.tableManager
+                                .latestTables()
+                                .get(getTableId(node, TABLE_NAME))
+                                .internalTable()
+                                .partitionRaftGroupService(0)
+                                .peers()
+                                .equals(List.of(new Peer(newNodeNameForAssignment)))),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
+
+    }
+
     private void clearSpyInvocations() {
         for (int i = 0; i < NODE_COUNT; i++) {
             clearInvocations(getNode(i).raftManager);
