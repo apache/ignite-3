@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -69,6 +71,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -86,7 +89,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
-    public static final int BASE_PORT = 1234;
+    private static final int BASE_PORT = 1234;
 
     private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
 
@@ -97,7 +100,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     @InjectConfiguration("mock {retryTimeout=2000, responseTimeout=1000}")
     private RaftConfiguration raftConfiguration;
 
-    private HybridClock clock = new HybridClockImpl();
+    private final HybridClock clock = new HybridClockImpl();
 
     private Set<String> placementDriverNodeNames;
     private Set<String> nodeNames;
@@ -108,12 +111,12 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
 
-    private Map<String, ReplicaManager> replicaManagers = new HashMap<>();
-    private Map<String, Loza> raftManagers = new HashMap<>();
-    private Map<String, TopologyAwareRaftGroupServiceFactory> raftClientFactory = new HashMap<>();
+    private final Map<String, ReplicaManager> replicaManagers = new HashMap<>();
+    private final Map<String, Loza> raftManagers = new HashMap<>();
+    private final Map<String, TopologyAwareRaftGroupServiceFactory> raftClientFactory = new HashMap<>();
 
     /** List of services to have to close before the test will be completed. */
-    private List<Closeable> servicesToClose = new ArrayList<>();
+    private final List<Closeable> servicesToClose = new ArrayList<>();
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
@@ -127,6 +130,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(placementDriverNodeNames));
+
+        Supplier<ClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).topologyService().localMember();
 
         for (String nodeName : nodeNames) {
             ClusterService clusterService = clusterServices.get(nodeName);
@@ -158,7 +163,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     cmgManager,
                     clock,
                     Set.of(ReplicaMessageTestGroup.class),
-                    new TestPlacementDriver(clusterService)
+                    new TestPlacementDriver(primaryReplicaSupplier)
             );
 
             replicaManagers.put(nodeName, replicaManager);

@@ -82,6 +82,8 @@ import org.junit.jupiter.api.TestInfo;
  * Tests handling requests from {@link ReplicaService} to {@link ReplicaManager} when the {@link Replica} is not started.
  */
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
+    private static final String NODE_NAME = "client";
+
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -102,17 +104,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private ClusterService clusterService;
 
-    private NetworkAddress networkAddress;
-
-    private String name = "client";
-
     @BeforeEach
     public void setup() {
-        networkAddress = new NetworkAddress(getLocalAddress(), NODE_PORT_BASE + 1);
+        var networkAddress = new NetworkAddress(getLocalAddress(), NODE_PORT_BASE + 1);
 
         var nodeFinder = new StaticNodeFinder(List.of(networkAddress));
 
-        clusterService = startNode(testInfo, name, NODE_PORT_BASE + 1, nodeFinder);
+        clusterService = startNode(testInfo, NODE_NAME, NODE_PORT_BASE + 1, nodeFinder);
 
         replicaService = new ReplicaService(clusterService.messagingService(), clock);
 
@@ -122,12 +120,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
 
         replicaManager = new ReplicaManager(
-                name,
+                NODE_NAME,
                 clusterService,
                 cmgManager,
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                new TestPlacementDriver(clusterService)
+                new TestPlacementDriver(clusterService.topologyService().localMember())
         );
 
         replicaManager.start();
@@ -159,7 +157,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                                 tablePartitionId,
                                 completedFuture(null),
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                        .result(Integer.valueOf(5))
+                                        .result(5)
                                         .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
                                 new PendingComparableValuesTracker<>(0L)
@@ -261,7 +259,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                                 tablePartitionId,
                                 new CompletableFuture<>(),
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                        .result(Integer.valueOf(5))
+                                        .result(5)
                                         .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
                                 new PendingComparableValuesTracker<>(0L)
@@ -287,7 +285,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         assertEquals(REPLICA_TIMEOUT_ERR, ((ReplicationTimeoutException) unwrapCause(e0)).code());
     }
 
-    private BinaryRow createKeyValueRow(long id, long value) {
+    private static BinaryRow createKeyValueRow(long id, long value) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);

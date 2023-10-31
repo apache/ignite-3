@@ -30,8 +30,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -54,11 +52,10 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     /**
      * Auxiliary constructor that allows you to create {@link TestPlacementDriver} in cases where the node ID will be known only after the
-     * start of the components/node. Will use {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)} from
-     * {@link TopologyService#localMember()} of {@link ClusterService#topologyService()} under the hood.
+     * start of the components/node. Will use {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)}.
      */
-    public TestPlacementDriver(ClusterService clusterService) {
-        primaryReplicaSupplier = () -> new TestReplicaMetaImpl(clusterService.topologyService().localMember());
+    public TestPlacementDriver(Supplier<ClusterNode> leaseholderSupplier) {
+        primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholderSupplier.get());
     }
 
     public TestPlacementDriver(String leaseholder, String leaseholderId) {
