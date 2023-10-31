@@ -158,6 +158,8 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         if (rowByRowResultChecker == null) {
             rowByRowResultChecker = new RowByRowResultChecker();
+
+            resultChecker = rowByRowResultChecker;
         }
 
         // let's interpret null array as simple single null.

@@ -27,7 +27,7 @@ public class QueryTransactionWrapper {
 
     private final InternalTransaction transaction;
 
-    QueryTransactionWrapper(InternalTransaction transaction, boolean implicit) {
+    public QueryTransactionWrapper(InternalTransaction transaction, boolean implicit) {
         this.transaction = transaction;
         this.implicit = implicit;
     }

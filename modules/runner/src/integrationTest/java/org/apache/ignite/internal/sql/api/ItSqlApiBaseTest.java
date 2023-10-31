@@ -62,7 +62,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -360,17 +359,25 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) {
-        Transaction outerTx = explicit ? (readOnly ? igniteTx().begin(new TransactionOptions().readOnly(true)) : igniteTx().begin()) : null;
+        Transaction outerTx = explicit ? igniteTx().begin(new TransactionOptions().readOnly(readOnly)) : null;
 
-        String query = "SELECT VAL0 FROM TEST ORDER BY VAL0";
+        String queryRo = "SELECT VAL0 FROM TEST ORDER BY VAL0";
 
-        assertQuery(outerTx, query).matches(planMatcher).check();
+        assertQuery(outerTx, queryRo).matches(planMatcher).check();
 
-        ResultSet<SqlRow> rs = executeForRead(ses, outerTx, query);
+        ResultSet<SqlRow> rs = executeForRead(ses, outerTx, queryRo);
 
         assertEquals(ROW_COUNT, asStream(rs).count());
 
         rs.close();
+
+        String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
+        if (explicit && readOnly) {
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML query cannot be started by using read only transactions.",
+                    () -> execute(outerTx, ses, queryRw));
+        } else {
+            checkDml(ROW_COUNT, outerTx, ses, queryRw);
+        }
 
         if (outerTx != null) {
             if (commit) {
@@ -716,7 +723,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20534")
     @Test
     public void testLockIsNotReleasedAfterTxRollback() {
         IgniteSql sql = igniteSql();
@@ -729,8 +735,14 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Transaction tx = igniteTx().begin();
 
             assertThrows(RuntimeException.class, () -> execute(tx, session, "SELECT 1/0"));
+
             tx.rollback();
-            session.execute(tx, "INSERT INTO tst VALUES (1, 1)");
+
+            assertThrowsSqlException(
+                    Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    "Transaction is already finished",
+                    () -> session.execute(tx, "INSERT INTO tst VALUES (1, 1)")
+            );
         }
 
         try (Session session = sql.createSession()) {

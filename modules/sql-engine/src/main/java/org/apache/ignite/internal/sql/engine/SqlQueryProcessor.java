@@ -312,7 +312,9 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, executionTargetProvider, taskExecutor);
+        var mappingService = new MappingServiceImpl(
+                nodeName, executionTargetProvider, CACHE_FACTORY, PLAN_CACHE_SIZE, taskExecutor
+        );
 
         logicalTopologyService.addEventListener(mappingService);
 
@@ -449,7 +451,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
-            validateParsedStatement(context, result, params);
+            validateParsedStatement(context, result, params, outerTx);
 
             QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
 
@@ -507,7 +509,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
         SqlQueryType queryType = plan.type();
-        assert queryType != null : "Expected a full plan but got a fragment: " + plan;
 
         numberOfOpenCursors.incrementAndGet();
 
@@ -564,10 +565,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             return new QueryTransactionWrapper(tx, true);
         }
 
-        if (SqlQueryType.DDL == queryType) {
-            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
-        }
-
         return new QueryTransactionWrapper(outerTx, false);
     }
 
@@ -580,10 +577,21 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static void validateParsedStatement(
             QueryContext context,
             ParsedResult parsedResult,
-            Object[] params
+            Object[] params,
+            InternalTransaction outerTx
     ) {
         Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
         SqlQueryType queryType = parsedResult.queryType();
+
+        if (outerTx != null) {
+            if (SqlQueryType.DDL == queryType) {
+                throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
+            }
+
+            if (SqlQueryType.DML == queryType && outerTx.isReadOnly()) {
+                throw new SqlException(STMT_VALIDATION_ERR, "DML query cannot be started by using read only transactions.");
+            }
+        }
 
         if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
             String message = "Transaction control statement can not be executed as an independent statement";
