@@ -23,7 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -82,8 +84,87 @@ public class TransactionsTest {
 
             stmt.executeUpdate("DROP TABLE accounts");
 
-            stmt.close();
-            conn.close();
+            IgniteUtils.closeAll(stmt, conn);
+        }
+    }
+
+    /**
+     * @throws Exception If failed.  ˚
+     */
+    @Test
+    public void testUpsertSequentially() throws Exception {
+        Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+        Statement stmt = conn.createStatement();
+
+        try {
+            stmt.executeUpdate(
+                    "CREATE TABLE accounts ("
+                            + "accountNumber INT PRIMARY KEY,"
+                            + "firstName     VARCHAR,"
+                            + "lastName      VARCHAR,"
+                            + "balance       DOUBLE)"
+            );
+
+            try (IgniteClient client = IgniteClient.builder()
+                    .addresses("127.0.0.1:10800")
+                    .build()
+            ) {
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating an account.
+                //
+                //--------------------------------------------------------------------------------------
+
+                KeyValueView<AccountKey, Account> accounts = client.tables()
+                        .table("accounts")
+                        .keyValueView(AccountKey.class, Account.class);
+
+                AccountKey key = new AccountKey(123);
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Using synchronous transactional API to update the balance.
+                //
+                //--------------------------------------------------------------------------------------
+
+                client.transactions().runInTransaction(tx -> {
+                    Account account = accounts.get(tx, key);
+
+                    account.balance += 200.0d;
+
+                    accounts.put(tx, key, account);
+                });
+
+                System.out.println("\nBalance after the sync transaction: " + accounts.get(null, key).balance);
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Using asynchronous transactional API to update the balance.
+                //
+                //--------------------------------------------------------------------------------------
+
+                CompletableFuture<Void> fut = client.transactions().beginAsync().thenCompose(tx ->
+                        accounts
+                                .getAsync(tx, key)
+                                .thenCompose(account -> {
+                                    account.balance += 300.0d;
+
+                                    return accounts.putAsync(tx, key, account);
+                                })
+                                .thenCompose(ignored -> tx.commitAsync())
+                );
+
+                // Wait for completion.
+                fut.join();
+
+                System.out.println("\nBalance after the async transaction: " + accounts.get(null, key).balance);
+            }
+        } finally {
+            System.out.println("\nDropping the table...");
+
+            stmt.executeUpdate("DROP TABLE accounts");
+
+            IgniteUtils.closeAll(stmt, conn);
         }
     }
 

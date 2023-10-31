@@ -103,7 +103,7 @@ public class TransactionsExample {
 
             accounts.put(null, key, new Account("John", "Doe", 1000.0d));
 
-//            System.out.println("\nInitial balance: " + accounts.get(null, key).balance);
+            System.out.println("\nInitial balance: " + accounts.get(null, key).balance);
 
             //--------------------------------------------------------------------------------------
             //
