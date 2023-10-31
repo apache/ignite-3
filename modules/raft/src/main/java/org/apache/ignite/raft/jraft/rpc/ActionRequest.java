@@ -17,8 +17,9 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.annotations.Transient;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 
 /**
@@ -32,9 +33,15 @@ public interface ActionRequest extends Message {
     String groupId();
 
     /**
-     * @return Action's command.
+     * @return Serialized action's command. Specific serialization format may differ from group to group.
      */
-    Command command();
+    byte[] command();
+
+    /**
+     * @return Original non-serialized command, if available. {@code null} if not.
+     */
+    @Transient
+    Command deserializedCommand();
 
     /**
      * @return {@code True} for linearizable reading.

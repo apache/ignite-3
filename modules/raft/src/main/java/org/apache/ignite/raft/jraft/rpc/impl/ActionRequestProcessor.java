@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -46,7 +48,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
  * Process action request.
@@ -71,7 +72,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     /** {@inheritDoc} */
     @Override
-    public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
+    public final void handleRequest(RpcContext rpcCtx, ActionRequest request) {
         Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalConsistentId()));
 
         if (node == null) {
@@ -80,27 +81,65 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return;
         }
 
-        JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+        Marshaller commandsMarshaller = node.getOptions().getCommandsMarshaller();
 
-        if (request.command() instanceof WriteCommand) {
-            if (fsm.getListener() instanceof BeforeApplyHandler) {
+        assert commandsMarshaller != null : "Marshaller for group " + request.groupId() + " is not found.";
+
+        handleRequestInternal(rpcCtx, node, request, commandsMarshaller);
+    }
+
+    /**
+     * Internal part of the {@link #handleRequest(RpcContext, ActionRequest)}, that contains resolved RAFT node, as well as a commands
+     * marshaller instance. May be conveniently reused in subclasses.
+     */
+    protected void handleRequestInternal(RpcContext rpcCtx, Node node, ActionRequest request, Marshaller commandsMarshaller) {
+        DelegatingStateMachine fsm = (DelegatingStateMachine) node.getOptions().getFsm();
+        RaftGroupListener listener = fsm.getListener();
+
+        Command command = request.deserializedCommand() == null
+                ? commandsMarshaller.unmarshall(request.command())
+                : request.deserializedCommand();
+
+        if (command instanceof WriteCommand) {
+            if (listener instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    callOnBeforeApply(request, fsm);
-                    applyWrite(node, request, rpcCtx);
+                    request = patchCommandBeforeApply(request, (BeforeApplyHandler) listener, command, commandsMarshaller);
+
+                    applyWrite(node, request, command, rpcCtx);
                 }
             } else {
-                applyWrite(node, request, rpcCtx);
+                applyWrite(node, request, command, rpcCtx);
             }
         } else {
-            if (fsm.getListener() instanceof BeforeApplyHandler) {
-                callOnBeforeApply(request, fsm);
+            if (listener instanceof BeforeApplyHandler) {
+                request = patchCommandBeforeApply(request, (BeforeApplyHandler) listener, command, commandsMarshaller);
             }
 
-            applyRead(node, request, rpcCtx);
+            applyRead(node, request, (ReadCommand) command, rpcCtx);
         }
     }
-    private static void callOnBeforeApply(ActionRequest request, DelegatingStateMachine fsm) {
-        ((BeforeApplyHandler) fsm.getListener()).onBeforeApply(request.command());
+
+    /**
+     * This method calls {@link BeforeApplyHandler#onBeforeApply(Command)} and returns action request with a serialized version of the
+     * updated command, if it has been updated. Otherwise, the method returns the original {@code request} instance. The reason for such
+     * behavior is the fact that we use {@code byte[]} in action requests, thus modified command should be serialized twice.
+     */
+    private ActionRequest patchCommandBeforeApply(
+            ActionRequest request,
+            BeforeApplyHandler beforeApplyHandler,
+            Command command,
+            Marshaller commandsMarshaller
+    ) {
+        if (beforeApplyHandler.onBeforeApply(command)) {
+            return factory.actionRequest()
+                .groupId(request.groupId())
+                .readOnlySafe(request.readOnlySafe())
+                .command(commandsMarshaller.marshall(command))
+                .deserializedCommand(command)
+                .build();
+        } else {
+            return request;
+        }
     }
 
     private Object groupIdSyncMonitor(String groupId) {
@@ -110,17 +149,14 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
-     * @param node    The node.
+     * @param node The node.
      * @param request The request.
-     * @param rpcCtx  The context.
+     * @param command The command.
+     * @param rpcCtx The context.
      */
-    private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
-        Marshaller commandsMarshaller = node.getOptions().getCommandsMarshaller();
-
-        assert commandsMarshaller != null;
-
-        node.apply(new Task(ByteBuffer.wrap(commandsMarshaller.marshall(request.command())),
-                new CommandClosureImpl<>(request.command()) {
+    private void applyWrite(Node node, ActionRequest request, Command command, RpcContext rpcCtx) {
+        node.apply(new Task(ByteBuffer.wrap(request.command()),
+                new CommandClosureImpl<>(command) {
                     @Override
                     public void result(Serializable res) {
                         if (res instanceof Throwable) {
@@ -142,11 +178,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     }
 
     /**
-     * @param node    The node.
+     * @param node The node.
      * @param request The request.
-     * @param rpcCtx  The context.
+     * @param command The command.
+     * @param rpcCtx The context.
      */
-    private void applyRead(Node node, ActionRequest request, RpcContext rpcCtx) {
+    private void applyRead(Node node, ActionRequest request, ReadCommand command, RpcContext rpcCtx) {
         if (request.readOnlySafe()) {
             node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
                 @Override public void run(Status status, long index, byte[] reqCtx) {
@@ -157,7 +194,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                         try {
                             fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                                 @Override public ReadCommand command() {
-                                    return (ReadCommand)request.command();
+                                    return command;
                                 }
 
                                 @Override public void result(Serializable res) {
@@ -187,7 +224,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             try {
                 fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                     @Override public ReadCommand command() {
-                        return (ReadCommand)request.command();
+                        return command;
                     }
 
                     @Override public void result(Serializable res) {

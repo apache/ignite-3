@@ -279,7 +279,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+        when(rm.startRaftGroupService(any(), any(), any(), any()))
+                .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut);
 
@@ -449,7 +450,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private IgniteBiTuple<TableImpl, TableManager> startTableManagerStopTest() throws Exception {
         TableImpl table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -526,7 +527,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      *         partition storage is emulated instead.
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
-        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
+        when(rm.startRaftGroupService(any(), any(), any(), any()))
+                .thenAnswer(mock -> completedFuture(mock(TopologyAwareRaftGroupService.class)));
         when(rm.raftNodeReadyFuture(any())).thenReturn(completedFuture(1L));
 
         createZone(1, 1);
@@ -608,7 +610,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
-        when(rm.startRaftGroupService(any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupService(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));

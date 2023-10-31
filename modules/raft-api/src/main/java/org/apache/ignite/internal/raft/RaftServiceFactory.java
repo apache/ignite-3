@@ -40,6 +40,7 @@ public interface RaftServiceFactory<T extends RaftGroupService> {
             ReplicationGroupId groupId,
             PeersAndLearners peersAndLearners,
             RaftConfiguration raftConfiguration,
-            ScheduledExecutorService raftClientExecutor
+            ScheduledExecutorService raftClientExecutor,
+            Marshaller commandsMarshaller
     );
 }

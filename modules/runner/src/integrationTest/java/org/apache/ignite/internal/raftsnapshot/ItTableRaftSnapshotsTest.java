@@ -54,6 +54,7 @@ import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
@@ -666,9 +669,12 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         try {
             prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
+                IgniteImpl node = theCluster.node(0);
+                MessageSerializationRegistry serializationRegistry = node.raftManager().service().serializationRegistry();
+
                 BiPredicate<String, NetworkMessage> dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed = (recipientId, message) ->
                         message instanceof ActionRequest
-                                && ((ActionRequest) message).command() instanceof SafeTimeSyncCommand
+                                && isSafeTimeSyncCommand((ActionRequest) message, serializationRegistry)
                                 && !snapshotInstallFailedDueToIdenticalRetry.get();
 
                 theCluster.node(0).dropMessages(
@@ -684,6 +690,17 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             snapshotExecutorLogInspector.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
             snapshotExecutorLogInspector.stop();
         }
+    }
+
+    private static boolean isSafeTimeSyncCommand(ActionRequest request, MessageSerializationRegistry serializationRegistry) {
+        String groupId = request.groupId();
+
+        if (groupId.equals(MetastorageGroupId.INSTANCE.toString()) || groupId.equals(CmgGroupId.INSTANCE.toString())) {
+            return false;
+        }
+
+        var commandsMarshaller = new PartitionCommandsMarshallerImpl(serializationRegistry);
+        return commandsMarshaller.unmarshall(request.command()) instanceof SafeTimeSyncCommand;
     }
 
     @Test

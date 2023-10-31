@@ -20,7 +20,6 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -88,7 +87,6 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
@@ -109,6 +107,7 @@ import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyn
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -435,6 +434,9 @@ public class ItTxTestCluster {
 
         int globalIndexId = 1;
 
+        ThreadLocalPartitionCommandsMarshaller commandsMarshaller =
+                new ThreadLocalPartitionCommandsMarshaller(cluster.get(0).serializationRegistry());
+
         for (int p = 0; p < assignments.size(); p++) {
             Set<String> partAssignments = assignments.get(p);
 
@@ -443,7 +445,6 @@ public class ItTxTestCluster {
             for (String assignment : partAssignments) {
                 int partId = p;
 
-                var mvTableStorage = new TestMvTableStorage(tableId, DEFAULT_PARTITION_COUNT);
                 var mvPartStorage = new TestMvPartitionStorage(partId);
                 var txStateStorage = txStateStorages.get(assignment);
                 var transactionStateResolver = new TransactionStateResolver(
@@ -569,7 +570,7 @@ public class ItTxTestCluster {
 
             if (startClient) {
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, client, FACTORY, raftConfig, membersConf, true, executor)
+                        .start(grpId, client, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, service);
@@ -578,7 +579,7 @@ public class ItTxTestCluster {
                 ClusterService tmpSvc = cluster.get(0);
 
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, tmpSvc, FACTORY, raftConfig, membersConf, true, executor)
+                        .start(grpId, tmpSvc, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
                         .get(5, TimeUnit.SECONDS);
 
                 Peer leader = service.leader();
@@ -591,7 +592,7 @@ public class ItTxTestCluster {
                         .orElseThrow();
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
-                        .start(grpId, leaderSrv, FACTORY, raftConfig, membersConf, true, executor)
+                        .start(grpId, leaderSrv, FACTORY, raftConfig, membersConf, true, executor, commandsMarshaller)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, leaderClusterSvc);

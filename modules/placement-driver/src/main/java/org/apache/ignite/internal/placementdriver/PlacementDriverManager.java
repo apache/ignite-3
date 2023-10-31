@@ -150,7 +150,8 @@ public class PlacementDriverManager implements IgniteComponent {
                             return raftManager.startRaftGroupService(
                                     replicationGroupId,
                                     PeersAndLearners.fromConsistentIds(placementDriverNodes),
-                                    topologyAwareRaftGroupServiceFactory
+                                    topologyAwareRaftGroupServiceFactory,
+                                    null
                             ).thenCompose(client -> client.subscribeLeader(this::onLeaderChange).thenApply(v -> client));
                         } catch (NodeStoppingException e) {
                             return failedFuture(e);

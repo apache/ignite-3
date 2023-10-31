@@ -21,11 +21,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.raft.Marshaller;
 
 /**
  *
  */
 public class JDKMarshaller implements Marshaller {
+    public static final Marshaller INSTANCE = new JDKMarshaller();
+
     /**
      * {@inheritDoc}
      */

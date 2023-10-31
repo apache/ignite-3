@@ -38,6 +38,7 @@ public interface BeforeApplyHandler {
      * this is a place to do it.
      *
      * @param command The command.
+     * @return {@code true} if command has been changed, {@code false} otherwise.
      */
-    void onBeforeApply(Command command);
+    boolean onBeforeApply(Command command);
 }

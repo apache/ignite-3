@@ -62,6 +62,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
@@ -347,17 +348,22 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         assertTrue(cluster.size() > 1);
 
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(cluster.get(0).serializationRegistry());
+
         NodeOptions opt1 = new NodeOptions();
         opt1.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+        opt1.setCommandsMarshaller(commandsMarshaller);
 
         NodeOptions opt2 = new NodeOptions();
         opt2.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+        opt2.setCommandsMarshaller(commandsMarshaller);
 
         NodeOptions opt3 = new NodeOptions();
         opt3.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+        opt3.setCommandsMarshaller(commandsMarshaller);
 
         metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), workDir.resolve("node1"), opt1, new RaftGroupEventsClientListener());
 
@@ -393,7 +399,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 raftConfiguration,
                 membersConfiguration,
                 true,
-                executor
+                executor,
+                commandsMarshaller
         ).get();
 
         metaStorageRaftGrpSvc2 = RaftGroupServiceImpl.start(
@@ -403,7 +410,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 raftConfiguration,
                 membersConfiguration,
                 true,
-                executor
+                executor,
+                commandsMarshaller
         ).get();
 
         metaStorageRaftGrpSvc3 = RaftGroupServiceImpl.start(
@@ -413,7 +421,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 raftConfiguration,
                 membersConfiguration,
                 true,
-                executor
+                executor,
+                commandsMarshaller
         ).get();
 
         assertTrue(waitForCondition(

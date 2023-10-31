@@ -23,6 +23,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -30,6 +31,7 @@ import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transient;
 import org.apache.ignite.network.serialization.MessageMappingException;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.apache.ignite.network.serialization.MessageWriter;
@@ -87,7 +89,10 @@ public class MessageSerializerGenerator {
 
         method.addStatement("$T message = ($T) msg", message.implClassName(), message.implClassName()).addCode("\n");
 
-        List<ExecutableElement> getters = message.getters();
+        List<ExecutableElement> getters = message.getters()
+                .stream()
+                .filter(e -> e.getAnnotation(Transient.class) == null)
+                .collect(Collectors.toList());
 
         method
                 .beginControlFlow("if (!writer.isHeaderWritten())")

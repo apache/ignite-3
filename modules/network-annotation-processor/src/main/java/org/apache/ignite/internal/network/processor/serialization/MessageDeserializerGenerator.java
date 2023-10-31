@@ -28,6 +28,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -35,6 +36,7 @@ import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transient;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageMappingException;
 import org.apache.ignite.network.serialization.MessageReader;
@@ -118,7 +120,10 @@ public class MessageDeserializerGenerator {
                 .addParameter(MessageReader.class, "reader")
                 .addException(MessageMappingException.class);
 
-        List<ExecutableElement> getters = message.getters();
+        List<ExecutableElement> getters = message.getters()
+                .stream()
+                .filter(e -> e.getAnnotation(Transient.class) == null)
+                .collect(Collectors.toList());
 
         method
                 .beginControlFlow("if (!reader.beforeMessageRead())")

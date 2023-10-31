@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -83,6 +84,8 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     private final PeerId leaderId = new PeerId("leader");
 
+    private PartitionCommandsMarshallerImpl commandsMarshaller;
+
     @BeforeEach
     void initMocks() {
         when(rpcContext.getNodeManager()).thenReturn(nodeManager);
@@ -91,16 +94,18 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
         lenient().when(node.getRaftOptions()).thenReturn(raftOptions);
         lenient().when(node.getNodeState()).thenReturn(State.STATE_LEADER);
         lenient().when(node.getLeaderId()).thenReturn(leaderId);
+
+        commandsMarshaller = new PartitionCommandsMarshallerImpl(defaultSerializationRegistry());
     }
 
     @Test
     void delegatesWhenCommandHasNoRequiredCatalogVersion() {
         ActionRequest request = raftMessagesFactory.actionRequest()
                 .groupId("test")
-                .command(commandWithoutRequiredCatalogVersion())
+                .command(commandsMarshaller.marshall(commandWithoutRequiredCatalogVersion()))
                 .build();
 
-        assertThat(interceptor.intercept(rpcContext, request), is(nullValue()));
+        assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller), is(nullValue()));
     }
 
     private Command commandWithoutRequiredCatalogVersion() {
@@ -113,10 +118,10 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
         ActionRequest request = raftMessagesFactory.actionRequest()
                 .groupId("test")
-                .command(commandWithRequiredCatalogVersion(3))
+                .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(3)))
                 .build();
 
-        assertThat(interceptor.intercept(rpcContext, request), is(nullValue()));
+        assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller), is(nullValue()));
     }
 
     private Command commandWithRequiredCatalogVersion(int requiredVersion) {
@@ -135,10 +140,10 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
         ActionRequest request = raftMessagesFactory.actionRequest()
                 .groupId("test")
-                .command(commandWithRequiredCatalogVersion(6))
+                .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
-        Message result = interceptor.intercept(rpcContext, request);
+        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, instanceOf(ErrorResponse.class));
@@ -156,10 +161,10 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
         ActionRequest request = raftMessagesFactory.actionRequest()
                 .groupId("test")
-                .command(commandWithRequiredCatalogVersion(6))
+                .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
-        Message result = interceptor.intercept(rpcContext, request);
+        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, instanceOf(ErrorResponse.class));
@@ -182,10 +187,10 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
         ActionRequest request = raftMessagesFactory.actionRequest()
                 .groupId("test")
-                .command(commandWithRequiredCatalogVersion(6))
+                .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
-        Message result = interceptor.intercept(rpcContext, request);
+        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, instanceOf(ErrorResponse.class));

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RaftServerService;
-import org.apache.ignite.raft.jraft.rpc.RpcContext;import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,7 +34,8 @@ public interface ActionRequestInterceptor {
      *
      * @param rpcCtx RPC context.
      * @param request Request in question.
+     * @param commandsMarshaller Marshaller that can be used to deserialize command from the request, if necessary.
      * @return A message to return to the caller, or {@code null} if standard handling should be used.
      */
-    @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request);
+    @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller);
 }
