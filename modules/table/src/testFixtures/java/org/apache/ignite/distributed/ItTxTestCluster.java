@@ -142,6 +142,8 @@ import org.junit.jupiter.api.TestInfo;
  * Class that allows to mock a cluster for transaction tests' purposes.
  */
 public class ItTxTestCluster {
+    private static final int SCHEMA_VERSION = 1;
+
     private final List<NetworkAddress> localAddresses;
 
     private final NodeFinder nodeFinder;
@@ -407,7 +409,11 @@ public class ItTxTestCluster {
      */
     public TableImpl startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
         CatalogService catalogService = mock(CatalogService.class);
-        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
+
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
@@ -613,7 +619,7 @@ public class ItTxTestCluster {
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
-                new ConstantSchemaVersions(1)
+                new ConstantSchemaVersions(SCHEMA_VERSION)
         );
     }
 
