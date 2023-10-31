@@ -15,23 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver;
+package org.apache.ignite.internal.replicator.exception;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
-
-/** Replica lease meta. */
-public interface ReplicaMeta extends Serializable {
-    /** Gets a leaseholder node consistent ID (assigned to a node once), {@code null} if nothing holds the lease. */
-    @Nullable String getLeaseholder();
-
-    /** Gets a leaseholder node ID (changes on every node startup), {@code null} if nothing holds the lease. */
-    @Nullable String getLeaseholderId();
-
-    /** Gets a lease start timestamp. */
-    HybridTimestamp getStartTime();
-
-    /** Gets a lease expiration timestamp. */
-    HybridTimestamp getExpirationTime();
+/**
+ * Marker interface for exceptions that are used in the replication protocol normally (i.e. they don't indicate errors that need
+ * to be logged, for example).
+ */
+public interface ExpectedReplicationException {
 }

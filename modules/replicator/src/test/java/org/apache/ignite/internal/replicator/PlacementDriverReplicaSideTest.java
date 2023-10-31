@@ -118,7 +118,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 raftClient,
                 LOCAL_NODE,
                 executor,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                new TestPlacementDriver(LOCAL_NODE)
         );
     }
 

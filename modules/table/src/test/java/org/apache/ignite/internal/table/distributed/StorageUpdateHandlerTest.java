@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.Collections.emptyMap;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -140,8 +139,7 @@ public class StorageUpdateHandlerTest extends BaseIgniteAbstractTest {
                 new TablePartitionId(TABLE_ID, PARTITION_ID),
                 false,
                 null,
-                null,
-                emptyMap()
+                null
         );
 
         verify(partitionStorage).peek(lwm);

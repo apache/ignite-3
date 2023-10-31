@@ -35,8 +35,8 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
+import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -167,16 +167,14 @@ public class StorageUpdateHandler {
      * @param trackWriteIntent If {@code true} then write intent should be tracked.
      * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
-     * @param lastCommitTsMap A map(Row Id -> timestamp) of timestamps of the most recent commits to the affected rows.
      */
     public void handleUpdateAll(
             UUID txId,
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
+            Map<UUID, TimedBinaryRow> rowsToUpdate,
             TablePartitionId commitPartitionId,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
-            @Nullable HybridTimestamp commitTs,
-            Map<UUID, HybridTimestamp> lastCommitTsMap
+            @Nullable HybridTimestamp commitTs
     ) {
         indexUpdateHandler.waitIndexes();
 
@@ -188,15 +186,15 @@ public class StorageUpdateHandler {
                 List<RowId> rowIds = new ArrayList<>();
 
                 // Sort IDs to prevent deadlock. Natural UUID order matches RowId order within the same partition.
-                SortedMap<UUID, BinaryRowMessage> sortedRowsToUpdateMap = new TreeMap<>(rowsToUpdate);
+                SortedMap<UUID, TimedBinaryRow> sortedRowsToUpdateMap = new TreeMap<>(rowsToUpdate);
 
-                for (Map.Entry<UUID, BinaryRowMessage> entry : sortedRowsToUpdateMap.entrySet()) {
+                for (Map.Entry<UUID, TimedBinaryRow> entry : sortedRowsToUpdateMap.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = entry.getValue() == null ? null : entry.getValue().asBinaryRow();
+                    BinaryRow row = entry.getValue() == null ? null : entry.getValue().binaryRow();
 
                     locker.lock(rowId);
 
-                    performStorageCleanupIfNeeded(txId, rowId, lastCommitTsMap.get(entry.getKey()));
+                    performStorageCleanupIfNeeded(txId, rowId, entry.getValue() == null ? null : entry.getValue().commitTimestamp());
 
                     if (commitTs != null) {
                         storage.addWriteCommitted(rowId, row, commitTs);

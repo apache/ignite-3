@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.logit;
+package org.apache.ignite.internal.raft.storage.logit;
 
-import java.nio.file.Paths;
-import java.util.concurrent.ExecutorService;
+import java.nio.file.Path;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -32,39 +32,54 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 
+/**
+ * Log storage factory for {@link LogitLogStorage} instances.
+ */
 public class LogitLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(LogitLogStorageFactory.class);
 
-    public static final String NEW_STORAGE_PATH = "LogitStorage";
+    private static final String LOG_DIR_PREFIX = "log-";
 
     /** Executor for shared storages. */
-    protected final ExecutorService executorService;
+    private final ScheduledExecutorService checkpointExecutor;
+
+    private final Path baseLogStoragesPath;
 
     private final StoreOptions storeOptions;
 
-    public LogitLogStorageFactory(StoreOptions storeOptions) {
+    /**
+     * Constructor.
+     *
+     * @param baseLogStoragesPath Location of all log storages, created by this factory.
+     * @param storeOptions Logit log storage options.
+     */
+    public LogitLogStorageFactory(Path baseLogStoragesPath, StoreOptions storeOptions) {
+        this.baseLogStoragesPath = baseLogStoragesPath;
         this.storeOptions = storeOptions;
-        executorService = Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors() * 2,
-                new NamedThreadFactory("raft-shared-log-storage-pool", LOG)
+        checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
+                new NamedThreadFactory("logit-checkpoint-executor", LOG)
         );
     }
 
     @Override
     public void start() {
-
     }
 
     @Override
-    public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
-        Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
+    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
+        Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank log storage uri.");
 
-        String newStoragePath = Paths.get(uri, NEW_STORAGE_PATH).toString();
-        return new LogitLogStorage(newStoragePath, storeOptions, raftOptions, executorService);
+        Path storagePath = resolveLogStoragePath(groupId);
+
+        return new LogitLogStorage(storagePath, storeOptions, raftOptions, checkpointExecutor);
     }
 
     @Override
     public void close() {
-        ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
+        ExecutorServiceHelper.shutdownAndAwaitTermination(checkpointExecutor);
+    }
+
+    private Path resolveLogStoragePath(String groupId) {
+        return baseLogStoragesPath.resolve(LOG_DIR_PREFIX + groupId);
     }
 }

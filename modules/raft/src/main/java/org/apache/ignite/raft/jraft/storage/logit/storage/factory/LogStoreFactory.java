@@ -37,15 +37,26 @@ public class LogStoreFactory {
 
     public LogStoreFactory(final StoreOptions opts, RaftOptions raftOptions) {
         this.storeOptions = opts;
-    this.raftOptions = raftOptions;}
+        this.raftOptions = raftOptions;
+    }
 
     /**
      * Create new file(index/segment/conf)
      */
     public AbstractFile newFile(final FileType fileType, final String filePath) {
-        return isIndex(fileType) ? new IndexFile(filePath, this.storeOptions.getIndexFileSize()) : //
-            isConf(fileType) ? new SegmentFile(filePath, this.storeOptions.getConfFileSize()) : //
-                new SegmentFile(filePath, this.storeOptions.getSegmentFileSize());
+        switch (fileType) {
+            case FILE_INDEX:
+                return new IndexFile(raftOptions, filePath, this.storeOptions.getIndexFileSize());
+
+            case FILE_SEGMENT:
+                return new SegmentFile(raftOptions, filePath, this.storeOptions.getSegmentFileSize());
+
+            case FILE_CONFIGURATION:
+                return new SegmentFile(raftOptions, filePath, this.storeOptions.getConfFileSize());
+
+            default:
+                throw new AssertionError("Unidentified file type: " + fileType);
+        }
     }
 
     /**

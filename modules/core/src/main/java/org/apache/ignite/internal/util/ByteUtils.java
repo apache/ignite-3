@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class provides various method for manipulating with bytes.
@@ -214,5 +218,24 @@ public class ByteUtils {
         } catch (IOException | ClassNotFoundException e) {
             throw new IgniteInternalException("Could not deserialize an object", e);
         }
+    }
+
+    /**
+     * Converts a string to a byte array using {@link StandardCharsets#UTF_8}, {@code null} if {@code s} is {@code null}.
+     *
+     * @param s String to convert.
+     * @see #stringFromBytes(byte[])
+     */
+    public static byte @Nullable [] stringToBytes(@Nullable String s) {
+        return s == null ? null : s.getBytes(UTF_8);
+    }
+
+    /**
+     * Converts a byte array to a string using {@link StandardCharsets#UTF_8}, {@code null} if {@code bytes} is {@code null}.
+     *
+     * @param bytes String bytes.
+     */
+    public static @Nullable String stringFromBytes(byte @Nullable [] bytes) {
+        return bytes == null ? null : new String(bytes, UTF_8);
     }
 }
