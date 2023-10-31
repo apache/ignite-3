@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.OtelSpanManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
@@ -132,7 +133,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        return OtelSpanManager.spanWithResult("ReadWriteTransactionImpl.finish", (span) -> {
+        return spanWithResult("ReadWriteTransactionImpl.finish", (span) -> {
             if (isFinalState(state())) {
                 return finishFuture;
             }
@@ -165,40 +166,37 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             entry -> entry.getValue().get2()
                     ));
 
-                IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
+            IgniteBiTuple<ClusterNode, Long> nodeAndTerm = enlisted.get(commitPart);
 
-                ClusterNode recipientNode = nodeAndTerm.get1();
-                Long term = nodeAndTerm.get2();
+            ClusterNode recipientNode = nodeAndTerm.get1();
+            Long term = nodeAndTerm.get2();
 
-                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}].",
-                        recipientNode, term, commit, id(), enlistedGroups);
+            LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}].",
+                    recipientNode, term, commit, id(), enlistedGroups);
 
-                assert recipientNode != null;
-                assert term != null;
+            assert recipientNode != null;
+            assert term != null;
 
-                return txManager.finish(
-                                observableTsTracker,
-                                commitPart,
-                                recipientNode,
-                                term,
-                                commit,
-                                enlistedGroups,
-                                id()
-                        )
-                        .whenComplete(traceSpan::whenComplete);
-            } else {
-                return txManager.finish(
-                                observableTsTracker,
-                                null,
-                                null,
-                                null,
-                                commit,
-                                Collections.emptyMap(),
-                                id()
-                        )
-                        .whenComplete(traceSpan::whenComplete);
-            }
-        }));
+            return txManager.finish(
+                    observableTsTracker,
+                    commitPart,
+                    recipientNode,
+                    term,
+                    commit,
+                    enlistedGroups,
+                    id()
+            );
+        } else {
+            return txManager.finish(
+                    observableTsTracker,
+                    null,
+                    null,
+                    null,
+                    commit,
+                    Collections.emptyMap(),
+                    id()
+            );
+        }
     }
 
     /** {@inheritDoc} */
