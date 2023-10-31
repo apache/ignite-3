@@ -21,6 +21,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.annotations.Transient;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Submit an action to a replication group.
@@ -41,7 +42,7 @@ public interface ActionRequest extends Message {
      * @return Original non-serialized command, if available. {@code null} if not.
      */
     @Transient
-    Command deserializedCommand();
+    @Nullable Command deserializedCommand();
 
     /**
      * @return {@code True} for linearizable reading.
