@@ -259,7 +259,7 @@ class IndexManagementUtils {
      * @param localNode Local node.
      * @param timestamp Timestamp of interest.
      */
-    static boolean isLeaseExpired(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
+    static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         // TODO: IGNITE-20678 We need to compare by IDs: localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
         return !localNode.name().equals(primaryReplicaMeta.getLeaseholder()) || timestamp.after(primaryReplicaMeta.getExpirationTime());
     }

@@ -23,8 +23,8 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isAnyMetastoreKeyPresentLocally;
-import static org.apache.ignite.internal.index.IndexManagementUtils.isLeaseExpired;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeyAbsentLocally;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.index.IndexManagementUtils.makeIndexAvailableInCatalogWithoutFuture;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKeyPrefix;
@@ -227,7 +227,7 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
                             .thenCompose(primaryReplicaMeta -> inBusyLockAsync(busyLock, () -> {
                                 ClusterNode localNode = clusterService.topologyService().localMember();
 
-                                if (primaryReplicaMeta == null || isLeaseExpired(primaryReplicaMeta, localNode, clock.now())) {
+                                if (primaryReplicaMeta == null || isPrimaryReplica(primaryReplicaMeta, localNode, clock.now())) {
                                     // Local node is not the primary replica, so we expect to elect the primary replica with applying the
                                     // replication log. If a local node is elected, then IndexAvailabilityController will get rid of the
                                     // partitionBuildIndexMetastoreKey from the metastore on its own by

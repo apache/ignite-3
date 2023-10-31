@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBu
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.assertMetastoreKeyAbsent;
@@ -92,6 +94,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /** For {@link IndexAvailabilityControllerRestorer} testing. */
 @ExtendWith(WorkDirectoryExtension.class)
 public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractTest {
+    private static final int PARTITION_ID = 0;
+
     @WorkDirectory
     private Path workDir;
 
@@ -179,125 +183,109 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @Test
     void testRemovePartitionBuildIndexMetastoreKeyForRegisteredIndex() throws Exception {
-        createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+        createIndexWithIndexBuildingKeys(INDEX_NAME, PARTITION_ID);
 
-        int tableId = tableId(catalogManager, TABLE_NAME, clock);
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
-        int partitionId = 0;
+        TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
+        ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(LOCAL_NODE, replicaGroupId);
 
-        putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
-        putPartitionBuildIndexMetastoreKeyInMetastore(indexId, partitionId);
-
-        TablePartitionId replicaGroupId = new TablePartitionId(tableId, partitionId);
-        ClusterNode localNode = new ClusterNodeImpl(NODE_NAME + "_ID", NODE_NAME, mock(NetworkAddress.class));
-
-        HybridTimestamp startTime = clock.now();
-        HybridTimestamp expirationTime = startTime.addPhysicalTime(TimeUnit.DAYS.toMillis(1));
-        ReplicaMeta primaryReplicaMeta = newPrimaryReplicaMeta(localNode, replicaGroupId, startTime, expirationTime);
-
-        // An empty array on purpose.
-        setIndexStorageToIndexManager(replicaGroupId, indexId);
-        setLocalNodeToClusterService(localNode);
-        setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, primaryReplicaMeta);
+        prepareToRestartNode(replicaGroupId, indexId, primaryReplicaMeta);
 
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
         assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertMetastoreKeyAbsent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, partitionId));
+        assertMetastoreKeyAbsent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, PARTITION_ID));
 
         assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
     }
 
     @Test
     void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfBuildingIndexNotComplete() throws Exception {
-        createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+        createIndexWithIndexBuildingKeys(INDEX_NAME, PARTITION_ID);
 
-        int tableId = tableId(catalogManager, TABLE_NAME, clock);
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
-        int partitionId = 0;
+        TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
+        ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(LOCAL_NODE, replicaGroupId);
 
-        putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
-        putPartitionBuildIndexMetastoreKeyInMetastore(indexId, partitionId);
-
-        TablePartitionId replicaGroupId = new TablePartitionId(tableId, partitionId);
-        ClusterNode localNode = new ClusterNodeImpl(NODE_NAME + "_ID", NODE_NAME, mock(NetworkAddress.class));
-
-        HybridTimestamp startTime = clock.now();
-        HybridTimestamp expirationTime = startTime.addPhysicalTime(TimeUnit.DAYS.toMillis(1));
-        ReplicaMeta primaryReplicaMeta = newPrimaryReplicaMeta(localNode, replicaGroupId, startTime, expirationTime);
-
-        setIndexStorageToIndexManager(replicaGroupId, indexId, new RowId(partitionId));
-        setLocalNodeToClusterService(localNode);
-        setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, primaryReplicaMeta);
+        prepareToRestartNode(replicaGroupId, indexId, primaryReplicaMeta, new RowId(PARTITION_ID));
 
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
         assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, partitionId));
+        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, PARTITION_ID));
 
         assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
     }
 
     @Test
     void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfPrimaryReplicaMetaNull() throws Exception {
-        createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+        createIndexWithIndexBuildingKeys(INDEX_NAME, PARTITION_ID);
 
-        int tableId = tableId(catalogManager, TABLE_NAME, clock);
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
-        int partitionId = 0;
+        TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
 
-        putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
-        putPartitionBuildIndexMetastoreKeyInMetastore(indexId, partitionId);
-
-        TablePartitionId replicaGroupId = new TablePartitionId(tableId, partitionId);
-        ClusterNode localNode = new ClusterNodeImpl(NODE_NAME + "_ID", NODE_NAME, mock(NetworkAddress.class));
-
-        // An empty array on purpose.
-        setIndexStorageToIndexManager(replicaGroupId, indexId);
-        setLocalNodeToClusterService(localNode);
-        setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, null);
+        prepareToRestartNode(replicaGroupId, indexId, null);
 
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
         assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, partitionId));
+        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, PARTITION_ID));
 
         assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
     }
 
     @Test
     void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfPrimaryReplicaMetaChanges() throws Exception {
-        createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+        createIndexWithIndexBuildingKeys(INDEX_NAME, PARTITION_ID);
 
-        int tableId = tableId(catalogManager, TABLE_NAME, clock);
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
-        int partitionId = 0;
-
-        putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
-        putPartitionBuildIndexMetastoreKeyInMetastore(indexId, partitionId);
-
-        TablePartitionId replicaGroupId = new TablePartitionId(tableId, partitionId);
-        ClusterNode localNode = new ClusterNodeImpl(NODE_NAME + "_ID", NODE_NAME, mock(NetworkAddress.class));
+        TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
 
         // TODO: IGNITE-20678 There should be a node ID change only
-        ClusterNode previousLocalNode = new ClusterNodeImpl(NODE_NAME + "_ID_OLD", NODE_NAME + "_OLD", mock(NetworkAddress.class));
-        ReplicaMeta primaryReplicaMeta = newPrimaryReplicaMeta(previousLocalNode, replicaGroupId, clock.now(), clock.now());
+        ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(
+                new ClusterNodeImpl(NODE_ID + "_ID_OLD", NODE_NAME + "_OLD", mock(NetworkAddress.class)),
+                replicaGroupId
+        );
 
-        // An empty array on purpose.
-        setIndexStorageToIndexManager(replicaGroupId, indexId);
-        setLocalNodeToClusterService(localNode);
-        setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, primaryReplicaMeta);
+        prepareToRestartNode(replicaGroupId, indexId, primaryReplicaMeta);
 
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
         assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, partitionId));
+        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, PARTITION_ID));
 
         assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
+    }
+
+    private void createIndexWithIndexBuildingKeys(String indexName, int partitionId) {
+        createIndex(catalogManager, TABLE_NAME, indexName, COLUMN_NAME);
+
+        int indexId = indexId(catalogManager, indexName, clock);
+
+        putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
+        putPartitionBuildIndexMetastoreKeyInMetastore(indexId, partitionId);
+    }
+
+    private ReplicaMeta createPrimaryReplicaMetaThatExpireInOneDay(ClusterNode clusterNode, TablePartitionId replicaGroupId) {
+        HybridTimestamp startTime = clock.now();
+        HybridTimestamp expirationTime = startTime.addPhysicalTime(TimeUnit.DAYS.toMillis(1));
+
+        return newPrimaryReplicaMeta(clusterNode, replicaGroupId, startTime, expirationTime);
+    }
+
+    private void prepareToRestartNode(
+            TablePartitionId replicaGroupId,
+            int indexId,
+            @Nullable ReplicaMeta primaryReplicaMeta,
+            RowId... rowIdsToBuild
+    ) {
+        setIndexStorageToIndexManager(replicaGroupId, indexId, rowIdsToBuild);
+        setLocalNodeToClusterService(LOCAL_NODE);
+        setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, primaryReplicaMeta);
     }
 
     private void putInProgressBuildIndexMetastoreKeyInMetastore(int indexId) {
