@@ -227,7 +227,7 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
                             .thenCompose(primaryReplicaMeta -> inBusyLockAsync(busyLock, () -> {
                                 ClusterNode localNode = clusterService.topologyService().localMember();
 
-                                if (primaryReplicaMeta == null || isPrimaryReplica(primaryReplicaMeta, localNode, clock.now())) {
+                                if (primaryReplicaMeta == null || !isPrimaryReplica(primaryReplicaMeta, localNode, clock.now())) {
                                     // Local node is not the primary replica, so we expect a primary replica to be elected (which will make
                                     // sure it has applied all the commands from the replication log). If a local node is elected, then
                                     // IndexAvailabilityController will get rid of the partitionBuildIndexMetastoreKey from the metastore on

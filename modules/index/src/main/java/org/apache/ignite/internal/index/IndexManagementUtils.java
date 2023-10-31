@@ -253,7 +253,7 @@ class IndexManagementUtils {
     }
 
     /**
-     * Returns {@code true} if the local node is no longer the primary replica at the timestamp of interest.
+     * Returns {@code true} if the local node is the primary replica at the timestamp of interest.
      *
      * @param primaryReplicaMeta Primary replica meta.
      * @param localNode Local node.
@@ -261,6 +261,6 @@ class IndexManagementUtils {
      */
     static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
         // TODO: IGNITE-20678 We need to compare by IDs: localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
-        return !localNode.name().equals(primaryReplicaMeta.getLeaseholder()) || timestamp.after(primaryReplicaMeta.getExpirationTime());
+        return localNode.name().equals(primaryReplicaMeta.getLeaseholder()) && timestamp.before(primaryReplicaMeta.getExpirationTime());
     }
 }

@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTa
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexDescriptor;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexId;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.makeIndexAvailable;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.tableId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -69,7 +70,6 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -371,14 +371,5 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     private void setPrimaryReplicaMetaToPlacementDriver(TablePartitionId replicaGroupId, @Nullable ReplicaMeta primaryReplicaMeta) {
         when(placementDriver.getPrimaryReplica(eq(replicaGroupId), any())).thenReturn(completedFuture(primaryReplicaMeta));
-    }
-
-    private static ReplicaMeta newPrimaryReplicaMeta(
-            ClusterNode clusterNode,
-            TablePartitionId replicaGroupId,
-            HybridTimestamp startTime,
-            HybridTimestamp expirationTime
-    ) {
-        return new Lease(clusterNode.name(), startTime, expirationTime, replicaGroupId);
     }
 }

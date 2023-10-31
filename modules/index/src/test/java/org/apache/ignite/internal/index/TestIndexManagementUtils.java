@@ -37,10 +37,14 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.leases.Lease;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -109,5 +113,14 @@ class TestIndexManagementUtils {
 
     static void assertMetastoreKeyPresent(MetaStorageManager metaStorageManager, ByteArray key) {
         assertThat(metaStorageManager.get(key).thenApply(Entry::value), willBe(notNullValue()));
+    }
+
+    static ReplicaMeta newPrimaryReplicaMeta(
+            ClusterNode clusterNode,
+            TablePartitionId replicaGroupId,
+            HybridTimestamp startTime,
+            HybridTimestamp expirationTime
+    ) {
+        return new Lease(clusterNode.name(), startTime, expirationTime, replicaGroupId);
     }
 }
