@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.channels.FileChannel;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.BaseLogitStorageTest;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileHeader;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexFile;
@@ -49,7 +50,7 @@ public class IndexFileTest extends BaseLogitStorageTest {
 
     private void init() {
         final String filePath = this.path + File.separator + "IndexFileTest";
-        this.offsetIndex = new IndexFile(filePath, FILE_SIZE);
+        this.offsetIndex = new IndexFile(new RaftOptions(), filePath, FILE_SIZE);
     }
 
     private final IndexEntry appendEntry0 = new IndexEntry(0, 1);

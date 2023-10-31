@@ -435,7 +435,7 @@ public class FileManager {
             for (final AbstractFile abstractFile : this.files) {
                 final long lastLogIndex = abstractFile.getLastLogIndex();
                 if (lastLogIndex < firstIndexKept) {
-                    willRemoveFiles.addAll(this.files);
+                    willRemoveFiles.add(abstractFile);
                 }
             }
             return true;
