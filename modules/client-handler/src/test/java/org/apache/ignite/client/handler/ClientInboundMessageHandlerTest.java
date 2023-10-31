@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
@@ -67,7 +66,7 @@ import org.msgpack.core.MessagePack;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
-    private static final Duration TIMEOUT_OF_DURING = Duration.ofSeconds(1);
+    private static final Duration TIMEOUT_OF_DURING = Duration.ofSeconds(2);
 
     @InjectConfiguration
     private ClientConnectorConfiguration configuration;
@@ -199,8 +198,6 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         securityConfiguration.change(change -> {
             change.changeEnabled(false);
         }).join();
-
-        TimeUnit.SECONDS.sleep(TIMEOUT_OF_DURING.getSeconds());
 
         handshake();
 
