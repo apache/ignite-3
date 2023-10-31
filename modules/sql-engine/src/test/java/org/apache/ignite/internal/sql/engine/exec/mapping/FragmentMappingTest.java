@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -58,7 +60,7 @@ import org.junit.jupiter.api.Test;
  *
  *     // The first statement adds a table with data located at node n1.
  *     // The first one adds a table with data located at node n2, n3.
- *     // The catalog is going to contain to tables "t1_n1" and "t2_n2n3".
+ *     // The catalog is going to contain tables "t1_n1" and "t2_n2n3".
  *     // Both tables have distribution affinity([0], tableId, zoneId)
  *     addTable("T1", "N1");
  *     addTable("T2", "N2", "N3");
@@ -276,6 +278,16 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             String tableShortName = tableName.substring(0, tableName.indexOf('_'));
             // Generate distinct row counts for each table to ensure that the optimizer produces the same results.
             int tableSize = tableRows.getOrDefault(tableShortName, 100 + objectId);
+
+            for (String tableNodeName : e.getValue().getSecond()) {
+                if (!nodeNames.contains(tableNodeName)) {
+                    String message = format(
+                            "Expected node {} for table {}. Registered nodes: {}",
+                            tableNodeName, tableShortName, nodeNames
+                    );
+                    throw new IllegalArgumentException(message);
+                }
+            }
 
             IgniteDistribution distribution = e.getValue().getFirst();
 
