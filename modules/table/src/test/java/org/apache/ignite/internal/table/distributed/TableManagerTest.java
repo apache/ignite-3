@@ -713,7 +713,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(NODE_NAME)
+                new TestPlacementDriver(node)
         ) {
 
             @Override
