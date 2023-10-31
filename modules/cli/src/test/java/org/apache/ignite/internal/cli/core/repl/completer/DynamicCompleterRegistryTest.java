@@ -331,15 +331,15 @@ class DynamicCompleterRegistryTest {
         );
 
         // When there is no positional argument typed
-        List<DynamicCompleter> connectCompleter = registry.findCompleters(words("cluster", "config", "show"));
+        List<DynamicCompleter> completers = registry.findCompleters(words("cluster", "config", "show"));
 
         // Then completer is returned
-        assertThat(connectCompleter, both(hasSize(1)).and(containsInAnyOrder(completer1)));
+        assertThat(completers, contains(completer1));
 
         // When there is one positional argument typed
-        List<DynamicCompleter> connectCompleterWithPositional = registry.findCompleters(words("cluster", "config", "show", "arg1", ""));
+        List<DynamicCompleter> completersWithPositional = registry.findCompleters(words("cluster", "config", "show", "arg1", ""));
 
         // Then completer is not returned
-        assertThat(connectCompleterWithPositional, hasSize(0));
+        assertThat(completersWithPositional, is(empty()));
     }
 }
