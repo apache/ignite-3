@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import java.util.List;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,17 +27,25 @@ import org.jetbrains.annotations.Nullable;
  */
 public class MultiStepPlan implements QueryPlan {
 
+    private final PlanId id;
+
     private final SqlQueryType type;
 
-    protected final ResultSetMetadata meta;
+    private final ResultSetMetadata meta;
 
-    protected final List<Fragment> fragments;
+    private final IgniteRel root;
 
-    /** Constructor. */
-    public MultiStepPlan(SqlQueryType type, List<Fragment> fragments, ResultSetMetadata meta) {
+    MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta) {
+        this.id = id;
         this.type = type;
-        this.fragments = fragments;
+        this.root = root;
         this.meta = meta;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PlanId id() {
+        return id;
     }
 
     /** {@inheritDoc} */
@@ -53,14 +61,8 @@ public class MultiStepPlan implements QueryPlan {
         return type;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public QueryPlan copy() {
-        return new MultiStepPlan(type, fragments, meta);
-    }
-
-    /** A list for fragment this query plan consists of. */
-    public List<Fragment> fragments() {
-        return fragments;
+    /** Returns root of the query tree. */
+    public IgniteRel root() {
+        return root;
     }
 }

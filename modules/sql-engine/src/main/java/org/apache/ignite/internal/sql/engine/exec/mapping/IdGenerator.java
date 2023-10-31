@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
-
-import java.util.concurrent.atomic.AtomicLong;
+package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 /**
- * IdGenerator.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A simple id generator that returns monotonically increasing long value started from given initial id.
+ *
+ * <p>Not thread safe.
  */
 public class IdGenerator {
-    private static final AtomicLong ID_GEN = new AtomicLong();
+    private long currentId;
 
-    private IdGenerator() {
+    public IdGenerator(long initialId) {
+        this.currentId = initialId;
     }
 
-    public static long nextId() {
-        return ID_GEN.getAndIncrement();
+    /** Returns next id. */
+    long nextId() {
+        return currentId++;
     }
 }
