@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.concurrent.NotThreadSafe;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlNode;
@@ -37,12 +37,10 @@ public final class ScriptParseResult extends ParseResult {
     public static final ParseMode<ScriptParseResult> MODE = new ParseMode<>() {
         @Override
         ScriptParseResult createResult(List<SqlNode> list, int dynamicParamsCount) {
-            SqlDynamicParamsCounter paramsCounter = new SqlDynamicParamsCounter();
-            List<StatementParseResult> results = new ArrayList<>(list.size());
-
-            for (SqlNode node : list) {
-                results.add(new StatementParseResult(node, paramsCounter.forNode(node)));
-            }
+            SqlDynamicParamsCounter paramsCounter = dynamicParamsCount == 0 ? null : new SqlDynamicParamsCounter();
+            List<StatementParseResult> results = list.stream()
+                    .map(node -> new StatementParseResult(node, paramsCounter == null ? 0 : paramsCounter.forNode(node)))
+                    .collect(Collectors.toList());
 
             return new ScriptParseResult(results, dynamicParamsCount);
         }

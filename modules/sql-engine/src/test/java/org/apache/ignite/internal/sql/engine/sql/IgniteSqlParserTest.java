@@ -42,7 +42,7 @@ public class IgniteSqlParserTest {
     }
 
     @ParameterizedTest
-    @MethodSource("multiStatements")
+    @MethodSource("multiStatementQueries")
     public void testScriptMode(String query, int expectedStatementsCount, int[] expectedPramsCountPerStatement) {
         ScriptParseResult scriptParseResult = IgniteSqlParser.parse(query, ScriptParseResult.MODE);
         int expectedTotalParams = Arrays.stream(expectedPramsCountPerStatement).sum();
@@ -132,7 +132,7 @@ public class IgniteSqlParserTest {
                 () -> IgniteSqlParser.parse("SELECT decimal '2a'", StatementParseResult.MODE));
     }
 
-    private static List<Arguments> multiStatements() {
+    private static List<Arguments> multiStatementQueries() {
         return List.of(
                 Arguments.of("INSERT INTO TEST VALUES(1, 1); SELECT 1 + 2", 2, new int[]{0, 0}),
                 Arguments.of("SELECT 1 + ? - ?", 1, new int[]{2}),
