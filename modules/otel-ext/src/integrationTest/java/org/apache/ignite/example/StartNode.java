@@ -30,7 +30,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 /**
  * Tests for transactional examples.
  */
-public class StartNodeExample {
+public class StartNode {
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
