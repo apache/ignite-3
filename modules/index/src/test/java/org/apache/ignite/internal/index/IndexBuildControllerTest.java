@@ -19,13 +19,18 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -44,7 +49,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -64,10 +68,7 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,19 +76,7 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link IndexBuildController} testing. */
 public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
-    private static final String NODE_NAME = "test_node";
-
-    private static final String NODE_ID = "test_node_id";
-
-    private static final String TABLE_NAME = "test_table";
-
-    private static final String COLUMN_NAME = "test_column";
-
-    private static final String INDEX_NAME = "test_index";
-
     private static final int PARTITION_ID = 10;
-
-    private final ClusterNode localNode = new ClusterNodeImpl(NODE_ID, NODE_NAME, mock(NetworkAddress.class));
 
     private IndexBuilder indexBuilder;
 
@@ -114,19 +103,12 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
             return completedFuture(mvTableStorage);
         });
 
-        ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> localNode));
+        ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> LOCAL_NODE));
 
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
         catalogManager.start();
 
-        TableTestUtils.createTable(
-                catalogManager,
-                DEFAULT_SCHEMA_NAME,
-                DEFAULT_ZONE_NAME,
-                TABLE_NAME,
-                List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()),
-                List.of(COLUMN_NAME)
-        );
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
         indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
     }
@@ -150,7 +132,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
     }
@@ -167,7 +149,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
 
@@ -177,7 +159,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
     }
@@ -217,7 +199,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(INDEX_NAME)),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
 
@@ -227,7 +209,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
-                eq(localNode),
+                eq(LOCAL_NODE),
                 anyLong()
         );
     }

@@ -21,13 +21,15 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
-import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -44,7 +46,6 @@ import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -75,10 +76,6 @@ import org.junit.jupiter.api.Test;
  * Test class to verify {@link IndexManager}.
  */
 public class IndexManagerTest extends BaseIgniteAbstractTest {
-    private static final String TABLE_NAME = "tName";
-
-    private static final String COLUMN_NAME = "c";
-
     private final HybridClock clock = new HybridClockImpl();
 
     private VaultManager vaultManager;
@@ -105,13 +102,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
-        String nodeName = "test";
-
         vaultManager = new VaultManager(new InMemoryVaultService());
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new SimpleInMemoryKeyValueStorage(nodeName));
+        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new SimpleInMemoryKeyValueStorage(NODE_NAME));
 
-        clockWaiter = new ClockWaiter(nodeName, clock);
+        clockWaiter = new ClockWaiter(NODE_NAME, clock);
 
         catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
 
@@ -129,14 +124,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        createTable(
-                catalogManager,
-                DEFAULT_SCHEMA_NAME,
-                DEFAULT_ZONE_NAME,
-                TABLE_NAME,
-                List.of(ColumnParams.builder().name(COLUMN_NAME).length(100).type(STRING).build()),
-                List.of(COLUMN_NAME)
-        );
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 
     @AfterEach

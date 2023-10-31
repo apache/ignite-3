@@ -102,10 +102,13 @@ public class IndexBuilder implements ManuallyCloseable {
     /**
      * Schedules building the index if it is not already built or is not yet in progress.
      *
-     * <p>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand} on the
-     * replica, batches are sent sequentially.</p>
-     *
-     * <p>It is expected that the index building is triggered by the primary replica.</p>
+     * <p>Notes:</p>
+     * <ul>
+     *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand}
+     *     on the replica, batches are sent sequentially.</li>
+     *     <li>It is expected that the index building is triggered by the primary replica.</li>
+     *     <li>If the index has already been built, {@link IndexBuildCompletionListener} will be notified.</li>
+     * </ul>
      *
      * @param tableId Table ID.
      * @param partitionId Partition ID.
@@ -128,6 +131,10 @@ public class IndexBuilder implements ManuallyCloseable {
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
+                for (IndexBuildCompletionListener listener : listeners) {
+                    listener.onBuildCompletion(indexId, tableId, partitionId);
+                }
+
                 return;
             }
 

@@ -167,6 +167,9 @@ public class IndexManager implements IgniteComponent {
      * <p>Example: when we start building an index, we will need {@link IndexStorage} (as well as storage {@link MvPartitionStorage}) to
      * build it and we can get them in {@link CatalogEvent#INDEX_CREATE} using this method.</p>
      *
+     * <p>During recovery, it is important to wait until the local node becomes a primary replica so that all index building commands are
+     * applied from the replication log.</p>
+     *
      * @param causalityToken Causality token.
      * @param tableId Table ID.
      * @return Future with multi-version table storage, completes with {@code null} if the table does not exist according to the passed
