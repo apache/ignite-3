@@ -21,9 +21,13 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for sql parser.
@@ -35,15 +39,23 @@ public class IgniteSqlParserTest {
 
         assertEquals(1, result.dynamicParamsCount());
         assertNotNull(result.statement());
-        assertEquals(List.of(result.statement()), result.statements());
     }
 
-    @Test
-    public void testScriptMode() {
-        ScriptParseResult result = IgniteSqlParser.parse("SELECT 1 + ?; SELECT 1; SELECT 2 + ?", ScriptParseResult.MODE);
+    @ParameterizedTest
+    @MethodSource("multiStatements")
+    public void testScriptMode(String query, int expectedStatementsCount, int[] expectedPramsCountPerStatement) {
+        ScriptParseResult scriptParseResult = IgniteSqlParser.parse(query, ScriptParseResult.MODE);
+        int expectedTotalParams = Arrays.stream(expectedPramsCountPerStatement).sum();
 
-        assertEquals(2, result.dynamicParamsCount());
-        assertEquals(3, result.statements().size());
+        assertEquals(expectedTotalParams, scriptParseResult.dynamicParamsCount());
+        assertEquals(expectedStatementsCount, scriptParseResult.results().size());
+
+        for (int i = 0; i < scriptParseResult.results().size(); i++) {
+            StatementParseResult res = scriptParseResult.results().get(i);
+
+            assertNotNull(res.statement());
+            assertEquals(expectedPramsCountPerStatement[i], res.dynamicParamsCount());
+        }
     }
 
     /**
@@ -55,7 +67,6 @@ public class IgniteSqlParserTest {
                 Sql.STMT_VALIDATION_ERR,
                 "Multiple statements are not allowed",
                 () -> IgniteSqlParser.parse("SELECT 1; SELECT 2", StatementParseResult.MODE));
-
     }
 
     @Test
@@ -119,5 +130,14 @@ public class IgniteSqlParserTest {
                 Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Invalid decimal literal. At line 1, column 16",
                 () -> IgniteSqlParser.parse("SELECT decimal '2a'", StatementParseResult.MODE));
+    }
+
+    private static List<Arguments> multiStatements() {
+        return List.of(
+                Arguments.of("INSERT INTO TEST VALUES(1, 1); SELECT 1 + 2", 2, new int[]{0, 0}),
+                Arguments.of("SELECT 1 + ? - ?", 1, new int[]{2}),
+                Arguments.of("SELECT 1; INSERT INTO TEST VALUES(?, ?, ?)", 2, new int[] {0, 3}),
+                Arguments.of("INSERT INTO TEST VALUES(?, ?); SELECT 1; SELECT 2 + ?", 3, new int[] {2, 0, 1})
+        );
     }
 }

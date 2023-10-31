@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.concurrent.NotThreadSafe;
+import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.util.SqlBasicVisitor;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Result of parsing SQL string that multiple statements.
@@ -32,27 +37,56 @@ public final class ScriptParseResult extends ParseResult {
     public static final ParseMode<ScriptParseResult> MODE = new ParseMode<>() {
         @Override
         ScriptParseResult createResult(List<SqlNode> list, int dynamicParamsCount) {
-            return new ScriptParseResult(list, dynamicParamsCount);
+            SqlDynamicParamsCounter paramsCounter = new SqlDynamicParamsCounter();
+            List<StatementParseResult> results = new ArrayList<>(list.size());
+
+            for (SqlNode node : list) {
+                results.add(new StatementParseResult(node, paramsCounter.forNode(node)));
+            }
+
+            return new ScriptParseResult(results, dynamicParamsCount);
         }
     };
 
-    private final List<SqlNode> statements;
+    private final List<StatementParseResult> results;
 
     /**
      * Constructor.
      *
-     * @param statements A list of parsed statements.
+     * @param results A list of parsed statements.
      * @param dynamicParamsCount The number of dynamic parameters.
      */
-    public ScriptParseResult(List<SqlNode> statements, int dynamicParamsCount) {
+    private ScriptParseResult(List<StatementParseResult> results, int dynamicParamsCount) {
         super(dynamicParamsCount);
-        this.statements = statements;
+        this.results = results;
     }
 
     /** Returns a list of parsed statements. */
-    @Override
-    public List<SqlNode> statements() {
-        return statements;
+    public List<StatementParseResult> results() {
+        return results;
+    }
+
+    /**
+     * Counts the number of {@link SqlDynamicParam} nodes in the tree.
+     */
+    @NotThreadSafe
+    static class SqlDynamicParamsCounter extends SqlBasicVisitor<Object> {
+        int count;
+
+        @Override
+        public @Nullable Object visit(SqlDynamicParam param) {
+            count++;
+
+            return null;
+        }
+
+        int forNode(SqlNode node) {
+            count = 0;
+
+            this.visitNode(node);
+
+            return count;
+        }
     }
 
     /** {@inheritDoc} **/
