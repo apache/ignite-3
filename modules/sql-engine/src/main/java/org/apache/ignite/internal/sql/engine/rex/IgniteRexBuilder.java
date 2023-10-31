@@ -22,19 +22,21 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link RexBuilder} that provides support for {@link IgniteCustomType custom data types}.
  */
 public class IgniteRexBuilder extends RexBuilder {
+    public static final IgniteRexBuilder INSTANCE = new IgniteRexBuilder(IgniteTypeFactory.INSTANCE);
 
     /**
      * Creates a RexBuilder.
      *
      * @param typeFactory Type factory
      */
-    public IgniteRexBuilder(RelDataTypeFactory typeFactory) {
+    private IgniteRexBuilder(RelDataTypeFactory typeFactory) {
         super(typeFactory);
     }
 

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptUtil;
@@ -119,7 +120,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
-                        .logger(log)
+                        .queryId(UUID.randomUUID())
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .costFactory(new IgniteCostFactory(1, 100, 1, 1))

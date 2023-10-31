@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -114,6 +115,8 @@ import org.jetbrains.annotations.Nullable;
  * Utility methods.
  */
 public final class Commons {
+    private static final CompletableFuture<Void> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
+
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
 
     public static final int IN_BUFFER_SIZE = 512;
@@ -172,6 +175,10 @@ public final class Commons {
             .build();
 
     private Commons() {
+    }
+
+    public static CompletableFuture<Void> completedFuture() {
+        return COMPLETED_FUTURE;
     }
 
     private static SqlTypeCoercionRule standardCompatibleCoercionRules() {

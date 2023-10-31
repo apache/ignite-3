@@ -61,6 +61,9 @@ import org.jetbrains.annotations.Nullable;
  * Ignite type factory.
  */
 public class IgniteTypeFactory extends JavaTypeFactoryImpl {
+    /** Contains java types internally mapped into appropriate rel types. */
+    private static final Map<Class<?>, Supplier<RelDataType>> implementedJavaTypes = new IdentityHashMap<>();
+
     /** Interval qualifier to create year-month interval types. */
     private static final SqlIntervalQualifier INTERVAL_QUALIFIER_YEAR_MONTH = new SqlIntervalQualifier(TimeUnit.YEAR,
             TimeUnit.MONTH, SqlParserPos.ZERO);
@@ -69,30 +72,27 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     private static final SqlIntervalQualifier INTERVAL_QUALIFIER_DAY_TIME = new SqlIntervalQualifier(TimeUnit.DAY,
             TimeUnit.SECOND, SqlParserPos.ZERO);
 
+    public static final IgniteTypeFactory INSTANCE = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+
     /** Default charset. */
     private final Charset charset;
 
     /** A registry that contains custom data types. **/
     private final CustomDataTypes customDataTypes;
 
-    /** Contains java types internally mapped into appropriate rel types. */
-    private static final Map<Class<?>, Supplier<RelDataType>> implementedJavaTypes = new IdentityHashMap<>();
-
     {
-        {
-            implementedJavaTypes.put(LocalDate.class, () ->
-                    createTypeWithNullability(createSqlType(SqlTypeName.DATE), true));
-            implementedJavaTypes.put(LocalTime.class, () ->
-                    createTypeWithNullability(createSqlType(SqlTypeName.TIME), true));
-            implementedJavaTypes.put(LocalDateTime.class, () ->
-                    createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP), true));
-            implementedJavaTypes.put(Instant.class, () ->
-                    createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE), true));
-            implementedJavaTypes.put(Duration.class, () ->
-                    createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_DAY_TIME), true));
-            implementedJavaTypes.put(Period.class, () ->
-                    createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_YEAR_MONTH), true));
-        }
+        implementedJavaTypes.put(LocalDate.class, () ->
+                createTypeWithNullability(createSqlType(SqlTypeName.DATE), true));
+        implementedJavaTypes.put(LocalTime.class, () ->
+                createTypeWithNullability(createSqlType(SqlTypeName.TIME), true));
+        implementedJavaTypes.put(LocalDateTime.class, () ->
+                createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP), true));
+        implementedJavaTypes.put(Instant.class, () ->
+                createTypeWithNullability(createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE), true));
+        implementedJavaTypes.put(Duration.class, () ->
+                createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_DAY_TIME), true));
+        implementedJavaTypes.put(Period.class, () ->
+                createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_YEAR_MONTH), true));
     }
 
     /**

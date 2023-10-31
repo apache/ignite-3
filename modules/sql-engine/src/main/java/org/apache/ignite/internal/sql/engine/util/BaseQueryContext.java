@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
+import static org.apache.ignite.internal.sql.engine.util.Commons.DISTRIBUTED_TRAITS_SET;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
 import com.google.common.collect.Multimap;
@@ -42,13 +43,10 @@ import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.UnboundMetadata;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
@@ -61,15 +59,11 @@ import org.apache.ignite.internal.util.ArrayUtils;
  * Base query context.
  */
 public final class BaseQueryContext extends AbstractQueryContext {
-    public static final CalciteConnectionConfig CALCITE_CONNECTION_CONFIG;
+    private static final CalciteConnectionConfig CALCITE_CONNECTION_CONFIG;
 
     public static final RelOptCluster CLUSTER;
 
-    private static final IgniteTypeFactory TYPE_FACTORY;
-
     private static final IgniteCostFactory COST_FACTORY = new IgniteCostFactory();
-
-    private static final BaseQueryContext EMPTY_CONTEXT;
 
     static {
         Properties props = new Properties();
@@ -83,15 +77,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         CALCITE_CONNECTION_CONFIG = new CalciteConnectionConfigImpl(props);
 
-        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
+        RexBuilder defaultRexBuilder = IgniteRexBuilder.INSTANCE;
 
-        TYPE_FACTORY = createTypeFactory(typeSys);
-
-        RexBuilder defaultRexBuilder = createRexBuilder(TYPE_FACTORY);
-
-        EMPTY_CONTEXT = builder().build();
-
-        VolcanoPlanner planner = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
+        BaseQueryContext emptyContext = builder().queryId(new UUID(0L, 0L)).build();
+        VolcanoPlanner planner = new VolcanoPlanner(COST_FACTORY, emptyContext) {
             @Override
             public void registerSchema(RelOptSchema schema) {
                 // This method in VolcanoPlanner stores schema in hash map. It can be invoked during relational
@@ -101,7 +90,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         };
 
         // Dummy planner must contain all trait definitions to create singleton cluster with all default traits.
-        for (RelTraitDef<?> def : EMPTY_CONTEXT.config().getTraitDefs()) {
+        for (RelTraitDef<?> def : DISTRIBUTED_TRAITS_SET) {
             planner.addRelTraitDef(def);
         }
 
@@ -141,12 +130,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final FrameworkConfig cfg;
 
-    private final IgniteLogger log;
-
-    private final IgniteTypeFactory typeFactory;
-
-    private final RexBuilder rexBuilder;
-
     private final QueryCancel cancel;
 
     private final UUID queryId;
@@ -165,7 +148,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
             FrameworkConfig cfg,
             QueryCancel cancel,
             Object[] parameters,
-            IgniteLogger log,
             QueryPrefetchCallback prefetchCallback
     ) {
         super(Contexts.chain(cfg.getContext()));
@@ -174,24 +156,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.cfg = Frameworks.newConfigBuilder(cfg).context(this).build();
 
         this.queryId = queryId;
-        this.log = log;
         this.cancel = cancel;
         this.parameters = parameters;
         this.prefetchCallback = prefetchCallback;
-
-        typeFactory = TYPE_FACTORY;
-
-        assert TYPE_FACTORY.getTypeSystem() == cfg.getTypeSystem();
-
-        rexBuilder = createRexBuilder(typeFactory);
     }
 
     public static Builder builder() {
         return new Builder();
-    }
-
-    public static BaseQueryContext empty() {
-        return EMPTY_CONTEXT;
     }
 
     public UUID queryId() {
@@ -206,20 +177,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return cfg;
     }
 
-    public IgniteLogger logger() {
-        return log;
-    }
-
     public SchemaPlus schema() {
         return cfg.getDefaultSchema();
-    }
-
-    public IgniteTypeFactory typeFactory() {
-        return typeFactory;
-    }
-
-    public RexBuilder rexBuilder() {
-        return rexBuilder;
     }
 
     public int schemaVersion() {
@@ -248,25 +207,11 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return catalogReader = new CalciteCatalogReader(
                 CalciteSchema.from(rootSchema),
                 CalciteSchema.from(dfltSchema).path(null),
-                typeFactory(), CALCITE_CONNECTION_CONFIG);
+                IgniteTypeFactory.INSTANCE, CALCITE_CONNECTION_CONFIG);
     }
 
     public QueryCancel cancel() {
         return cancel;
-    }
-
-    /**
-     * Creates a builder object filled with current context attributes.
-     *
-     * @return Prefilled builder.
-     */
-    public Builder toBuilder() {
-        return builder()
-                .queryId(queryId)
-                .frameworkConfig(cfg)
-                .logger(log)
-                .cancel(cancel)
-                .parameters(parameters);
     }
 
     /**
@@ -277,16 +222,14 @@ public final class BaseQueryContext extends AbstractQueryContext {
         private static final FrameworkConfig EMPTY_CONFIG =
                 Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(createRootSchema(false))
-                        .traitDefs(Commons.DISTRIBUTED_TRAITS_SET)
+                        .traitDefs(DISTRIBUTED_TRAITS_SET)
                         .build();
 
         private FrameworkConfig frameworkCfg = EMPTY_CONFIG;
 
         private QueryCancel cancel = new QueryCancel();
 
-        private IgniteLogger log = Loggers.voidLogger();
-
-        private UUID queryId = UUID.randomUUID();
+        private UUID queryId;
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
@@ -299,11 +242,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         public Builder cancel(QueryCancel cancel) {
             this.cancel = Objects.requireNonNull(cancel);
-            return this;
-        }
-
-        public Builder logger(IgniteLogger log) {
-            this.log = Objects.requireNonNull(log);
             return this;
         }
 
@@ -323,15 +261,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, prefetchCallback);
+            return new BaseQueryContext(Objects.requireNonNull(queryId, "queryId"), frameworkCfg, cancel, parameters, prefetchCallback);
         }
-    }
-
-    private static IgniteTypeFactory createTypeFactory(RelDataTypeSystem typeSystem) {
-        return new IgniteTypeFactory(typeSystem);
-    }
-
-    private static IgniteRexBuilder createRexBuilder(IgniteTypeFactory typeFactory) {
-        return new IgniteRexBuilder(typeFactory);
     }
 }
