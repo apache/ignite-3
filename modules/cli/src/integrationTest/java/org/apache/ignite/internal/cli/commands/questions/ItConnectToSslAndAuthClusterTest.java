@@ -59,9 +59,10 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
 
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
-        // trust store path and password are provided and key store is not configured
+        // trust store path and password are provided and answer to key store configuration is "n",
+        // answer to auth configuration is "y", username and password is provided and answer to save authentication is "y"
         //ToDo: check question as well IGNITE-20324
-        bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+        bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When asked the question
         question.askQuestionOnReplStart();
@@ -257,9 +258,10 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And last connected URL is equal to the default URL
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
 
-        // And answer to the reconnect question is "y", to the SSL configuration question is "y",
-        // trust store path and password are provided and key store is not configured
-        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+        // And answer to the SSL configuration question is "y", trust store path and password are provided
+        // and answer to key store configuration is "n", answer to auth configuration is "y", username and password is provided
+        // and answer to save authentication is "y"
+        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When connect with auth parameters
         execute("connect", "--username", "admin", "--password", "wrong-password");
@@ -298,10 +300,11 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And last connected URL is equal to the default URL
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
 
-        // And answer to the reconnect question is "y", to the SSL configuration question is "y",
-        // trust store path and password are provided and key store is not configured
+        // And answer to the SSL configuration question is "y", trust store path and password are provided
+        // and answer to key store configuration is "n", answer to auth configuration is "y", username and password is provided
+        // and answer to save authentication is "y"
         //ToDo: check question as well IGNITE-20324
-        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When connect with auth parameters
         execute("connect");
