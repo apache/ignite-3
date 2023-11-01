@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -28,8 +29,12 @@ import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -45,6 +50,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -58,6 +64,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -68,16 +75,18 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Lazy;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -91,6 +100,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
+
+    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
@@ -134,6 +145,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final PlacementDriver placementDriver;
 
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
+
+    /** Prevents double stopping of the tracker. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /** Busy lock to stop synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
      * The constructor.
@@ -208,7 +225,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, coordinatorId(), null));
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, timestampTracker, txId);
@@ -295,17 +312,32 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitTimestamp()));
     }
 
+    private @Nullable HybridTimestamp getCommitTimestamp(boolean commit) {
+        return commit ? clock.now() : null;
+    }
+
+    private String coordinatorId() {
+        return localNodeId.get();
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, UUID txId) {
+        // If there are no enlisted groups, just update local state - we already marked the tx as finished.
+        updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, getCommitTimestamp(commit)));
+
+        return completedFuture(null);
+    }
+
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
-            ClusterNode recipientNode,
-            Long term,
             boolean commit,
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
         assert enlistedGroups != null;
+        assert !enlistedGroups.isEmpty() : "No enlisted partitions found";
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
         // with using read timestamp could see that this transaction is finishing, see #transactionMetaReadTimestampAware(txId, timestamp).
@@ -313,121 +345,211 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = new TxStateMetaFinishing(localNodeId.get());
+        TxStateMetaFinishing finishingStateMeta = new TxStateMetaFinishing(coordinatorId());
+
         updateTxMeta(txId, old -> finishingStateMeta);
-        HybridTimestamp commitTimestamp = commit ? clock.now() : null;
 
-        // If there are no enlisted groups, just return - we already marked the tx as finished.
-        boolean finishRequestNeeded = !enlistedGroups.isEmpty();
-
-        if (!finishRequestNeeded) {
-            updateTxMeta(txId, old -> {
-                TxStateMeta finalStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
-
-                finishingStateMeta.txFinishFuture().complete(finalStateMeta);
-
-                return finalStateMeta;
-            });
-
-            return completedFuture(null);
-        }
-
-        Function<Void, CompletableFuture<Void>> clo = ignored -> {
-            // In case of commit it's required to check whether current primaries are still the same that were enlisted and whether
-            // given primaries are not expired or, in other words, whether commitTimestamp is less or equal to the enlisted primaries
-            // expiration timestamps.
-            CompletableFuture<Void> verificationFuture =
-                    commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : completedFuture(null);
-
-            return verificationFuture.handle(
-                    (unused, throwable) -> {
-                        Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>(enlistedGroups.keySet());
-
-                        boolean verifiedCommit = throwable == null && commit;
-
-                        TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                                .txId(txId)
-                                .timestampLong(clock.nowLong())
-                                .groupId(commitPartition)
-                                .groups(replicationGroupIds)
-                                // In case of verification future failure transaction will be rolled back.
-                                .commit(verifiedCommit)
-                                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                                .term(term)
-                                .build();
-
-                        return replicaService.invoke(recipientNode, req).thenRun(
-                                () -> {
-                                    updateTxMeta(txId, old -> {
-                                        if (isFinalState(old.txState())) {
-                                            finishingStateMeta.txFinishFuture().complete(old);
-
-                                            return old;
-                                        }
-
-                                        assert old instanceof TxStateMetaFinishing;
-
-                                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(verifiedCommit, commitTimestamp);
-
-                                        finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
-
-                                        return finalTxStateMeta;
-                                    });
-
-                                    if (verifiedCommit) {
-                                        observableTimestampTracker.update(commitTimestamp);
-                                    }
-                                });
-                    })
-                    .thenCompose(Function.identity())
-                    // verification future is added in order to share proper exception with the client
-                    .thenCompose(r -> verificationFuture);
-        };
-
-        AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
+        AtomicBoolean performingFinish = new AtomicBoolean();
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
                 tuple0 = new TxContext(); // No writes enlisted.
             }
 
-            if (tuple0.finishFut == null) {
-                tuple0.finishFut = new CompletableFuture<>();
-                ref.set(tuple0.finishFut);
+            if (!tuple0.isTxFinishing()) {
+                tuple0.finishTx();
+
+                performingFinish.set(true);
             }
 
             return tuple0;
         });
 
-        if (ref.get() != null) { // This is a finishing thread.
-            if (!commit) {
-                clo.apply(null).handle((ignored, err) -> {
-                    if (err == null) {
-                        tuple.finishFut.complete(null);
-                    } else {
-                        tuple.finishFut.completeExceptionally(err);
-                    }
-                    return null;
-                });
-            } else {
+        // This is a finishing thread.
+        if (performingFinish.get()) {
+            Function<Void, CompletableFuture<Void>> finishAction = ignored ->
+                    makeFinishRequest(
+                            observableTimestampTracker,
+                            commitPartition,
+                            commit,
+                            enlistedGroups,
+                            txId,
+                            finishingStateMeta.txFinishFuture()
+                    );
 
-                // All inflights have been completed before the finish.
-                if (tuple.inflights == 0) {
-                    tuple.waitRepFut.complete(null);
-                }
-
-                // Wait for commit acks first, then proceed with the finish request.
-                tuple.waitRepFut.thenCompose(clo).handle((ignored, err) -> {
-                    if (err == null) {
-                        tuple.finishFut.complete(null);
-                    } else {
-                        tuple.finishFut.completeExceptionally(err);
-                    }
-                    return null;
-                });
-            }
+            runFinish(commit, tuple, finishAction);
         }
 
-        return tuple.finishFut;
+        // The method `runFinish` has a side effect on `finishInProgressFuture` future, it kicks off another future that will complete it.
+        return tuple.finishInProgressFuture;
+    }
+
+    private static void runFinish(boolean commit, TxContext tuple, Function<Void, CompletableFuture<Void>> finishAction) {
+        // Wait for commit acks first, then proceed with the finish request.
+        CompletableFuture<Void> finisher = commit ? tuple.waitNoInflights() : completedFuture(null);
+
+        finisher
+                .thenCompose(finishAction)
+                .handle((ignored, err) -> {
+                    if (err == null) {
+                        tuple.finishInProgressFuture.complete(null);
+                    } else {
+                        tuple.finishInProgressFuture.completeExceptionally(err);
+                    }
+                    return null;
+                });
+    }
+
+    private CompletableFuture<Void> makeFinishRequest(
+            HybridTimestampTracker observableTimestampTracker,
+            TablePartitionId commitPartition,
+            boolean commit,
+            Map<TablePartitionId, Long> enlistedGroups,
+            UUID txId,
+            CompletableFuture<TransactionMeta> txFinishFuture
+    ) {
+        HybridTimestamp commitTimestamp = getCommitTimestamp(commit);
+        // In case of commit it's required to check whether current primaries are still the same that were enlisted and whether
+        // given primaries are not expired or, in other words, whether commitTimestamp is less or equal to the enlisted primaries
+        // expiration timestamps.
+        CompletableFuture<Void> verificationFuture =
+                commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : completedFuture(null);
+
+        return verificationFuture.handle(
+                        (unused, throwable) -> {
+                            boolean verifiedCommit = throwable == null && commit;
+
+                            Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>(enlistedGroups.keySet());
+
+                            return makeDurableFinishRequest(
+                                    observableTimestampTracker,
+                                    commitPartition,
+                                    verifiedCommit,
+                                    replicationGroupIds,
+                                    txId,
+                                    commitTimestamp,
+                                    txFinishFuture);
+                        })
+                .thenCompose(Function.identity())
+                // verification future is added in order to share proper exception with the client
+                .thenCompose(r -> verificationFuture);
+    }
+
+    /**
+     * Durable finish request.
+     */
+    private CompletableFuture<Void> makeDurableFinishRequest(
+            HybridTimestampTracker observableTimestampTracker,
+            TablePartitionId commitPartition,
+            boolean commit,
+            Collection<ReplicationGroupId> replicationGroupIds,
+            UUID txId,
+            HybridTimestamp commitTimestamp,
+            CompletableFuture<TransactionMeta> txFinishFuture
+    ) {
+        return inBusyLockAsync(busyLock, () -> findPrimaryReplica(commitPartition, clock.now())
+                .thenCompose(meta ->
+                        finishOnPrimary(
+                                observableTimestampTracker,
+                                commitPartition,
+                                meta.getLeaseholder(),
+                                meta.getStartTime().longValue(),
+                                commit,
+                                replicationGroupIds,
+                                txId,
+                                commitTimestamp,
+                                txFinishFuture
+                        ))
+                .handle((res, ex) -> {
+                    if (ex != null) {
+                        if (ex.getCause() != null && ex.getCause() instanceof TransactionException) {
+                            TransactionException cause = (TransactionException) ex.getCause();
+
+                            if (cause.code() == TX_WAS_ABORTED_ERR) {
+                                updateTxMeta(txId, old -> new TxStateMeta(ABORTED, old.txCoordinatorId(), null));
+
+                                return CompletableFuture.<Void>failedFuture(cause);
+                            }
+                        }
+                        LOG.warn("Failed to finish Tx {}. The operation will be retried.", ex, txId);
+
+                        return makeDurableFinishRequest(
+                                observableTimestampTracker,
+                                commitPartition,
+                                commit,
+                                replicationGroupIds,
+                                txId,
+                                commitTimestamp,
+                                txFinishFuture
+                        );
+                    }
+
+                    return CompletableFuture.<Void>completedFuture(null);
+                })
+                .thenCompose(Function.identity()));
+    }
+
+    private CompletableFuture<Void> finishOnPrimary(
+            HybridTimestampTracker observableTimestampTracker,
+            TablePartitionId commitPartition,
+            String primaryConsistentId,
+            Long term,
+            boolean commit,
+            Collection<ReplicationGroupId> replicationGroupIds,
+            UUID txId,
+            HybridTimestamp commitTimestamp,
+            CompletableFuture<TransactionMeta> txFinishFuture
+    ) {
+        LOG.debug("Finish [partition={}, node={}, term={} commit={}, txId={}, groups={}",
+                commitPartition, primaryConsistentId, term, commit, txId, replicationGroupIds);
+
+        TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
+                .txId(txId)
+                .timestampLong(clock.nowLong())
+                .groupId(commitPartition)
+                .groups(replicationGroupIds)
+                // In case of verification future failure transaction will be rolled back.
+                .commit(commit)
+                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                .term(term)
+                .build();
+
+        return replicaService.invoke(primaryConsistentId, req)
+                .thenRun(() -> {
+                    updateTxMeta(txId, old -> {
+                        if (isFinalState(old.txState())) {
+                            txFinishFuture.complete(old);
+
+                            return old;
+                        }
+
+                        assert old instanceof TxStateMetaFinishing;
+
+                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+
+                        txFinishFuture.complete(finalTxStateMeta);
+
+                        return finalTxStateMeta;
+                    });
+
+                    if (commit) {
+                        observableTimestampTracker.update(commitTimestamp);
+                    }
+                });
+    }
+
+    private CompletableFuture<ReplicaMeta> findPrimaryReplica(TablePartitionId partitionId, HybridTimestamp now) {
+        return placementDriver.awaitPrimaryReplica(partitionId, now, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+                .handle((primaryReplica, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to retrieve primary replica for partition {}", e, partitionId);
+
+                        throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR,
+                                "Failed to get the primary replica"
+                                        + " [tablePartitionId=" + partitionId + ", awaitTimestamp=" + now + ']', e);
+                    }
+
+                    return primaryReplica;
+                });
     }
 
     @Override
@@ -471,6 +593,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void stop() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
     }
 
@@ -534,7 +662,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 tuple = new TxContext();
             }
 
-            if (tuple.finishFut != null) {
+            if (tuple.isTxFinishing()) {
                 res[0] = false;
                 return tuple;
             } else {
@@ -559,9 +687,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return ctx;
         });
 
-        if (tuple.inflights == 0 && tuple.finishFut != null) {
-            tuple.waitRepFut.complete(null); // Avoid completion under lock.
-        }
+        // Avoid completion under lock.
+        tuple.onRemovedInflights();
     }
 
     @Override
@@ -592,8 +719,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param commitTimestamp Commit timestamp.
      * @return Transaction meta.
      */
-    private TxStateMeta coordinatorFinalTxStateMeta(boolean commit, HybridTimestamp commitTimestamp) {
-        return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId.get(), commitTimestamp);
+    private TxStateMeta coordinatorFinalTxStateMeta(boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        return new TxStateMeta(commit ? COMMITED : ABORTED, coordinatorId(), commitTimestamp);
     }
 
     /**
@@ -639,12 +766,36 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private static class TxContext {
         volatile long inflights = 0; // Updated under lock.
-        final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
-        volatile CompletableFuture<Void> finishFut = null;
+        private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
+        volatile CompletableFuture<Void> finishInProgressFuture = null;
+
+        /**
+         * All inflights have been completed before the finish.
+         */
+        CompletableFuture<Void> waitNoInflights() {
+            if (inflights == 0) {
+                waitRepFut.complete(null);
+            }
+            return waitRepFut;
+        }
+
+        void onRemovedInflights() {
+            if (inflights == 0 && finishInProgressFuture != null) {
+                waitRepFut.complete(null);
+            }
+        }
+
+        void finishTx() {
+            finishInProgressFuture = new CompletableFuture<>();
+        }
+
+        boolean isTxFinishing() {
+            return finishInProgressFuture != null;
+        }
 
         @Override
         public String toString() {
-            return "TxContext [inflights=" + inflights + ", waitRepFut=" + waitRepFut + ", finishFut=" + finishFut + ']';
+            return "TxContext [inflights=" + inflights + ", waitRepFut=" + waitRepFut + ", finishFut=" + finishInProgressFuture + ']';
         }
     }
 }

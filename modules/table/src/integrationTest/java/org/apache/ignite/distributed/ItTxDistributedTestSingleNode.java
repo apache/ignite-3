@@ -238,6 +238,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected void injectFailureOnNextOperation(TableImpl accounts) {
         InternalTable internalTable = accounts.internalTable();
         ReplicaService replicaService = IgniteTestUtils.getFieldValue(internalTable, "replicaSvc");
+        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((String) any(), any());
         Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((ClusterNode) any(), any());
     }
 

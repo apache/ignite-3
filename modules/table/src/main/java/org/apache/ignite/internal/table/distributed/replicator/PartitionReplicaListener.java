@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
 import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 
 import java.nio.ByteBuffer;
@@ -233,6 +234,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
+    private final ConcurrentMap<UUID, CompletableFuture<Void>> txDurableFinishFutures = new ConcurrentHashMap<>();
+
     private final ConcurrentMap<UUID, TxCleanupReadyFutureList> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
     /** Cleanup futures. */
@@ -409,6 +412,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         TxMeta newTxMeta = new TxMeta(txState, enlistedPartitions, commitTimestamp, true);
 
         txStateStorage.put(txId, newTxMeta);
+
+        txDurableFinishFutures.compute(txId, (uuid, future) -> {
+            if (future != null) {
+                future.complete(null);
+            }
+
+            return null;
+        });
     }
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
@@ -446,17 +457,19 @@ public class PartitionReplicaListener implements ReplicaListener {
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
         if (request instanceof TxStateCommitPartitionRequest) {
-            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request).thenApply(
-                    res -> new ReplicaResult(res, null));
+            return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request)
+                    .thenApply(res -> new ReplicaResult(res, null));
         }
 
-        return ensureReplicaIsPrimary(request).thenCompose(isPrimary -> processRequest(request, isPrimary, senderId)).thenApply(res -> {
-            if (res instanceof ReplicaResult) {
-                return (ReplicaResult) res;
-            } else {
-                return new ReplicaResult(res, null);
-            }
-        });
+        return ensureReplicaIsPrimary(request)
+                .thenCompose(isPrimary -> processRequest(request, isPrimary, senderId))
+                .thenApply(res -> {
+                    if (res instanceof ReplicaResult) {
+                        return (ReplicaResult) res;
+                    } else {
+                        return new ReplicaResult(res, null);
+                    }
+                });
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
@@ -1437,6 +1450,48 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             String txCoordinatorId
     ) {
+        TxMeta txMeta = txStateStorage.get(txId);
+
+        // Check that a transaction has already been finished.
+        boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
+
+        // Check locksReleased flag. If it is already set, do nothing and return a successful result.
+        // Even if the outcome is different (the transaction was aborted, but we want to commit it),
+        // we return 'success' to be in alignment with common transaction handling.
+        if (transactionAlreadyFinished) {
+            if (txMeta.locksReleased()) {
+                return completedFuture(null);
+            }
+            // If the locks were not released, we are likely to be in a recovery mode and retrying the finish request.
+            // In this case we want to check the expected outcome and the actual one.
+            if (commit && txMeta.txState() == ABORTED) {
+                LOG.error("Failed to commit a transaction {} that is aborted.", txId);
+
+                throw new TransactionException(TX_WAS_ABORTED_ERR,
+                        "Failed to change the outcome of a finished transaction"
+                                + " [txId=" + txId + ", txState=" + txMeta.txState() + "].");
+            }
+            // The transaction has already been finished, but the locks are not released.
+            // Waiting for the cleanup to do this.
+            CompletableFuture<Void> cleanupAwaitFuture = txDurableFinishFutures.compute(txId, (uuid, future) -> {
+                if (future == null) {
+                    // Check the storage again to avoid a race.
+                    TxMeta storedMeta = txStateStorage.get(txId);
+
+                    if (storedMeta != null && storedMeta.locksReleased()) {
+                        return null;
+                    }
+
+                    future = new CompletableFuture<>();
+                }
+
+                return future;
+            });
+            return cleanupAwaitFuture != null ? cleanupAwaitFuture : completedFuture(null);
+        }
+
+        // If the transaction is finished - no need to send finish again, just move on to the cleanup phase.
+        // In this case the locks are still not released.
         CompletableFuture<?> changeStateFuture = finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId);
 
         return cleanup(changeStateFuture, enlistedPartitions, commit, commitTimestamp, txId, ATTEMPTS_TO_CLEANUP_REPLICA)
@@ -1475,24 +1530,13 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             TablePartitionId partitionId,
             int attempts) {
-        HybridTimestamp now = hybridClock.now();
-
-        return findPrimaryReplica(partitionId, now)
+        return findPrimaryReplica(partitionId, hybridClock.now())
                 .thenCompose(leaseHolder ->
-                        cleanupWithRetryOnReplica(commit, commitTimestamp, txId, partitionId, leaseHolder, attempts));
-    }
-
-    private CompletableFuture<Void> cleanupWithRetryOnReplica(
-            boolean commit,
-            @Nullable HybridTimestamp commitTimestamp,
-            UUID txId,
-            TablePartitionId partitionId,
-            String primaryConsistentId,
-            int attempts) {
-        return txManager.cleanup(primaryConsistentId, partitionId, txId, commit, commitTimestamp)
+                        txManager.cleanup(leaseHolder, partitionId, txId, commit, commitTimestamp))
                 .handle((res, ex) -> {
                     if (ex != null) {
-                        LOG.warn("Failed to perform cleanup on Tx {}." + (attempts > 0 ? " The operation will be retried." : ""), txId, ex);
+                        LOG.warn("Failed to perform cleanup on Tx {}." + (attempts > 0 ? " The operation will be retried." : ""),
+                                txId, ex);
 
                         if (attempts > 0) {
                             return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);

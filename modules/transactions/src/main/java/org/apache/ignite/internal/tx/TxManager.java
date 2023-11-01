@@ -27,7 +27,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -116,21 +115,26 @@ public interface TxManager extends IgniteComponent {
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state.
-     * @param recipientNode Recipient node.
-     * @param term Raft term.
-     * @param commit {@code True} if a commit requested.
+     * @param commit {@code true} if a commit requested.
      * @param enlistedGroups Enlisted partition groups with consistency token.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
-            ClusterNode recipientNode,
-            Long term,
             boolean commit,
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     );
+
+
+    /**
+     * Make sure the state of the provided transaction is updated correctly.
+     *
+     * @param commit {@code true} if a commit requested.
+     * @param txId Transaction id.
+     */
+    CompletableFuture<Void> finish(boolean commit, UUID txId);
 
     /**
      * Sends cleanup request to the specified primary replica.
