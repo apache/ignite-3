@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
 import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static org.apache.ignite.internal.tracing.TracingManager.serializeSpan;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.handler.stream.ChunkedInput;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.context.Context;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
@@ -71,12 +67,9 @@ public class NettySender {
      * @return Future of the send operation.
      */
     public CompletableFuture<Void> send(OutNetworkObject obj) {
-        if (Span.current().getSpanContext().isValid()) {
-            var propagator = getPropagators().getTextMapPropagator();
-            Map<String, String> headers = new HashMap<>(capacity(propagator.fields().size()));
+        var headers = serializeSpan();
 
-            propagator.inject(Context.current(), headers, (carrier, key, val) -> carrier.put(key, val));
-
+        if (headers != null) {
             obj = new OutNetworkObject(
                     TraceableMessageImpl.builder().headers(headers).message(obj.networkMessage()).build(),
                     obj.descriptors(),

@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.tracing.TracingManager.restoreSpanContext;
+
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.opentelemetry.api.GlobalOpenTelemetry;
-import io.opentelemetry.context.Context;
-import io.opentelemetry.context.Scope;
-import io.opentelemetry.context.propagation.TextMapGetter;
 import org.apache.ignite.internal.network.message.TraceableMessage;
 
 /**
@@ -31,8 +29,6 @@ import org.apache.ignite.internal.network.message.TraceableMessage;
 public class InboundTraceHandler extends ChannelInboundHandlerAdapter {
     /** Handler name. */
     public static final String NAME = "inbound-trace-handler";
-
-    private static final TextMapGetter<TraceableMessage> GETTER = new TraceableMessageGetter();
 
     /** {@inheritDoc} */
     @Override
@@ -44,23 +40,8 @@ public class InboundTraceHandler extends ChannelInboundHandlerAdapter {
 
         TraceableMessage message = (TraceableMessage) msg;
 
-        Context context = GlobalOpenTelemetry.getPropagators().getTextMapPropagator()
-                .extract(Context.current(), message, GETTER);
-
-        try (Scope ignored = context.makeCurrent()) {
+        try (var ignored = restoreSpanContext(message.headers())) {
             super.channelRead(ctx, message.message());
-        }
-    }
-
-    private static class TraceableMessageGetter implements TextMapGetter<TraceableMessage> {
-        @Override
-        public Iterable<String> keys(TraceableMessage carrier) {
-            return carrier.headers().keySet();
-        }
-
-        @Override
-        public String get(TraceableMessage carrier, String key) {
-            return carrier.headers().get(key);
         }
     }
 }

@@ -32,7 +32,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.internal.tracing.NoopSpan;import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
@@ -148,8 +148,6 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param rpcCtx  The context.
      */
     private void applyRead(Node node, ActionRequest request, RpcContext rpcCtx) {
-        var ctx = Context.current();
-
         if (request.readOnlySafe()) {
             node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
                 @Override public void run(Status status, long index, byte[] reqCtx) {
@@ -171,10 +169,6 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                                     }
 
                                     rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                                }
-
-                                @Override public Context context() {
-                                    return ctx;
                                 }
                             }).iterator());
                         }
@@ -204,10 +198,6 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                             return;
                         }
                         rpcCtx.sendResponse(factory.actionResponse().result(res).build());
-                    }
-
-                    @Override public Context context() {
-                        return ctx;
                     }
                 }).iterator());
             }
@@ -284,14 +274,14 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /** The implementation. */
     private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
         private final T command;
-        private final Context ctx;
+        private final TraceSpan span;
 
         /**
          * @param command The command.
          */
         public CommandClosureImpl(T command) {
             this.command = command;
-            this.ctx = Context.current();
+            this.span = NoopSpan.INSTANCE;
         }
 
         /** {@inheritDoc} */
@@ -299,7 +289,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             return command;
         }
 
-        @Override public Context context() {
-            return ctx;
+        @Override public TraceSpan span() {
+            return span;
         }}
 }

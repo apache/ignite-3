@@ -16,12 +16,14 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec.v1;
 
+import static java.util.Collections.emptyMap;import static java.util.Objects.requireNonNullElse;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
+import java.util.Objects;import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -76,7 +78,7 @@ public final class V1Encoder implements LogEntryEncoder {
             totalLen += nodesListSizeInBytes(oldLearners, oldLearnerStrs);
         }
 
-        var traceHeaders = log.getTraceHeaders();
+        Map<String, String> traceHeaders = requireNonNullElse(log.getTraceHeaders(), emptyMap());
 
         totalLen += sizeInBytes(traceHeaders.size());
         for (Entry<String, String> entry : traceHeaders.entrySet())
@@ -108,7 +110,7 @@ public final class V1Encoder implements LogEntryEncoder {
             pos = writeNodesList(pos, content, oldLearnerStrs);
         }
 
-        pos = writeMap(pos, content, log.getTraceHeaders());
+        pos = writeMap(pos, content, traceHeaders);
 
         if (type != EntryType.ENTRY_TYPE_CONFIGURATION && data != null) {
             System.arraycopy(data.array(), data.position(), content, pos, data.remaining());

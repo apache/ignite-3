@@ -16,8 +16,7 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import io.opentelemetry.context.Context;
-import java.nio.ByteBuffer;
+import java.nio.ByteBuffer;import org.apache.ignite.internal.tracing.TraceSpan;
 
 /**
  * Iterator over a batch of committed tasks.
@@ -65,5 +64,5 @@ public interface Iterator extends java.util.Iterator<ByteBuffer> {
      */
     void setErrorAndRollback(final long ntail, final Status st);
 
-    Context context();
+    TraceSpan span();
 }

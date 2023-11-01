@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static org.apache.ignite.internal.tracing.TracingManager.serializeSpan;import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
@@ -1872,14 +1872,9 @@ public class NodeImpl implements Node, RaftServerService {
         }
         Requires.requireNonNull(task, "Null task");
 
-        var propagator = getPropagators().getTextMapPropagator();
-        Map<String, String> headers = new HashMap<>(capacity(propagator.fields().size()));
-
-        propagator.inject(Context.current(), headers, (carrier, key, val) -> carrier.put(key, val));
-
         final LogEntry entry = new LogEntry();
         entry.setData(task.getData());
-        entry.setTraceHeaders(headers);
+        entry.setTraceHeaders(serializeSpan());
 
         final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
             event.reset();
@@ -2387,8 +2382,7 @@ public class NodeImpl implements Node, RaftServerService {
                     "Invalid log entry that contains zero peers but is ENTRY_TYPE_CONFIGURATION type");
             }
 
-            if (entry.traceHeaders() != null)
-                logEntry.setTraceHeaders(entry.traceHeaders());
+            logEntry.setTraceHeaders(entry.traceHeaders());
             
             return logEntry;
         }
@@ -2437,9 +2431,7 @@ public class NodeImpl implements Node, RaftServerService {
             logEntry.setOldLearners(peers);
         }
 
-        if (entry.traceHeaders() != null) {
-            logEntry.setTraceHeaders(entry.traceHeaders());
-        }
+        logEntry.setTraceHeaders(entry.traceHeaders());
     }
 
     // called when leader receive greater term in AppendEntriesResponse

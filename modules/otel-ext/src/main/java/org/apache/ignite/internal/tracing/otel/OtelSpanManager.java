@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.tracing.otel;
 
+import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
 import static io.opentelemetry.api.GlobalOpenTelemetry.getTracer;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
+import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
@@ -38,6 +43,8 @@ import org.jetbrains.annotations.Nullable;
  */
 @AutoService(SpanManager.class)
 public class OtelSpanManager implements SpanManager {
+    private static final TextMapGetter<Map<String, String>> GETTER = new MapGetter();
+
     public OtelSpanManager() {
         AutoConfiguredOpenTelemetrySdk.initialize();
     }
@@ -102,6 +109,30 @@ public class OtelSpanManager implements SpanManager {
         return Context.taskWrapping(executor);
     }
 
+    @Override
+    public @Nullable Map<String, String> serializeSpan() {
+        if (Span.current().getSpanContext().isValid()) {
+            var propagator = getPropagators().getTextMapPropagator();
+            Map<String, String> headers = new HashMap<>(capacity(propagator.fields().size()));
+
+            propagator.inject(Context.current(), headers, (carrier, key, val) -> carrier.put(key, val));
+
+            return headers;
+        }
+
+        return null;
+    }
+
+    @Override
+    public TraceSpan restoreSpanContext(Map<String, String> headers) {
+        Context ctx = getPropagators().getTextMapPropagator().extract(Context.current(), headers, GETTER);
+
+        var span = Span.fromContext(ctx);
+        var scope = ctx.makeCurrent();
+
+        return new OtelTraceSpan(ctx, scope, span, true);
+    }
+
     /**
      * Returns a {@link Runnable} that makes this the {@linkplain Context#current() current context}
      * and then invokes the input {@link Runnable}.
@@ -112,5 +143,17 @@ public class OtelSpanManager implements SpanManager {
                 runnable.run();
             }
         };
+    }
+
+    private static class MapGetter implements TextMapGetter<Map<String, String>> {
+        @Override
+        public Iterable<String> keys(Map<String, String> carrier) {
+            return carrier.keySet();
+        }
+
+        @Override
+        public String get(Map<String, String> carrier, String key) {
+            return carrier.get(key);
+        }
     }
 }

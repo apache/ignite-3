@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tracing;
 
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -47,5 +48,15 @@ public class NoopSpanManager implements SpanManager {
     @Override
     public Executor taskWrapping(Executor executor) {
         return executor;
+    }
+
+    @Override
+    public @Nullable Map<String, String> serializeSpan() {
+        return null;
+    }
+
+    @Override
+    public TraceSpan restoreSpanContext(Map<String, String> headers) {
+        return NoopSpan.INSTANCE;
     }
 }

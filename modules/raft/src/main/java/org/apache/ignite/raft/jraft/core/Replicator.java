@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Metric;
@@ -841,7 +841,7 @@ public class Replicator implements ThreadId.OnError {
             // should slice entry data
             dateBuffer.add(entry.getData().slice());
         }
-        if (!entry.getTraceHeaders().isEmpty())
+        if (!nullOrEmpty(entry.getTraceHeaders()))
             emb.traceHeaders(entry.getTraceHeaders());
         return true;
     }

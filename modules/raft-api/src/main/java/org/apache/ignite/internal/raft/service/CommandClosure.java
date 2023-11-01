@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.raft.service;
 
-import io.opentelemetry.context.Context;
 import java.io.Serializable;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.tracing.NoopSpan;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,7 +61,7 @@ public interface CommandClosure<R extends Command> {
     /**
      * Returns trace context.
      */
-    default Context context() {
-        return Context.current();
+    default TraceSpan span() {
+        return NoopSpan.INSTANCE;
     }
 }

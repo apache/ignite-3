@@ -16,12 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
+import static org.apache.ignite.internal.tracing.TracingManager.restoreSpanContext;import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import java.nio.ByteBuffer;
 import java.util.Map;
-import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.internal.tracing.NoopSpan;import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -58,14 +58,12 @@ public class IteratorWrapper implements Iterator {
     }
 
     @Override
-    public Context context() {
-        if (this.impl.entry() == null || impl.entry().getTraceHeaders().isEmpty())
-            return Context.current();
+    public TraceSpan span() {
+        if (this.impl.entry() == null || nullOrEmpty(impl.entry().getTraceHeaders())) {
+            return NoopSpan.INSTANCE;
+        }
 
-        var headers = impl.entry().getTraceHeaders();
-
-        return GlobalOpenTelemetry.getPropagators().getTextMapPropagator()
-            .extract(Context.current(), headers, GETTER);
+        return restoreSpanContext(impl.entry().getTraceHeaders());
     }
 
     @Override

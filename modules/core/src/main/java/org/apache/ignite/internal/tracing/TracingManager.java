@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.tracing;
 
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Tracing Manager.
@@ -140,5 +142,13 @@ public class TracingManager {
 
     public static Executor taskWrapping(Executor executor) {
         return SPAN_MANAGER.taskWrapping(executor);
+    }
+
+    public static @Nullable Map<String, String> serializeSpan() {
+        return SPAN_MANAGER.serializeSpan();
+    }
+
+    public static TraceSpan restoreSpanContext(Map<String, String> headers) {
+        return SPAN_MANAGER.restoreSpanContext(headers);
     }
 }
