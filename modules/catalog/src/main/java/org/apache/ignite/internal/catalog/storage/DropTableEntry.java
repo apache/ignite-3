@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -38,13 +36,17 @@ public class DropTableEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
 
+    private final String schemaName;
+
     /**
      * Constructs the object.
      *
      * @param tableId An id of a table to drop.
+     * @param schemaName A schema name.
      */
-    public DropTableEntry(int tableId) {
+    public DropTableEntry(int tableId, String schemaName) {
         this.tableId = tableId;
+        this.schemaName = schemaName;
     }
 
     /** Returns an id of a table to drop. */
@@ -63,20 +65,22 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                List.of(new CatalogSchemaDescriptor(
+                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
                         schema.id(),
                         schema.name(),
                         Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(CatalogTableDescriptor[]::new),
-                        schema.indexes()
-                ))
+                        schema.indexes(),
+                        schema.systemViews(),
+                        causalityToken
+                ), catalog.schemas())
         );
     }
 

@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
@@ -38,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -88,7 +87,7 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
     public void testLiteralTypeMatch(String val) throws Exception {
         String query = format("SELECT {}, DECIMAL '{}'", val, val);
 
-        IgniteRel rel = physicalPlan(query, new IgniteSchema("PUBLIC"));
+        IgniteRel rel = physicalPlan(query, new IgniteSchema(DEFAULT_SCHEMA, 1, List.of()));
 
         RelDataType numericLitType = rel.getRowType().getFieldList().get(0).getType();
         RelDataType decimalLitType = rel.getRowType().getFieldList().get(1).getType();
@@ -151,9 +150,7 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
     })
     public void testParserRejectsInvalidValues(String value) {
         var query = format("SELECT {}", value);
-        var err = assertThrows(SqlException.class, () -> parseQuery(query));
-
-        assertThat(err.getMessage(), containsString("Invalid decimal literal"));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Invalid decimal literal", () -> parseQuery(query));
     }
 
     /**
@@ -170,17 +167,7 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
     public void testParserRejectInvalidForms(String value) {
         var query = format("SELECT {}", value);
 
-        assertThrows(SqlException.class, () -> parseQuery(query));
-    }
-
-    /**
-     * Test case that ensures that {@code DECIMAL} in {@code DECIMAL "1"} is interpreted as an alias to a column named {@code DECIMAL}.
-     */
-    @Test
-    public void testDecimalAsAlias() {
-        SqlNode node = parseQuery("SELECT DECIMAL \"10\"");
-
-        assertEquals("SELECT `DECIMAL` AS `10`", node.toString());
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query:", () -> parseQuery(query));
     }
 
     private static SqlNode parseQuery(String qry) {

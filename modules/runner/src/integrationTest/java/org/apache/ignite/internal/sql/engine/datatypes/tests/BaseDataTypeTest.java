@@ -17,27 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.NavigableSet;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeWrapper;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
-import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.provider.Arguments;
@@ -56,8 +52,8 @@ import org.junit.jupiter.params.provider.Arguments;
  * <ul>
  *     <li>{@code <type>} - an SQL name of a data type.</li>
  *     <li>{@code $N} - the {@code N-th} value from sample values (0-based), converted to an SQL expression by
- *     {@link DataTypeTestSpec#toValueExpr(Comparable)} call (0-based)</li>
- *     <li>{@code $N_lit} - the {@code N-th} value from sample values (0-based) in form of an SQL literal.</li>
+ *     {@link DataTypeTestSpec#toLiteral(Comparable)} or by {@link DataTypeTestSpec#toValueExpr(Comparable)} ,
+ *     if the type has designated literals or if type does have designated literals.</li>
  * </ul>
  *
  * <p>{@link QueryChecker} is automatically checks columns named {@code test_key}
@@ -68,12 +64,9 @@ import org.junit.jupiter.params.provider.Arguments;
  * <p>In order to test non-comparable types (e.g. java arrays) values of those types must be passed as {@link NativeTypeWrapper}.
  * In that case {@code T} must be an implementation of a {@link NativeTypeWrapper} for that type.
  *
- * <p>Helper methods such as {@link #runSql(String, Object...)} and {@link #checkQuery(String)} support those values and unwrap them
- * when it is necessary. See {@link TestQueryProcessor}.
- *
  * @param <T> A storage type of a data type.
  */
-public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterPerClassIntegrationTest {
+public abstract class BaseDataTypeTest<T extends Comparable<T>> extends BaseSqlIntegrationTest {
 
     protected DataTypeTestSpec<T> testTypeSpec;
 
@@ -119,33 +112,28 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
     protected final QueryChecker checkQuery(String query) {
         QueryTemplate queryTemplate = createQueryTemplate(query);
 
-        return new QueryChecker(null, queryTemplate) {
-            @Override
-            protected QueryProcessor getEngine() {
-                return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
-            }
+        IgniteImpl node = (IgniteImpl) CLUSTER.aliveNode();
 
-            @Override
-            protected void checkMetadata(AsyncSqlCursor<?> cursor) {
-                Optional<ColumnMetadata> testKey = cursor.metadata().columns()
-                        .stream()
-                        .filter(c -> "test_key".equalsIgnoreCase(c.name()))
-                        .findAny();
+        return queryCheckerFactory.create(node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
+    }
 
-                testKey.ifPresent((c) -> {
+    private void validateMetadata(ResultSetMetadata metadata) {
+        metadata.columns()
+                .stream()
+                .filter(c -> "test_key".equalsIgnoreCase(c.name()))
+                .findAny()
+                .ifPresent((c) -> {
                     ColumnType columnType = testTypeSpec.columnType();
                     String error = format(
                             "test_key should have type {}. This can happen if a query returned a column ", columnType
                     );
                     assertEquals(c.type(), columnType, error);
                 });
-            }
-        };
     }
 
     /**
      * Use this method instead of {@link #sql(String, Object...)} because it replaces every {@code <type>} with the name of a data
-     * type under test, and {@code $N} with corresponding values, where {@code N} is 1-indexed.
+     * type under test, and {@code $N} with corresponding values, where {@code N} is 0-indexed.
      *
      * @param query A query.
      * @return A {@code QueryChecker}.
@@ -162,12 +150,14 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
      * Creates a query template.
      * <ul>
      *     <li>{@code <type>} are replaced with a value of type name of {@link DataTypeTestSpec}.</li>
-     *     <li>{@code $N_lit} are replaced with corresponding literals, where {@code N} is 1-indexed</li>
-     *     <li>{@code $N} are replaced with corresponding values, where {@code N} is 1-indexed</li>
+     *     <li>{@code $N} are replaced with corresponding values provided by
+     *     {@link DataTypeTestSpec#toValueExpr(Comparable)} or {@link DataTypeTestSpec#toLiteral(Comparable)}
+     *     depending on whether type supports literals or not}. {@code N} is 0-indexed.</li>
      * </ul>
      */
-    protected QueryTemplate createQueryTemplate(String query) {
-        QueryTemplate parameterProvidingTemplate = new ParameterReplacingTemplate<>(testTypeSpec, query, values);
+    private QueryTemplate createQueryTemplate(String query) {
+        boolean useLiterals = testTypeSpec.hasLiterals();
+        QueryTemplate parameterProvidingTemplate = new ParameterReplacingTemplate<>(testTypeSpec, query, values, useLiterals);
         return createQueryTemplate(parameterProvidingTemplate, testTypeSpec.typeName());
     }
 
@@ -194,10 +184,13 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
 
         private final List<T> values;
 
-        ParameterReplacingTemplate(DataTypeTestSpec<T> spec, String query, List<T> values) {
+        private final boolean useLiterals;
+
+        ParameterReplacingTemplate(DataTypeTestSpec<T> spec, String query, List<T> values, boolean useLiterals) {
             this.testTypeSpec = spec;
             this.query = query;
             this.values = values;
+            this.useLiterals = useLiterals;
         }
 
         @Override
@@ -211,13 +204,12 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
 
             for (var i = 0; i < values.size(); i++) {
                 T value = values.get(i);
-
-                if (testTypeSpec.hasLiterals()) {
-                    String literalValue = testTypeSpec.toLiteral(value);
-                    q = q.replace("$" + i + "_lit", literalValue);
+                String placeHolderValue;
+                if (useLiterals) {
+                    placeHolderValue = testTypeSpec.toLiteral(value);
+                } else {
+                    placeHolderValue = testTypeSpec.toValueExpr(value);
                 }
-
-                String placeHolderValue = testTypeSpec.toValueExpr(value);
                 q = q.replace("$" + i, placeHolderValue);
             }
 

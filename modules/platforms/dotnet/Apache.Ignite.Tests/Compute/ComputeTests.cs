@@ -247,9 +247,7 @@ namespace Apache.Ignite.Tests.Compute
         {
             var proxies = GetProxies();
             using var client = await IgniteClient.StartAsync(GetConfig(proxies));
-
-            // ReSharper disable once AccessToDisposedClosure
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == proxies.Count);
+            client.WaitForConnections(proxies.Count);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
@@ -291,10 +289,12 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestExecuteColocatedThrowsWhenKeyColumnIsMissing()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
-                await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple(), Units, EchoJob));
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple { ["VAL"] = "1" }, Units, EchoJob));
 
-            StringAssert.Contains("Missed key column: KEY", ex!.Message);
+            Assert.AreEqual(
+                "Can't map 'IgniteTuple { VAL = 1 }' to columns 'Int64 KEY, String VAL'. Matching fields not found.",
+                ex!.Message);
         }
 
         [Test]
@@ -360,7 +360,7 @@ namespace Apache.Ignite.Tests.Compute
             StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", res2);
 
             // Colocated.
-            var keyTuple = new IgniteTuple { [KeyCol] = 1L };
+            var keyTuple = new IgniteTuple { ["ID"] = 1 };
             var res3 = await client.Compute.ExecuteColocatedAsync<string>(
                 FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob);
 
@@ -391,25 +391,47 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public void TestNullOrEmptyUnitNameThrows([Values(null, "")] string unitName)
+        public void TestNullUnitNameThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new(unitName) };
+            var deploymentUnits = new DeploymentUnit[] { new(null!) };
 
-            var ex = Assert.ThrowsAsync<ArgumentException>(
+            var ex = Assert.ThrowsAsync<ArgumentNullException>(
                 async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
 
-            Assert.AreEqual("Deployment unit name can't be null or empty.", ex!.Message);
+            Assert.AreEqual("Value cannot be null. (Parameter 'unit.Name')", ex!.Message);
         }
 
         [Test]
-        public void TestNullOrEmptyUnitVersionThrows([Values(null, "")] string unitVersion)
+        public void TestEmptyUnitNameThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new("u", unitVersion) };
+            var deploymentUnits = new DeploymentUnit[] { new(string.Empty) };
 
             var ex = Assert.ThrowsAsync<ArgumentException>(
                 async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
 
-            Assert.AreEqual("Deployment unit version can't be null or empty.", ex!.Message);
+            Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Name')", ex!.Message);
+        }
+
+        [Test]
+        public void TestNullUnitVersionThrows()
+        {
+            var deploymentUnits = new DeploymentUnit[] { new("u", null!) };
+
+            var ex = Assert.ThrowsAsync<ArgumentNullException>(
+                async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+
+            Assert.AreEqual("Value cannot be null. (Parameter 'unit.Version')", ex!.Message);
+        }
+
+        [Test]
+        public void TestEmptyUnitVersionThrows()
+        {
+            var deploymentUnits = new DeploymentUnit[] { new("u", string.Empty) };
+
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+
+            Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Version')", ex!.Message);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>

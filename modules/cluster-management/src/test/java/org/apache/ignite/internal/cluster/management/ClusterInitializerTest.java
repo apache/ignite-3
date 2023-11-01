@@ -37,7 +37,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
@@ -56,7 +59,7 @@ import org.mockito.quality.Strictness;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class ClusterInitializerTest {
+public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     @Mock
     private MessagingService messagingService;
 
@@ -72,7 +75,11 @@ public class ClusterInitializerTest {
         when(clusterService.messagingService()).thenReturn(messagingService);
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        clusterInitializer = new ClusterInitializer(clusterService);
+        clusterInitializer = new ClusterInitializer(
+                clusterService,
+                hocon -> hocon,
+                new TestConfigurationValidator()
+        );
     }
 
     /**
@@ -80,8 +87,8 @@ public class ClusterInitializerTest {
      */
     @Test
     void testNormalInit() {
-        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -108,8 +115,8 @@ public class ClusterInitializerTest {
      */
     @Test
     void testNormalInitSingleNodeList() {
-        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -135,8 +142,8 @@ public class ClusterInitializerTest {
      */
     @Test
     void testInitCancel() {
-        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
@@ -171,8 +178,8 @@ public class ClusterInitializerTest {
      */
     @Test
     void testInitNoCancel() {
-        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
-        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+        ClusterNode metastorageNode = new ClusterNodeImpl("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNodeImpl("cmg", "cmg", new NetworkAddress("bar", 456));
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);

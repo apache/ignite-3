@@ -88,6 +88,7 @@ public enum PlannerPhase {
     HEP_FILTER_PUSH_DOWN(
             "Heuristic phase to push down filters",
             FilterScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
+            FilterScanMergeRule.SYSTEM_VIEW_SCAN_SKIP_CORRELATED,
 
             CoreRules.FILTER_MERGE,
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
@@ -106,6 +107,7 @@ public enum PlannerPhase {
     HEP_PROJECT_PUSH_DOWN(
             "Heuristic phase to push down and merge projects",
             ProjectScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
+            ProjectScanMergeRule.SYSTEM_VIEW_SCAN_SKIP_CORRELATED,
 
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             CoreRules.PROJECT_MERGE,
@@ -123,9 +125,6 @@ public enum PlannerPhase {
             "Main optimization phase",
             FilterMergeRule.Config.DEFAULT
                     .withOperandFor(LogicalFilter.class).toRule(),
-
-            JoinPushThroughJoinRule.Config.LEFT
-                    .withOperandFor(LogicalJoin.class).toRule(),
 
             JoinPushThroughJoinRule.Config.RIGHT
                     .withOperandFor(LogicalJoin.class).toRule(),
@@ -181,6 +180,9 @@ public enum PlannerPhase {
             CoreRules.AGGREGATE_REMOVE,
             CoreRules.JOIN_COMMUTE_OUTER,
 
+            PruneEmptyRules.CORRELATE_LEFT_INSTANCE,
+            PruneEmptyRules.CORRELATE_RIGHT_INSTANCE,
+
             // Useful of this rule is not clear now.
             // CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
 
@@ -192,10 +194,12 @@ public enum PlannerPhase {
             ExposeIndexRule.INSTANCE,
             ProjectScanMergeRule.TABLE_SCAN,
             ProjectScanMergeRule.INDEX_SCAN,
+            ProjectScanMergeRule.SYSTEM_VIEW_SCAN,
             FilterSpoolMergeToSortedIndexSpoolRule.INSTANCE,
             FilterSpoolMergeToHashIndexSpoolRule.INSTANCE,
             FilterScanMergeRule.TABLE_SCAN,
             FilterScanMergeRule.INDEX_SCAN,
+            FilterScanMergeRule.SYSTEM_VIEW_SCAN,
 
             LogicalOrToUnionRule.INSTANCE,
 
@@ -208,6 +212,7 @@ public enum PlannerPhase {
             ValuesConverterRule.INSTANCE,
             LogicalScanConverterRule.INDEX_SCAN,
             LogicalScanConverterRule.TABLE_SCAN,
+            LogicalScanConverterRule.SYSTEM_VIEW_SCAN,
             HashAggregateConverterRule.COLOCATED,
             HashAggregateConverterRule.MAP_REDUCE,
             SortAggregateConverterRule.COLOCATED,

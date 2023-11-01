@@ -34,6 +34,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -45,7 +47,6 @@ import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
@@ -96,6 +97,8 @@ public class ConnectionManager implements ChannelCreationListener {
 
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
+
+    private final AtomicBoolean stopping = new AtomicBoolean(false);
 
     /** Stop flag. */
     private final AtomicBoolean stopped = new AtomicBoolean(false);
@@ -234,13 +237,17 @@ public class ConnectionManager implements ChannelCreationListener {
             }
         }
 
-        // Get an existing client or create a new one. NettyClient provides a CompletableFuture that resolves
+        // Get an existing client or create a new one. NettyClient provides a future that resolves
         // when the client is ready for write operations, so previously started client, that didn't establish connection
         // or didn't perform the handshake operation, can be reused.
-        NettyClient client = clients.compute(
+        @Nullable NettyClient client = clients.compute(
                 new ConnectorKey<>(address, type),
                 (key, existingClient) -> isClientConnected(existingClient) ? existingClient : connect(key.id(), key.type())
         );
+
+        if (client == null) {
+            return OrderingFuture.failedFuture(new NodeStoppingException("No outgoing connections are allowed as the node is stopping"));
+        }
 
         return client.sender();
     }
@@ -268,16 +275,23 @@ public class ConnectionManager implements ChannelCreationListener {
         ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannel(channel.channelId()));
         NettySender oldChannel = channels.put(key, channel);
 
-        assert oldChannel == null : "Incorrect channel creation flow";
+        // Old channel can still be in the map, but it must be closed already by the tie breaker in the
+        // handshake manager.
+        assert oldChannel == null || !oldChannel.isOpen() : "Incorrect channel creation flow";
     }
 
     /**
      * Create new client from this node to specified address.
      *
      * @param address Target address.
-     * @return New netty client.
+     * @return New netty client or {@code null} if we are stopping.
      */
+    @Nullable
     private NettyClient connect(InetSocketAddress address, ChannelType channelType) {
+        if (stopping.get()) {
+            return null;
+        }
+
         var client = new NettyClient(
                 address,
                 serializationService,
@@ -341,7 +355,15 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
         if (clientHandshakeManagerFactory == null) {
-            return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, descriptorProvider, staleIdDetector, this);
+            return new RecoveryClientHandshakeManager(
+                    launchId,
+                    consistentId,
+                    connectionId,
+                    descriptorProvider,
+                    staleIdDetector,
+                    this,
+                    stopping
+            );
         }
 
         return clientHandshakeManagerFactory.create(
@@ -353,7 +375,15 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private HandshakeManager createServerHandshakeManager() {
-        return new RecoveryServerHandshakeManager(launchId, consistentId, FACTORY, descriptorProvider, staleIdDetector, this);
+        return new RecoveryServerHandshakeManager(
+                launchId,
+                consistentId,
+                FACTORY,
+                descriptorProvider,
+                staleIdDetector,
+                this,
+                stopping
+        );
     }
 
     /**
@@ -398,5 +428,13 @@ public class ConnectionManager implements ChannelCreationListener {
     @TestOnly
     public Map<ConnectorKey<String>, NettySender> channels() {
         return Map.copyOf(channels);
+    }
+
+    /**
+     * Marks this connection manager as being stopped. In this state, it does not make any new connections, does not accept any connections
+     * and does not consider handshake rejections as critical events.
+     */
+    public void initiateStopping() {
+        stopping.set(true);
     }
 }

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,20 +29,21 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
+import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.network.ClusterNode;
 
-/**
- * Task of building a table index.
- */
+/** Task of building a table index. */
 class IndexBuildTask {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildTask.class);
 
@@ -53,13 +55,19 @@ class IndexBuildTask {
 
     private final MvPartitionStorage partitionStorage;
 
-    private final RaftGroupService raftClient;
+    private final ReplicaService replicaService;
 
     private final ExecutorService executor;
 
     private final IgniteSpinBusyLock busyLock;
 
     private final int batchSize;
+
+    private final ClusterNode node;
+
+    private final List<IndexBuildCompletionListener> listeners;
+
+    private final long enlistmentConsistencyToken;
 
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
@@ -71,23 +79,28 @@ class IndexBuildTask {
             IndexBuildTaskId taskId,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
-            RaftGroupService raftClient,
+            ReplicaService replicaService,
             ExecutorService executor,
             IgniteSpinBusyLock busyLock,
-            int batchSize
+            int batchSize,
+            ClusterNode node,
+            List<IndexBuildCompletionListener> listeners,
+            long enlistmentConsistencyToken
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
         this.partitionStorage = partitionStorage;
-        this.raftClient = raftClient;
+        this.replicaService = replicaService;
         this.executor = executor;
         this.busyLock = busyLock;
         this.batchSize = batchSize;
+        this.node = node;
+        // We do not intentionally make a copy of the list, we want to see changes in the passed list.
+        this.listeners = listeners;
+        this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }
 
-    /**
-     * Starts building the index.
-     */
+    /** Starts building the index. */
     void start() {
         if (!enterBusy()) {
             taskFuture.complete(null);
@@ -95,16 +108,18 @@ class IndexBuildTask {
             return;
         }
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Start building the index: [{}]", createCommonIndexInfo());
-        }
+        LOG.info("Start building the index: [{}]", createCommonIndexInfo());
 
         try {
             supplyAsync(this::handleNextBatch, executor)
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            if (unwrapCause(throwable) instanceof PrimaryReplicaMissException) {
+                                LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            } else {
+                                LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
+                            }
 
                             taskFuture.completeExceptionally(throwable);
                         } else {
@@ -120,9 +135,7 @@ class IndexBuildTask {
         }
     }
 
-    /**
-     * Stops index building.
-     */
+    /** Stops index building. */
     void stop() {
         if (!taskStopGuard.compareAndSet(false, true)) {
             return;
@@ -131,9 +144,7 @@ class IndexBuildTask {
         taskBusyLock.block();
     }
 
-    /**
-     * Returns the index build future.
-     */
+    /** Returns the index build future. */
     CompletableFuture<Void> getTaskFuture() {
         return taskFuture;
     }
@@ -146,10 +157,16 @@ class IndexBuildTask {
         try {
             List<RowId> batchRowIds = createBatchRowIds();
 
-            return raftClient.run(createBuildIndexCommand(batchRowIds))
+            return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds))
                     .thenComposeAsync(unused -> {
                         if (indexStorage.getNextRowIdToBuild() == null) {
                             // Index has been built.
+                            LOG.info("Index build completed: [{}]", createCommonIndexInfo());
+
+                            for (IndexBuildCompletionListener listener : listeners) {
+                                listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
+                            }
+
                             return completedFuture(null);
                         }
 
@@ -182,18 +199,15 @@ class IndexBuildTask {
         return batch;
     }
 
-    private BuildIndexCommand createBuildIndexCommand(List<RowId> rowIds) {
+    private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds) {
         boolean finish = rowIds.size() < batchSize;
 
-        return TABLE_MESSAGES_FACTORY.buildIndexCommand()
-                .tablePartitionId(TABLE_MESSAGES_FACTORY.tablePartitionIdMessage()
-                        .tableId(taskId.getTableId())
-                        .partitionId(taskId.getPartitionId())
-                        .build()
-                )
+        return TABLE_MESSAGES_FACTORY.buildIndexReplicaRequest()
+                .groupId(new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()))
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)
+                .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .build();
     }
 

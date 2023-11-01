@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -26,18 +26,20 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableManager;
 
-
 /**
  * Implementation of {@link ExecutableTableRegistry}.
  */
-public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, SchemaUpdateListener {
+public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final TableManager tableManager;
+
+    private final SqlSchemaManager sqlSchemaManager;
 
     private final SchemaManager schemaManager;
 
@@ -45,58 +47,53 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     private final HybridClock clock;
 
-    final ConcurrentMap<Integer, CompletableFuture<ExecutableTable>> tableCache;
+    /** Executable tables cache. */
+    final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
-    public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager,
+    public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager, SqlSchemaManager sqlSchemaManager,
             ReplicaService replicaService, HybridClock clock, int cacheSize) {
 
+        this.sqlSchemaManager = sqlSchemaManager;
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.replicaService = replicaService;
         this.clock = clock;
         this.tableCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
-                .<Integer, ExecutableTable>buildAsync().asMap();
+                .<CacheKey, ExecutableTable>buildAsync().asMap();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(tableId, (k) -> loadTable(k, tableDescriptor));
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId) {
+        IgniteTable sqlTable = sqlSchemaManager.table(schemaVersion, tableId);
+
+        return tableCache.computeIfAbsent(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void onSchemaUpdated() {
-        tableCache.clear();
-    }
+    private CompletableFuture<ExecutableTable> loadTable(IgniteTable sqlTable) {
+        return tableManager.tableAsync(sqlTable.id())
+                .thenApply((table) -> {
+                    TableDescriptor tableDescriptor = sqlTable.descriptor();
 
-    private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
+                    SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
+                    TableRowConverterFactory converterFactory = requiredColumns -> new TableRowConverterImpl(
+                            schemaRegistry, schemaDescriptor, tableDescriptor, requiredColumns
+                    );
 
-        CompletableFuture<Map.Entry<InternalTable, SchemaRegistry>> f = tableManager.tableAsync(tableId)
-                .thenApply(table -> {
                     InternalTable internalTable = table.internalTable();
-                    SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
-                    return Map.entry(internalTable, schemaRegistry);
+                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory);
+
+                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(sqlTable.id(), tableDescriptor, internalTable.partitions(),
+                            replicaService, clock, converterFactory.create(null), schemaDescriptor);
+
+                    return new ExecutableTableImpl(scannableTable, updatableTable);
                 });
-
-        return f.thenApply((table) -> {
-            SchemaRegistry schemaRegistry = table.getValue();
-            SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
-            TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
-            InternalTable internalTable = table.getKey();
-            ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
-
-            UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
-                    replicaService, clock, rowConverter, schemaDescriptor);
-
-            return new ExecutableTableImpl(scannableTable, updatableTable);
-        });
     }
 
     private static final class ExecutableTableImpl implements ExecutableTable {
-
         private final ScannableTable scannableTable;
 
         private final UpdatableTable updatableTable;
@@ -116,6 +113,43 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         @Override
         public UpdatableTable updatableTable() {
             return updatableTable;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public TableDescriptor tableDescriptor() {
+            return updatableTable.descriptor();
+        }
+    }
+
+    private static CacheKey cacheKey(int tableId, int version) {
+        return new CacheKey(tableId, version);
+    }
+
+    private static class CacheKey {
+        private final int tableId;
+        private final int tableVersion;
+
+        CacheKey(int tableId, int tableVersion) {
+            this.tableId = tableId;
+            this.tableVersion = tableVersion;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CacheKey cacheKey = (CacheKey) o;
+            return tableVersion == cacheKey.tableVersion && tableId == cacheKey.tableId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tableVersion, tableId);
         }
     }
 }

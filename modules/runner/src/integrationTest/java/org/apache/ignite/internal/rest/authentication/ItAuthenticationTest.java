@@ -22,8 +22,8 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.rest.RestNode;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -52,7 +53,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for the REST authentication configuration. */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItAuthenticationTest {
+public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
     /** HTTP client that is expected to be defined in subclasses. */
     private HttpClient client;
@@ -85,10 +86,10 @@ public class ItAuthenticationTest {
     }
 
     @Test
-    public void disabledAuthentication(TestInfo testInfo) {
+    public void disabledAuthentication(TestInfo testInfo) throws IOException, InterruptedException {
         RestNode metaStorageNode = nodes.get(0);
 
-        // when
+        // When.
         String initClusterBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
                 + "        \"" + metaStorageNode.name() + "\"\n"
@@ -99,15 +100,15 @@ public class ItAuthenticationTest {
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
 
-        // then
+        // Then.
         for (RestNode node : nodes) {
             assertTrue(isRestAvailable(node.httpAddress(), "", ""));
         }
     }
 
     @Test
-    public void changeCredentials(TestInfo testInfo) throws InterruptedException {
-        // when
+    public void defaultUser(TestInfo testInfo) throws InterruptedException, IOException {
+        // When.
         RestNode metaStorageNode = nodes.get(0);
 
         String initClusterBody = "{\n"
@@ -117,14 +118,46 @@ public class ItAuthenticationTest {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.authentication.enabled:true, "
-                + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]}\"\n"
+                + "         security.enabled:true"
+                + "     }\"\n"
                 + "  }";
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
 
-        // then
-        // authentication is enabled
+        // Then.
+        // Authentication is enabled.
+        for (RestNode node : nodes) {
+            assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
+                    Duration.ofSeconds(5).toMillis()));
+        }
+
+        // REST is available with valid credentials
+        for (RestNode node : nodes) {
+            assertTrue(isRestAvailable(node.httpAddress(), "ignite", "ignite"));
+        }
+    }
+
+    @Test
+    public void changeCredentials(TestInfo testInfo) throws InterruptedException, IOException {
+        // When.
+        RestNode metaStorageNode = nodes.get(0);
+
+        String initClusterBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + metaStorageNode.name() + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"clusterConfiguration\": \"{"
+                + "         security.enabled:true, "
+                + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]"
+                + "     }\"\n"
+                + "  }";
+
+        initCluster(metaStorageNode.httpAddress(), initClusterBody);
+
+        // Then.
+        // Authentication is enabled.
         for (RestNode node : nodes) {
             assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
                     Duration.ofSeconds(5).toMillis()));
@@ -140,11 +173,11 @@ public class ItAuthenticationTest {
             assertFalse(isRestAvailable(node.httpAddress(), "admin", "wrong-password"));
         }
 
-        // change password
+        // Change credentials.
         String updateRestAuthConfigBody = "{\n"
                 + "    \"security\": {\n"
+                + "        \"enabled\": true,\n"
                 + "        \"authentication\": {\n"
-                + "            \"enabled\": true,\n"
                 + "            \"providers\": [\n"
                 + "                {\n"
                 + "                    \"name\": \"basic\",\n"
@@ -172,8 +205,8 @@ public class ItAuthenticationTest {
     }
 
     @Test
-    public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws InterruptedException {
-        // when
+    public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws InterruptedException, IOException {
+        // When.
         RestNode metaStorageNode = nodes.get(0);
 
         String initClusterBody = "{\n"
@@ -183,14 +216,14 @@ public class ItAuthenticationTest {
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
                 + "    \"clusterConfiguration\": \"{"
-                + "         security.authentication.enabled:true, "
+                + "         security.enabled:true, "
                 + "         security.authentication.providers:[{name:basic,password:password,type:basic,username:admin}]}\"\n"
                 + "  }";
 
         initCluster(metaStorageNode.httpAddress(), initClusterBody);
 
-        // then
-        // authentication is enabled
+        // Then.
+        // Authentication is enabled.
         for (RestNode node : nodes) {
             assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
                     Duration.ofSeconds(5).toMillis()));
@@ -206,7 +239,7 @@ public class ItAuthenticationTest {
             assertFalse(isRestAvailable(node.httpAddress(), "admin", "wrong-password"));
         }
 
-        // restart one of the nodes
+        // Restart a node.
         RestNode nodeToRestart = nodes.get(2);
         nodeToRestart.restart();
         waitForAllNodesStarted(Collections.singletonList(nodeToRestart));
@@ -222,15 +255,15 @@ public class ItAuthenticationTest {
         }
     }
 
-    private void initCluster(String baseUrl, String initClusterBody) {
+    private void initCluster(String baseUrl, String initClusterBody) throws IOException, InterruptedException {
         URI clusterInitUri = URI.create(baseUrl + "/management/v1/cluster/init");
         HttpRequest initRequest = HttpRequest.newBuilder(clusterInitUri)
                 .header("content-type", "application/json")
                 .POST(BodyPublishers.ofString(initClusterBody))
                 .build();
 
-        HttpResponse<String> response = sendRequest(client, initRequest);
-        assertThat(response.statusCode(), is(200));
+        assertThat(sendRequest(client, initRequest), hasStatusCode(200));
+
         waitForAllNodesStarted(nodes);
     }
 
@@ -242,8 +275,7 @@ public class ItAuthenticationTest {
                 .method("PATCH", BodyPublishers.ofString(configToApply))
                 .build();
 
-        HttpResponse<String> updateClusterConfigResponse = sendRequest(client, updateClusterConfigRequest);
-        assertThat(updateClusterConfigResponse.statusCode(), is(200));
+        assertThat(sendRequest(client, updateClusterConfigRequest), hasStatusCode(200));
     }
 
     private boolean isRestNotAvailable(String baseUrl, String username, String password) {
@@ -255,13 +287,14 @@ public class ItAuthenticationTest {
         HttpRequest clusterConfigRequest = HttpRequest.newBuilder(clusterConfigUri)
                 .header("Authorization", basicAuthenticationHeader(username, password))
                 .build();
-        int code = sendRequest(client, clusterConfigRequest).statusCode();
+        HttpResponse<String> response = sendRequest(client, clusterConfigRequest);
+        int code = response.statusCode();
         if (code == 200) {
             return true;
         } else if (code == 401) {
             return false;
         } else {
-            throw new IllegalStateException("Unexpected response code: " + code);
+            throw new IllegalStateException("Unexpected response code: " + code +  ", body: " + response.body());
         }
     }
 

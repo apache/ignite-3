@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -122,19 +118,6 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
     }
 
     /**
-     * {@code COALESCE} operator does not allow different types in its arguments.
-     */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testCoalesceMissingTypesIsIllegal(TestTypeArguments arguments) {
-        IgniteException t = assertThrows(IgniteException.class, () -> {
-            checkQuery(format("SELECT COALESCE($0, {})", arguments.valueExpr(0))).check();
-        });
-
-        assertThat(t.getMessage(), containsString("Illegal mixing of types in CASE or COALESCE statement"));
-    }
-
-    /**
      * {@code NULLIF} operator.
      */
     @Test
@@ -214,18 +197,6 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
                 .returns(value2)
                 .returns(value3)
                 .check();
-    }
-
-    /** Data type from string. **/
-    @Test
-    public void testCastFromString() {
-        T value = dataSamples.values().get(0);
-        String stringValue = testTypeSpec.toStringValue(value);
-
-        checkQuery(format("SELECT CAST('{}' AS <type>)", stringValue)).returns(value).check();
-
-        // PG style cast
-        checkQuery(format("SELECT '{}'::<type>", stringValue)).returns(value).check();
     }
 
     /**

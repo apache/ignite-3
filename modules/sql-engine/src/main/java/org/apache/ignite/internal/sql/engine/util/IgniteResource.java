@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import org.apache.calcite.runtime.Resources;
+import org.apache.calcite.runtime.Resources.ExInst;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 
 /**
@@ -26,25 +27,28 @@ import org.apache.calcite.sql.validate.SqlValidatorException;
 public interface IgniteResource {
     IgniteResource INSTANCE = Resources.create(IgniteResource.class);
 
-    @Resources.BaseMessage("Illegal alias. {0} is reserved name.")
+    @Resources.BaseMessage("Illegal alias. {0} is reserved name")
     Resources.ExInst<SqlValidatorException> illegalAlias(String a0);
 
-    @Resources.BaseMessage("Cannot update field \"{0}\". You cannot update key, key fields or val field in case the val is a complex type.")
+    @Resources.BaseMessage("Cannot update field \"{0}\". Primary key columns are not modifiable")
     Resources.ExInst<SqlValidatorException> cannotUpdateField(String field);
 
-    @Resources.BaseMessage("Illegal aggregate function. {0} is unsupported at the moment.")
+    @Resources.BaseMessage("Illegal aggregate function. {0} is unsupported at the moment")
     Resources.ExInst<SqlValidatorException> unsupportedAggregationFunction(String a0);
 
-    @Resources.BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ").")
+    @Resources.BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ")")
     Resources.ExInst<SqlValidatorException> correctIntegerLimit(String a0);
 
-    @Resources.BaseMessage("Invalid decimal literal.")
+    @Resources.BaseMessage("Invalid decimal literal")
     Resources.ExInst<SqlValidatorException> decimalLiteralInvalid();
 
     @Resources.BaseMessage
-            ("Values passed to {0} operator must have compatible types. Dynamic parameter requires adding explicit type cast.")
+            ("Values passed to {0} operator must have compatible types. Dynamic parameter requires adding explicit type cast")
     Resources.ExInst<SqlValidatorException> operationRequiresExplicitCast(String operation);
 
-    @Resources.BaseMessage("Assignment from {0} to {1} can not be performed. Dynamic parameter requires adding explicit type cast.")
+    @Resources.BaseMessage("Assignment from {0} to {1} can not be performed. Dynamic parameter requires adding explicit type cast")
     Resources.ExInst<SqlValidatorException> assignmentRequiresExplicitCast(String type1, String type2);
+
+    @Resources.BaseMessage("System view {0} is not modifiable")
+    ExInst<SqlValidatorException> systemViewIsNotModifiable(String systemViewName);
 }

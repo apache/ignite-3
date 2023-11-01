@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NetworkConfigurationException;
 import org.apache.ignite.network.NetworkMessage;
@@ -29,7 +30,7 @@ import org.junit.jupiter.api.Test;
 /**
  * {@link MessageSerializationRegistryImpl} tests.
  */
-public class MessageSerializationRegistryImplTest {
+public class MessageSerializationRegistryImplTest extends BaseIgniteAbstractTest {
     /** Default registry implementation. */
     private final MessageSerializationRegistry registry = new MessageSerializationRegistryImpl();
 

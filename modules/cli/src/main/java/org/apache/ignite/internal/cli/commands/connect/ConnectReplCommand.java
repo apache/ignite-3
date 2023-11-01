@@ -21,12 +21,14 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OR_NAME_DESC;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.jetbrains.annotations.Nullable;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
@@ -40,8 +42,11 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     @Parameters(description = NODE_URL_OR_NAME_DESC, descriptionKey = CLUSTER_URL_KEY)
     private NodeNameOrUrl nodeNameOrUrl;
 
+    @ArgGroup(exclusive = false)
+    private ConnectOptions connectOptions;
+
     @Inject
-    private ConnectSslCall connectCall;
+    private ConnectWizardCall connectCall;
 
     @Inject
     private ConnectToClusterQuestion question;
@@ -50,10 +55,29 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         question.askQuestionIfConnected(nodeNameOrUrl.stringUrl())
-                .map(UrlCallInput::new)
+                .map(this::connectCallInput)
                 .then(Flows.fromCall(connectCall))
+                .onSuccess(() -> question.askQuestionToStoreCredentials(username(connectOptions), password(connectOptions)))
                 .verbose(verbose)
                 .print()
                 .start();
+    }
+
+    @Nullable
+    private String username(ConnectOptions connectOptions) {
+        return connectOptions != null ? connectOptions.username() : null;
+    }
+
+    @Nullable
+    private String password(ConnectOptions connectOptions) {
+        return connectOptions != null ? connectOptions.password() : null;
+    }
+
+    private ConnectCallInput connectCallInput(String nodeUrl) {
+        return ConnectCallInput.builder()
+                .url(nodeUrl)
+                .username(username(connectOptions))
+                .password(password(connectOptions))
+                .build();
     }
 }

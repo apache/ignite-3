@@ -28,38 +28,31 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Various DML tests.
  */
-public class ItDmlTest extends ClusterPerClassIntegrationTest {
+public class ItDmlTest extends BaseSqlIntegrationTest {
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 3;
     }
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void dropTables() {
         dropAllTables();
-
-        super.tearDownBase(testInfo);
     }
 
     @Test
@@ -73,7 +66,12 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(1)
                 .check();
 
-        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
+        {
+            assertThrowsSqlException(
+                    Sql.CONSTRAINT_VIOLATION_ERR,
+                    "PK unique constraint is violated",
+                    () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));
+        }
 
         assertQuery("DELETE FROM my WHERE id=?")
                 .withParams(0)
@@ -89,7 +87,12 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(2)
                 .check();
 
-        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
+        {
+            assertThrowsSqlException(
+                    Sql.CONSTRAINT_VIOLATION_ERR,
+                    "PK unique constraint is violated",
+                    () -> sql("INSERT INTO my VALUES (?, ?)", 0, 3));
+        }
     }
 
     @Test
@@ -116,9 +119,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .check();
 
         assertThrowsSqlException(
-                Sql.DUPLICATE_KEYS_ERR,
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
+
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(1L)
@@ -136,7 +141,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         log.info("Data was loaded.");
 
-        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
         sql(tx, "SELECT * FROM test WHERE val <= 1 ORDER BY val");
 
@@ -164,13 +169,25 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .collect(Collectors.joining("), (", "(", ")"));
 
         assertThrowsSqlException(
-                Sql.DUPLICATE_KEYS_ERR,
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
                 () -> sql(insertStatement)
         );
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(0L)
                 .check();
+    }
+
+    @Test
+    public void testNullDefault() {
+        sql("CREATE TABLE test_null_def (id INTEGER PRIMARY KEY, col INTEGER DEFAULT NULL)");
+
+        sql("INSERT INTO test_null_def VALUES(1, DEFAULT)");
+        assertQuery("SELECT col FROM test_null_def WHERE id = 1").returns(null).check();
+
+        sql("INSERT INTO test_null_def (id, col) VALUES(2, DEFAULT)");
+        assertQuery("SELECT col FROM test_null_def WHERE id = 2").returns(null).check();
     }
 
     /**Test full MERGE command. */
@@ -330,12 +347,16 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 0, 0, "0").check();
 
         // Target table alias duplicate source table name.
-        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e "
-                + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Duplicate relation name",
+                () -> sql("MERGE INTO test2 test1 USING test1 ON c = e WHEN MATCHED THEN UPDATE SET d = b + 1"));
 
         // Source table alias duplicate target table name.
-        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e "
-                + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Duplicate relation name",
+                () -> sql("MERGE INTO test2 USING test1 test2 ON c = e WHEN MATCHED THEN UPDATE SET d = b + 1"));
 
         // Without aliases, reference columns by table name.
         sql("MERGE INTO test2 USING test1 ON test1.a = test2.a "
@@ -344,17 +365,21 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 1, 0, "0").check();
 
         // Ambiguous column name in condition.
-        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a "
-                + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1"), "Column 'A' is ambiguous");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Column 'A' is ambiguous",
+                () -> sql("MERGE INTO test2 USING test1 ON a = test1.a WHEN MATCHED THEN UPDATE SET a = test1.a + 1"));
 
         // Ambiguous column name in update statement.
-        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e "
-                + "WHEN MATCHED THEN UPDATE SET a = a + 1"), "Column 'A' is ambiguous");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Column 'A' is ambiguous",
+                () -> sql("MERGE INTO test2 USING test1 ON c = e WHEN MATCHED THEN UPDATE SET a = a + 1"));
 
         // With aliases, reference columns by table alias.
         sql("MERGE INTO test2 test1 USING test1 test2 ON test1.d = test2.b "
                 + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1 "
-                + "WHEN NOT MATCHED THEN INSERT (a, d, e) VALUES (test2.a, test2.b, test2.c)");
+                + "WHEN NOT MATCHED THEN INSERT (k, a, d, e) VALUES (test2.k, test2.a, test2.b, test2.c)");
 
         assertQuery("SELECT * FROM test2").returns(1, 2, 0, "0").check();
     }
@@ -371,10 +396,13 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
-        assertThrowsSqlException(Sql.DUPLICATE_KEYS_ERR, () -> sql(
-                "MERGE INTO test2 USING test1 ON test1.a = test2.a "
-                        + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
-                        + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
+                () -> sql(
+                        "MERGE INTO test2 USING test1 ON test1.a = test2.a "
+                                + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
+                                + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
     }
 
     /**
@@ -385,14 +413,14 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void scanExecutedWithinGivenTransaction() {
         sql("CREATE TABLE test (id int primary key, val int)");
 
-        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
         sql(tx, "INSERT INTO test VALUES (0, 0)");
 
         // just inserted row should be visible within the same transaction
         assertEquals(1, sql(tx, "select * from test").size());
 
-        Transaction anotherTx = CLUSTER_NODES.get(0).transactions().begin();
+        Transaction anotherTx = CLUSTER.aliveNode().transactions().begin();
 
         // just inserted row should not be visible until related transaction is committed
         assertEquals(0, sql(anotherTx, "select * from test").size());
@@ -422,9 +450,8 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertEquals(3, pkVals.size());
     }
 
-    @Test
-    public void testInsertDefaultValue() {
-        var args = List.of(
+    private static Stream<DefaultValueArg> defaultValueArgs() {
+        return Stream.of(
                 new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
                 new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
 
@@ -458,8 +485,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 // TODO: IGNITE-17374
                 // new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
+    }
 
-        checkDefaultValue(args);
+    @Test
+    public void testInsertDefaultValue() {
+        checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
         checkWrongDefault("VARCHAR", "10");
         checkWrongDefault("INT", "'10'");
@@ -475,6 +505,14 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         checkWrongDefault("VARBINARY", "'10'");
         checkWrongDefault("VARBINARY", "10");
+    }
+
+    @Test
+    public void testInsertDefaultNullValue() {
+        checkDefaultValue(defaultValueArgs()
+                .filter(a -> !a.sqlType.endsWith("NOT NULL"))
+                .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                .collect(Collectors.toList()));
     }
 
     private void checkDefaultValue(List<DefaultValueArg> args) {
@@ -522,11 +560,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
-        var e = assertThrows(IgniteException.class,
-                () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        var expectedMessage = "Failed to validate query. From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
 
-        var expectedMessage = "From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
-        assertEquals(expectedMessage, e.getMessage(), "error message");
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {
@@ -535,10 +571,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     private void checkWrongDefault(String sqlType, String sqlVal) {
         try {
-            assertThrows(
-                    IgniteException.class,
-                    () -> sql("CREATE TABLE test (val " + sqlType + " DEFAULT " + sqlVal + ")"),
-                    "Cannot convert literal"
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR,
+                    "Unable convert literal",
+                    () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val " + sqlType + " DEFAULT " + sqlVal + ")")
             );
         } finally {
             sql("DROP TABLE IF EXISTS test");
@@ -550,49 +586,84 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         final String sqlVal;
         final Object expectedVal;
 
-        private DefaultValueArg(String sqlType, String sqlVal, Object expectedVal) {
+        private DefaultValueArg(String sqlType, String sqlVal, @Nullable Object expectedVal) {
             this.sqlType = sqlType;
             this.sqlVal = sqlVal;
             this.expectedVal = expectedVal;
+        }
+
+        @Override
+        public String toString() {
+            return sqlType + " sql val: " + sqlVal + " java val: " + expectedVal;
         }
     }
 
     @Test
     public void testInsertMultipleDefaults() {
-        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, j INTEGER DEFAULT 2)");
+        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, col1 INTEGER DEFAULT 200, col2 INTEGER DEFAULT 300)");
 
-        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+        sql("INSERT INTO integers (i) VALUES (0)");
+        sql("INSERT INTO integers VALUES (1, DEFAULT, DEFAULT)");
+        sql("INSERT INTO integers(i, col2) VALUES (2, DEFAULT), (3, 4), (4, DEFAULT)");
+        sql("INSERT INTO integers VALUES (5, DEFAULT, DEFAULT)");
+        sql("INSERT INTO integers VALUES (6, 4, DEFAULT)");
+        sql("INSERT INTO integers VALUES (7, 5, 5)");
+        sql("INSERT INTO integers(col1, i) VALUES (DEFAULT, 8)");
+        sql("INSERT INTO integers(i, col1) VALUES (9, DEFAULT)");
 
-        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
-
-        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
-
-        assertQuery("SELECT i, j FROM integers ORDER BY i")
-                .returns(1, 2)
-                .returns(2, 3)
-                .returns(3, 2)
-                .returns(4, 4)
-                .returns(5, 2)
+        assertQuery("SELECT i, col1, col2 FROM integers ORDER BY i")
+                .returns(0, 200, 300)
+                .returns(1, 200, 300)
+                .returns(2, 200, 300)
+                .returns(3, 200, 4)
+                .returns(4, 200, 300)
+                .returns(5, 200, 300)
+                .returns(6, 4, 300)
+                .returns(7, 5, 5)
+                .returns(8, 200, 300)
+                .returns(9, 200, 300)
                 .check();
     }
 
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testInsertMultipleDefaultsWithImplicitPk() {
-        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 2)");
+        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 100)");
 
         sql("INSERT INTO integers VALUES (1, DEFAULT)");
 
-        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+        assertQuery("SELECT i, j FROM integers").returns(1, 100).check();
 
         sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
 
+        sql("INSERT INTO integers(j, i) VALUES (DEFAULT, 6)");
+
         assertQuery("SELECT i, j FROM integers ORDER BY i")
-                .returns(1, 2)
+                .returns(1, 100)
                 .returns(2, 3)
-                .returns(3, 2)
+                .returns(3, 100)
                 .returns(4, 4)
-                .returns(5, 2)
+                .returns(5, 100)
+                .returns(6, 100)
                 .check();
+    }
+
+    @Test
+    public void testDeleteUsingCompositePk() {
+        sql("CREATE TABLE test (a INT, b VARCHAR NOT NULL, c INT NOT NULL, d INT NOT NULL, PRIMARY KEY(d, b)) COLOCATE BY (d)");
+        sql("INSERT INTO test VALUES "
+                + "(0, '3', 0, 1),"
+                + "(0, '3', 0, 2),"
+                + "(0, '4', 0, 2)");
+
+        // Use PK index.
+        sql("DELETE FROM test WHERE b = '3' and d = 2");
+        assertQuery("SELECT d FROM test").returns(1).returns(2).check();
+
+        sql("DELETE FROM test WHERE d = 1");
+        assertQuery("SELECT b FROM test").returns("4").check();
+
+        sql("DELETE FROM test WHERE a = 0");
+        assertQuery("SELECT d FROM test").returnNothing().check();
     }
 }

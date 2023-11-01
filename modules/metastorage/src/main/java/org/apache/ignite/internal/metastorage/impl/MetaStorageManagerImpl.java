@@ -39,6 +39,8 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -53,6 +55,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
@@ -71,9 +74,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -449,7 +450,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             return recoveryFinishedFuture
                     .thenAccept(revision -> inBusyLock(busyLock, () -> {
                         // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
-                        storage.startWatches(revision + 1, this::onRevisionApplied);
+                        storage.startWatches(revision + 1, new OnRevisionAppliedCallback() {
+                            @Override
+                            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                                MetaStorageManagerImpl.this.onSafeTimeAdvanced(newSafeTime);
+                            }
+
+                            @Override
+                            public CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent) {
+                                return MetaStorageManagerImpl.this.onRevisionApplied(watchEvent);
+                            }
+                        });
                     }))
                     .whenComplete((v, e) -> {
                         if (e == null) {
@@ -518,6 +529,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
         return storage.range(startKey.bytes(), endKey.bytes(), revUpperBound);
+    }
+
+    @Override
+    public Cursor<Entry> prefixLocally(ByteArray keyPrefix, long revUpperBound) {
+        byte[] rangeStart = keyPrefix.bytes();
+        byte[] rangeEnd = storage.nextKey(rangeStart);
+
+        return storage.range(rangeStart, rangeEnd, revUpperBound);
     }
 
     @Override
@@ -817,19 +836,31 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
+    private void onSafeTimeAdvanced(HybridTimestamp time) {
+        assert time != null;
+
+        if (!busyLock.enterBusy()) {
+            LOG.info("Skipping advancing Safe Time because the node is stopping");
+
+            return;
+        }
+
+        try {
+            clusterTime.updateSafeTime(time);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     /**
      * Saves processed Meta Storage revision and corresponding entries to the Vault.
      */
-    private CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent, HybridTimestamp time) {
-        assert time != null;
-
+    private CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping applying MetaStorage revision because the node is stopping");
 
             return completedFuture(null);
         }
-
-        clusterTime.updateSafeTime(time);
 
         try {
             CompletableFuture<Void> saveToVaultFuture = vaultMgr.put(APPLIED_REV_KEY, longToBytes(watchEvent.revision()));

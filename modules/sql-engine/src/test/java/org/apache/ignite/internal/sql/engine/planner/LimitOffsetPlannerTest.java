@@ -19,9 +19,9 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.doubleFromRex;
 
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
@@ -31,9 +31,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,7 +39,7 @@ import org.junit.jupiter.api.Test;
  */
 public class LimitOffsetPlannerTest extends AbstractPlannerTest {
     /** Rows count in table. */
-    private static final double ROW_CNT = 100d;
+    private static final int ROW_CNT = 100;
 
     @Test
     public void testLimit() throws Exception {
@@ -168,7 +166,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                                         .and(s -> doubleFromRex(s.offset, -1) == 1)
                                         .and(s -> doubleFromRex(s.fetch, -1) == 1)))))));
 
-        publicSchema = createSchemaWithTable(IgniteDistributions.random(), 0);
+        publicSchema = createSchemaWithTable(IgniteDistributions.random(), "ID");
 
         // Sort node is not required, since collation of the Limit node equals to the index collation.
         assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 10 OFFSET 10", publicSchema,
@@ -177,7 +175,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                         .and(input(isInstanceOf(IgniteIndexScan.class)))))
                     .and(hasChildThat(isInstanceOf(IgniteSort.class)).negate()));
 
-        publicSchema = createSchemaWithTable(IgniteDistributions.random(), 0, 1);
+        publicSchema = createSchemaWithTable(IgniteDistributions.random(), "ID", "VAL");
 
         // Sort node is not required, since collation of the Limit node satisfies the index collation.
         assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 10 OFFSET 10", publicSchema,
@@ -198,24 +196,18 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
     /**
      * Creates PUBLIC schema with one TEST table.
      */
-    private IgniteSchema createSchemaWithTable(IgniteDistribution distr, int... indexedColumns) {
-        IgniteTypeFactory f = Commons.typeFactory();
+    private static IgniteSchema createSchemaWithTable(IgniteDistribution distr, String... indexesColumns) {
+        TableBuilder builder = TestBuilders.table()
+                .name("TEST")
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .size(ROW_CNT)
+                .distribution(distr);
 
-        RelDataType type = new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("VAL", f.createJavaType(String.class))
-                .build();
-
-        TestTable table = new TestTable("TEST", type, ROW_CNT) {
-            @Override public IgniteDistribution distribution() {
-                return distr;
-            }
-        };
-
-        if (!ArrayUtils.nullOrEmpty(indexedColumns)) {
-            table.addIndex("test_idx", indexedColumns);
+        if (indexesColumns.length > 0) {
+            addSortIndex(indexesColumns).apply(builder);
         }
 
-        return createSchema(table);
+        return createSchema(builder.build());
     }
 }

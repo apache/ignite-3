@@ -28,8 +28,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Abstract class making lock manager tests more simple.

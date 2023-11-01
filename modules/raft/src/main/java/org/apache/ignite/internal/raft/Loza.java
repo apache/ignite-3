@@ -25,6 +25,9 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -39,15 +42,14 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -74,7 +76,7 @@ public class Loza implements RaftManager {
     private final ClusterService clusterNetSvc;
 
     /** Raft server. */
-    private final RaftServer raftServer;
+    private final JraftServerImpl raftServer;
 
     /** Executor for raft group services. */
     private final ScheduledExecutorService executor;
@@ -144,6 +146,26 @@ public class Loza implements RaftManager {
                 clock,
                 new RaftGroupEventsClientListener()
         );
+    }
+
+    /**
+     * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #start()} the component.
+     *
+     * @param appendEntriesRequestInterceptor Interceptor to use.
+     */
+    public void appendEntriesRequestInterceptor(AppendEntriesRequestInterceptor appendEntriesRequestInterceptor) {
+        raftServer.appendEntriesRequestInterceptor(appendEntriesRequestInterceptor);
+    }
+
+    /**
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #start()} the component.
+     *
+     * @param actionRequestInterceptor Interceptor to use.
+     */
+    public void actionRequestInterceptor(ActionRequestInterceptor actionRequestInterceptor) {
+        raftServer.actionRequestInterceptor(actionRequestInterceptor);
     }
 
     /** {@inheritDoc} */
@@ -364,6 +386,15 @@ public class Loza implements RaftManager {
         );
     }
 
+    /**
+     * Check if the node is started.
+     *
+     * @param nodeId Raft node ID.
+     * @return True if the node is started.
+     */
+    public boolean isStarted(RaftNodeId nodeId) {
+        return raftServer.isStarted(nodeId);
+    }
 
     /**
      * Gets a future that completes when all committed updates are applied to state machine after the RAFT node start.

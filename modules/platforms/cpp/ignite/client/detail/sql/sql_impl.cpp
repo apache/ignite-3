@@ -28,7 +28,7 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
     ignite_callback<result_set> &&callback) {
     auto tx0 = tx ? tx->m_impl : nullptr;
 
-    auto writer_func = [&statement, &args, &tx0](protocol::writer &writer) {
+    auto writer_func = [this, &statement, &args, &tx0](protocol::writer &writer) {
         if (tx0)
             writer.write(tx0->get_id());
         else
@@ -65,27 +65,28 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
 
         if (args.empty()) {
             writer.write_nil();
-            return;
+        } else {
+            auto args_num = std::int32_t(args.size());
+
+            writer.write(args_num);
+
+            binary_tuple_builder args_builder{args_num * 3};
+
+            args_builder.start();
+            for (const auto &arg : args) {
+                protocol::claim_primitive_with_type(args_builder, arg);
+            }
+
+            args_builder.layout();
+            for (const auto &arg : args) {
+                protocol::append_primitive_with_type(args_builder, arg);
+            }
+
+            auto args_data = args_builder.build();
+            writer.write_binary(args_data);
         }
 
-        auto args_num = std::int32_t(args.size());
-
-        writer.write(args_num);
-
-        binary_tuple_builder args_builder{args_num * 3};
-
-        args_builder.start();
-        for (const auto &arg : args) {
-            protocol::claim_primitive_with_type(args_builder, arg);
-        }
-
-        args_builder.layout();
-        for (const auto &arg : args) {
-            protocol::append_primitive_with_type(args_builder, arg);
-        }
-
-        auto args_data = args_builder.build();
-        writer.write_binary(args_data);
+        writer.write(m_connection->get_observable_timestamp());
     };
 
     auto reader_func = [](std::shared_ptr<node_connection> channel, bytes_view msg) -> result_set {
@@ -93,7 +94,7 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
     };
 
     m_connection->perform_request_raw<result_set>(
-        client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+        protocol::client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.type;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.lang.reflect.Type;
@@ -51,9 +52,9 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -232,14 +233,11 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 return NativeTypes.DATE;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.time() :
-                        NativeTypes.time(relType.getPrecision());
+                return NativeTypes.time(precisionOrDefault(relType));
             case TIMESTAMP:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.datetime() :
-                        NativeTypes.datetime(relType.getPrecision());
+                return NativeTypes.datetime(precisionOrDefault(relType));
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? NativeTypes.timestamp() :
-                        NativeTypes.timestamp(relType.getPrecision());
+                return NativeTypes.timestamp(precisionOrDefault(relType));
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
@@ -260,12 +258,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case VARCHAR:
             case CHAR:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.stringOf(Integer.MAX_VALUE)
+                        ? NativeTypes.stringOf(DEFAULT_VARLEN_LENGTH)
                         : NativeTypes.stringOf(relType.getPrecision());
             case BINARY:
             case VARBINARY:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.blobOf(Integer.MAX_VALUE)
+                        ? NativeTypes.blobOf(DEFAULT_VARLEN_LENGTH)
                         : NativeTypes.blobOf(relType.getPrecision());
             case ANY:
                 if (relType instanceof IgniteCustomType) {
@@ -276,6 +274,14 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             default:
                 throw new IllegalArgumentException("Type is not supported: " + relType);
         }
+    }
+
+    private static int precisionOrDefault(RelDataType type) {
+        if (type.getPrecision() == PRECISION_NOT_SPECIFIED) {
+            return IgniteTypeSystem.INSTANCE.getDefaultPrecision(type.getSqlTypeName());
+        }
+
+        return type.getPrecision();
     }
 
     /**

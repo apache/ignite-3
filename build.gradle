@@ -19,6 +19,7 @@
 //This need for resolving plugins in buildscripts
 plugins {
     id('idea')
+    alias(libs.plugins.ideaext)
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.modernizer) apply false
     alias(libs.plugins.aggregateJavadoc)
@@ -45,6 +46,10 @@ ext {
     ]
 }
 
+def compilerArgs = [
+        "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
+]
+
 allprojects {
     group 'org.apache.ignite'
     version = "3.0.0-SNAPSHOT"
@@ -53,19 +58,23 @@ allprojects {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 
-    tasks.withType(Test) {
+    tasks.withType(Test).configureEach {
         defaultCharacterEncoding = 'UTF-8'
 
         jvmArgs += ["--add-opens=java.base/java.lang=ALL-UNNAMED",
-                "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-                "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-                "--add-opens=java.base/java.io=ALL-UNNAMED",
-                "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                "--add-opens=java.base/java.math=ALL-UNNAMED",
-                "--add-opens=java.base/java.util=ALL-UNNAMED",
-                "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
-                "-Dio.netty.tryReflectionSetAccessible=true",
-                "-Djava.util.logging.config.file=${project.rootDir}/config/java.util.logging.properties"]
+                    "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+                    "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+                    "--add-opens=java.base/java.io=ALL-UNNAMED",
+                    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                    "--add-opens=java.base/java.math=ALL-UNNAMED",
+                    "--add-opens=java.base/java.util=ALL-UNNAMED",
+                    "--add-opens=java.base/java.time=ALL-UNNAMED",
+                    "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+                    "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
+                    "-Dio.netty.tryReflectionSetAccessible=true",
+                    "-XX:+HeapDumpOnOutOfMemoryError"]
+
+        systemProperty 'jraft.available_processors', 1
 
         if (project.hasProperty('excludeTest')) {
             exclude project.property('excludeTest')
@@ -85,6 +94,7 @@ allprojects {
 
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
+        options.compilerArgs += compilerArgs
     }
 
     //Temporary hack to disable caching of Test tasks.
@@ -122,4 +132,11 @@ subprojects {
     }
 
     tasks.register('printSubDependencies', DependencyReportTask)
+}
+
+idea.project.settings {
+    compiler.javac {
+        // Workaround on https://youtrack.jetbrains.com/issue/IDEA-154038.
+        javacAdditionalOptions = compilerArgs.join(' ')
+    }
 }

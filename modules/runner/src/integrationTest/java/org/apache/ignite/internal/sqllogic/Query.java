@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Executes an SQL query and expects the specified result and fails when that result and an output of a query do not match.
@@ -384,7 +384,7 @@ final class Query extends Command {
             }
         }
 
-        String res0 = IgniteUtils.toHexString(ctx.messageDigest.digest());
+        String res0 = StringUtils.toHexString(ctx.messageDigest.digest());
 
         if (eqLabel != null) {
             if (res0.equals(expectedHash)) {

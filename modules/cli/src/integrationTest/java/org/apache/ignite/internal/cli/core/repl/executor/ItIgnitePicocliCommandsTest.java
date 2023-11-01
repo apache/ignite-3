@@ -51,6 +51,8 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
+import org.apache.ignite.internal.cli.event.EventPublisher;
+import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.assertj.core.util.Files;
 import org.jline.reader.Candidate;
@@ -62,7 +64,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -102,6 +103,9 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     @Inject
     Session session;
 
+    @Inject
+    EventPublisher eventPublisher;
+
     SystemCompleter completer;
 
     LineReader lineReader;
@@ -117,13 +121,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     @BeforeEach
-    @Override
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
-        setupSystemCompleter();
-    }
-
-    private void setupSystemCompleter() {
+    void setupSystemCompleter() {
         dynamicCompleterActivationPoint.activateDynamicCompleter(dynamicCompleterRegistry);
 
         List<CompleterFilter> filters = List.of(
@@ -245,7 +243,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     private void connected() {
-        session.connect(new SessionInfo(DEFAULT_REST_URL, null, null, null));
+        eventPublisher.publish(Events.connect(SessionInfo.builder().nodeUrl(DEFAULT_REST_URL).build()));
     }
 
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {
@@ -267,7 +265,18 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("rest", "clientConnector", "network", "cluster", "deployment", "nodeAttributes")
+                containsInAnyOrder(
+                        "rest",
+                        "clientConnector",
+                        "network",
+                        "cluster",
+                        "deployment",
+                        "nodeAttributes",
+                        "aimem",
+                        "aipersist",
+                        "rocksDb",
+                        "storageProfiles"
+                )
         );
     }
 

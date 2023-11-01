@@ -18,17 +18,17 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.rocksdb.RocksDB;
 
 /**
@@ -215,15 +215,15 @@ public class ColumnFamilyUtils {
                     break;
 
                 case TIME:
-                    nativeType = NativeTypes.time();
+                    nativeType = NativeTypes.time(0);
                     break;
 
                 case DATETIME:
-                    nativeType = NativeTypes.datetime();
+                    nativeType = NativeTypes.datetime(6);
                     break;
 
                 case TIMESTAMP:
-                    nativeType = NativeTypes.timestamp();
+                    nativeType = NativeTypes.timestamp(6);
                     break;
 
                 default:

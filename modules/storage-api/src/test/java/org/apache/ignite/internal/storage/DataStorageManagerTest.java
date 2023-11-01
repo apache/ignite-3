@@ -37,11 +37,11 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 import org.apache.ignite.internal.storage.DataStorageModulesTest.FirstDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.DataStorageModulesTest.SecondDataStorageConfigurationSchema;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -52,7 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class DataStorageManagerTest {
+public class DataStorageManagerTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
@@ -64,9 +64,6 @@ public class DataStorageManagerTest {
     )
     private DataStorageConfiguration dataStorageConfig;
 
-    @InjectConfiguration
-    private DistributionZonesConfiguration distributionZonesConfiguration;
-
     @Test
     void testTableDataStorageConsumerError() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
@@ -75,7 +72,6 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
@@ -118,7 +114,6 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
@@ -147,24 +142,5 @@ public class DataStorageManagerTest {
 
         assertThat(((SecondDataStorageView) dataStorageView).strVal(), equalTo("foobar"));
         assertThat(((SecondDataStorageView) dataStorageView).longVal(), equalTo(666L));
-    }
-
-    @Test
-    void testDefaultTableDataStorageConsumerMultipleEngines() throws Exception {
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedDataStorageModule(FIRST),
-                createMockedDataStorageModule(SECOND)
-        ));
-
-        DataStorageManager dataStorageManager = new DataStorageManager(
-                distributionZonesConfiguration,
-                dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
-        );
-
-        dataStorageConfig.change(dataStorageManager.defaultZoneDataStorageConsumer(FIRST)).get(1, TimeUnit.SECONDS);
-        assertThat(dataStorageConfig.value(), instanceOf(FirstDataStorageView.class));
-
-        dataStorageConfig.change(dataStorageManager.defaultZoneDataStorageConsumer(SECOND)).get(1, TimeUnit.SECONDS);
-        assertThat(dataStorageConfig.value(), instanceOf(SecondDataStorageView.class));
     }
 }

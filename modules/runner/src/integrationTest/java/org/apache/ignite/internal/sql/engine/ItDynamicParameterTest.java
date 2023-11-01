@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -30,14 +28,13 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +45,7 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Dynamic parameters checks. */
-public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
+public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     @BeforeEach
     public void createTable() {
@@ -94,8 +91,10 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT id FROM person WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?").withParams("I%", 1, 1).returns(2).check();
         assertQuery("SELECT id from person WHERE salary<? and id<?").withParams(15, 3).returns(0).check();
 
-        IgniteTestUtils.assertThrowsWithCause(() -> sql("SELECT LAST_DAY(?)", Date.valueOf("2022-01-01")),
-                SqlException.class, "Unsupported dynamic parameter defined");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Unsupported dynamic parameter defined",
+                () -> sql("SELECT LAST_DAY(?)", Date.valueOf("2022-01-01")));
 
         LocalDate date1 = LocalDate.parse("2022-01-01");
         LocalDate date2 = LocalDate.parse("2022-01-31");
@@ -159,8 +158,13 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testWithDifferentParametersTypesMismatch() {
-        assertThrows(IgniteException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
-        assertThrows(IgniteException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Illegal mixing of types in CASE or COALESCE statement",
+                () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Illegal mixing of types in CASE or COALESCE statement",
+                () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
     }
 
     @Test
@@ -275,15 +279,14 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {
-        SqlException err = assertThrows(SqlException.class, () -> {
-            assertQuery(query).withParams(params).check();
-        }, "query: " + query);
-
-        assertThat("query: " + query, err.getMessage(), containsString("Unexpected number of query parameters"));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Unexpected number of query parameters",
+                () -> assertQuery(query).withParams(params).check());
     }
 }

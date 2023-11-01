@@ -1,4 +1,3 @@
-
 statement ok
 CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER);
 
@@ -107,6 +106,11 @@ INSERT INTO t3 VALUES(3,4,5);
 statement ok
 INSERT INTO t3 VALUES(4,5,6);
 
+query IIIII nosort
+SELECT t1.c, t2.d, t1.b, t1.a, t3.e FROM t1 natural join t2 natural join t3 WHERE t1.a=1;
+----
+3	4	2	1	5
+
 query IIII nosort
 SELECT * FROM t1 NATURAL LEFT JOIN t2 ORDER BY t1.a;
 ----
@@ -141,13 +145,10 @@ SELECT * FROM t1 INNER JOIN t2 USING(b,c) ORDER BY t1.a;
 
 statement error
 SELECT * FROM t1 NATURAL JOIN t2 ON t1.a=t2.b;
-----
 
 statement error
 SELECT * FROM t1 JOIN t2 USING(a);
-----
 
 statement error
 SELECT * FROM t1 INNER OUTER JOIN t2;
-----
 

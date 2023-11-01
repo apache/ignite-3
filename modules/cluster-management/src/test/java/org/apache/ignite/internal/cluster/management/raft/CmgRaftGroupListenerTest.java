@@ -52,6 +52,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,7 +61,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for the {@link CmgRaftGroupListener}.
  */
-public class CmgRaftGroupListenerTest {
+public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
 
     private final LongConsumer onLogicalTopologyChanged = mock(LongConsumer.class);
@@ -156,7 +157,7 @@ public class CmgRaftGroupListenerTest {
                 .metaStorageNodes(Set.copyOf(Set.of("bar")))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
                 .clusterTag(clusterTag)
-                .clusterConfigurationToApply("config")
+                .initialClusterConfiguration("config")
                 .build();
 
         listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(clusterState).build()));
@@ -175,7 +176,7 @@ public class CmgRaftGroupListenerTest {
         listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
         ClusterState updatedClusterState = listener.storage().getClusterState();
         assertAll(
-                () -> assertNull(updatedClusterState.clusterConfigurationToApply()),
+                () -> assertNull(updatedClusterState.initialClusterConfiguration()),
                 () -> assertEquals(updatedClusterState.cmgNodes(), clusterState.cmgNodes()),
                 () -> assertEquals(updatedClusterState.metaStorageNodes(), clusterState.metaStorageNodes()),
                 () -> assertEquals(updatedClusterState.version(), clusterState.version()),

@@ -17,51 +17,39 @@
 
 package org.apache.ignite.internal.replicator.exception;
 
-import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Replicator;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Unchecked exception that is thrown when a replica is not the current primary replica.
  */
 public class PrimaryReplicaMissException extends IgniteInternalException {
-    /**
-     * The constructor.
-     *
-     * @param expectedPrimaryReplicaTerm Expected term from.
-     * @param currentPrimaryReplicaTerm Current raft term.
-     */
-    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, long currentPrimaryReplicaTerm) {
-        this(expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm, null);
-    }
+    private static final long serialVersionUID = 8755220779942651494L;
 
     /**
-     * The constructor.
+     * Constructor.
      *
-     * @param expectedPrimaryReplicaTerm Expected term from.
-     * @param currentPrimaryReplicaTerm Current raft term.
-     * @param cause Cause exception.
+     * @param expectedLeaseholder Expected leaseholder.
+     * @param currentLeaseholder Current leaseholder, {@code null} if absent.
+     * @param expectedPrimaryReplicaTerm Expected term from, {@code null} if absent.
+     * @param currentPrimaryReplicaTerm Current raft term, {@code null} if absent.
+     * @param cause Cause exception, {@code null} if absent.
      */
-    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, long currentPrimaryReplicaTerm, Throwable cause) {
-        super(Replicator.REPLICA_MISS_ERR,
-                IgniteStringFormatter.format(
-                        "The primary replica has changed because the term has been changed "
-                                + "[expectedPrimaryReplicaTerm={}, currentPrimaryReplicaTerm={}]",
-                        expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm
-                ),
-                cause);
-    }
-
-    /**
-     * The constructor is used for creating an exception instance that is thrown from a remote server.
-     *
-     * @param traceId Trace id.
-     * @param code Error code.
-     * @param message Error message.
-     * @param cause Cause exception.
-     */
-    public PrimaryReplicaMissException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
+    public PrimaryReplicaMissException(
+            String expectedLeaseholder,
+            @Nullable String currentLeaseholder,
+            @Nullable Long expectedPrimaryReplicaTerm,
+            @Nullable Long currentPrimaryReplicaTerm,
+            @Nullable Throwable cause
+    ) {
+        super(
+                REPLICA_MISS_ERR,
+                "The primary replica has changed "
+                        + "[expectedLeaseholder={}, currentLeaseholder={}, expectedPrimaryReplicaTerm={}, currentPrimaryReplicaTerm={}]",
+                cause,
+                expectedLeaseholder, currentLeaseholder, expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm
+        );
     }
 }

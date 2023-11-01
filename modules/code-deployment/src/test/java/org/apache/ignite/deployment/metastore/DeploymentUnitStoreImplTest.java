@@ -47,10 +47,12 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,7 +61,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test suite for {@link DeploymentUnitStoreImpl}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class DeploymentUnitStoreImplTest {
+public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE = "localNode";
 
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
@@ -84,6 +86,8 @@ public class DeploymentUnitStoreImplTest {
 
     private DeploymentUnitStoreImpl metastore;
 
+    private Runnable toStop;
+
     @WorkDirectory
     private Path workDir;
 
@@ -95,13 +99,31 @@ public class DeploymentUnitStoreImplTest {
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, storage);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);
-        metastore.registerNodeStatusListener(new NodeStatusWatchListener(metastore, LOCAL_NODE, nodeEventCallback));
-        metastore.registerClusterStatusListener(new ClusterStatusWatchListener(clusterEventCallback));
+        NodeStatusWatchListener nodeListener = new NodeStatusWatchListener(metastore, LOCAL_NODE, nodeEventCallback);
+        metastore.registerNodeStatusListener(nodeListener);
+        ClusterStatusWatchListener clusterListener = new ClusterStatusWatchListener(clusterEventCallback);
+        metastore.registerClusterStatusListener(clusterListener);
 
         vaultManager.start();
         metaStorageManager.start();
 
+        toStop = () -> {
+            nodeListener.stop();
+            vaultManager.stop();
+            try {
+                metaStorageManager.stop();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+    }
+
+    @AfterEach
+    public void stop() {
+        toStop.run();
+        toStop = null;
     }
 
     @Test

@@ -88,6 +88,17 @@ T unpack_int(const msgpack_object &object) {
     return T(i64_val);
 }
 
+template<typename T>
+T unpack_uint(const msgpack_object &object) {
+    static_assert(std::numeric_limits<T>::is_integer && !std::numeric_limits<T>::is_signed,
+        "Type T is not a unsigned integer type");
+
+    auto u64_val = unpack_object<std::uint64_t>(object);
+
+    check_int_fits<T>(u64_val);
+    return T(u64_val);
+}
+
 template<>
 std::optional<std::string> unpack_nullable(const msgpack_object &object) {
     if (object.type == MSGPACK_OBJECT_NIL)
@@ -105,6 +116,14 @@ std::int64_t unpack_object(const msgpack_object &object) {
 }
 
 template<>
+std::uint64_t unpack_object(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+        throw ignite_error("The value in stream is not a positive integer number : " + std::to_string(object.type));
+
+    return object.via.u64;
+}
+
+template<>
 std::int32_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int32_t>(object);
 }
@@ -112,6 +131,11 @@ std::int32_t unpack_object(const msgpack_object &object) {
 template<>
 std::int16_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int16_t>(object);
+}
+
+template<>
+std::uint16_t unpack_object(const msgpack_object &object) {
+    return unpack_uint<std::uint16_t>(object);
 }
 
 template<>
@@ -151,18 +175,6 @@ bool unpack_object(const msgpack_object &object) {
     return object.via.boolean;
 }
 
-std::uint32_t unpack_array_size(const msgpack_object &object) {
-    if (object.type != MSGPACK_OBJECT_ARRAY)
-        throw ignite_error("The value in stream is not an Array : " + std::to_string(object.type));
-    return object.via.array.size;
-}
-
-void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object &)> &read_func) {
-    auto size = unpack_array_size(object);
-    for (std::uint32_t i = 0; i < size; ++i)
-        read_func(object.via.array.ptr[i]);
-}
-
 bytes_view unpack_binary(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_BIN)
         throw ignite_error("The value in stream is not a Binary data : " + std::to_string(object.type));
@@ -190,6 +202,8 @@ std::optional<ignite_error> read_error(reader &reader) {
     auto code = reader.read_object_or_default<std::int32_t>(65537);
     auto class_name = reader.read_string();
     auto message = reader.read_string_nullable();
+    auto java_stack_trace = reader.read_string_nullable();
+    UNUSED_VALUE java_stack_trace;
 
     std::stringstream err_msg_builder;
 
@@ -211,7 +225,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
 
     switch (value.get_type()) {
         case ignite_type::BOOLEAN: {
-            claim_type_and_scale(builder, ignite_type::INT8);
+            claim_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.claim_bool(value.get<bool>());
             break;
         }
@@ -322,7 +336,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
 
     switch (value.get_type()) {
         case ignite_type::BOOLEAN: {
-            append_type_and_scale(builder, ignite_type::INT8);
+            append_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.append_bool(value.get<bool>());
             break;
         }

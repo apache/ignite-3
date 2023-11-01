@@ -40,7 +40,17 @@ public class TxMessageGroup {
     public static final short TX_CLEANUP_REQUEST = 2;
 
     /**
-     * Message type for {@link TxStateReplicaRequest}.
+     * Message type for {@link TxStateCommitPartitionRequest}.
      */
-    public static final short TX_STATE_REQUEST = 3;
+    public static final short TX_STATE_COMMIT_PARTITION_REQUEST = 3;
+
+    /**
+     * Message type for {@link TxStateCoordinatorRequest}.
+     */
+    public static final short TX_STATE_COORDINATOR_REQUEST = 4;
+
+    /**
+     * Message type for {@link TxStateResponse}.
+     */
+    public static final short TX_STATE_RESPONSE = 5;
 }

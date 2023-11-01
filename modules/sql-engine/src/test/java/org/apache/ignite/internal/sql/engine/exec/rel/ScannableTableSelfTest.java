@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -34,13 +35,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
@@ -55,12 +54,11 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -68,14 +66,14 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
-import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -93,11 +91,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * of the underlying APIs with required arguments.
  */
 @ExtendWith(MockitoExtension.class)
-public class ScannableTableSelfTest {
-
-    private static final NoOpTransaction RO_TX = NoOpTransaction.readOnly("RO");
-
-    private static final NoOpTransaction RW_TX = NoOpTransaction.readWrite("RW");
+public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
@@ -376,7 +370,7 @@ public class ScannableTableSelfTest {
         long term = 2;
         int indexId = 3;
         TestRangeCondition<Object[]> condition = new TestRangeCondition<>();
-        condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2, UNSPECIFIED_VALUE_PLACEHOLDER});
+        condition.setLower(Bound.INCLUSIVE, new Object[]{1, 2});
 
         ArgumentCaptor<BinaryTuplePrefix> prefix = ArgumentCaptor.forClass(BinaryTuplePrefix.class);
 
@@ -494,7 +488,7 @@ public class ScannableTableSelfTest {
                     eq(tx.clusterNode()),
                     eq(indexId),
                     any(BinaryTuple.class),
-                    eq(tester.requiredFields)
+                    eq(null)
             );
         } else {
             PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
@@ -505,7 +499,7 @@ public class ScannableTableSelfTest {
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
-                    eq(tester.requiredFields)
+                    eq(null)
             );
         }
 
@@ -543,37 +537,14 @@ public class ScannableTableSelfTest {
         collector.expectError(err);
     }
 
-    /**
-     * Index lookup - invalid key.
-     */
-    @ParameterizedTest
-    @MethodSource("transactions")
-    public void testIndexLookupInvalidKey(NoOpTransaction tx) {
-        TestInput input = new TestInput();
-
-        Tester tester = new Tester(input);
-
-        int partitionId = 1;
-        long term = 2;
-        int indexId = 3;
-        Object[] key = {UNSPECIFIED_VALUE_PLACEHOLDER};
-
-        AssertionError err = assertThrows(AssertionError.class, () -> tester.indexLookUp(partitionId, term, tx, indexId, key));
-        assertEquals("Invalid lookup key.", err.getMessage());
-
-        verifyNoInteractions(internalTable);
-    }
-
     private static Stream<Arguments> transactions() {
         return Stream.of(
                 Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO"))),
-                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readOnly("RW")))
+                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW")))
         );
     }
 
     private class Tester {
-
-        final TableDescriptor tableDescriptor;
 
         final ScannableTable scannableTable;
 
@@ -586,8 +557,7 @@ public class ScannableTableSelfTest {
         Tester(TestInput input) {
             this.input = input;
             rowConverter = new RowCollectingTableRwoConverter(input);
-            tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, input.rowType);
-            scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
+            scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
         }
 
         ResultCollector tableScan(int partitionId, long term, NoOpTransaction tx) {
@@ -603,11 +573,11 @@ public class ScannableTableSelfTest {
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
 
             Publisher<Object[]> publisher = scannableTable.scan(ctx, new PartitionWithTerm(partitionId, term), rowFactory, null);
 
-            return new ResultCollector(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, rowConverter);
         }
 
         ResultCollector indexScan(int partitionId, long term, NoOpTransaction tx,
@@ -639,14 +609,14 @@ public class ScannableTableSelfTest {
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
             RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
             List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexRangeScan(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
                     indexId, indexColumns, rangeCondition, requiredFields);
 
-            return new ResultCollector(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, rowConverter);
         }
 
         ResultCollector indexLookUp(int partitionId, long term, NoOpTransaction tx,
@@ -674,13 +644,13 @@ public class ScannableTableSelfTest {
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
             List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
                     indexId, indexColumns, key, requiredFields);
 
-            return new ResultCollector(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, rowConverter);
         }
     }
 
@@ -695,6 +665,8 @@ public class ScannableTableSelfTest {
 
         final RelDataType rowType;
 
+        final RowSchema rowSchema;
+
         final BitSet indexColumns = new BitSet();
 
         TestInput() {
@@ -703,14 +675,17 @@ public class ScannableTableSelfTest {
 
         TestInput(int columnCount) {
             Builder builder = new Builder(TYPE_FACTORY);
+            RowSchema.Builder rowSchema = RowSchema.builder();
 
             for (int i = 1; i <= columnCount; i++) {
                 builder.add("C" + i, SqlTypeName.INTEGER);
+                rowSchema.addField(NativeTypes.INT32);
             }
 
             indexColumns.set(0);
 
             rowType = builder.build();
+            this.rowSchema = rowSchema.build();
         }
 
         void addRow(BinaryRow row) {
@@ -760,20 +735,20 @@ public class ScannableTableSelfTest {
 
         final TestInput testInput;
 
-        final List<Map.Entry<BinaryRow, BitSet>> converted = new ArrayList<>();
+        final List<BinaryRow> converted = new ArrayList<>();
 
         RowCollectingTableRwoConverter(TestInput testData) {
             this.testInput = testData;
         }
 
         @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
-            Object[] convertedRow = testInput.data.get(row);
+        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
+            Object[] convertedRow = testInput.data.get(tableRow);
             if (convertedRow == null) {
-                throw new IllegalArgumentException("Unexpected row: " + row);
+                throw new IllegalArgumentException("Unexpected row: " + tableRow);
             }
 
-            converted.add(new SimpleEntry<>(row, requiredColumns));
+            converted.add(tableRow);
             return (RowT) convertedRow;
         }
     }
@@ -788,12 +763,9 @@ public class ScannableTableSelfTest {
 
         final RowCollectingTableRwoConverter rowConverter;
 
-        final BitSet requiredFields;
-
-        ResultCollector(Publisher<?> input, BitSet requiredFields, RowCollectingTableRwoConverter rowConverter) {
+        ResultCollector(Publisher<?> input, RowCollectingTableRwoConverter rowConverter) {
             this.input = input;
             this.rowConverter = rowConverter;
-            this.requiredFields = requiredFields;
 
             input.subscribe(new Subscriber<Object>() {
                 @Override
@@ -838,10 +810,10 @@ public class ScannableTableSelfTest {
         }
 
         void expectRow(BinaryRow row) {
-            List<Entry<BinaryRow, BitSet>> result = rowConverter.converted;
+            List<BinaryRow> result = rowConverter.converted;
 
-            if (!result.contains(new SimpleEntry<>(row, requiredFields))) {
-                fail(format("Unexpected binary row/required fields: {}/{}. Converted: {}", row, requiredFields, result));
+            if (!result.contains(row)) {
+                fail(format("Unexpected binary row: {}. Converted: {}", row, result));
             }
         }
     }
@@ -856,7 +828,7 @@ public class ScannableTableSelfTest {
 
         static int toFlags(Bound lower, Bound upper) {
             if (lower == NONE && upper == NONE) {
-                return SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
+                return LESS_OR_EQUAL | GREATER_OR_EQUAL;
             } else {
                 int flags = 0;
                 flags |= lower.bit(true);
@@ -868,7 +840,7 @@ public class ScannableTableSelfTest {
         int bit(boolean lower) {
             switch (this) {
                 case INCLUSIVE:
-                    return lower ? SortedIndex.INCLUDE_LEFT : SortedIndex.INCLUDE_RIGHT;
+                    return lower ? GREATER_OR_EQUAL : LESS_OR_EQUAL;
                 case EXCLUSIVE:
                 case NONE:
                     return 0;

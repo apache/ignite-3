@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes;
 
-import static org.apache.ignite.internal.sql.engine.util.VarBinary.fromUtf8String;
-import static org.apache.ignite.internal.sql.engine.util.VarBinary.varBinary;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import com.google.common.io.BaseEncoding;
 import java.nio.charset.StandardCharsets;
@@ -101,7 +99,7 @@ public final class DataTypeTestSpecs {
 
         @Override
         public String toValueExpr(VarBinary value) {
-            return format("'{}'::VARBINARY", value.asString(StandardCharsets.UTF_8));
+            return toLiteral(value);
         }
 
         /** {@inheritDoc} */
@@ -113,19 +111,30 @@ public final class DataTypeTestSpecs {
         /** {@inheritDoc} */
         @Override
         public VarBinary wrapIfNecessary(Object storageValue) {
-            return varBinary((byte[]) storageValue);
+            return VarBinary.varBinary((byte[]) storageValue);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public byte[] unwrapIfNecessary(VarBinary value) {
+            if (value == null) {
+                return null;
+            }
+
+            return value.get();
         }
 
         /** {@inheritDoc} */
         @Override
         public TestDataSamples<VarBinary> createSamples(IgniteTypeFactory typeFactory) {
             List<VarBinary> values = List.of(
-                    fromUtf8String("1"), fromUtf8String("2"), fromUtf8String("3"));
+                    VarBinary.fromBytes(new byte[] {(byte) 1}),
+                    VarBinary.fromBytes(new byte[] {(byte) 2}),
+                    VarBinary.fromBytes(new byte[] {(byte) 3}));
 
             TestDataSamples.Builder<VarBinary> samples = TestDataSamples.builder();
 
-            samples.add(values, SqlTypeName.VARCHAR, b -> b.asString(StandardCharsets.UTF_8));
-            samples.add(values, SqlTypeName.CHAR, b -> b.asString(StandardCharsets.UTF_8));
+            samples.add(values, SqlTypeName.BINARY, b -> b.asString(StandardCharsets.UTF_8).getBytes(StandardCharsets.UTF_8));
 
             return samples.build();
         }

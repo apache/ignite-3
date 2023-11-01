@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageException;
@@ -41,7 +42,8 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.ByteArray;
+import org.rocksdb.BlockBasedTableConfig;
+import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -197,16 +199,22 @@ public class SharedRocksDbInstanceCreator {
                 return add(new ColumnFamilyOptions());
 
             case PARTITION:
-                return add(new ColumnFamilyOptions().useFixedLengthPrefixExtractor(PartitionDataHelper.ROW_PREFIX_SIZE));
+                return add(defaultCfOptions().useCappedPrefixExtractor(PartitionDataHelper.ROW_PREFIX_SIZE));
 
             case HASH_INDEX:
-                return add(new ColumnFamilyOptions().useFixedLengthPrefixExtractor(RocksDbHashIndexStorage.FIXED_PREFIX_LENGTH));
+                return add(defaultCfOptions().useCappedPrefixExtractor(RocksDbHashIndexStorage.FIXED_PREFIX_LENGTH));
 
             case SORTED_INDEX:
                 return add(sortedIndexCfOptions(cfName));
             default:
                 throw new StorageException("Unidentified column family: [name={}, path={}]", cfName, path);
         }
+    }
+
+    private static ColumnFamilyOptions defaultCfOptions() {
+        return new ColumnFamilyOptions()
+                .setMemtablePrefixBloomSizeRatio(0.125)
+                .setTableFormatConfig(new BlockBasedTableConfig().setFilterPolicy(new BloomFilter()));
     }
 
     @SuppressWarnings("resource")

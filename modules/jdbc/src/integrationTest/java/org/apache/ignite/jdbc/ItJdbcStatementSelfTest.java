@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -184,7 +185,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @Test
     public void testExecuteWrongFetchCount() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            assertThrows(SQLException.class, () -> statement.setFetchSize(-2));
+            assertThrowsSqlException("Fetch size must be greater than zero.", () -> statement.setFetchSize(-2));
         }
     }
 
@@ -480,14 +481,14 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testExecuteUpdateProducesResultSet() {
         final String sqlText = "select * from TEST;";
 
-        assertThrows(SQLException.class, () -> stmt.executeUpdate(sqlText),
-                "Given statement type does not match that declared by JDBC driver"
-        );
+        assertThrowsSqlException(
+                "Invalid SQL statement type",
+                () -> stmt.executeUpdate(sqlText));
     }
 
     @Test
     public void testExecuteUpdateOnDdl() throws SQLException {
-        String tableName = "\"test_" + UUID.randomUUID().toString() + "\"";
+        String tableName = ("\"test_" + UUID.randomUUID() + "\"");
 
         stmt.executeUpdate("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, val VARCHAR)");
 
@@ -499,7 +500,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         stmt.executeUpdate("DROP TABLE " + tableName);
 
-        assertThrows(SQLException.class, () -> stmt.executeQuery("SELECT COUNT(*) FROM " + tableName));
+        assertThrowsSqlException(
+                "Failed to validate query",
+                () -> stmt.executeQuery("SELECT COUNT(*) FROM " + tableName));
     }
 
     @Test
@@ -526,8 +529,10 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testGetSetMaxFieldSizeUnsupported() throws Exception {
         assertEquals(0, stmt.getMaxFieldSize());
 
-        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.setMaxFieldSize(100),
-                "Field size limitation is not supported");
+        assertThrowsSqlException(
+                SQLFeatureNotSupportedException.class,
+                "Field size limitation is not supported",
+                () -> stmt.setMaxFieldSize(100));
 
         assertEquals(0, stmt.getMaxFieldSize());
 
@@ -544,8 +549,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testGetSetMaxRows() throws Exception {
         assertEquals(0, stmt.getMaxRows());
 
-        assertThrows(SQLException.class, () -> stmt.setMaxRows(-1),
-                "Invalid max rows value");
+        assertThrowsSqlException("Invalid max rows value", () -> stmt.setMaxRows(-1));
 
         assertEquals(0, stmt.getMaxRows());
 
@@ -575,8 +579,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testGetSetQueryTimeout() throws Exception {
         assertEquals(0, stmt.getQueryTimeout());
 
-        assertThrows(SQLException.class, () -> stmt.setQueryTimeout(-1),
-                "Invalid timeout value");
+        assertThrowsSqlException("Invalid timeout value", () -> stmt.setQueryTimeout(-1));
 
         assertEquals(0, stmt.getQueryTimeout());
 
@@ -599,8 +602,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testMaxFieldSize() throws Exception {
         assertTrue(stmt.getMaxFieldSize() >= 0);
 
-        assertThrows(SQLException.class, () -> stmt.setMaxFieldSize(-1),
-                "Invalid field limit");
+        assertThrowsSqlException("Invalid field limit", () -> stmt.setMaxFieldSize(-1));
 
         checkNotSupported(() -> stmt.setMaxFieldSize(100));
     }
@@ -628,9 +630,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         stmt.close();
 
-        checkStatementClosed(() -> stmt.getWarnings());
+        checkStatementClosed(stmt::getWarnings);
 
-        checkStatementClosed(() -> stmt.clearWarnings());
+        checkStatementClosed(stmt::clearWarnings);
     }
 
     @Test
@@ -708,10 +710,10 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testFetchDirection() throws Exception {
         assertEquals(ResultSet.FETCH_FORWARD, stmt.getFetchDirection());
 
-        assertThrows(
+        assertThrowsSqlException(
                 SQLFeatureNotSupportedException.class,
-                () -> stmt.setFetchDirection(ResultSet.FETCH_REVERSE),
-                "Only forward direction is supported."
+                "Only forward direction is supported.",
+                () -> stmt.setFetchDirection(ResultSet.FETCH_REVERSE)
         );
 
         stmt.close();
@@ -722,17 +724,15 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    public void testAutogenerated() throws Exception {
-        assertThrows(
-                SQLException.class,
-                () -> stmt.executeUpdate("select 1", -1),
-                "Invalid autoGeneratedKeys value"
+    public void testAutogenerated() {
+        assertThrowsSqlException(
+                "Invalid autoGeneratedKeys value",
+                () -> stmt.executeUpdate("select 1", -1)
         );
 
-        assertThrows(
-                SQLException.class,
-                () -> stmt.execute("select 1", -1),
-                "Invalid autoGeneratedKeys value"
+        assertThrowsSqlException(
+                "Invalid autoGeneratedKeys value",
+                () -> stmt.execute("select 1", -1)
         );
 
         //        assertFalse(conn.getMetaData().supportsGetGeneratedKeys());
@@ -757,10 +757,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         // Put query to cache.
         stmt.executeQuery("select 1;");
 
-        assertThrows(
-                SQLException.class,
-                () -> stmt.executeUpdate("select 1;"),
-                "Given statement type does not match that declared by JDBC driver"
+        assertThrowsSqlException(
+                "Invalid SQL statement type",
+                () -> stmt.executeUpdate("select 1;")
         );
 
         assertNull(stmt.getResultSet(), "Not results expected. Last statement is executed with exception");
@@ -768,10 +767,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testStatementTypeMismatchUpdate() throws Exception {
-        assertThrows(
-                SQLException.class,
-                () -> stmt.executeQuery("update TEST set NAME='28' where ID=1"),
-                "Given statement type does not match that declared by JDBC driver"
+        assertThrowsSqlException(
+                "Invalid SQL statement type",
+                () -> stmt.executeQuery("update TEST set NAME='28' where ID=1")
         );
 
         ResultSet rs = stmt.executeQuery("select NAME from TEST where ID=1");

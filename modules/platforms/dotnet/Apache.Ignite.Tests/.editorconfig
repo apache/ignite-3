@@ -46,3 +46,6 @@ dotnet_diagnostic.NUnit2005.severity = none # Consider using the constraint mode
 dotnet_diagnostic.NUnit2006.severity = none # Consider using the constraint model
 dotnet_diagnostic.NUnit2015.severity = none # Consider using the constraint model
 dotnet_diagnostic.NUnit2031.severity = none # Consider using the constraint model
+
+# ReSharper (refer to https://www.jetbrains.com/help/resharper/Reference__Code_Inspections_CSHARP.html)
+resharper_using_statement_resource_initialization_highlighting = none # Do not use object initializer for 'using' variable

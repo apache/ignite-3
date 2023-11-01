@@ -19,7 +19,10 @@ package org.apache.ignite.internal.cli.commands.sql;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Replaces;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -40,5 +43,49 @@ class ItSqlReplCommandTest extends CliCommandTestInitializedIntegrationBase {
                 // Actual output starts with exception since this test doesn't use ReplExecutor and exception is handled by picocli.
                 () -> assertErrOutputContains("File with command not found")
         );
+    }
+
+    @Test
+    void secondInvocationScript() {
+        execute("CREATE TABLE T(K INT PRIMARY KEY)", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertOutputContains("Updated 0 rows."),
+                this::assertErrOutputIsEmpty
+        );
+
+        resetOutput();
+
+        execute("--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                this::assertErrOutputIsEmpty
+        );
+    }
+
+    @Test
+    void secondInvocationFile() {
+        execute("-f", "nonexisting", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("File with command not found")
+        );
+
+        resetOutput();
+
+        execute("--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                this::assertErrOutputIsEmpty
+        );
+    }
+
+    @Bean
+    @Replaces(ReplExecutorProvider.class)
+    public ReplExecutorProvider replExecutorProvider() {
+        return () -> repl -> {};
     }
 }

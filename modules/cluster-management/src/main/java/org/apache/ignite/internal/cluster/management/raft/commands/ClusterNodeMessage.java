@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -40,9 +41,15 @@ public interface ClusterNodeMessage extends NetworkMessage, Serializable {
     int port();
 
     default ClusterNode asClusterNode() {
-        return new ClusterNode(id(), name(), new NetworkAddress(host(), port()));
+        return new ClusterNodeImpl(id(), name(), new NetworkAddress(host(), port()));
     }
 
     @Nullable
-    Map<String, String> nodeAttributes();
+    Map<String, String> userAttributes();
+
+    @Nullable
+    Map<String, String> systemAttributes();
+
+    @Nullable
+    Map<String, String> storageProfiles();
 }

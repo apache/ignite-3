@@ -34,7 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -104,12 +104,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testTxCorrectness() throws InterruptedException {
+    void testTxCorrectness() {
         Session ses = client().sql().createSession();
 
         // Create table.
         ses.execute(null, "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
-        waitForTableOnAllNodes("testExecuteDdlDml");
 
         // Async
         Transaction tx = client().transactions().begin();
@@ -170,7 +169,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testExecuteAsyncDdlDml() throws InterruptedException {
+    void testExecuteAsyncDdlDml() {
         Session session = client().sql().createSession();
 
         // Create table.
@@ -183,8 +182,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertTrue(createRes.wasApplied());
         assertEquals(-1, createRes.affectedRows());
         assertThrows(NoRowSetExpectedException.class, createRes::currentPageSize);
-
-        waitForTableOnAllNodes("testExecuteAsyncDdlDml");
 
         // Insert data.
         for (int i = 0; i < 10; i++) {
@@ -213,8 +210,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(3, columns.size());
         assertEquals("MYVALUE", columns.get(0).name());
         assertEquals("ID", columns.get(1).name());
-        // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
-        //assertEquals("ID + 1", columns.get(2).name());
+        assertEquals("ID + 1", columns.get(2).name());
 
         var rows = new ArrayList<SqlRow>();
         selectRes.currentPage().forEach(rows::add);
@@ -243,15 +239,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @SuppressWarnings("ConstantConditions")
     @Test
-    void testExecuteDdlDml() throws InterruptedException {
+    void testExecuteDdlDml() {
         Session session = client().sql().createSession();
 
         // Create table.
         ResultSet createRes = session.execute(
                 null,
                 "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
-
-        waitForTableOnAllNodes("testExecuteDdlDml");
 
         assertFalse(createRes.hasRowSet());
         assertNull(createRes.metadata());
@@ -290,7 +284,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(ColumnType.STRING, columns.get(0).type());
 
         assertEquals(ColumnMetadata.UNDEFINED_SCALE, columns.get(0).scale());
-        assertEquals(2 << 15, columns.get(0).precision());
+        assertEquals(CatalogUtils.DEFAULT_VARLEN_LENGTH, columns.get(0).precision());
 
         assertEquals("ID", columns.get(1).name());
         assertEquals("ID", columns.get(1).origin().columnName());
@@ -298,8 +292,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("TESTEXECUTEDDLDML", columns.get(1).origin().tableName());
         assertFalse(columns.get(1).nullable());
 
-        // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
-        //assertEquals("ID + 1", columns.get(2).name());
+        assertEquals("ID + 1", columns.get(2).name());
         assertNull(columns.get(2).origin());
 
         var rows = new ArrayList<SqlRow>();
@@ -327,11 +320,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testFetchNextPage() throws InterruptedException {
+    void testFetchNextPage() {
         Session session = client().sql().createSession();
 
         session.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY, VAL INT)").join();
-        waitForTableOnAllNodes("testFetchNextPage");
 
         for (int i = 0; i < 10; i++) {
             session.executeAsync(null, "INSERT INTO testFetchNextPage VALUES (?, ?)", i, i).join();
@@ -370,11 +362,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testTransactionRollbackRevertsSqlUpdate() throws InterruptedException {
+    void testTransactionRollbackRevertsSqlUpdate() {
         Session session = client().sql().createSession();
 
         session.executeAsync(null, "CREATE TABLE testTx(ID INT PRIMARY KEY, VAL INT)").join();
-        waitForTableOnAllNodes("testTx");
 
         session.executeAsync(null, "INSERT INTO testTx VALUES (1, 1)").join();
 
@@ -428,15 +419,15 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testResultSetMappingColumnNameMismatch() {
         String query = "select 1 as foo, 2 as bar";
 
-        ResultSet<Pojo> resultSet = client().sql().createSession().execute(null, Mapper.of(Pojo.class), query);
-        Pojo row = resultSet.next();
+        IgniteException e = assertThrows(
+                IgniteException.class,
+                () -> client().sql().createSession().execute(null, Mapper.of(Pojo.class), query));
 
-        assertEquals(0, row.num);
-        assertNull(row.str);
+        assertEquals("Failed to deserialize server response: No mapped object field found for column 'FOO'", e.getMessage());
     }
 
     @Test
-    void testAllColumnTypes() throws InterruptedException {
+    void testAllColumnTypes() {
         Session session = client().sql().createSession();
 
         String createTable = "CREATE TABLE testAllColumnTypes("
@@ -456,8 +447,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "VAL_BYTES BINARY)";
 
         session.execute(null, createTable);
-
-        waitForTableOnAllNodes("testAllColumnTypes");
 
         String insertData = "INSERT INTO testAllColumnTypes VALUES ("
                 + "1, "
@@ -516,27 +505,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(13).type());
     }
 
-    private void waitForTableOnAllNodes(String tableName) throws InterruptedException {
-        // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
-        // Currently newly created table is not immediately available on all nodes.
-        boolean res = IgniteTestUtils.waitForCondition(() -> {
-            var nodeCount = client().clusterNodes().size();
-
-            // Do N checks - they will go to different nodes becase of request balancing.
-            for (int i = 0; i < nodeCount; i++) {
-                if (client().tables().table(tableName) == null) {
-                    return false;
-                }
-            }
-
-            return true;
-        }, 3000);
-
-        assertTrue(res);
-    }
-
     private static class Pojo {
-        public long num;
+        public int num;
 
         public String str;
     }

@@ -57,11 +57,11 @@ task copyNativeLibs(type: Copy) {
 cmake {
     workingFolder=file("$buildDir/cpp")
     sourceFolder=file("$projectDir/cpp")
-    generator='Unix Makefiles'
     buildConfig='Release'
     buildTarget='install'
     getDef().CMAKE_INSTALL_PREFIX="$buildDir/install"
     getDef().CMAKE_BUILD_TYPE='Release'
+    getDef().CMAKE_CONFIGURATION_TYPES='Release'
 }
 
 task cmakeConfigureClient(type: net.freudasoft.CMakeConfigureTask) {
@@ -152,7 +152,12 @@ if (project.hasProperty('prepareRelease')) {
 }
 
 artifacts {
-    odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
-        builtBy cmakeBuildOdbc
+    if (project.hasProperty('odbc.enable')) {
+        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
+            builtBy cmakeBuildOdbc
+        }
+        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
+            builtBy cmakeBuildOdbc
+        }
     }
 }

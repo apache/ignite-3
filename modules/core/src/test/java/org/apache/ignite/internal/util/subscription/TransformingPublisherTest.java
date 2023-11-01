@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -37,7 +38,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Unit tests for {@link TransformingPublisher}.
  */
 @ExtendWith(MockitoExtension.class)
-public class TransformingPublisherTest {
+public class TransformingPublisherTest extends BaseIgniteAbstractTest {
 
     @Mock
     private Publisher<Integer> input;

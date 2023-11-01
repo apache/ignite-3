@@ -17,20 +17,24 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.mapping.ColumnMapper;
+import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
+import org.apache.ignite.internal.schema.registry.UpgradingRowAdapter;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake schema registry for tests.
@@ -63,73 +67,149 @@ public class FakeSchemaRegistry implements SchemaRegistry {
         FakeSchemaRegistry.lastVer = lastVer;
     }
 
-    /** {@inheritDoc} */
     @Override
-    @NotNull
-    public SchemaDescriptor schema(int ver) {
-        if (ver == 0) {
+    public SchemaDescriptor schema(int version) {
+        if (version == 0) {
             // Use last version (any version may be used) for 0 version, that mean row doens't contain value.
-            ver = lastVer;
+            version = lastVer;
         }
 
-        SchemaDescriptor desc = schemaCache.get(ver);
+        SchemaDescriptor desc = schemaCache.get(version);
 
         if (desc != null) {
             return desc;
         }
 
-        desc = history.apply(ver);
+        desc = history.apply(version);
 
         if (desc != null) {
-            schemaCache.putIfAbsent(ver, desc);
+            schemaCache.putIfAbsent(version, desc);
 
             return desc;
         }
 
-        if (lastVer < ver || ver <= 0) {
-            throw new SchemaRegistryException("Incorrect schema version requested: ver=" + ver);
+        if (lastVer < version || version <= 0) {
+            throw new SchemaRegistryException("Incorrect schema version requested: ver=" + version);
         } else {
-            throw new SchemaRegistryException("Failed to find schema: ver=" + ver);
+            throw new SchemaRegistryException("Failed to find schema: ver=" + version);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @Nullable SchemaDescriptor schema() {
+    public CompletableFuture<SchemaDescriptor> schemaAsync(int version) {
+        SchemaDescriptor desc = schemaCache.get(version);
+
+        if (desc != null) {
+            return completedFuture(desc);
+        }
+
+        desc = history.apply(version);
+
+        if (desc != null) {
+            schemaCache.putIfAbsent(version, desc);
+
+            return completedFuture(desc);
+        }
+
+        SchemaRegistryException ex;
+        if (lastVer < version || version <= 0) {
+            ex = new SchemaRegistryException("Incorrect schema version requested: ver=" + version);
+        } else {
+            ex = new SchemaRegistryException("Failed to find schema: ver=" + version);
+        }
+
+        return failedFuture(ex);
+    }
+
+    @Override
+    public SchemaDescriptor lastKnownSchema() {
         return schema(lastVer);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @Nullable SchemaDescriptor schemaCached(int ver) {
-        return schemaCache.get(ver);
-    }
-
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
-        return schema();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int lastSchemaVersion() {
+    public int lastKnownSchemaVersion() {
         return lastVer;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
-        return new Row(desc, row);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Row resolve(BinaryRow row) {
-        return new Row(schema(row.schemaVersion()), row);
+        return Row.wrapBinaryRow(desc, row);
     }
 
     @Override
-    public List<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().map(binaryRow -> binaryRow == null ? null : resolve(binaryRow)).collect(toList());
+    public Row resolve(BinaryRow row, int targetSchemaVersion) {
+        SchemaDescriptor targetSchema = schema(targetSchemaVersion);
+
+        throwIfNoSuchSchema(targetSchema, targetSchemaVersion);
+
+        return resolveInternal(row, targetSchema, false);
+    }
+
+    @Override
+    public List<Row> resolve(Collection<BinaryRow> rows, int targetSchemaVersion) {
+        return resolveCollectionInternal(rows, targetSchemaVersion, false);
+    }
+
+    @Override
+    public List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion) {
+        return resolveCollectionInternal(keyOnlyRows, targetSchemaVersion, true);
+    }
+
+    private List<Row> resolveCollectionInternal(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion, boolean keyOnly) {
+        SchemaDescriptor targetSchema = schema(targetSchemaVersion);
+
+        throwIfNoSuchSchema(targetSchema, targetSchemaVersion);
+
+        return keyOnlyRows.stream()
+                .map(row -> row == null ? null : resolveInternal(row, targetSchema, keyOnly))
+                .collect(toList());
+    }
+
+    private static void throwIfNoSuchSchema(SchemaDescriptor targetSchema, int targetSchemaVersion) {
+        if (targetSchema == null) {
+            throw new SchemaRegistryException("No schema found: schemaVersion=" + targetSchemaVersion);
+        }
+    }
+
+    private Row resolveInternal(BinaryRow binaryRow, SchemaDescriptor targetSchema, boolean keyOnly) {
+        if (binaryRow.schemaVersion() == 0 || targetSchema.version() == binaryRow.schemaVersion()) {
+            return keyOnly ? Row.wrapKeyOnlyBinaryRow(targetSchema, binaryRow) : Row.wrapBinaryRow(targetSchema, binaryRow);
+        }
+
+        SchemaDescriptor rowSchema = schema(binaryRow.schemaVersion());
+
+        ColumnMapper mapping = resolveMapping(targetSchema, rowSchema);
+
+        if (keyOnly) {
+            Row row = Row.wrapKeyOnlyBinaryRow(rowSchema, binaryRow);
+
+            return UpgradingRowAdapter.upgradeKeyOnlyRow(targetSchema, mapping, row);
+        } else {
+            Row row = Row.wrapBinaryRow(rowSchema, binaryRow);
+
+            return UpgradingRowAdapter.upgradeRow(targetSchema, mapping, row);
+        }
+    }
+
+    private ColumnMapper resolveMapping(SchemaDescriptor targetSchema, SchemaDescriptor rowSchema) {
+        assert targetSchema.version() > rowSchema.version()
+                : "Target schema version " + targetSchema.version() + " must be higher than row schema version " + rowSchema.version();
+
+        if (targetSchema.version() == rowSchema.version() + 1) {
+            return targetSchema.columnMapping();
+        }
+
+        ColumnMapper mapping = schema(rowSchema.version() + 1).columnMapping();
+
+        for (int i = rowSchema.version() + 2; i <= targetSchema.version(); i++) {
+            mapping = ColumnMapping.mergeMapping(mapping, schema(i));
+        }
+
+        return mapping;
+    }
+
+    @Override
+    public void close() {
+        // No-op.
     }
 }

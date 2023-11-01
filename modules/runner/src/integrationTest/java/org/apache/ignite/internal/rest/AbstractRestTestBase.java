@@ -49,10 +49,16 @@ import org.junit.jupiter.api.TestInfo;
  */
 abstract class AbstractRestTestBase extends IgniteIntegrationTest {
     /** Network ports of the test nodes. */
-    static final int[] PORTS = {3344, 3345, 3346};
+    static final int[] NETWORK_PORTS = {3344, 3345, 3346};
+
+    /** Client ports of the test nodes. */
+    static final int[] CLIENT_PORTS = {10800, 10801, 10802};
+
+    /** HTTP ports of the test nodes. */
+    static final int[] HTTP_PORTS = {10300, 10301, 10302};
 
     /** HTTP host and port url part. */
-    static final String HTTP_HOST_PORT = "http://localhost:10300";
+    static final String HTTP_HOST_PORT = "http://localhost:" + HTTP_PORTS[0];
 
     /** Nodes bootstrap configuration. */
     final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
@@ -101,20 +107,22 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
     }
 
     private void startAllNodesWithoutInit(TestInfo testInfo) {
-        String node0Name = testNodeName(testInfo, PORTS[0]);
-        String node1Name = testNodeName(testInfo, PORTS[1]);
-        String node2Name = testNodeName(testInfo, PORTS[2]);
+        String node0Name = testNodeName(testInfo, NETWORK_PORTS[0]);
+        String node1Name = testNodeName(testInfo, NETWORK_PORTS[1]);
+        String node2Name = testNodeName(testInfo, NETWORK_PORTS[2]);
 
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
                         + "  network: {\n"
-                        + "    port: " + PORTS[0] + ",\n"
+                        + "    port: " + NETWORK_PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
+                        + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector.port: 10800"
+                        + "  clientConnector.port: " + CLIENT_PORTS[0] + ", \n"
+                        + "  rest.port: " + HTTP_PORTS[0]
                         + "}"
         );
 
@@ -122,12 +130,14 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
                 node1Name,
                 "{\n"
                         + "  network: {\n"
-                        + "    port: " + PORTS[1] + ",\n"
+                        + "    port: " + NETWORK_PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
+                        + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector.port: 10801"
+                        + "  clientConnector.port: "  + CLIENT_PORTS[1] + ", \n"
+                        + "  rest.port: " + HTTP_PORTS[1]
                         + "}"
         );
 
@@ -135,12 +145,14 @@ abstract class AbstractRestTestBase extends IgniteIntegrationTest {
                 node2Name,
                 "{\n"
                         + "  network: {\n"
-                        + "    port: " + PORTS[2] + ",\n"
+                        + "    port: " + NETWORK_PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                        + "      netClusterNodes: [ \"localhost:" + NETWORK_PORTS[0] + "\", \"localhost:" + NETWORK_PORTS[1]
+                        + "\", \"localhost:" + NETWORK_PORTS[2] + "\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector.port: 10802"
+                        + "  clientConnector.port: "  + CLIENT_PORTS[2] + ", \n"
+                        + "  rest.port: " + HTTP_PORTS[2]
                         + "}"
         );
 

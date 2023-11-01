@@ -42,11 +42,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
@@ -346,7 +346,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         stopNodes(List.of(leaderNode));
 
-        // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
+        // Issue the JoinReadyCommand on the joining node. It is expected that the joining node is still treated as validated.
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 

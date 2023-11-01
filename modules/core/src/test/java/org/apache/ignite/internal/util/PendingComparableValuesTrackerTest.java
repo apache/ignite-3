@@ -40,7 +40,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -118,7 +117,6 @@ public class PendingComparableValuesTrackerTest {
 
     @ParameterizedTest
     @MethodSource("hybridTimestampTrackerGenerator")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19995")
     public void testMultithreadedWaitFor(PendingComparableValuesTracker trackerParam) throws Exception {
         HybridClock clock = new HybridClockImpl();
 

@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.internal.configuration.AuthenticationProviderView;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticator;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.security.AuthenticationType;
 
 /** Factory for {@link Authenticator}. */
 class AuthenticatorFactory {
-
     static Authenticator create(AuthenticationProviderView view) {
         AuthenticationType type = AuthenticationType.parse(view.type());
         if (type == AuthenticationType.BASIC) {
             BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
-            return new BasicAuthenticator(basicAuthProviderView.username(), basicAuthProviderView.password());
+            return new BasicAuthenticator(view.name(), basicAuthProviderView.username(), basicAuthProviderView.password());
         } else {
             throw new IllegalArgumentException("Unexpected authentication type: " + type);
         }

@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -34,7 +36,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
@@ -45,7 +46,9 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.type.NativeType;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -89,7 +92,6 @@ import org.opentest4j.AssertionFailedError;
  * </pre>
  *
  * <p><b>Schema initialization</b>
- * Tables can be added to schema via {@code table} methods and initial schema can be set via {@link #withSchema(Consumer)} method.
  *
  * <pre>
  *     new StatementChecker()
@@ -115,8 +117,6 @@ public class StatementChecker {
     private final Map<String, Function<TestBuilders.TableBuilder, TestTable>> testTables = new HashMap<>();
 
     private boolean dumpPlan;
-
-    private Consumer<IgniteSchema> initSchema = (schema) -> {};
 
     private Consumer<StatementChecker> setup = (checker) -> {};
 
@@ -147,12 +147,6 @@ public class StatementChecker {
     /** Sets a function that is going to be called prior to test run. */
     public StatementChecker setup(Consumer<StatementChecker> setup) {
         this.setup = setup;
-        return this;
-    }
-
-    /** Sets a function that initializes initial schema. */
-    public StatementChecker withSchema(Consumer<IgniteSchema> initSchema) {
-        this.initSchema = initSchema;
         return this;
     }
 
@@ -234,7 +228,13 @@ public class StatementChecker {
 
     /** Expect that validation succeeds. */
     public DynamicTest ok() {
-        return ok((node) -> {});
+        return ok((node) -> {}, true);
+    }
+
+    /** Expect that validation succeeds. */
+    // TODO: remote relCheck param after https://issues.apache.org/jira/browse/IGNITE-20170
+    public DynamicTest ok(boolean relCheck) {
+        return ok((node) -> {}, relCheck);
     }
 
     /**
@@ -245,7 +245,18 @@ public class StatementChecker {
         // Capture current stacktrace to show error location.
         AssertionError exception = new AssertionError("Statement check failed");
 
-        return shouldPass(name, exception, check);
+        return shouldPass(name, exception, check, true);
+    }
+
+    /**
+     * Expects that the provided validation function won't throw an exception.
+     */
+    public DynamicTest ok(Consumer<IgniteRel> check, boolean relCheck) {
+        String name = testName(true);
+        // Capture current stacktrace to show error location.
+        AssertionError exception = new AssertionError("Statement check failed");
+
+        return shouldPass(name, exception, check, relCheck);
     }
 
     /** Validation is expected to fail with an error that contains a the given message. */
@@ -359,26 +370,29 @@ public class StatementChecker {
     }
 
     private IgniteSchema createSchema() {
-        IgniteSchema schema = new IgniteSchema("PUBLIC");
-        this.initSchema.accept(schema);
+        List<IgniteTable> tables = new ArrayList<>();
         for (Map.Entry<String, Function<TestBuilders.TableBuilder, TestTable>> entry : testTables.entrySet()) {
             String tableName = entry.getKey();
             Function<TableBuilder, TestTable> addTable = entry.getValue();
 
             TestTable table = addTable.apply(TestBuilders.table().name(tableName));
-            schema.addTable(table);
+
+            tables.add(table);
         }
-        return schema;
+
+        return new IgniteSchema(DEFAULT_SCHEMA_NAME, 0, tables);
     }
 
-    private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check) {
+    private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check, boolean relCheck) {
         return DynamicTest.dynamicTest(name, () -> {
             IgniteSchema schema = initSchema(exception);
             IgniteRel root;
 
             try {
                 root = (IgniteRel) sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
-                checkRel(root, schema);
+                if (relCheck) {
+                    checkRel(root, schema);
+                }
             } catch (Throwable e) {
                 String message = format("Failed to validate:\n{}\n", formatSqlStatementForErrorMessage());
                 RuntimeException error = new RuntimeException(message, e);

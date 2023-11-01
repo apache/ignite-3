@@ -186,7 +186,7 @@ public class PartitionAwarenessTests
 
         // Warm up (retrieve assignment).
         var key = new IgniteTuple { ["ID"] = keyId };
-        var val = new IgniteTuple { ["VAL"] = 0 };
+        var val = new IgniteTuple();
         await kvView.PutAsync(null, key, val);
 
         // Single-key operations.
@@ -390,8 +390,7 @@ public class PartitionAwarenessTests
         };
 
         var client = await IgniteClient.StartAsync(cfg);
-
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+        client.WaitForConnections(2);
 
         return client;
     }

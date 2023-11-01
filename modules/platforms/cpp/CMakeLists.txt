@@ -26,7 +26,6 @@ set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 option(ENABLE_CONAN "Use Conan package manager to get dependencies" ON)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
-option(ENABLE_ODBC_MSI "Build Ignite ODBC driver installer for Windows" OFF)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
 option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
@@ -41,8 +40,13 @@ get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
 set(conan_packages
     msgpack-c/4.0.0
-    gtest/1.12.1
 )
+
+if (${ENABLE_TESTS})
+    list(APPEND conan_packages
+        gtest/1.12.1
+    )
+endif()
 
 # Install required libraries.
 if (${ENABLE_CONAN})

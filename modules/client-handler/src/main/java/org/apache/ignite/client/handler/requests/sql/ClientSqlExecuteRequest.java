@@ -33,9 +33,12 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.api.SessionBuilderImpl;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.IgniteSql;
@@ -45,6 +48,7 @@ import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -67,9 +71,11 @@ public class ClientSqlExecuteRequest {
             ClientMessagePacker out,
             IgniteSql sql,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics) {
-        var tx = readTx(in, resources);
-        Session session = readSession(in, sql);
+            ClientHandlerMetricSource metrics,
+            IgniteTransactionsImpl transactions
+    ) {
+        var tx = readTx(in, out, resources);
+        Session session = readSession(in, sql, transactions);
         Statement statement = readStatement(in, sql);
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
@@ -78,9 +84,22 @@ public class ClientSqlExecuteRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
+        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
+        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+
+        transactions.updateObservableTimestamp(clientTs);
+
         return session
                 .executeAsync(tx, statement, arguments)
-                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet, session, metrics));
+                .thenCompose(asyncResultSet -> {
+                    //noinspection StatementWithEmptyBody
+                    if (tx == null) {
+                        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
+                        // out.meta(asyncResultSet.tx().readTimestamp());
+                    }
+
+                    return writeResultSetAsync(out, resources, asyncResultSet, session, metrics);
+                });
     }
 
     private static CompletionStage<Void> writeResultSetAsync(
@@ -140,8 +159,12 @@ public class ClientSqlExecuteRequest {
         return statementBuilder.build();
     }
 
-    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql) {
+    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql, IgniteTransactions transactions) {
         SessionBuilder sessionBuilder = sql.sessionBuilder();
+
+        if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
+            ((SessionBuilderImpl) sessionBuilder).igniteTransactions(transactions);
+        }
 
         if (!in.tryUnpackNil()) {
             sessionBuilder.defaultSchema(in.unpackString());
@@ -171,12 +194,12 @@ public class ClientSqlExecuteRequest {
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
         // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
         if (meta == null || meta.columns() == null) {
-            out.packArrayHeader(0);
+            out.packInt(0);
             return;
         }
 
         List<ColumnMetadata> cols = meta.columns();
-        out.packArrayHeader(cols.size());
+        out.packInt(cols.size());
 
         // In many cases there are multiple columns from the same table.
         // Schema is the same for all columns in most cases.
@@ -189,7 +212,7 @@ public class ClientSqlExecuteRequest {
             ColumnOrigin origin = col.origin();
 
             int fieldsNum = origin == null ? 6 : 9;
-            out.packArrayHeader(fieldsNum);
+            out.packInt(fieldsNum);
 
             out.packString(col.name());
             out.packBoolean(col.nullable());

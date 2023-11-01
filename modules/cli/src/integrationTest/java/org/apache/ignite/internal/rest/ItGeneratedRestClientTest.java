@@ -25,10 +25,10 @@ import static org.apache.ignite.rest.client.model.DeploymentStatus.UPLOADING;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -138,7 +138,8 @@ public class ItGeneratedRestClientTest {
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
                 + "  },\n"
-                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + "\n"
+                + "  clientConnector.port: " + (BASE_CLIENT_PORT + nodeIdx) + ",\n"
+                + "  rest.port: " + (BASE_REST_PORT + nodeIdx) + "\n"
                 + "}";
     }
 
@@ -201,7 +202,7 @@ public class ItGeneratedRestClientTest {
     @Test
     void getClusterConfigurationByPath() {
         assertDoesNotThrow(() -> {
-            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("rocksDb.defaultRegion");
+            String configuration = clusterConfigurationApi.getClusterConfigurationByPath("gc.onUpdateBatchSize");
 
             assertNotNull(configuration);
             assertFalse(configuration.isEmpty());
@@ -283,10 +284,13 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void updateNodeConfigurationWithInvalidParam() throws JsonProcessingException {
+    void updateClusterConfigurationWithInvalidParam() throws JsonProcessingException {
         ApiException thrown = assertThrows(
                 ApiException.class,
-                () -> clusterConfigurationApi.updateClusterConfiguration("rocksDb.defaultRegion.cache=invalid")
+                () -> clusterConfigurationApi.updateClusterConfiguration("{\n"
+                        + "    security.enabled:true, \n"
+                        + "    security.authentication.providers:null\n"
+                        + "}")
         );
 
         Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
@@ -363,12 +367,14 @@ public class ItGeneratedRestClientTest {
 
     @Test
     void nodeMetricSourcesList() throws ApiException {
-        List<MetricSource> metricSources = List.of(
+        MetricSource[] expectedMetricSources = {
                 new MetricSource().name("jvm").enabled(false),
-                new MetricSource().name("client.handler").enabled(false)
-        );
+                new MetricSource().name("client.handler").enabled(false),
+                new MetricSource().name("sql.client").enabled(false),
+                new MetricSource().name("sql.plan.cache").enabled(false)
+        };
 
-        assertThat(nodeMetricApi.listNodeMetricSources(), containsInAnyOrder(metricSources.toArray()));
+        assertThat(nodeMetricApi.listNodeMetricSources(), hasItems(expectedMetricSources));
     }
 
     @Test

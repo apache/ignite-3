@@ -17,11 +17,10 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.util.IgniteNameUtils.canonicalName;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Index.INDEX_ALREADY_EXISTS_ERR;
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
  * This exception is thrown when a new index creation has failed because an index with the specified name already existed.
@@ -34,7 +33,7 @@ public class IndexAlreadyExistsException extends IgniteException {
      * @param indexName Index name.
      */
     public IndexAlreadyExistsException(String schemaName, String indexName) {
-        super(Sql.OBJECT_ALREADY_EXISTS_ERR, format("Index already exists [name={}]", canonicalName(schemaName, indexName)));
+        super(INDEX_ALREADY_EXISTS_ERR, "Index already exists [name=" + canonicalName(schemaName, indexName) + ']');
     }
 
     /**

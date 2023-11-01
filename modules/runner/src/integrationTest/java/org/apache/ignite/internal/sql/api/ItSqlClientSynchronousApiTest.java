@@ -19,13 +19,13 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest.getClientAddresses;
 
+import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Tests for synchronous client SQL API.
@@ -37,7 +37,7 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
 
     @BeforeAll
     public void startClient() {
-        client = IgniteClient.builder().addresses(getClientAddresses(CLUSTER_NODES).get(0)).build();
+        client = IgniteClient.builder().addresses(getClientAddresses(List.of(CLUSTER.aliveNode())).get(0)).build();
     }
 
     @AfterAll
@@ -56,19 +56,20 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     }
 
     @Override
-    @Test
-    public void dml() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+    @Disabled("IGNITE-17134")
+    public void closeSession() {
+        super.closeSession();
+    }
 
-        IgniteSql sql = igniteSql();
-        Session ses = sql.createSession();
+    @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20598")
+    public void checkTransactionsWithDml() {
+        super.checkTransactionsWithDml();
+    }
 
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
-
-        checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
-
-        checkDml(ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
+    @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20742")
+    public void testLockIsNotReleasedAfterTxRollback() {
+        super.testLockIsNotReleasedAfterTxRollback();
     }
 }

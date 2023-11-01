@@ -23,12 +23,15 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -38,7 +41,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
 
@@ -49,7 +51,8 @@ public class Replica {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
-    public static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+    /** Message factory. */
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;
@@ -71,12 +74,20 @@ public class Replica {
 
     // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
     //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
-    private CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
+    /** Completes when leader is elected. */
+    private final CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
 
-    private AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+    /** Container of the elected leader. */
+    private final AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
     /** Latest lease expiration time. */
-    private volatile HybridTimestamp leaseExpirationTime = null;
+    private volatile HybridTimestamp leaseExpirationTime;
+
+    /** External executor. */
+    // TODO: IGNITE-20063 Maybe get rid of it
+    private final ExecutorService executor;
+
+    private final PlacementDriver placementDriver;
 
     /**
      * The constructor of a replica server.
@@ -87,6 +98,8 @@ public class Replica {
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Topology aware Raft client.
      * @param localNode Instance of the local node.
+     * @param executor External executor.
+     * @param placementDriver Placement driver.
      */
     public Replica(
             ReplicationGroupId replicaGrpId,
@@ -94,7 +107,9 @@ public class Replica {
             ReplicaListener listener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
-            ClusterNode localNode
+            ClusterNode localNode,
+            ExecutorService executor,
+            PlacementDriver placementDriver
     ) {
         this.replicaGrpId = replicaGrpId;
         this.whenReplicaReady = replicaReady;
@@ -102,6 +117,8 @@ public class Replica {
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
         this.localNode = localNode;
+        this.executor = executor;
+        this.placementDriver = placementDriver;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -110,15 +127,16 @@ public class Replica {
      * Processes a replication request on the replica.
      *
      * @param request Request to replication.
+     * @param senderId Sender id.
      * @return Response.
      */
-    public CompletableFuture<?> processRequest(ReplicaRequest request) {
+    public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
                 replicaGrpId);
 
-        return listener.invoke(request);
+        return listener.invoke(request, senderId);
     }
 
     /**
@@ -145,8 +163,6 @@ public class Replica {
         if (!leaderFuture.isDone()) {
             leaderFuture.complete(leaderRef);
         }
-
-        listener.onBecomePrimary(clusterNode);
     }
 
     private CompletableFuture<ClusterNode> leaderFuture() {
@@ -177,7 +193,7 @@ public class Replica {
     public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
 
-        return leaderFuture().thenCompose(leader -> {
+        return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
             if (leaseExpirationTime != null) {
@@ -208,7 +224,7 @@ public class Replica {
                     return proposeLeaseRedirect(leader);
                 }
             }
-        });
+        }));
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
@@ -254,7 +270,7 @@ public class Replica {
             return failedFuture(new TimeoutException());
         }
 
-        return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, Runnable::run)
+        return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .thenCompose(storageIndexTracker::waitFor);
     }

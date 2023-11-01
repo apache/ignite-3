@@ -34,9 +34,9 @@ import java.util.Set;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -50,6 +50,7 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -65,7 +66,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Test class for {@link ConfigurationValidatorImpl}.
  */
 @ExtendWith(MockitoExtension.class)
-public class ConfigurationValidatorImplTest {
+public class ConfigurationValidatorImplTest extends BaseIgniteAbstractTest {
 
     private static ConfigurationAsmGenerator cgen;
 
@@ -138,7 +139,7 @@ public class ConfigurationValidatorImplTest {
     /**
      * Child internal extension configuration schema.
      */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class InternalValidatedChildConfigurationSchema extends ValidatedChildConfigurationSchema {
         @LeafValidation
         @Value(hasDefault = true)

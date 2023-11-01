@@ -18,8 +18,11 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,25 +65,35 @@ internal static class DataStreamer
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
         Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
-        IRecordSerializerHandler<T> writer,
-        Func<Task<Schema>> schemaProvider,
+        RecordSerializer<T> writer,
+        Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
         Func<ValueTask<string[]?>> partitionAssignmentProvider,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
         IgniteArgumentCheck.NotNull(data);
 
-        IgniteArgumentCheck.Ensure(options.BatchSize > 0, $"{nameof(options.BatchSize)} should be positive.");
-        IgniteArgumentCheck.Ensure(options.AutoFlushFrequency > TimeSpan.Zero, $"{nameof(options.AutoFlushFrequency)} should be positive.");
-        IgniteArgumentCheck.Ensure(options.RetryLimit >= 0, $"{nameof(options.RetryLimit)} should be non-negative.");
+        IgniteArgumentCheck.Ensure(
+            options.BatchSize > 0,
+            nameof(options.BatchSize),
+            $"{nameof(options.BatchSize)} should be positive.");
+
+        IgniteArgumentCheck.Ensure(
+            options.AutoFlushFrequency > TimeSpan.Zero,
+            nameof(options.AutoFlushFrequency),
+            $"{nameof(options.AutoFlushFrequency)} should be positive.");
+
+        IgniteArgumentCheck.Ensure(
+            options.RetryLimit >= 0,
+            nameof(options.RetryLimit),
+            $"{nameof(options.RetryLimit)} should be non-negative.");
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
-        var batches = new Dictionary<string, Batch>();
+        var batches = new Dictionary<string, Batch<T>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
-        // TODO: IGNITE-19710 Data Streamer schema synchronization
-        var schema = await schemaProvider().ConfigureAwait(false);
+        var schema = await schemaProvider(null).ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
         using var flushCts = new CancellationTokenSource();
@@ -95,7 +108,7 @@ internal static class DataStreamer
                 // However, not all producers support cancellation, so we need to check it here as well.
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var (batch, partition) = Add(item);
+                var (batch, partition) = await AddWithRetryUnmapped(item).ConfigureAwait(false);
                 if (batch.Count >= options.BatchSize)
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
@@ -124,19 +137,36 @@ internal static class DataStreamer
             foreach (var batch in batches.Values)
             {
                 batch.Buffer.Dispose();
+                ArrayPool<T>.Shared.Return(batch.Items);
 
                 Metrics.StreamerItemsQueuedDecrement(batch.Count);
                 Metrics.StreamerBatchesActiveDecrement();
             }
         }
 
-        (Batch Batch, string Partition) Add(T item)
+        return;
+
+        async ValueTask<(Batch<T> Batch, string Partition)> AddWithRetryUnmapped(T item)
         {
-            var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count, hashedColumnsPredicate: schema);
+            try
+            {
+                return Add(item);
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns())
+            {
+                schema = await schemaProvider(Table.SchemaVersionForceLatest).ConfigureAwait(false);
+                return Add(item);
+            }
+        }
+
+        (Batch<T> Batch, string Partition) Add(T item)
+        {
+            var schema0 = schema;
+            var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Count, hashedColumnsPredicate: schema0);
 
             try
             {
-                return Add0(item, ref tupleBuilder);
+                return Add0(item, ref tupleBuilder, schema0);
             }
             finally
             {
@@ -144,29 +174,44 @@ internal static class DataStreamer
             }
         }
 
-        (Batch Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder)
+        (Batch<T> Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
-            var columnCount = schema.Columns.Count;
+            var columnCount = schema0.Columns.Count;
 
             // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
             // because it may expose referenced variables outside of their declaration scope".
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
-            writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetRef);
+            writer.Handler.Write(ref tupleBuilder, item, schema0, columnCount, noValueSetRef);
 
-            var partition = partitionAssignment == null
+            // ReSharper disable once AccessToModifiedClosure (reviewed)
+            var partitionAssignment0 = partitionAssignment;
+            var partition = partitionAssignment0 == null
                 ? string.Empty // Default connection.
-                : partitionAssignment[Math.Abs(tupleBuilder.GetHash() % partitionAssignment.Length)];
+                : partitionAssignment0[Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length)];
 
             var batch = GetOrCreateBatch(partition);
 
             lock (batch)
             {
-                batch.Count++;
+                batch.Items[batch.Count++] = item;
 
-                noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
-                batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
+                if (batch.Schema != schema0)
+                {
+                    batch.SchemaOutdated = true;
+                }
+
+                // 1. To compute target partition, we need key hash.
+                // 2. To compute key hash, we need to serialize the key.
+                // 3. Since we already serialized the key, we can use it for the message body and avoid re-serialization.
+                // However, if schema gets updated, we need to re-serialize the whole batch.
+                // Schema update is rare, so we optimize for the happy path.
+                if (!batch.SchemaOutdated)
+                {
+                    noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
+                    batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
+                }
             }
 
             Metrics.StreamerItemsQueuedIncrement();
@@ -174,13 +219,13 @@ internal static class DataStreamer
             return (batch, partition);
         }
 
-        Batch GetOrCreateBatch(string partition)
+        Batch<T> GetOrCreateBatch(string partition)
         {
             ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partition, out _);
 
             if (batchRef == null)
             {
-                batchRef = new Batch();
+                batchRef = new Batch<T>(options.BatchSize, schema);
                 InitBuffer(batchRef);
 
                 Metrics.StreamerBatchesActiveIncrement();
@@ -189,7 +234,7 @@ internal static class DataStreamer
             return batchRef;
         }
 
-        async Task SendAsync(Batch batch, string partition)
+        async Task SendAsync(Batch<T> batch, string partition)
         {
             var expectedSize = batch.Count;
 
@@ -210,31 +255,82 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Count);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
+                batch.Items = ArrayPool<T>.Shared.Rent(options.BatchSize);
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
+                batch.Schema = schema;
+                batch.SchemaOutdated = false;
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, int count)
+        async Task SendAndDisposeBufAsync(
+            PooledArrayBuffer buf,
+            string partition,
+            Task oldTask,
+            T[] items,
+            int count,
+            bool batchSchemaOutdated)
         {
+            Debug.Assert(items.Length > 0, "items.Length > 0");
+
+            if (batchSchemaOutdated)
+            {
+                // Schema update was detected while the batch was being filled.
+                buf.Reset();
+                writer.WriteMultiple(buf, null, schema, items.Take(count));
+            }
+
             try
             {
-                // Wait for the previous batch for this node to preserve item order.
-                await oldTask.ConfigureAwait(false);
-                await sender(buf, partition, retryPolicy).ConfigureAwait(false);
+                int? schemaVersion = null;
+                while (true)
+                {
+                    try
+                    {
+                        if (schemaVersion != null)
+                        {
+                            // Might be updated by another batch.
+                            if (schema.Version != schemaVersion)
+                            {
+                                schema = await schemaProvider(schemaVersion).ConfigureAwait(false);
+                            }
 
-                Metrics.StreamerBatchesSent.Add(1);
-                Metrics.StreamerItemsSent.Add(count);
+                            // Serialize again with the new schema.
+                            buf.Reset();
+                            writer.WriteMultiple(buf, null, schema, items.Take(count));
+                        }
+
+                        // Wait for the previous batch for this node to preserve item order.
+                        await oldTask.ConfigureAwait(false);
+                        await sender(buf, partition, retryPolicy).ConfigureAwait(false);
+
+                        Metrics.StreamerBatchesSent.Add(1);
+                        Metrics.StreamerItemsSent.Add(count);
+
+                        return;
+                    }
+                    catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                                    schemaVersion != e.GetExpectedSchemaVersion())
+                    {
+                        // Schema update detected after the batch was serialized.
+                        schemaVersion = e.GetExpectedSchemaVersion();
+                    }
+                    catch (Exception e) when (e.CausedByUnmappedColumns() && schemaVersion == null)
+                    {
+                        schemaVersion = Table.SchemaVersionForceLatest;
+                    }
+                }
             }
             finally
             {
                 buf.Dispose();
+                ArrayPool<T>.Shared.Return(items);
 
                 Metrics.StreamerItemsQueuedDecrement(count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -258,7 +354,7 @@ internal static class DataStreamer
             }
         }
 
-        void InitBuffer(Batch batch)
+        void InitBuffer(Batch<T> batch)
         {
             var buf = batch.Buffer;
 
@@ -285,9 +381,22 @@ internal static class DataStreamer
         }
     }
 
-    private sealed record Batch
+    private sealed record Batch<T>
     {
+        public Batch(int capacity, Schema schema)
+        {
+            Items = ArrayPool<T>.Shared.Rent(capacity);
+            Schema = schema;
+        }
+
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
+
+        [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record")]
+        public T[] Items { get; set; }
+
+        public Schema Schema { get; set; }
+
+        public bool SchemaOutdated { get; set; }
 
         public int Count { get; set; }
 

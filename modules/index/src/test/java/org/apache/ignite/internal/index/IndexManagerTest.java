@@ -18,63 +18,73 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
+import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
+import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.apache.ignite.internal.index.event.IndexEvent;
-import org.apache.ignite.internal.index.event.IndexEventParameters;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IndexNotFoundException;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test class to verify {@link IndexManager}.
  */
-@ExtendWith(ConfigurationExtension.class)
-public class IndexManagerTest {
-    @InjectConfiguration(
-            "mock.tables.tName {"
-                    + "id: 1, "
-                    + "columns.c1 {type.type: STRING}, "
-                    + "columns.c2 {type.type: STRING}, "
-                    + "primaryKey {columns: [c1], colocationColumns: [c1]}"
-                    + "}"
-    )
-    private TablesConfiguration tablesConfig;
+public class IndexManagerTest extends BaseIgniteAbstractTest {
+    private final HybridClock clock = new HybridClockImpl();
+
+    private VaultManager vaultManager;
+
+    private MetaStorageManagerImpl metaStorageManager;
+
+    private ClockWaiter clockWaiter;
+
+    private CatalogManager catalogManager;
 
     private IndexManager indexManager;
 
@@ -82,21 +92,9 @@ public class IndexManagerTest {
     public void setUp() {
         TableManager tableManagerMock = mock(TableManager.class);
 
-        when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> {
-            InternalTable tbl = mock(InternalTable.class);
+        when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> completedFuture(mockTable(inv.getArgument(1))));
 
-            doReturn(inv.getArgument(1)).when(tbl).tableId();
-
-            return completedFuture(new TableImpl(tbl, new HeapLockManager()));
-        });
-
-        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> {
-            InternalTable tbl = mock(InternalTable.class);
-
-            doReturn(inv.getArgument(0)).when(tbl).tableId();
-
-            return new TableImpl(tbl, new HeapLockManager());
-        });
+        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> mockTable(inv.getArgument(0)));
 
         when(tableManagerMock.localPartitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(PartitionSet.EMPTY_SET));
 
@@ -104,213 +102,121 @@ public class IndexManagerTest {
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
-        indexManager.start();
+        vaultManager = new VaultManager(new InMemoryVaultService());
 
-        assertThat(
-                tablesConfig.tables().get("tName")
-                        .change(tableChange -> ((ExtendedTableChange) tableChange).changeSchemaId(1)),
-                willCompleteSuccessfully()
+        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, new SimpleInMemoryKeyValueStorage(NODE_NAME));
+
+        clockWaiter = new ClockWaiter(NODE_NAME, clock);
+
+        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
+
+        indexManager = new IndexManager(
+                schManager,
+                tableManagerMock,
+                catalogManager,
+                metaStorageManager,
+                (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply)
         );
+
+        List.of(vaultManager, metaStorageManager, clockWaiter, catalogManager, indexManager).forEach(IgniteComponent::start);
+
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        if (indexManager != null) {
-            indexManager.stop();
-        }
+        IgniteUtils.stopAll(vaultManager, metaStorageManager, clockWaiter, catalogManager, indexManager);
     }
 
     @Test
-    void configurationChangedWhenCreateIsInvoked() {
-        String indexName = "idx";
-
-        assertThat(indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
-            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
-
-            sortedIndexChange.changeColumns(columns -> {
-                columns.create("c1", columnChange -> columnChange.changeAsc(true));
-                columns.create("c2", columnChange -> columnChange.changeAsc(false));
-            });
-
-            sortedIndexChange.changeTableId(tableId());
-        }), willCompleteSuccessfully());
-
-        var expected = List.of(
-                Map.of(
-                        "columns", List.of(
-                                Map.of(
-                                        "asc", true,
-                                        "name", "c1"
-                                ),
-                                Map.of(
-                                        "asc", false,
-                                        "name", "c2"
-                                )
-                        ),
-                        "name", indexName,
-                        "type", "SORTED",
-                        "uniq", false,
-                        "tableId", tableId(),
-                        "id", 1
-                )
-        );
-
-        assertSameObjects(expected, toMap(tablesConfig.indexes().value()));
+    void testGetMvTableStorageForNonExistsTable() {
+        assertThat(getMvTableStorageLatestRevision(Integer.MAX_VALUE), willBe(nullValue()));
     }
 
     @Test
-    public void createIndexWithEmptyName() {
-        assertThat(
-                indexManager.createIndexAsync("sName", "", "tName", true, indexChange -> {/* doesn't matter */}),
-                willThrowFast(IgniteInternalException.class, "Index name should be at least 1 character long")
-        );
+    void testGetMvTableStorageForExistsTable() {
+        assertThat(getMvTableStorageLatestRevision(tableId()), willBe(notNullValue()));
     }
 
     @Test
-    public void dropNonExistingIndex() {
-        assertThat(
-                indexManager.dropIndexAsync("sName", "nonExisting", true),
-                willThrowFast(IndexNotFoundException.class, "Index does not exist [name=\"sName\".\"nonExisting\"]")
-        );
+    void testGetMvTableStorageForDroppedTable() {
+        dropTable(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
+        assertThat(getMvTableStorageLatestRevision(Integer.MAX_VALUE), willBe(nullValue()));
     }
 
     @Test
-    @SuppressWarnings("ConstantConditions")
-    public void eventIsFiredWhenIndexCreated() {
-        String indexName = "idx";
+    void testGetMvTableStorageForNewIndexInCatalogListener() {
+        CompletableFuture<MvTableStorage> getMvTableStorageInCatalogListenerFuture = new CompletableFuture<>();
 
-        AtomicReference<IndexEventParameters> holder = new AtomicReference<>();
-
-        indexManager.listen(IndexEvent.CREATE, (param, th) -> {
-            holder.set(param);
-
-            return completedFuture(true);
-        });
-
-        indexManager.listen(IndexEvent.DROP, (param, th) -> {
-            holder.set(param);
-
-            return completedFuture(true);
-        });
-
-        assertThat(indexManager.createIndexAsync("sName", indexName, "tName", true, indexChange -> {
-            SortedIndexChange sortedIndexChange = indexChange.convert(SortedIndexChange.class);
-
-            sortedIndexChange.changeColumns(columns -> {
-                columns.create("c2", columnChange -> columnChange.changeAsc(true));
-            });
-
-            sortedIndexChange.changeTableId(tableId());
-        }), willCompleteSuccessfully());
-
-        List<Integer> indexIds = tablesConfig.indexes().value().stream()
-                .map(TableIndexView::id)
-                .collect(toList());
-
-        assertThat(indexIds, hasSize(1));
-
-        int indexId = indexIds.get(0);
-
-        assertThat(holder.get(), notNullValue());
-        assertThat(holder.get().indexId(), equalTo(indexId));
-        assertThat(holder.get().tableId(), equalTo(tableId()));
-        assertThat(holder.get().indexDescriptor().name(), equalTo(indexName));
-
-        assertThat(indexManager.dropIndexAsync("sName", indexName, true), willCompleteSuccessfully());
-
-        assertThat(holder.get(), notNullValue());
-        assertThat(holder.get().indexId(), equalTo(indexId));
-    }
-
-    private static Object toMap(Object obj) {
-        assert obj instanceof TraversableTreeNode;
-
-        return ((TraversableTreeNode) obj).accept(
-                null,
-                null,
-                ConverterToMapVisitor.builder()
-                        .includeInternal(false)
-                        .build()
-        );
-    }
-
-    private static void assertSameObjects(Object expected, Object actual) {
-        try {
-            contentEquals(expected, actual);
-        } catch (ObjectsNotEqualException ex) {
-            fail(
-                    format(
-                            "Objects are not equal at position {}:\n\texpected={}\n\tactual={}",
-                            String.join(".", ex.path), ex.o1, ex.o2)
-            );
-        }
-    }
-
-    private static void contentEquals(Object o1, Object o2) {
-        if (o1 instanceof Map && o2 instanceof Map) {
-            var m1 = (Map<?, ?>) o1;
-            var m2 = (Map<?, ?>) o2;
-
-            if (m1.size() != m2.size()) {
-                throw new ObjectsNotEqualException(m1, m2);
-            }
-
-            for (Map.Entry<?, ?> entry : m1.entrySet()) {
-                var v1 = entry.getValue();
-                var v2 = m2.get(entry.getKey());
-
+        catalogManager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+            if (exception != null) {
+                getMvTableStorageInCatalogListenerFuture.completeExceptionally(exception);
+            } else {
                 try {
-                    contentEquals(v1, v2);
-                } catch (ObjectsNotEqualException ex) {
-                    ex.path.add(0, entry.getKey().toString());
+                    CompletableFuture<MvTableStorage> mvTableStorageFuture = getMvTableStorage(parameters.causalityToken(), tableId());
 
-                    throw ex;
+                    assertFalse(mvTableStorageFuture.isDone());
+
+                    mvTableStorageFuture.whenComplete((mvTableStorage, throwable) -> {
+                        if (throwable != null) {
+                            getMvTableStorageInCatalogListenerFuture.completeExceptionally(throwable);
+                        } else {
+                            getMvTableStorageInCatalogListenerFuture.complete(mvTableStorage);
+                        }
+                    });
+                } catch (Throwable t) {
+                    getMvTableStorageInCatalogListenerFuture.completeExceptionally(t);
                 }
             }
-        } else if (o1 instanceof List && o2 instanceof List) {
-            var l1 = (List<?>) o1;
-            var l2 = (List<?>) o2;
 
-            if (l1.size() != l2.size()) {
-                throw new ObjectsNotEqualException(l1, l2);
-            }
+            return completedFuture(false);
+        });
 
-            var it1 = l1.iterator();
-            var it2 = l2.iterator();
+        createHashIndex(
+                catalogManager,
+                DEFAULT_SCHEMA_NAME,
+                TABLE_NAME,
+                TABLE_NAME + "_test_index",
+                List.of(COLUMN_NAME),
+                false
+        );
 
-            int idx = 0;
-            while (it1.hasNext()) {
-                var v1 = it1.next();
-                var v2 = it2.next();
-
-                try {
-                    contentEquals(v1, v2);
-                } catch (ObjectsNotEqualException ex) {
-                    ex.path.add(0, "[" + idx + ']');
-
-                    throw ex;
-                }
-            }
-        } else if (!Objects.equals(o1, o2)) {
-            throw new ObjectsNotEqualException(o1, o2);
-        }
+        assertThat(getMvTableStorageInCatalogListenerFuture, willBe(notNullValue()));
     }
 
-    static class ObjectsNotEqualException extends RuntimeException {
-        private final Object o1;
-        private final Object o2;
+    private TableImpl mockTable(int tableId) {
+        CatalogZoneDescriptor zone = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 
-        private final List<String> path = new ArrayList<>();
+        assertNotNull(zone);
 
-        ObjectsNotEqualException(Object o1, Object o2) {
-            super(null, null, false, false);
-            this.o1 = o1;
-            this.o2 = o2;
-        }
+        StorageTableDescriptor storageTableDescriptor = new StorageTableDescriptor(tableId, zone.partitions(), DEFAULT_DATA_REGION);
+
+        MvTableStorage mvTableStorage = mock(MvTableStorage.class);
+
+        when(mvTableStorage.getTableDescriptor()).thenReturn(storageTableDescriptor);
+
+        InternalTable internalTable = mock(InternalTable.class);
+
+        when(internalTable.tableId()).thenReturn(tableId);
+        when(internalTable.storage()).thenReturn(mvTableStorage);
+
+        return new TableImpl(internalTable, new HeapLockManager(), new ConstantSchemaVersions(1));
+    }
+
+    private CompletableFuture<MvTableStorage> getMvTableStorageLatestRevision(int tableId) {
+        return metaStorageManager.getService().currentRevision().thenCompose(latestRevision -> getMvTableStorage(latestRevision, tableId));
+    }
+
+    private CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
+        return indexManager.getMvTableStorage(causalityToken, tableId);
     }
 
     private int tableId() {
-        return tablesConfig.tables().get("tName").id().value();
+        return getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
     }
 }

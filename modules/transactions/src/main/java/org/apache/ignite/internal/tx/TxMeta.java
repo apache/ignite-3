@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.tx;
 
-import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableCollection;
 
-import java.io.Serializable;
-import java.util.List;
+import java.util.Collection;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -28,7 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Transaction meta. */
-public class TxMeta implements Serializable {
+public class TxMeta implements TransactionMeta {
     /** Serial version UID. */
     private static final long serialVersionUID = -172513482743911860L;
 
@@ -36,11 +35,17 @@ public class TxMeta implements Serializable {
     private final TxState txState;
 
     /** The list of enlisted partitions. */
-    private final List<TablePartitionId> enlistedPartitions;
+    private final Collection<TablePartitionId> enlistedPartitions;
 
     /** Commit timestamp. */
     @Nullable
     private final HybridTimestamp commitTimestamp;
+
+    /**
+     * Whether the locks are released. It is needed for tx recovery operations, to guarantee locks release, meanwhile the cleanup
+     * of write intents is not so important for recovery, because write intents can be resolved at any time while the tx state is known.
+     */
+    private final boolean locksReleased;
 
     /**
      * The constructor.
@@ -49,22 +54,47 @@ public class TxMeta implements Serializable {
      * @param enlistedPartitions The list of enlisted partitions.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, List<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
+    public TxMeta(TxState txState, Collection<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp
+    ) {
+        this(txState, enlistedPartitions, commitTimestamp, false);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param txState Tx state.
+     * @param enlistedPartitions The list of enlisted partitions.
+     * @param commitTimestamp Commit timestamp.
+     * @param locksReleased Whether the locks are released.
+     */
+    public TxMeta(
+            TxState txState,
+            Collection<TablePartitionId> enlistedPartitions,
+            @Nullable HybridTimestamp commitTimestamp,
+            boolean locksReleased
+    ) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
+        this.locksReleased = locksReleased;
     }
 
+    @Override
     public TxState txState() {
         return txState;
     }
 
-    public List<TablePartitionId> enlistedPartitions() {
-        return unmodifiableList(enlistedPartitions);
+    public Collection<TablePartitionId> enlistedPartitions() {
+        return unmodifiableCollection(enlistedPartitions);
     }
 
+    @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
+    }
+
+    public boolean locksReleased() {
+        return locksReleased;
     }
 
     @Override
@@ -86,7 +116,8 @@ public class TxMeta implements Serializable {
 
         return txState == other.txState
                 && enlistedPartitions.equals(other.enlistedPartitions)
-                && Objects.equals(commitTimestamp, other.commitTimestamp);
+                && Objects.equals(commitTimestamp, other.commitTimestamp)
+                && locksReleased == other.locksReleased;
     }
 
     @Override
@@ -94,6 +125,7 @@ public class TxMeta implements Serializable {
         int result = txState.hashCode();
         result = 31 * result + enlistedPartitions.hashCode();
         result = 31 * result + (commitTimestamp != null ? commitTimestamp.hashCode() : 0);
+        result = 31 * result + Boolean.hashCode(locksReleased);
         return result;
     }
 }

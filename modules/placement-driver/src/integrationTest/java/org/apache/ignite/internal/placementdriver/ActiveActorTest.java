@@ -28,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
@@ -52,8 +54,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Loza;
@@ -70,11 +72,9 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -116,22 +116,15 @@ public class ActiveActorTest extends IgniteAbstractTest {
     @Mock
     MetaStorageManager msm;
 
-    @InjectConfiguration
-    private TablesConfiguration tblsCfg;
-
-    @InjectConfiguration
-    private DistributionZonesConfiguration dstZnsCfg;
-
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void tearDown() throws Exception {
         List<AutoCloseable> closeables = placementDriverManagers.values().stream().map(p -> (AutoCloseable) p::stop).collect(toList());
 
         closeAll(closeables);
 
         placementDriverManagers.clear();
 
-        super.tearDown(testInfo);
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -162,16 +155,14 @@ public class ActiveActorTest extends IgniteAbstractTest {
         );
 
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
+                nodeName,
                 msm,
-                new VaultManager(new InMemoryVaultService()),
                 GROUP_ID,
                 clusterService,
                 () -> completedFuture(placementDriverNodesNames),
                 logicalTopologyService,
                 raftManager,
                 raftGroupServiceFactory,
-                tblsCfg,
-                dstZnsCfg,
                 new HybridClockImpl()
         );
 
@@ -441,7 +432,9 @@ public class ActiveActorTest extends IgniteAbstractTest {
             int nodes,
             int clientPort
     ) {
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(0L));
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(true));
+        when(msm.getLocally(any(), anyLong())).then(invocation -> emptyMetastoreEntry());
 
         List<NetworkAddress> addresses = getNetworkAddresses(nodes);
 
@@ -674,5 +667,13 @@ public class ActiveActorTest extends IgniteAbstractTest {
         public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
             return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
         }
+    }
+
+    private static Entry emptyMetastoreEntry() {
+        Entry entry = mock(Entry.class);
+
+        when(entry.empty()).thenReturn(true);
+
+        return entry;
     }
 }

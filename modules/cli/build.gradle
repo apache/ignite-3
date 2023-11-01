@@ -87,6 +87,7 @@ dependencies {
     testFixturesImplementation libs.micronaut.inject
     testFixturesImplementation libs.micronaut.picocli
     testFixturesImplementation libs.micronaut.junit5
+    testFixturesImplementation testFixtures(project(":ignite-core"))
 
     integrationTestAnnotationProcessor libs.picocli.annotation.processor
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
@@ -101,6 +102,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(":ignite-core"))
     integrationTestImplementation testFixtures(project(":ignite-schema"))
     integrationTestImplementation testFixtures(project(":ignite-api"))
+    integrationTestImplementation testFixtures(project(":ignite-sql-engine"))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.micronaut.picocli
     integrationTestImplementation libs.mock.server.netty
@@ -112,6 +114,13 @@ dependencies {
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.hamcrest.optional
+}
+
+// Use the same logging implementation for ignite components and cli.
+configurations {
+    testImplementation.exclude group: "org.slf4j", module: "slf4j-jdk14"
+    testFixturesImplementation.exclude group: "org.slf4j", module: "slf4j-jdk14"
+    integrationTestImplementation.exclude group: "org.slf4j", module: "slf4j-jdk14"
 }
 
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")

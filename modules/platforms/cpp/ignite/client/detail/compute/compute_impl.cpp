@@ -73,7 +73,7 @@ std::optional<primitive> read_primitive_from_binary_tuple(protocol::reader &read
  * @param units Units to write.
  */
 void write_units(protocol::writer &writer, const std::vector<deployment_unit> &units) {
-    writer.write_array_header(units.size());
+    writer.write(static_cast<int32_t>(units.size()));
     for (const auto &unit : units) {
         detail::arg_check::container_non_empty(unit.get_name(), "Deployment unit name");
         detail::arg_check::container_non_empty(unit.get_version(), "Deployment unit version");
@@ -102,7 +102,7 @@ void compute_impl::execute_on_one_node(cluster_node node, const std::vector<depl
     };
 
     m_connection->perform_request<std::optional<primitive>>(
-        client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
+        protocol::client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
 }
 
 void compute_impl::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
@@ -141,8 +141,9 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
                         return read_primitive_from_binary_tuple(reader);
                     };
 
-                    conn->perform_request<std::optional<primitive>>(client_operation::COMPUTE_EXECUTE_COLOCATED,
-                        writer_func, std::move(reader_func), std::move(callback));
+                    conn->perform_request<std::optional<primitive>>(
+                        protocol::client_operation::COMPUTE_EXECUTE_COLOCATED, writer_func, std::move(reader_func),
+                        std::move(callback));
                 });
         });
 }

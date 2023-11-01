@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Assumptions;
@@ -32,7 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Check JOIN on basic cases.
  */
-public class ItJoinTest extends ClusterPerClassIntegrationTest {
+public class ItJoinTest extends BaseSqlIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");

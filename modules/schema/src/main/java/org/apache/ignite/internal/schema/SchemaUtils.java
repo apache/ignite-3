@@ -19,8 +19,8 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.Comparator;
-import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 
@@ -29,14 +29,13 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapping;
  */
 public class SchemaUtils {
     /**
-     * Creates schema descriptor for the table with specified configuration.
+     * Creates schema descriptor for the table with specified descriptor.
      *
-     * @param schemaVer Schema version.
-     * @param tableView Table configuration.
+     * @param tableDescriptor Table descriptor.
      * @return Schema descriptor.
      */
-    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tableView) {
-        return ConfigurationToSchemaDescriptorConverter.convert(schemaVer, tableView);
+    public static SchemaDescriptor prepareSchemaDescriptor(CatalogTableDescriptor tableDescriptor) {
+        return CatalogToSchemaDescriptorConverter.convert(tableDescriptor);
     }
 
     /**
@@ -86,7 +85,15 @@ public class SchemaUtils {
                         mapper = ColumnMapping.createMapper(newDesc);
                     }
 
-                    mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+                    if (newCol.name().equals(oldCol.name())) {
+                        mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+                    } else {
+                        Column oldIdx = oldDesc.column(newCol.name());
+
+                        assert oldIdx != null : newCol.name();
+
+                        mapper.add(newCol.schemaIndex(), oldIdx.schemaIndex());
+                    }
                 }
             } else {
                 if (mapper == null) {

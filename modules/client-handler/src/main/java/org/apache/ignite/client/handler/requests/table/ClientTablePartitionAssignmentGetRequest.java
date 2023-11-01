@@ -20,9 +20,9 @@ package org.apache.ignite.client.handler.requests.table;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Client partition assignment retrieval request.
@@ -46,11 +46,11 @@ public class ClientTablePartitionAssignmentGetRequest {
 
         return tables.assignmentsAsync(tableId).thenAccept(assignment -> {
             if (assignment == null) {
-                out.packArrayHeader(0);
+                out.packInt(0);
                 return;
             }
 
-            out.packArrayHeader(assignment.size());
+            out.packInt(assignment.size());
 
             for (String leaderNodeId : assignment) {
                 out.packString(leaderNodeId);

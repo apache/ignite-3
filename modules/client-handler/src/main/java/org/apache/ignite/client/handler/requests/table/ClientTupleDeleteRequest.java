@@ -47,12 +47,12 @@ public class ClientTupleDeleteRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
-            var tuple = readTuple(in, table, true);
-
-            return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {
-                out.packInt(table.schemaView().lastSchemaVersion());
-                out.packBoolean(res);
+            var tx = readTx(in, out, resources);
+            return readTuple(in, table, true).thenCompose(tuple -> {
+                return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {
+                    out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    out.packBoolean(res);
+                });
             });
         });
     }

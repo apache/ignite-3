@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
-import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,11 +25,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,11 +35,9 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MessageServiceImpl implements MessageService {
-    private final TopologyService topSrvc;
-
     private final MessagingService messagingSrvc;
 
-    private final String locNodeName;
+    private final String localNodeName;
 
     private final QueryTaskExecutor taskExecutor;
 
@@ -55,17 +50,16 @@ public class MessageServiceImpl implements MessageService {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public MessageServiceImpl(
-            TopologyService topSrvc,
+            String localNodeName,
             MessagingService messagingSrvc,
             QueryTaskExecutor taskExecutor,
             IgniteSpinBusyLock busyLock
     ) {
-        this.topSrvc = topSrvc;
+        this.localNodeName = localNodeName;
         this.messagingSrvc = messagingSrvc;
         this.taskExecutor = taskExecutor;
         this.busyLock = busyLock;
 
-        locNodeName = topSrvc.localMember().name();
     }
 
     /** {@inheritDoc} */
@@ -82,20 +76,12 @@ public class MessageServiceImpl implements MessageService {
         }
 
         try {
-            if (locNodeName.equals(nodeName)) {
+            if (localNodeName.equals(nodeName)) {
                 onMessage(nodeName, msg);
 
                 return CompletableFuture.completedFuture(null);
             } else {
-                ClusterNode node = topSrvc.getByConsistentId(nodeName);
-
-                if (node == null) {
-                    return CompletableFuture.failedFuture(new IgniteInternalException(
-                            NODE_LEFT_ERR, "Failed to send message to node (has node left grid?): " + nodeName
-                    ));
-                }
-
-                return messagingSrvc.send(node, msg);
+                return messagingSrvc.send(nodeName, ChannelType.DEFAULT, msg);
             }
         } catch (Exception ex) {
             return CompletableFuture.failedFuture(ex);

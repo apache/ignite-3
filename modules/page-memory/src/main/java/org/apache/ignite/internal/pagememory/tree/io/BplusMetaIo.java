@@ -25,8 +25,8 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PART
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Abstract IO routines for B+Tree meta pages.

@@ -18,10 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
 
-import com.google.common.base.Functions;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -31,10 +28,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
  * Client iterator.
@@ -65,7 +62,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * @param ctx Execution context.
      */
     public RootNode(ExecutionContext<RowT> ctx) {
-        this(ctx, Functions.identity());
+        this(ctx, Function.identity());
     }
 
     /**
@@ -111,7 +108,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         lock.lock();
         try {
             if (waiting != -1 || !outBuff.isEmpty()) {
-                ex.compareAndSet(null, new ExecutionCancelledException());
+                ex.compareAndSet(null, new QueryCancelledException());
             }
 
             closed = true; // an exception has to be set first to get right check order
@@ -268,7 +265,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 cond.await();
             }
         } catch (InterruptedException e) {
-            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, e);
+            throw new QueryCancelledException(e);
         } finally {
             lock.unlock();
         }
@@ -283,15 +280,6 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             return;
         }
 
-        if (e instanceof RuntimeException) {
-            throw (RuntimeException) e;
-        } else {
-            throw new IgniteInternalException(INTERNAL_ERR, "An error occurred while query executing.", e);
-        }
-        // TODO: rework with SQL error code
-        //        if (e instanceof IgniteSQLException)
-        //            throw (IgniteSQLException)e;
-        //        else
-        //            throw new IgniteSQLException("An error occurred while query executing.", IgniteQueryErrorCode.UNKNOWN, e);
+        ExceptionUtils.sneakyThrow(e);
     }
 }

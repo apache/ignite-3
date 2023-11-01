@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,8 +35,10 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -47,7 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Test SQL data types.
  */
-public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
+public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     private static final String NUMERIC_OVERFLOW_ERROR = "Numeric field overflow";
 
@@ -58,7 +61,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
      */
     @AfterEach
     public void dropTables() {
-        var igniteTables = CLUSTER_NODES.get(0).tables();
+        var igniteTables = CLUSTER.aliveNode().tables();
 
         for (var table : igniteTables.tables()) {
             sql("DROP TABLE " + table.name());
@@ -124,8 +127,10 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(Set.of(101), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
-        //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095
-        assertThrows(IgniteException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Column 'C2' does not allow NULLs",
+                () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
     }
 
     /**
@@ -314,13 +319,11 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT CASE WHEN false THEN DECIMAL '1.00' ELSE DECIMAL '0.0' END")
                 .returns(new BigDecimal("0.0")).check();
 
-        assertQuery("SELECT DECIMAL \"10\" FROM (SELECT 1 as decimal) tmp").returns(1).check();
-
         assertQuery(
                 "SELECT DECIMAL '0.09'  BETWEEN DECIMAL '0.06' AND DECIMAL '0.07'")
                 .returns(false).check();
 
-        assertQuery("SELECT ROUND(DECIMAL '10.000', 2)").returns(new BigDecimal("10.00")).check();
+        assertQuery("SELECT ROUND(DECIMAL '10.000', 2)").returns(new BigDecimal("10.000")).check();
         assertQuery("SELECT CAST(DECIMAL '10.000' AS VARCHAR)").returns("10.000").check();
         assertQuery("SELECT CAST(DECIMAL '10.000' AS INTEGER)").returns(10).check();
 
@@ -355,6 +358,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
         // ignored
         RelDataType numeric = decimalType(4);
 
+        // TODO Align test datasets https://issues.apache.org/jira/browse/IGNITE-20130
         return Stream.of(
                 // String
                 arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
@@ -441,70 +445,71 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
                 arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.RUN, varcharType, "100", decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, varcharType, "100", decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.SKIP, varcharType, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, varcharType, "100", decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(CaseStatus.RUN, varcharType, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Tinyint
-                arguments(CaseStatus.SKIP, tinyIntType, (byte) 100, decimalType(3), bigDecimalVal("100")),
+                arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(3, 0), bigDecimalVal("100")),
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, tinyIntType, (byte) 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.SKIP, tinyIntType, (byte) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Smallint
                 arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(3, 0), bigDecimalVal("100")),
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, smallIntType, (short) 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.SKIP, smallIntType, (short) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Integer
                 arguments(CaseStatus.RUN, integerType, 100, decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.RUN, integerType, 100, decimalType(3, 0), bigDecimalVal("100")),
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, integerType, 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.SKIP, integerType, 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, integerType, 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Bigint
                 arguments(CaseStatus.RUN, bigintType, 100L, decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.RUN, bigintType, 100L, decimalType(3, 0), bigDecimalVal("100")),
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, bigintType, 100L, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.SKIP, bigintType, 100L, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, bigintType, 100L, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Real
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(3, 0), bigDecimalVal("100")),
                 arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, realType, 100.0f, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
                 arguments(CaseStatus.SKIP, realType, 0.1f, decimalType(1, 1), bigDecimalVal("0.1")),
                 arguments(CaseStatus.SKIP, realType, 0.1f, decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.SKIP, realType, 10.12f, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, realType, 0.12f, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, realType, 10.12f, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, realType, 0.12f, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Double
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(3), bigDecimalVal("100")),
                 arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(3, 0), bigDecimalVal("100")),
                 arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, doubleType, 100.0d, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
                 arguments(CaseStatus.SKIP, doubleType, 0.1d, decimalType(1, 1), bigDecimalVal("0.1")),
                 arguments(CaseStatus.SKIP, doubleType, 0.1d, decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.SKIP, doubleType, 10.12d, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, doubleType, 0.12d, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, doubleType, 10.12d, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, doubleType, 0.12d, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Decimal
                 arguments(CaseStatus.RUN, decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1")),
                 arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(3), bigDecimalVal("100")),
+                // passed with runtime call and failed with parsing substitution
+                arguments(CaseStatus.SKIP, decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.2")),
                 arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(3, 0), bigDecimalVal("100")),
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, decimalType(3), new BigDecimal("100"), decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.SKIP, decimalType(3), new BigDecimal("100"), decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
                 arguments(CaseStatus.SKIP, decimalType(1, 1), new BigDecimal("0.1"), decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.SKIP, decimalType(4, 2), new BigDecimal("10.12"), decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, decimalType(2, 2), new BigDecimal("0.12"), decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, decimalType(4, 2), new BigDecimal("10.12"), decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(CaseStatus.RUN, decimalType(2, 2), new BigDecimal("0.12"), decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
                 arguments(CaseStatus.SKIP, decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1"))
         );
     }
@@ -569,7 +574,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 

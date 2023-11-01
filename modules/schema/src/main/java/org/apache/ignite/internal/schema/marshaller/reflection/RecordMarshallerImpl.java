@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
+import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.toMarshallerColumns;
+
 import java.util.Objects;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,20 +59,20 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * @param schema Schema descriptor.
      * @param mapper Mapper for record objects.
      */
-    public RecordMarshallerImpl(SchemaDescriptor schema, @NotNull Mapper<R> mapper) {
+    public RecordMarshallerImpl(SchemaDescriptor schema, Mapper<R> mapper) {
         assert mapper instanceof PojoMapper;
 
         this.schema = schema;
 
         recClass = mapper.targetType();
 
-        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), mapper, true);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), mapper, false);
+        MarshallerColumn[] keyColumns = toMarshallerColumns(schema.keyColumns().columns());
+        MarshallerColumn[] valueColumns = toMarshallerColumns(schema.valueColumns().columns());
 
-        recMarsh = Marshaller.createMarshaller(
-                ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns()),
-                mapper, false
-        );
+        keyMarsh = Marshaller.createMarshaller(keyColumns, mapper, true, true);
+        valMarsh = Marshaller.createMarshaller(valueColumns, mapper, false, true);
+
+        recMarsh = Marshaller.createMarshaller(ArrayUtils.concat(keyColumns, valueColumns), mapper, false, false);
     }
 
     /** {@inheritDoc} */
@@ -80,33 +83,32 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull R rec) throws MarshallerException {
+    public Row marshal(R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
         final RowAssembler asm = createAssembler(Objects.requireNonNull(rec), rec);
 
-        recMarsh.writeObject(rec, asm);
+        recMarsh.writeObject(rec, new RowWriter(asm));
 
-        return new Row(schema, asm.build());
+        return Row.wrapBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshalKey(@NotNull R rec) throws MarshallerException {
+    public Row marshalKey(R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
         final RowAssembler asm = createAssembler(Objects.requireNonNull(rec));
 
-        keyMarsh.writeObject(rec, asm);
+        keyMarsh.writeObject(rec, new RowWriter(asm));
 
-        return new Row(schema, asm.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
-    public R unmarshal(@NotNull Row row) throws MarshallerException {
-        final Object o = recMarsh.readObject(row);
+    public R unmarshal(Row row) throws MarshallerException {
+        final Object o = recMarsh.readObject(new RowReader(row), null);
 
         assert recClass.isInstance(o);
 
@@ -129,7 +131,11 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * @throws MarshallerException If failed to read key object content.
      */
     private RowAssembler createAssembler(Object key) throws MarshallerException {
-        return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+        try {
+            return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+        } catch (Throwable e) {
+            throw new MarshallerException(e.getMessage(), e);
+        }
     }
 
     /**
@@ -141,6 +147,10 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * @throws MarshallerException If failed to read key or value object content.
      */
     private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
-        return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+        try {
+            return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+        } catch (Throwable e) {
+            throw new MarshallerException(e.getMessage(), e);
+        }
     }
 }

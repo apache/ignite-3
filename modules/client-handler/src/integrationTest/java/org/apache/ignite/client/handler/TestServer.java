@@ -24,24 +24,27 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
@@ -55,7 +58,7 @@ public class TestServer {
 
     private final TestSslConfig testSslConfig;
 
-    private final AuthenticationConfiguration authenticationConfiguration;
+    private final SecurityConfiguration securityConfiguration;
 
     private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
 
@@ -65,11 +68,11 @@ public class TestServer {
         this(null, null);
     }
 
-    TestServer(@Nullable TestSslConfig testSslConfig, @Nullable AuthenticationConfiguration authenticationConfiguration) {
+    TestServer(@Nullable TestSslConfig testSslConfig, @Nullable SecurityConfiguration securityConfiguration) {
         this.testSslConfig = testSslConfig;
-        this.authenticationConfiguration = authenticationConfiguration == null
-                ? mock(AuthenticationConfiguration.class)
-                : authenticationConfiguration;
+        this.securityConfiguration = securityConfiguration == null
+                ? mock(SecurityConfiguration.class)
+                : securityConfiguration;
         this.generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
         this.configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -115,10 +118,22 @@ public class TestServer {
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
-        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
-                registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics,
-                authenticationManager(), authenticationConfiguration
+        var module = new ClientHandlerModule(
+                mock(QueryProcessor.class),
+                mock(IgniteTablesInternal.class),
+                mock(IgniteTransactionsImpl.class),
+                registry,
+                mock(IgniteCompute.class),
+                clusterService,
+                bootstrapFactory,
+                mock(IgniteSql.class),
+                () -> CompletableFuture.completedFuture(UUID.randomUUID()),
+                mock(MetricManager.class),
+                metrics,
+                authenticationManager(),
+                new HybridClockImpl(),
+                new AlwaysSyncedSchemaSyncService(),
+                mock(CatalogService.class)
         );
 
         module.start();
@@ -137,7 +152,7 @@ public class TestServer {
 
     private AuthenticationManager authenticationManager() {
         AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(authenticationManager);
+        securityConfiguration.listen(authenticationManager);
         return authenticationManager;
     }
 }

@@ -39,10 +39,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -50,9 +49,7 @@ import org.junit.jupiter.api.Test;
 /**
  * For {@link CheckpointTimeoutLock} testing.
  */
-public class CheckpointTimeoutLockTest {
-    private final IgniteLogger log = Loggers.forClass(CheckpointTimeoutLockTest.class);
-
+public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @Nullable
     private CheckpointTimeoutLock timeoutLock;
 

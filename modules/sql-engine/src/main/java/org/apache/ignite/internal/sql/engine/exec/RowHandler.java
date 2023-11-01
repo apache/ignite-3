@@ -17,64 +17,91 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.lang.reflect.Type;
-import java.util.List;
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Universal accessor and mutator for rows. It also has factory methods.
  */
 public interface RowHandler<RowT> {
+    /**
+     * Extract appropriate field.
+     *
+     * @param field Field position to be processed.
+     * @param row Object to be extracted from.
+     */
     @Nullable Object get(int field, RowT row);
 
+    /** Set incoming row field.
+     *
+     * @param field Field position to be processed.
+     * @param row Row which field need to be changed.
+     * @param val Value which should be set.
+     */
     void set(int field, RowT row, @Nullable Object val);
 
+    /** Concatenate two rows. */
     RowT concat(RowT left, RowT right);
 
+    /**
+     * Creates a new row containing only the fields specified in the provided mapping.
+     *
+     * <p>For example:
+     * <pre>
+     *    source row [5, 6, 7, 8] apply mapping [1, 3]
+     *    result row will be [6, 8]
+     * </pre>
+     *
+     * @param row Source row.
+     * @param mapping Target field indexes.
+     * @return A new row with fields from the specified mapping.
+     */
+    RowT map(RowT row, int[] mapping);
+
+    /** Return column count contained in the incoming row. */
     int columnCount(RowT row);
 
+    /**
+     * Assembly row representation as BinaryTuple.
+     *
+     * @param row Incoming data to be processed.
+     * @return {@link BinaryTuple} representation.
+     */
+    BinaryTuple toBinaryTuple(RowT row);
+
+    /** String representation. */
     String toString(RowT row);
 
-    /**
-     * Factory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, RelDataType rowType) {
-        if (rowType.isStruct()) {
-            return factory(typeFactory, RelOptUtil.getFieldTypeList(rowType));
-        }
-
-        return factory(typeFactory.getJavaClass(rowType));
-    }
+    /** Creates a factory that produces rows with fields defined by the given schema. */
+    RowFactory<RowT> factory(RowSchema rowSchema);
 
     /**
-     * Factory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, List<RelDataType> fieldTypes) {
-        Type[] types = new Type[fieldTypes.size()];
-        for (int i = 0; i < fieldTypes.size(); i++) {
-            types[i] = typeFactory.getJavaClass(fieldTypes.get(i));
-        }
-
-        return factory(types);
-    }
-
-    RowFactory<RowT> factory(Type... types);
-
-    /**
-     * RowFactory interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provide methods for inner row assembly.
      */
     @SuppressWarnings("PublicInnerClass")
     interface RowFactory<RowT> {
+        /** Return row accessor and mutator implementation. */
         RowHandler<RowT> handler();
 
+        /** Create empty row. */
         RowT create();
 
+        /**
+         * Create row using incoming objects.
+         *
+         * @param fields Sequential objects definitions output row will be created from.
+         * @return Instantiation defined representation.
+         */
         RowT create(Object... fields);
+
+        /**
+         * Create row using incoming binary tuple.
+         *
+         * @param tuple {@link InternalTuple} representation.
+         * @return Instantiation defined representation.
+         */
+        RowT create(InternalTuple tuple);
     }
 }

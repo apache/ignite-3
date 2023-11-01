@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.varbinary;
 
-import static org.apache.ignite.internal.sql.engine.util.VarBinary.varBinary;
-
 import java.math.BigDecimal;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidatorException;
@@ -35,7 +33,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBinary> {
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -43,7 +41,7 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     @Test
     public void testBitStringLiteral() {
         checkQuery("SELECT x'010203'")
-                .returns(varBinary(new byte[]{1, 2, 3}))
+                .returns(new byte[]{1, 2, 3})
                 .check();
     }
 
@@ -59,17 +57,17 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     @Test
     public void testPositionExpressionWithDynamicParameter() {
         checkQuery("SELECT POSITION (? IN x'010203')")
-                .withParams(varBinary(new byte[]{2}))
+                .withParams(new byte[]{2})
                 .returns(2)
                 .check();
 
         checkQuery("SELECT POSITION (x'02' IN ?)")
-                .withParams(varBinary(new byte[]{1, 2, 3}))
+                .withParams(new byte[]{1, 2, 3})
                 .returns(2)
                 .check();
 
         checkQuery("SELECT POSITION (? IN ?)")
-                .withParams(varBinary(new byte[]{2}), varBinary(new byte[]{1, 2, 3}))
+                .withParams(new byte[]{2}, new byte[]{1, 2, 3})
                 .returns(2)
                 .check();
     }
@@ -88,19 +86,19 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     @Test
     public void testLengthExpressionWithDynamicParameter() {
         checkQuery("SELECT OCTET_LENGTH(?)")
-                .withParams(varBinary(new byte[]{1, 2, 3}))
+                .withParams(new byte[]{1, 2, 3})
                 .returns(3).check();
 
         checkQuery("SELECT OCTET_LENGTH(?)")
-                .withParams(varBinary(new byte[0]))
+                .withParams(new byte[0])
                 .returns(0).check();
 
         checkQuery("SELECT LENGTH(?)")
-                .withParams(varBinary(new byte[]{1, 2, 3}))
+                .withParams(new byte[]{1, 2, 3})
                 .returns(3).check();
 
         checkQuery("SELECT LENGTH(?)")
-                .withParams(varBinary(new byte[0]))
+                .withParams(new byte[0])
                 .returns(0).check();
     }
 
@@ -117,35 +115,22 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
      */
     @Test
     public void testCastToDifferentLengths() {
-        checkQuery("SELECT CAST('123' AS VARBINARY(2))")
-                .returns(VarBinary.fromUtf8String("12"))
-                .check();
-
-        checkQuery("SELECT CAST('123' AS VARBINARY(100))")
-                .returns((VarBinary.fromUtf8String("123")))
-                .check();
-
-        checkQuery("SELECT CAST('123' AS VARBINARY)")
-                .returns((VarBinary.fromUtf8String("123")))
-                .check();
-
         checkQuery("SELECT CAST(X'ffffff' AS VARBINARY(2))")
-                .returns((varBinary(new byte[]{(byte) 0xfff, (byte) 0xff})))
+                .returns(new byte[]{(byte) 0xfff, (byte) 0xff})
                 .check();
 
         checkQuery("SELECT CAST(X'ffffff' AS VARBINARY(100))")
-                .returns((varBinary(new byte[]{(byte) 0xfff, (byte) 0xff, (byte) 0xff})))
+                .returns(new byte[]{(byte) 0xfff, (byte) 0xff, (byte) 0xff})
                 .check();
 
         checkQuery("SELECT CAST(X'ffffff' AS VARBINARY)")
-                .returns((varBinary(new byte[]{(byte) 0xfff, (byte) 0xff, (byte) 0xff})))
+                .returns(new byte[]{(byte) 0xfff, (byte) 0xff, (byte) 0xff})
                 .check();
     }
 
     /**
      * {@code CAST} to {@code VARBINARY} with different length with dynamic parameters.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19353")
     @Test
     public void testCastToDifferentLengthsWithDynamicParameters() {
         byte[] param = {1, 2, 3};
@@ -153,17 +138,17 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
 
         checkQuery("SELECT CAST(? AS VARBINARY(2))")
                 .withParam(param)
-                .returns(varBinary(result))
+                .returns(result)
                 .check();
 
         checkQuery("SELECT CAST(? AS VARBINARY(100))")
                 .withParam(param)
-                .returns(varBinary(param))
+                .returns(param)
                 .check();
 
         checkQuery("SELECT CAST(? AS VARBINARY)")
                 .withParam(param)
-                .returns(varBinary(param))
+                .returns(param)
                 .check();
     }
 
@@ -174,7 +159,7 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
         runSql("INSERT INTO t VALUES (1, x'010203')");
 
         checkQuery("SELECT test_key || x'040506' FROM t")
-                .returns(varBinary(new byte[]{1, 2, 3, 4, 5, 6}))
+                .returns(new byte[]{1, 2, 3, 4, 5, 6})
                 .check();
     }
 
@@ -184,20 +169,21 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
         runSql("INSERT INTO t VALUES (1, x'010203')");
 
         checkQuery("SELECT test_key || ? FROM t WHERE id = 1")
-                .withParam(varBinary(new byte[]{4, 5, 6}))
-                .returns(varBinary(new byte[]{1, 2, 3, 4, 5, 6}))
+                .withParam(new byte[]{4, 5, 6})
+                .returns(new byte[]{1, 2, 3, 4, 5, 6})
                 .check();
     }
 
     /** Concatenation of dynamic parameters. */
     @Test
     public void testConcatBetweenDynamicParameters() {
-        VarBinary v1 = varBinary(new byte[]{1, 2, 3});
-        VarBinary v2 = varBinary(new byte[]{4, 5, 6});
+        byte[] v1 = {1, 2, 3};
+        byte[] v2 = {4, 5, 6};
+        byte[] result = {1, 2, 3, 4, 5, 6};
 
         checkQuery("SELECT ? || ?")
                 .withParams(v1, v2)
-                .returns(varBinary(new byte[]{1, 2, 3, 4, 5, 6}))
+                .returns(result)
                 .check();
     }
 

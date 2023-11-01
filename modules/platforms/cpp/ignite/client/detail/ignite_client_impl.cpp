@@ -24,25 +24,26 @@ namespace ignite::detail {
 void ignite_client_impl::get_cluster_nodes_async(ignite_callback<std::vector<cluster_node>> callback) {
     auto reader_func = [](protocol::reader &reader) -> std::vector<cluster_node> {
         std::vector<cluster_node> nodes;
-        nodes.reserve(reader.read_array_size());
+        auto size = reader.read_int32();
+        nodes.reserve(std::size_t(size));
 
-        reader.read_array_raw([&nodes](auto, const msgpack_object &object) {
-            auto fields = object.via.array;
-            assert(fields.size >= 4);
+        for (std::int32_t node_idx = 0; node_idx < size; ++node_idx) {
+            auto fields_count = reader.read_int32();
+            assert(fields_count >= 4);
 
-            auto id = protocol::unpack_object<std::string>(fields.ptr[0]);
-            auto name = protocol::unpack_object<std::string>(fields.ptr[1]);
-            auto host = protocol::unpack_object<std::string>(fields.ptr[2]);
-            auto port = protocol::unpack_object<std::int32_t>(fields.ptr[3]);
+            auto id = reader.read_string();
+            auto name = reader.read_string();
+            auto host = reader.read_string();
+            auto port = reader.read_uint16();
 
-            nodes.emplace_back(std::move(id), std::move(name), end_point{std::move(host), std::uint16_t(port)});
-        });
+            nodes.emplace_back(std::move(id), std::move(name), end_point{std::move(host), port});
+        }
 
         return nodes;
     };
 
     m_connection->perform_request_rd<std::vector<cluster_node>>(
-        client_operation::CLUSTER_GET_NODES, std::move(reader_func), std::move(callback));
+        protocol::client_operation::CLUSTER_GET_NODES, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail

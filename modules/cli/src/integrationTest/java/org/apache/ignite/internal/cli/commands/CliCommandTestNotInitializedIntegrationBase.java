@@ -30,10 +30,12 @@ import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvid
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
-import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.event.EventPublisher;
+import org.apache.ignite.internal.cli.event.Events;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -73,29 +75,25 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     private int exitCode = Integer.MIN_VALUE;
 
     @Inject
-    private Session session;
+    private EventPublisher eventPublisher;
 
-    /**
-     * Invokes before the test will start.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
-    @Override
+    @Inject
+    private EventListeningActivationPoint eventListeningActivationPoint;
+
     @BeforeEach
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
+    public void setUp() {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
+        eventListeningActivationPoint.subscribe();
         resetOutput();
         CommandLineContextProvider.setCmd(cmd);
     }
 
     @AfterEach
     public void tearDown() {
-        session.disconnect();
+        eventPublisher.publish(Events.disconnect());
     }
 
     protected void resetOutput() {

@@ -17,13 +17,27 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.util.Objects;
+import org.apache.ignite.internal.catalog.CatalogParamsValidationUtils;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
+    public static final String ERR_COL_PARAM_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'";
+    public static final String ERR_COL_PARAM_VALIDATION = "{} for column '{}' of type '{}' must be non-negative";
+    public static final String ERR_COL_PARAM_DEFINITION = "{} definition is necessary for column '{}' of type '{}'";
+
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
+    }
+
+    private ColumnParams() {
+        // No-op.
     }
 
     /** Column name. */
@@ -35,28 +49,24 @@ public class ColumnParams {
     /** Nullability flag. */
     private boolean nullable;
 
-    /** Column length. */
-    private Integer length;
+    /** Column length, {@code null} if not set. */
+    private @Nullable Integer length;
 
-    /** Column precision. */
-    private Integer precision;
+    /** Column precision, {@code null} if not set. */
+    private @Nullable Integer precision;
 
-    /** Column scale. */
-    private Integer scale;
+    /** Column scale, {@code null} if not set. */
+    private @Nullable Integer scale;
 
     /** Column default value. */
     private DefaultValue defaultValueDefinition = DefaultValue.constant(null);
 
-    /**
-     * Get column's name.
-     */
+    /** Returns column name. */
     public String name() {
         return name;
     }
 
-    /**
-     * Get column's type.
-     */
+    /** Returns column type. */
     public ColumnType type() {
         return type;
     }
@@ -71,32 +81,43 @@ public class ColumnParams {
         return (T) defaultValueDefinition;
     }
 
-    /**
-     * Get nullable flag: {@code true} if this column accepts nulls.
-     */
+    /** Returns nullable flag: {@code true} if this column accepts nulls. */
     public boolean nullable() {
         return nullable;
     }
 
-    /**
-     * Get column's precision.
-     */
-    public Integer precision() {
+    /** Returns column precision or {@code null} if not set. */
+    public @Nullable Integer precision() {
         return precision;
     }
 
-    /**
-     * Get column's scale.
-     */
-    public Integer scale() {
+    /** Returns column scale or {@code null} if not set. */
+    public @Nullable Integer scale() {
         return scale;
     }
 
-    /**
-     * Get column's length.
-     */
-    public Integer length() {
+    /** Returns column length or {@code null} if not set. */
+    public @Nullable Integer length() {
         return length;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ColumnParams that = (ColumnParams) o;
+        return nullable == that.nullable && Objects.equals(name, that.name) && type == that.type && Objects.equals(length,
+                that.length) && Objects.equals(precision, that.precision) && Objects.equals(scale, that.scale)
+                && Objects.equals(defaultValueDefinition, that.defaultValueDefinition);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, type, nullable, length, precision, scale, defaultValueDefinition);
     }
 
     /** Parameters builder. */
@@ -110,7 +131,7 @@ public class ColumnParams {
         /**
          * Set column simple name.
          *
-         * @param name Column simple name.
+         * @param name Column name.
          * @return {@code this}.
          */
         public Builder name(String name) {
@@ -134,6 +155,7 @@ public class ColumnParams {
         /**
          * Marks column as nullable.
          *
+         * @param nullable {@code true} if this column accepts nulls.
          * @return {@code this}.
          */
         public Builder nullable(boolean nullable) {
@@ -145,6 +167,7 @@ public class ColumnParams {
         /**
          * Sets column default value.
          *
+         * @param defaultValue Column default value.
          * @return {@code this}.
          */
         public Builder defaultValue(DefaultValue defaultValue) {
@@ -156,9 +179,10 @@ public class ColumnParams {
         /**
          * Sets column precision.
          *
+         * @param precision Column precision.
          * @return {@code this}.
          */
-        public Builder precision(int precision) {
+        public Builder precision(@Nullable Integer precision) {
             params.precision = precision;
 
             return this;
@@ -167,9 +191,10 @@ public class ColumnParams {
         /**
          * Sets column scale.
          *
+         * @param scale Column scale.
          * @return {@code this}.
          */
-        public Builder scale(int scale) {
+        public Builder scale(@Nullable Integer scale) {
             params.scale = scale;
 
             return this;
@@ -178,23 +203,98 @@ public class ColumnParams {
         /**
          * Sets column length.
          *
+         * @param length Column length.
          * @return {@code this}.
          */
-        public Builder length(int length) {
+        public Builder length(@Nullable Integer length) {
             params.length = length;
 
             return this;
         }
 
-        /**
-         * Builds parameters.
-         *
-         * @return Parameters.
-         */
+        /** Builds parameters. */
         public ColumnParams build() {
+            validate();
+
             ColumnParams params0 = params;
             params = null;
             return params0;
+        }
+
+        private void validate() {
+            CatalogParamsValidationUtils.validateIdentifier(params.name(), "Column name");
+
+            if (params.type == null) {
+                throw new CatalogValidationException(format("Type is not specified for column '{}'", params.name()));
+            }
+
+            if (params.type == ColumnType.NULL) {
+                throw new CatalogValidationException(format("Type NULL is not applicable for column '{}'", params.name()));
+            }
+
+            boolean validatePrecision = params.type.precisionAllowed();
+            boolean validateScale = params.type.scaleAllowed();
+            boolean validateLenght = params.type.lengthAllowed();
+
+            if (validateLenght) {
+                if (params.length() == null) {
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, "Length", params.name(), params.type()));
+                }
+
+                if (params.length() < 0) {
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_VALIDATION, "Length", params.name(), params.type()));
+                }
+            } else {
+                if (params.length() != null) {
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Length", params.name(), params.type()));
+                }
+            }
+
+            if (validatePrecision) {
+                validatePrecision(params);
+
+                if (params.scale() != null && !validateScale) {
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", params.name(), params.type()));
+                }
+            }
+
+            if (validateScale) {
+                validateScale(params);
+            }
+
+            if (!validatePrecision && !validateScale) {
+                if (params.precision() != null) {
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Precision", params.name(), params.type()));
+                }
+
+                if (params.scale() != null) {
+                    throw new CatalogValidationException(format(ERR_COL_PARAM_NOT_APPLICABLE, "Scale", params.name(), params.type()));
+                }
+            }
+        }
+
+        private static void validatePrecision(ColumnParams params) {
+            Integer precision = params.precision();
+
+            if (precision == null) {
+                throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, "Precision", params.name(), params.type()));
+            }
+
+            if (precision < 0) {
+                throw new CatalogValidationException(format(ERR_COL_PARAM_VALIDATION, "Precision", params.name(), params.type()));
+            }
+        }
+
+        private static void validateScale(ColumnParams params) {
+            Integer scale = params.scale();
+
+            if (scale == null) {
+                throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, "Scale", params.name(), params.type()));
+            }
+
+            if (scale < 0) {
+                throw new CatalogValidationException(format(ERR_COL_PARAM_VALIDATION, "Scale", params.name(), params.type()));
+            }
         }
     }
 }

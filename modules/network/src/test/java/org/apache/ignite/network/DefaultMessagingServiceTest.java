@@ -57,6 +57,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
@@ -70,7 +71,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-class DefaultMessagingServiceTest {
+class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private static final int SENDER_PORT = 2001;
     private static final int RECEIVER_PORT = 2002;
 
@@ -89,13 +90,13 @@ class DefaultMessagingServiceTest {
     private final TestMessagesFactory testMessagesFactory = new TestMessagesFactory();
     private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
 
-    private final ClusterNode senderNode = new ClusterNode(
+    private final ClusterNode senderNode = new ClusterNodeImpl(
             "sender",
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
-    private final ClusterNode receiverNode = new ClusterNode(
+    private final ClusterNode receiverNode = new ClusterNodeImpl(
             "receiver",
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
@@ -326,7 +327,8 @@ class DefaultMessagingServiceTest {
                         connectionId,
                         recoveryDescriptorProvider,
                         staleIdDetector,
-                        channel -> {}
+                        channel -> {},
+                        new AtomicBoolean(false)
                 ) {
                     @Override
                     protected void finishHandshake() {

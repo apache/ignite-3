@@ -61,7 +61,7 @@ public class ClientComputeExecuteRequest {
 
         Object[] args = unpackArgs(in);
 
-        return compute.execute(Set.of(node), deploymentUnits, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
+        return compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
     }
 
     /**
@@ -81,7 +81,7 @@ public class ClientComputeExecuteRequest {
      * @return Deployment units.
      */
     static List<DeploymentUnit> unpackDeploymentUnits(ClientMessageUnpacker in) {
-        int size = in.tryUnpackNil() ? 0 : in.unpackArrayHeader();
+        int size = in.tryUnpackNil() ? 0 : in.unpackInt();
         List<DeploymentUnit> res = new ArrayList<>(size);
 
         for (int i = 0; i < size; i++) {

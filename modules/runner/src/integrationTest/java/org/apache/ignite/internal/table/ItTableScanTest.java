@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_LEFT;
-import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_RIGHT;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -46,32 +47,32 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -83,7 +84,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests to check a scan internal command.
  */
-public class ItTableScanTest extends ClusterPerClassIntegrationTest {
+public class ItTableScanTest extends BaseSqlIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test";
 
@@ -125,7 +126,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testInsertWaitScanComplete() throws Exception {
-        IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
+        IgniteTransactions transactions = igniteTx();
 
         InternalTransaction tx0 = (InternalTransaction) transactions.begin();
         InternalTransaction tx1 = startTxWithEnlistedPartition(PART_ID, false);
@@ -134,7 +135,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         List<BinaryRow> scannedRows = new ArrayList<>();
 
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx1);
+        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx1);
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx1,
@@ -353,7 +354,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @throws Exception If failed.
      */
     public void pureTableScan(Function<InternalTransaction, CompletableFuture<Integer>> txOperationAction) throws Exception {
-        InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
+        InternalTransaction tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin();
 
         log.info("Old transaction [id={}]", tx.id());
 
@@ -410,7 +411,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -466,7 +467,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         int soredIndexId = getSortedIndexId();
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
-        PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+        PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -477,7 +478,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                         soredIndexId,
                         lowBound,
                         upperBound,
-                        INCLUDE_LEFT | INCLUDE_RIGHT,
+                        LESS_OR_EQUAL | GREATER_OR_EQUAL,
                         null
                 )
         );
@@ -503,7 +504,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                         soredIndexId,
                         lowBound,
                         upperBound,
-                        INCLUDE_LEFT | INCLUDE_RIGHT,
+                        LESS_OR_EQUAL | GREATER_OR_EQUAL,
                         null
                 )
         );
@@ -524,7 +525,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 soredIndexId,
                 lowBound,
                 upperBound,
-                INCLUDE_LEFT | INCLUDE_RIGHT,
+                LESS_OR_EQUAL | GREATER_OR_EQUAL,
                 null
         );
 
@@ -549,7 +550,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
 
             try {
-                PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+                PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
                 Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
@@ -645,14 +646,14 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                 List<String> assignments = internalTable.assignments();
 
                 // Any node from assignments will do it.
-                ClusterNode node0 = CLUSTER_NODES.get(0).clusterNodes().stream().filter(clusterNode -> {
+                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(clusterNode -> {
                     return assignments.contains(clusterNode.name());
                 }).findFirst().orElseThrow();
 
                 //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null);
             } else {
-                PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
+                PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
                 publisher = new RollbackTxOnErrorPublisher<>(
                         tx,
@@ -669,10 +670,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    private PrimaryReplica getLeaderRecipient(int partId, InternalTransaction tx) {
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+    private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
+        IgniteBiTuple<ClusterNode, Long> primaryReplica = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
 
-        return new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+        return new PrimaryReplica(primaryReplica.get1(), primaryReplica.get2());
     }
 
     /**
@@ -682,7 +683,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @return String representation.
      */
     private static String rowToString(BinaryRow binaryRow) {
-        var row = new Row(SCHEMA, binaryRow);
+        Row row = Row.wrapBinaryRow(SCHEMA, binaryRow);
 
         return IgniteStringFormatter.format("[{}, {}, {}]", row.intValue(0), row.intValue(1), row.stringValue(2));
     }
@@ -741,14 +742,15 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * Gets an index id.
      */
     private static int getSortedIndexId() {
-        return getSortedIndexConfig(CLUSTER_NODES.get(0)).id().value();
-    }
+        CatalogManager catalogManager = ((IgniteImpl) CLUSTER.aliveNode()).catalogManager();
 
-    private static @Nullable TableIndexConfiguration getSortedIndexConfig(Ignite node) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(SORTED_IDX.toUpperCase());
+        int catalogVersion = catalogManager.latestCatalogVersion();
+
+        return catalogManager.indexes(catalogVersion).stream()
+                .filter(index -> SORTED_IDX.equalsIgnoreCase(index.name()))
+                .mapToInt(CatalogObjectDescriptor::id)
+                .findFirst()
+                .getAsInt();
     }
 
     /**
@@ -803,7 +805,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 
-        return (TableImpl) CLUSTER_NODES.get(0).tables().table(TABLE_NAME);
+        return (TableImpl) CLUSTER.aliveNode().tables().table(TABLE_NAME);
     }
 
     /**
@@ -829,7 +831,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         rowBuilder.appendInt(id);
         rowBuilder.appendString("StrNew_" + id);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -845,7 +847,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         rowBuilder.appendInt(id);
         rowBuilder.appendString("Str_" + id);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -859,7 +861,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         rowBuilder.appendInt(id);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -870,17 +872,26 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @return Transaction.
      */
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
-        Ignite ignite = CLUSTER_NODES.get(0);
+        Ignite ignite = CLUSTER.aliveNode();
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
         InternalTable table = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
-        RaftGroupService raftSvc = table.partitionRaftGroupService(partId);
-        long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
+
+        PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
+        ReplicaMeta primaryReplica = IgniteTestUtils.await(
+                placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now(), 30, TimeUnit.SECONDS));
+
+        tx.enlist(
+                tblPartId,
+                new IgniteBiTuple<>(
+                        table.getClusterNodeResolver().apply(primaryReplica.getLeaseholder()),
+                        primaryReplica.getStartTime().longValue()
+                )
+        );
 
         tx.assignCommitPartition(tblPartId);
-        tx.enlist(tblPartId, new IgniteBiTuple<>(table.leaderAssignment(partId), term));
 
         return tx;
     }

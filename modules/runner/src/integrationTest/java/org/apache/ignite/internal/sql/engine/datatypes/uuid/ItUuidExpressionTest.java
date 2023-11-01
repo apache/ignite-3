@@ -17,13 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for expressions for {@link UuidType UUID data type}.
@@ -44,6 +51,40 @@ public class ItUuidExpressionTest extends BaseExpressionDataTypeTest<UUID> {
     public void testRandomUuidComparison() {
         assertQuery("SELECT RAND_UUID() = RAND_UUID()").returns(false).check();
         assertQuery("SELECT RAND_UUID() != RAND_UUID()").returns(true).check();
+    }
+
+    /** Invalid {@code UUID} string in literal parameter. */
+    @Test
+    public void testInvalidUuidString() {
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Invalid UUID string", () -> runSql("SELECT '000000'::UUID"));
+    }
+
+    /** Invalid {@code UUID} string in dynamic parameter. */
+    @Test
+    public void testInvalidUuidStringInDynamicParams() {
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Invalid UUID string: 00000", () -> runSql("SELECT ?::UUID", "00000"));
+    }
+
+    /**
+     * {@code COALESCE} operator does not allow different types in its arguments.
+     */
+    @ParameterizedTest
+    @MethodSource("convertedFrom")
+    public void testCoalesceMissingTypesIsIllegal(TestTypeArguments arguments) {
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal mixing of types in CASE or COALESCE statement",
+                () -> checkQuery(format("SELECT COALESCE($0, {})", arguments.valueExpr(0))).check());
+    }
+
+    /** Data type from string. **/
+    @Test
+    public void testCastFromString() {
+        UUID value = dataSamples.values().get(0);
+        String stringValue = testTypeSpec.toStringValue(value);
+
+        checkQuery(format("SELECT CAST('{}' AS <type>)", stringValue)).returns(value).check();
+
+        // PG style cast
+        checkQuery(format("SELECT '{}'::<type>", stringValue)).returns(value).check();
     }
 
     /** {@inheritDoc} **/

@@ -45,7 +45,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Record view tests.
  */
-@SuppressWarnings("ZeroLengthArrayAllocation")
 public class ClientRecordViewTest extends AbstractClientTableTest {
     @Test
     public void testBinaryPutPojoGet() {
@@ -91,25 +90,20 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testMissingValueColumnsAreSkipped() {
+    public void testMissingValueColumnsThrowException() {
         Table table = fullTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         RecordView<IncompletePojo> pojoView = table.recordView(IncompletePojo.class);
 
-        kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x"));
+        kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x", true));
 
         var key = new IncompletePojo();
         key.id = "1";
         key.gid = 1;
 
-        // This POJO does not have fields for all table columns, and this is ok.
-        IncompletePojo val = pojoView.get(null, key);
-
-        assertEquals(1, val.gid);
-        assertEquals("1", val.id);
-        assertEquals("x", val.zstring);
-        assertEquals(2, val.zbytes[1]);
-        assertEquals(11, val.zbyte);
+        // This POJO does not have fields for all table columns, which is not allowed (to avoid unexpected data loss).
+        IgniteException ex = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
+        assertEquals("Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'", ex.getMessage());
     }
 
     @Test
@@ -117,10 +111,10 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         Table table = fullTable();
         RecordView<AllColumnsPojo> pojoView = table.recordView(Mapper.of(AllColumnsPojo.class));
 
-        table.recordView().upsert(null, allColumnsTableVal("foo"));
+        table.recordView().upsert(null, allColumnsTableVal("foo", false));
 
         var key = new AllColumnsPojo();
-        key.gid = (int) (long) DEFAULT_ID;
+        key.gid = DEFAULT_ID;
         key.id = String.valueOf(DEFAULT_ID);
 
         AllColumnsPojo res = pojoView.get(null, key);
@@ -200,21 +194,21 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         IgniteException e = assertThrows(IgniteException.class, () -> recordView.get(null, new NamePojo()));
 
-        assertThat(e.getMessage(), containsString("No field found for column ID"));
+        assertThat(e.getMessage(), containsString("No mapped object field found for column 'ID'"));
     }
 
     @Test
     public void testNullablePrimitiveFields() {
-        RecordView<IncompletePojoNullable> pojoView = fullTable().recordView(IncompletePojoNullable.class);
+        RecordView<AllColumnsPojoNullable> pojoView = fullTable().recordView(AllColumnsPojoNullable.class);
         RecordView<Tuple> tupleView = fullTable().recordView();
 
-        var rec = new IncompletePojoNullable();
+        var rec = new AllColumnsPojoNullable();
         rec.id = "1";
-        rec.gid = 1;
+        rec.gid = 1L;
 
         pojoView.upsert(null, rec);
 
-        IncompletePojoNullable res = pojoView.get(null, rec);
+        AllColumnsPojoNullable res = pojoView.get(null, rec);
         Tuple binRes = tupleView.get(null, Tuple.create().set("id", "1").set("gid", 1L));
 
         assertNotNull(res);
@@ -485,20 +479,6 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertNull(pojoView.get(null, new PersonPojo(1L)));
         assertEquals("2", pojoView.get(null, new PersonPojo(2L)).name);
         assertNull(pojoView.get(null, new PersonPojo(3L)));
-    }
-
-    @Test
-    public void testColumnWithDefaultValueNotSetReturnsDefault() {
-        Table table = tableWithDefaultValues();
-        RecordView<Tuple> recordView = table.recordView();
-        RecordView<PersonPojo> pojoView = table.recordView(PersonPojo.class);
-
-        pojoView.upsert(null, new PersonPojo());
-
-        var res = recordView.get(null, Tuple.create().set("id", 0));
-
-        assertEquals("def_str", res.stringValue("str"));
-        assertEquals("def_str2", res.stringValue("strNonNull"));
     }
 
     @Test

@@ -33,7 +33,7 @@ import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
-import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProviderImpl;
 import org.fusesource.jansi.AnsiConsole;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
@@ -79,7 +79,7 @@ public class Main {
 
     /** Needed for immediate REPL mode and for running a command which will stay in REPL mode so we need to init it once. */
     private static void initReplExecutor(MicronautFactory micronautFactory) throws Exception {
-        ReplExecutorProvider replExecutorProvider = micronautFactory.create(ReplExecutorProvider.class);
+        ReplExecutorProviderImpl replExecutorProvider = micronautFactory.create(ReplExecutorProviderImpl.class);
         replExecutorProvider.injectFactory(micronautFactory);
     }
 
@@ -95,6 +95,7 @@ public class Main {
         CommandLine cmd = new CommandLine(TopLevelCliCommand.class, micronautFactory);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
         cmd.setDefaultValueProvider(micronautFactory.create(ConfigDefaultValueProvider.class));
+        cmd.setTrimQuotes(true);
         return cmd.execute(args);
     }
 
@@ -126,9 +127,7 @@ public class Main {
     /**
      * This is a temporary solution to hide unnecessary java util logs that are produced by ivy. ConsoleHandler.level should be set to
      * SEVERE.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-15713
      */
-    @Deprecated
     private static void initJavaLoggerProps() {
         InputStream propsFile = Main.class.getResourceAsStream("/cli.java.util.logging.properties");
 

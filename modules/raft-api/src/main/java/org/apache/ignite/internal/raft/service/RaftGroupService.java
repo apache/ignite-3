@@ -28,7 +28,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * A service providing operations on a replication group.
@@ -245,6 +244,12 @@ public interface RaftGroupService {
      *
      * @return Cluster service.
      */
-    @TestOnly
     ClusterService clusterService();
+
+    /**
+     * Updates peers and learners lists in raft client.
+     *
+     * @param configuration Peers and learners configuration.
+     */
+    void updateConfiguration(PeersAndLearners configuration);
 }

@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Collection;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -34,15 +35,29 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
     @BeforeAll
     public static void init() {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteSchema otherSchema = new IgniteSchema("OTHER");
+        IgniteSchema publicSchema = createSchema("PUBLIC",
+                TestBuilders.table().name("T1")
+                        .addColumn("EMPID", NativeTypes.INT32)
+                        .addColumn("DEPTID", NativeTypes.INT32)
+                        .addColumn("NAME", NativeTypes.STRING)
+                        .distribution(IgniteDistributions.random())
+                        .build(),
+                TestBuilders.table().name("T2")
+                        .addColumn("DEPTID", NativeTypes.INT32)
+                        .addColumn("NAME", NativeTypes.STRING)
+                        .addColumn("PARENTID", NativeTypes.INT32)
+                        .distribution(IgniteDistributions.random())
+                        .build()
+        );
 
-        createTable(publicSchema, "T1", IgniteDistributions.random(),
-                "EMPID", Integer.class, "DEPTID", Integer.class, "NAME", String.class);
-        createTable(publicSchema, "T2", IgniteDistributions.random(),
-                "DEPTID", Integer.class, "NAME", String.class, "PARENTID", Integer.class);
-        createTable(otherSchema, "T3", IgniteDistributions.random(),
-                "EMPID", Integer.class, "DEPTID", Integer.class, "D", Date.class);
+        IgniteSchema otherSchema = createSchema("OTHER",
+                TestBuilders.table().name("T3")
+                        .addColumn("EMPID", NativeTypes.INT32)
+                        .addColumn("DEPTID", NativeTypes.INT32)
+                        .addColumn("D", NativeTypes.DATE)
+                        .distribution(IgniteDistributions.random())
+                        .build()
+        );
 
         schemas.add(publicSchema);
         schemas.add(otherSchema);

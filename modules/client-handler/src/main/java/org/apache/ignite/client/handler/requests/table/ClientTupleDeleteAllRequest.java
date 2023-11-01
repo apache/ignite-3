@@ -49,11 +49,11 @@ public class ClientTupleDeleteAllRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
-            var tuples = readTuples(in, table, true);
-
-            return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples ->
-                    writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView()));
+            var tx = readTx(in, out, resources);
+            return readTuples(in, table, true).thenCompose(tuples -> {
+                return table.recordView().deleteAllAsync(tx, tuples).thenAccept(skippedTuples ->
+                        writeTuples(out, skippedTuples, TuplePart.KEY, table.schemaView()));
+            });
         });
     }
 }

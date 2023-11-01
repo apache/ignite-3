@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+
 /**
  * Execution related APIs of a table.
  */
 public interface ExecutableTable {
-
     /**
      * Returns read API.
      */
@@ -31,4 +32,9 @@ public interface ExecutableTable {
      * Returns table modification API.
      */
     UpdatableTable updatableTable();
+
+    /**
+     * Returns a descriptor for the table.
+     */
+    TableDescriptor tableDescriptor();
 }

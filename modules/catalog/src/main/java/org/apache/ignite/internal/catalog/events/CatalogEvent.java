@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.Event;
+import org.apache.ignite.internal.event.Event;
 
 /**
  * Catalog management events.
@@ -38,6 +38,9 @@ public enum CatalogEvent implements Event {
     /** This event is fired, when an index was dropped in Catalog. */
     INDEX_DROP,
 
+    /** This event is fired when the index becomes available, i.e. the index has been built. */
+    INDEX_AVAILABLE,
+
     /** This event is fired, when a distribution zone was created in Catalog. */
     ZONE_CREATE,
 
@@ -45,5 +48,8 @@ public enum CatalogEvent implements Event {
     ZONE_DROP,
 
     /** This event is fired, when a distribution zone was changed in Catalog. */
-    ZONE_ALTER
+    ZONE_ALTER,
+
+    /** This event is fired, when a system view was created in Catalog. */
+    SYSTEM_VIEW_CREATE,
 }

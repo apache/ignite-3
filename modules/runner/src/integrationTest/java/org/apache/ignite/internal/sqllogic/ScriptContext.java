@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sqllogic;
 
-import com.google.common.collect.Streams;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -26,7 +25,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.sql.IgniteSql;
@@ -88,17 +86,19 @@ final class ScriptContext {
         try (Session s = ignSql.createSession()) {
             try (ResultSet<SqlRow> rs = s.execute(null, sql)) {
                 if (rs.hasRowSet()) {
-                    return Streams.stream(rs).map(
-                                    r -> {
-                                        List<?> row = new ArrayList<>();
+                    List<List<?>> out = new ArrayList<>();
 
-                                        for (int i = 0; i < rs.metadata().columns().size(); ++i) {
-                                            row.add(r.value(i));
-                                        }
+                    rs.forEachRemaining(r -> {
+                        List<?> row = new ArrayList<>();
 
-                                        return row;
-                                    })
-                            .collect(Collectors.toList());
+                        for (int i = 0; i < rs.metadata().columns().size(); ++i) {
+                            row.add(r.value(i));
+                        }
+
+                        out.add(row);
+                    });
+
+                    return out;
                 } else if (rs.affectedRows() != -1) {
                     return Collections.singletonList(Collections.singletonList(rs.affectedRows()));
                 } else {

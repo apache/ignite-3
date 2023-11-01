@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Map;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /**
  * Provides access to resolved dependencies.
@@ -26,9 +27,15 @@ public class ResolvedDependencies {
 
     private final Map<Integer, ExecutableTable> tableMap;
 
+    private final Map<Integer, ScannableDataSource> dataSourceMap;
+
     /** Constructor. */
-    public ResolvedDependencies(Map<Integer, ExecutableTable> tableMap) {
+    public ResolvedDependencies(
+            Map<Integer, ExecutableTable> tableMap,
+            Map<Integer, ScannableDataSource> dataSourceMap
+    ) {
         this.tableMap = tableMap;
+        this.dataSourceMap = dataSourceMap;
     }
 
     /**
@@ -45,6 +52,23 @@ public class ResolvedDependencies {
     public UpdatableTable updatableTable(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
         return executableTable.updatableTable();
+    }
+
+    /**
+     * Returns a descriptor for a table with the given id.
+     */
+    public TableDescriptor tableDescriptor(int tableId) {
+        ExecutableTable executableTable = getTable(tableId);
+        return executableTable.tableDescriptor();
+    }
+
+    /** Returns data source instance by given id. */
+    public ScannableDataSource dataSource(int dataSourceId) {
+        ScannableDataSource dataSource = dataSourceMap.get(dataSourceId);
+
+        assert dataSource != null : "DataSource does not exist: " + dataSourceId;
+
+        return dataSource;
     }
 
     private ExecutableTable getTable(int tableId) {

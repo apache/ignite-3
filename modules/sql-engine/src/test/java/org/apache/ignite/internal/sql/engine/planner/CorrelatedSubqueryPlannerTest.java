@@ -32,6 +32,9 @@ import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -41,13 +44,13 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /** Tests to verify correlated subquery planning. */
 public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
     /**
-     * Test verifies the row type is consistent for correlation variable and
-     * node that actually puts this variable into a context.
+     * Test verifies the row type is consistent for correlation variable and node that actually puts this variable into a context.
      *
      * <p>In this particular test the row type of the left input of CNLJ node should
      * match the row type correlated variable in the filter was created with.
@@ -56,10 +59,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void test() throws Exception {
-        IgniteSchema schema = createSchema(
-                createTable("T1", IgniteDistributions.single(), "A", Integer.class,
-                        "B", Integer.class, "C", Integer.class, "D", Integer.class, "E", Integer.class)
-        );
+        IgniteSchema schema = createSchema(createTestTable("A", "B", "C", "D", "E"));
 
         String sql = ""
                 + "SELECT (SELECT count(*) FROM t1 AS x WHERE x.b<t1.b)\n"
@@ -95,8 +95,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
     @Test
     public void testCorrelatesCollisionsLeftHand() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("T1", IgniteDistributions.single(), "A", Integer.class,
-                        "B", Integer.class, "C", Integer.class, "D", Integer.class)
+                createTestTable("A", "B", "C", "D")
         );
 
         String sql = "SELECT * FROM t1 as cor WHERE "
@@ -151,7 +150,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
     @Test
     public void testCorrelatesCollisionsRightHand() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("T1", IgniteDistributions.single(), "A", Integer.class)
+                createTestTable("A")
         );
 
         String sql = "SELECT (SELECT (SELECT (SELECT cor.a))) FROM t1 as cor";
@@ -183,8 +182,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
     @Test
     public void testCorrelatesCollisionsMixed() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("T1", IgniteDistributions.single(), "A", Integer.class,
-                        "B", Integer.class, "C", Integer.class)
+                createTestTable("A", "B", "C")
         );
 
         String sql = "SELECT * FROM t1 as cor WHERE "
@@ -236,6 +234,21 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
 
         // Convert sub-queries to correlates.
         return planner.transform(PlannerPhase.HEP_DECORRELATE, rel.getTraitSet(), rel);
+    }
+
+    /** Creates test table with columns of given name and INT32 type. */
+    private static TestTable createTestTable(String... columns) {
+        assert columns.length > 0;
+
+        TableBuilder tableBuilder = TestBuilders.table()
+                .name("T1")
+                .distribution(IgniteDistributions.single());
+
+        for (String column : columns) {
+            tableBuilder.addColumn(column, NativeTypes.INT32);
+        }
+
+        return tableBuilder.build();
     }
 }
 

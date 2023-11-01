@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -33,9 +35,11 @@ import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -44,13 +48,14 @@ import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
@@ -66,7 +71,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final IgniteTablesInternal igniteTables;
 
     /** Ignite transactions API. */
-    private final IgniteTransactions igniteTransactions;
+    private final IgniteTransactionsImpl igniteTransactions;
 
     /** Ignite SQL API. */
     private final IgniteSql sql;
@@ -80,10 +85,8 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Metric manager. */
     private final MetricManager metricManager;
 
-    /** Cluster ID. */
-    private UUID clusterId;
-
     /** Netty channel. */
+    @Nullable
     private volatile Channel channel;
 
     /** Processor. */
@@ -100,7 +103,11 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final AuthenticationManager authenticationManager;
 
-    private final AuthenticationConfiguration authenticationConfiguration;
+    private final HybridClock clock;
+
+    private final SchemaSyncService schemaSyncService;
+
+    private final CatalogService catalogService;
 
     /**
      * Constructor.
@@ -116,12 +123,12 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param clusterIdSupplier ClusterId supplier.
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
-     * @param authenticationConfiguration Authentication configuration.
+     * @param clock Hybrid clock.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
             IgniteTablesInternal igniteTables,
-            IgniteTransactions igniteTransactions,
+            IgniteTransactionsImpl igniteTransactions,
             ConfigurationRegistry registry,
             IgniteCompute igniteCompute,
             ClusterService clusterService,
@@ -131,7 +138,10 @@ public class ClientHandlerModule implements IgniteComponent {
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
-            AuthenticationConfiguration authenticationConfiguration) {
+            HybridClock clock,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService
+    ) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
@@ -143,7 +153,9 @@ public class ClientHandlerModule implements IgniteComponent {
         assert metricManager != null;
         assert metrics != null;
         assert authenticationManager != null;
-        assert authenticationConfiguration != null;
+        assert clock != null;
+        assert schemaSyncService != null;
+        assert catalogService != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -157,29 +169,29 @@ public class ClientHandlerModule implements IgniteComponent {
         this.metricManager = metricManager;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
-        this.authenticationConfiguration = authenticationConfiguration;
+        this.clock = clock;
+        this.schemaSyncService = schemaSyncService;
+        this.catalogService = catalogService;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
         if (channel != null) {
-            throw new IgniteException("ClientHandlerModule is already started.");
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
 
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
 
         metricManager.registerSource(metrics);
-
         if (configuration.metricsEnabled()) {
             metrics.enable();
         }
 
         try {
             channel = startEndpoint(configuration).channel();
-            clusterId = clusterIdSupplier.get().join();
         } catch (InterruptedException e) {
-            throw new IgniteException(e);
+            throw new IgniteInternalException(INTERNAL_ERR, e);
         }
     }
 
@@ -188,8 +200,9 @@ public class ClientHandlerModule implements IgniteComponent {
     public void stop() throws Exception {
         metricManager.unregisterSource(metrics);
 
-        if (channel != null) {
-            channel.close().await();
+        var ch = channel;
+        if (ch != null) {
+            ch.close().await();
 
             channel = null;
         }
@@ -202,11 +215,12 @@ public class ClientHandlerModule implements IgniteComponent {
      * @throws IgniteInternalException if the module is not started.
      */
     public InetSocketAddress localAddress() {
-        if (channel == null) {
-            throw new IgniteInternalException("ClientHandlerModule has not been started");
+        var ch = channel;
+        if (ch == null) {
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule has not been started");
         }
 
-        return (InetSocketAddress) channel.localAddress();
+        return (InetSocketAddress) ch.localAddress();
     }
 
     /**
@@ -219,6 +233,7 @@ public class ClientHandlerModule implements IgniteComponent {
      */
     private ChannelFuture startEndpoint(ClientConnectorView configuration) throws InterruptedException {
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
+        CompletableFuture<UUID> clusterId = clusterIdSupplier.get();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
         SslContext sslContext = configuration.ssl().enabled() ? SslContextProvider.createServerSslContext(configuration.ssl()) : null;
@@ -242,9 +257,17 @@ public class ClientHandlerModule implements IgniteComponent {
                             ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                         }
 
+                        ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, clusterId);
+                        authenticationManager.listen(messageHandler);
+
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                createInboundMessageHandler(configuration));
+                                messageHandler
+                        );
+
+                        ch.closeFuture().addListener(future -> {
+                            authenticationManager.stopListen(messageHandler);
+                        });
 
                         metrics.connectionsInitiatedIncrement();
                     }
@@ -260,7 +283,7 @@ public class ClientHandlerModule implements IgniteComponent {
             ch = bindRes.channel();
         } else if (!(bindRes.cause() instanceof BindException)) {
             throw new IgniteException(
-                    ErrorGroups.Common.INTERNAL_ERR,
+                    INTERNAL_ERR,
                     "Failed to start thin client connector endpoint: " + bindRes.cause().getMessage(),
                     bindRes.cause());
         }
@@ -280,8 +303,8 @@ public class ClientHandlerModule implements IgniteComponent {
         return ch.closeFuture();
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration) {
-        ClientInboundMessageHandler clientInboundMessageHandler = new ClientInboundMessageHandler(
+    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, CompletableFuture<UUID> clusterId) {
+        return new ClientInboundMessageHandler(
                 igniteTables,
                 igniteTransactions,
                 queryProcessor,
@@ -291,9 +314,11 @@ public class ClientHandlerModule implements IgniteComponent {
                 sql,
                 clusterId,
                 metrics,
-                authenticationManager);
-        authenticationConfiguration.listen(clientInboundMessageHandler);
-        return clientInboundMessageHandler;
+                authenticationManager,
+                clock,
+                schemaSyncService,
+                catalogService
+        );
     }
 
 }

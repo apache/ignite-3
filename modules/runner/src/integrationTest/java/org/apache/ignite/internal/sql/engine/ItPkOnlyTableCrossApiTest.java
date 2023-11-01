@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,12 +33,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -43,7 +46,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -51,23 +53,20 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests basic operations using a different API
  * on a table where all columns belong to the primary key.
  */
-public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
+public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     /** Storage engine types. */
     private static final String[] ENGINES = {"aipersist", "aimem", "rocksdb"};
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void tearDown() {
         for (String engine : ENGINES) {
             sql("delete from " + tableName(engine));
         }
-
-        tearDownBase(testInfo);
     }
 
     @BeforeAll
@@ -130,7 +129,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
      *     <li>Calling {@link KeyValueView#getNullable(Transaction, Object)} on an existing key
      *     must return {@link NullableValue} with no value.</li>
      *     <li>Calling {@link KeyValueView#contains(Transaction, Object)} must return {@code true} for an existing key
-     *     and {@code false} if the key doesn't exists.</li>
+     *     and {@code false} if the key doesn't exist.</li>
      * </ul>
      *
      * @param env Test environment.
@@ -146,8 +145,9 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
 
         env.runInTransaction(
                 rwTx -> {
-                    assertThrows(SchemaMismatchException.class,
+                    IgniteException ex = assertThrows(IgniteException.class,
                             () -> tab.keyValueView(KeyObject.class, Integer.class).put(rwTx, key, 1));
+                    assertThat(ex.getCause(), is(instanceOf(IllegalArgumentException.class)));
 
                     kvView.put(rwTx, key, null);
 
@@ -246,7 +246,7 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
      * @param env Test environment.
      */
     @ParameterizedTest
-    @MethodSource("parameters")
+    @MethodSource("readWriteParameters")
     public void testMixed(TestEnvironment env) {
         Table tab = env.table();
 
@@ -258,24 +258,42 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         KeyValueView<Tuple, Tuple> binView = tab.keyValueView();
 
         env.runInTransaction(
-                rwTx -> {
-                    recordView.upsert(rwTx, Tuple.create().set("id", 0).set("name", names[0]));
+                List.of(
+                        tx -> recordView.upsert(tx, Tuple.create().set("id", 0).set("name", names[0])),
+                        tx -> {
+                            assertThrowsSqlException(
+                                    CONSTRAINT_VIOLATION_ERR,
+                                    "PK unique constraint is violated",
+                                    () -> sql(tx, String.format(sqlInsert, 0, names[0])));
+                        },
 
-                    SqlException ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
-                    assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+                        rwTx -> {
+                            assertThrowsSqlException(
+                                    CONSTRAINT_VIOLATION_ERR,
+                                    "PK unique constraint is violated",
+                                    () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
+                        },
 
-                    kvView.put(rwTx, new KeyObject(1, names[1]), null);
+                        rwTx -> {
+                            assertThrowsSqlException(
+                                    CONSTRAINT_VIOLATION_ERR,
+                                    "PK unique constraint is violated",
+                                    () -> sql(rwTx, String.format(sqlInsert, 0, names[0])));
+                        },
 
-                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 1, names[1])));
-                    assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+                        rwTx -> kvView.put(rwTx, new KeyObject(1, names[1]), null),
 
-                    binView.put(rwTx, Tuple.create().set("id", 2).set("name", names[2]), Tuple.create());
+                        rwTx -> binView.put(rwTx, Tuple.create().set("id", 2).set("name", names[2]), Tuple.create()),
 
-                    ex = assertThrows(SqlException.class, () -> sql(rwTx, String.format(sqlInsert, 2, names[2])));
-                    assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+                        rwTx -> {
+                            assertThrowsSqlException(
+                                    CONSTRAINT_VIOLATION_ERR,
+                                    "PK unique constraint is violated",
+                                    () -> sql(rwTx, String.format(sqlInsert, 2, names[2])));
+                        },
 
-                    sql(rwTx, String.format(sqlInsert, 3, names[3]));
-                },
+                        rwTx -> sql(rwTx, String.format(sqlInsert, 3, names[3]))
+                ),
                 tx -> {
                     for (int i = 0; i < 4; i++) {
                         Tuple key = Tuple.create().set("id", i).set("name", names[i]);
@@ -295,6 +313,16 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
                     assertQuery(tx, "select count(*) from " + tab.name()).returns(4L).check();
                 }
         );
+    }
+
+    private static List<TestEnvironment> readWriteParameters() {
+        List<TestEnvironment> params = new ArrayList<>(ENGINES.length * 2);
+
+        for (String engine : ENGINES) {
+            params.add(new TestEnvironment(engine, false));
+        }
+
+        return params;
     }
 
     private static List<TestEnvironment> parameters() {
@@ -338,11 +366,21 @@ public class ItPkOnlyTableCrossApiTest extends ClusterPerClassIntegrationTest {
         }
 
         private Table table() {
-            return CLUSTER_NODES.get(0).tables().table(tableName(engine));
+            return CLUSTER.aliveNode().tables().table(tableName(engine));
+        }
+
+        private void runInTransaction(List<Consumer<Transaction>> writeOps, Consumer<Transaction> readOp) {
+            IgniteTransactions transactions = CLUSTER.aliveNode().transactions();
+
+            for (Consumer<Transaction> writeOp : writeOps) {
+                transactions.runInTransaction(writeOp, new TransactionOptions().readOnly(false));
+            }
+
+            transactions.runInTransaction(readOp, new TransactionOptions().readOnly(true));
         }
 
         private void runInTransaction(Consumer<Transaction> writeOp, Consumer<Transaction> readOp) {
-            IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
+            IgniteTransactions transactions = CLUSTER.aliveNode().transactions();
 
             if (readOnlyTx) {
                 // Start a separate transaction for the write operation.

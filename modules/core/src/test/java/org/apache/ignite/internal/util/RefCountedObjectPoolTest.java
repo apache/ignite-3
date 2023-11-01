@@ -24,10 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
 class RefCountedObjectPoolTest {
     private RefCountedObjectPool<Long, Integer> pool;
 
@@ -79,7 +76,7 @@ class RefCountedObjectPoolTest {
 
         Integer val2 = pool.acquire(key, ignored -> 200);
         assertSame(val1, val2);
-        assertFalse(pool.release(key));;
+        assertFalse(pool.release(key));
 
         assertTrue(pool.isAcquired(key));
 

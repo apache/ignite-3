@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,12 +44,11 @@ public interface ExchangeService extends LifecycleAware {
      * @param batchId The ID of the batch to which the data belongs.
      * @param last Indicates whether this is the last batch of data to be sent.
      * @param rows The data to be sent.
-     * @param <RowT> The type of the rows int the batch.
      * @return A {@link CompletableFuture future} representing the result of operation,
      *      which completes when the data has been sent.
      */
-    <RowT> CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
-            List<RowT> rows);
+    CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
+            List<BinaryTupleMessage> rows);
 
     /**
      * Asynchronously requests data from the specified node.

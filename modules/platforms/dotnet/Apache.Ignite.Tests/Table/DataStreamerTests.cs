@@ -37,7 +37,7 @@ public class DataStreamerTests : IgniteTestsBase
     private const int Count = 100;
 
     [SetUp]
-    public async Task SetUp() =>
+    public async Task DeleteAll() =>
         await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
 
     [Test]
@@ -65,7 +65,7 @@ public class DataStreamerTests : IgniteTestsBase
     {
         var options = DataStreamerOptions.Default with { BatchSize = 10_000 };
         var data = Enumerable.Range(0, Count)
-            .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple(x, "t" + x)))
+            .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple("t" + x)))
             .ToList();
 
         await Table.KeyValueBinaryView.StreamDataAsync(data.ToAsyncEnumerable(), options);
@@ -98,17 +98,13 @@ public class DataStreamerTests : IgniteTestsBase
                     : TimeSpan.MaxValue
             });
 
-        await Task.Delay(100);
-
         if (enabled)
         {
-            // TODO IGNITE-19824: Remove read-only TX workaround.
-            // Currently, there might be an exception due to false-positive tx conflict detection, which is fixed by a  read-only tx.
-            await using var roTx = await Client.Transactions.BeginAsync(new(ReadOnly: true));
-            await TestUtils.WaitForConditionAsync(() => TupleView.ContainsKeyAsync(roTx, GetTuple(0)));
+            TestUtils.WaitForCondition(() => TupleView.ContainsKeyAsync(null, GetTuple(0)).GetAwaiter().GetResult(), 3000);
         }
         else
         {
+            await Task.Delay(300);
             Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(0)));
         }
 

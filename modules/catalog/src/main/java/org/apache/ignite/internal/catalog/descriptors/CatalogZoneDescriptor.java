@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -44,47 +46,15 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     private final String filter;
 
     /** Data storage descriptor. */
-    private CatalogDataStorageDescriptor dataStorage;
+    private final CatalogDataStorageDescriptor dataStorage;
 
     /**
      * Constructs a distribution zone descriptor.
      *
      * @param id Id of the distribution zone.
      * @param name Name of the zone.
-     * @param partitions Number of partitions in distributions zone.
-     * @param replicas Number of partition replicas.
-     * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
-     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
-     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
-     * @param filter Nodes filter.
-     */
-    public CatalogZoneDescriptor(
-            int id,
-            String name,
-            int partitions,
-            int replicas,
-            int dataNodesAutoAdjust,
-            int dataNodesAutoAdjustScaleUp,
-            int dataNodesAutoAdjustScaleDown,
-            String filter
-    ) {
-        super(id, Type.ZONE, name);
-
-        this.partitions = partitions;
-        this.replicas = replicas;
-        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
-        this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
-        this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
-        this.filter = filter;
-    }
-
-    /**
-     * Constructs a distribution zone descriptor.
-     *
-     * @param id Id of the distribution zone.
-     * @param name Name of the zone.
-     * @param partitions Amount of partitions in distributions zone.
-     * @param replicas Amount of partition replicas.
+     * @param partitions Count of partitions in distributions zone.
+     * @param replicas Count of partition replicas.
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
@@ -102,20 +72,26 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             String filter,
             CatalogDataStorageDescriptor dataStorage
     ) {
-        this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter);
+        super(id, Type.ZONE, name, INITIAL_CAUSALITY_TOKEN);
 
+        this.partitions = partitions;
+        this.replicas = replicas;
+        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
+        this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
+        this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+        this.filter = filter;
         this.dataStorage = dataStorage;
     }
 
     /**
-     * Returns amount of zone partitions.
+     * Returns count of zone partitions.
      */
     public int partitions() {
         return partitions;
     }
 
     /**
-     * Return amount of zone replicas.
+     * Return count of zone replicas.
      */
     public int replicas() {
         return replicas;
@@ -159,7 +135,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * Returns the data storage descriptor.
      */
     // TODO: IGNITE-19719 Must be storage engine specific
-    public CatalogDataStorageDescriptor getDataStorage() {
+    public CatalogDataStorageDescriptor dataStorage() {
         return dataStorage;
     }
 

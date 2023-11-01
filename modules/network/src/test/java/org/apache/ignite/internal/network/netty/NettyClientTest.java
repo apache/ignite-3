@@ -35,9 +35,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ import org.mockito.Mockito;
  * Tests for {@link NettyClient}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class NettyClientTest {
+public class NettyClientTest extends BaseIgniteAbstractTest {
     /** Client. */
     private NettyClient client;
 

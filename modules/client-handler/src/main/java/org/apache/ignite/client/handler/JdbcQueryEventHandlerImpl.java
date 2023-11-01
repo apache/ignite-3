@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Set;
@@ -52,22 +50,21 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -136,9 +133,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
             return CompletableFuture.completedFuture(new JdbcConnectResult(connectionId));
         } catch (IgniteInternalCheckedException exception) {
-            StringWriter sw = getWriterWithStackTrace(exception);
+            String msg = getErrorMessage(exception);
 
-            return CompletableFuture.completedFuture(new JdbcConnectResult(Response.STATUS_FAILED, "Unable to connect: " + sw));
+            return CompletableFuture.completedFuture(new JdbcConnectResult(Response.STATUS_FAILED, "Unable to connect: " + msg));
         }
     }
 
@@ -164,6 +161,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 context,
+                igniteTransactions,
                 req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
         ));
@@ -173,17 +171,16 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 .exceptionally(t -> {
                     LOG.info("Exception while executing query [query=" + req.sqlQuery() + "]", ExceptionUtils.unwrapCause(t));
 
-                    StringWriter sw = getWriterWithStackTrace(t);
+                    String msg = getErrorMessage(t);
 
-                    return new JdbcQueryExecuteResult(Response.STATUS_FAILED,
-                            "Exception while executing query [query=" + req.sqlQuery() + "]. Error message:" + sw);
+                    return new JdbcQueryExecuteResult(Response.STATUS_FAILED, msg);
                 });
     }
 
     private QueryContext createQueryContext(JdbcStatementType stmtType, @Nullable Transaction tx) {
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
-                return QueryContext.create(SqlQueryType.ALL, tx);
+                return QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES, tx);
             case SELECT_STATEMENT_TYPE:
                 return QueryContext.create(SELECT_STATEMENT_QUERIES, tx);
             case UPDATE_STATEMENT_TYPE:
@@ -270,6 +267,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connCtx.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 queryContext,
+                igniteTransactions,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         ));
@@ -279,14 +277,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     private JdbcBatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {
-        StringWriter sw = getWriterWithStackTrace(e);
+        String msg = getErrorMessage(e);
 
         String error;
 
         if (e instanceof ClassCastException) {
-            error = "Unexpected result. Not an upsert statement? [query=" + query + "] Error message:" + sw;
+            error = "Unexpected result. Not an upsert statement? [query=" + query + "] Error message:" + msg;
         } else {
-            error = sw.toString();
+            error = msg;
         }
 
         return new JdbcBatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
@@ -337,26 +335,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /**
-     * Serializes the stack trace of given exception for further sending to the client.
+     * Get a message of given exception for further sending to the client.
      *
      * @param t Throwable.
-     * @return StringWriter filled with exception.
+     * @return String filled with exception message.
      */
-    private StringWriter getWriterWithStackTrace(Throwable t) {
+    @Nullable private String getErrorMessage(Throwable t) {
         Throwable cause = ExceptionUtils.unwrapCause(t);
-        StringWriter sw = new StringWriter();
-
-        try (PrintWriter pw = new PrintWriter(sw)) {
-            // We need to remap QueryValidationException into a jdbc error.
-            if (cause instanceof QueryValidationException
-                    || (cause instanceof IgniteException && cause.getCause() instanceof QueryValidationException)) {
-                pw.print("Given statement type does not match that declared by JDBC driver.");
-            } else {
-                pw.print(cause.getMessage());
-            }
-
-            return sw;
-        }
+        return cause.getMessage();
     }
 
     /**
@@ -504,7 +490,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                             return CompletableFuture.completedFuture(resAndError.getFirst());
                         }
 
-                        Throwable error = resAndError.getSecond();
+                        Throwable error = ExceptionUtils.unwrapCause(resAndError.getSecond());
 
                         if (sessionExpiredError(error)) {
                             SessionId newSessionId = recreateSession(finalSessionId);
@@ -512,7 +498,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                             return action.perform(newSessionId);
                         }
 
-                        return CompletableFuture.failedFuture(error);
+                        return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(error));
                     });
         }
 
@@ -537,17 +523,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             }
         }
 
-        private static boolean sessionExpiredError(Throwable throwable) {
-            if (!(throwable instanceof IgniteInternalException)) {
-                return false;
-            }
-
-            IgniteInternalException internalException = (IgniteInternalException) throwable;
-
-            // SESSION_EXPIRED_ERR is thrown when session has been expired but not yet been collected by cleaner thread
-            // SESSION_NOT_FOUND_ERR is thrown when session has been expired AND collected by cleaner thread
-            return internalException.code() == Sql.SESSION_EXPIRED_ERR
-                    || internalException.code() == Sql.SESSION_NOT_FOUND_ERR;
+        private static boolean sessionExpiredError(Throwable t) {
+            return t instanceof SessionNotFoundException;
         }
     }
 

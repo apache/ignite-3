@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.REL_SERIALIZATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,7 +32,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Callback for a relational expression to dump itself as JSON.
@@ -129,7 +129,7 @@ public class RelJsonWriter implements RelWriter {
 
             return writer.toString();
         } catch (IOException e) {
-            throw new SqlException(REL_SERIALIZATION_ERR, e);
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson serialization error", e);
         }
     }
 

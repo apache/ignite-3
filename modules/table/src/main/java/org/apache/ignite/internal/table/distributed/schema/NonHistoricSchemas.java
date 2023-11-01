@@ -25,17 +25,16 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.TemporalNativeType;
-import org.apache.ignite.internal.schema.VarlenNativeType;
+import org.apache.ignite.internal.type.BitmaskNativeType;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.internal.type.VarlenNativeType;
 
 /**
  * A dummy implementation over {@link SchemaManager}. It is dummy because:
@@ -53,13 +52,16 @@ import org.apache.ignite.internal.schema.VarlenNativeType;
 public class NonHistoricSchemas implements Schemas {
     private final SchemaManager schemaManager;
 
-    public NonHistoricSchemas(SchemaManager schemaManager) {
+    private final SchemaSyncService schemaSyncService;
+
+    public NonHistoricSchemas(SchemaManager schemaManager, SchemaSyncService schemaSyncService) {
         this.schemaManager = schemaManager;
+        this.schemaSyncService = schemaSyncService;
     }
 
     @Override
     public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
-        return completedFuture(null);
+        return schemaSyncService.waitForMetadataCompleteness(ts);
     }
 
     @Override
@@ -69,8 +71,7 @@ public class NonHistoricSchemas implements Schemas {
 
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
-        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(tableId);
-        SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
+        SchemaDescriptor schemaDescriptor = schemaManager.schemaRegistry(tableId).lastKnownSchema();
 
         List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
                 .map(colName -> {

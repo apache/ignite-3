@@ -35,7 +35,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScanTest {
     @Override
     protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
-        return internalTbl.scan(part, clock.now(), mock(ClusterNode.class));
+        return internalTbl.scan(part, internalTbl.CLOCK.now(), mock(ClusterNode.class));
     }
 
     // TODO: IGNITE-17666 Use super test as is.

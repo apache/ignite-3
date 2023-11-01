@@ -42,13 +42,10 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -61,6 +58,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -85,8 +83,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
     /** Internal table to test. */
     DummyInternalTableImpl internalTbl;
-
-    final HybridClock clock = new HybridClockImpl();
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
@@ -268,7 +264,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             }
         });
 
-        gotExceptionLatch.await();
+        assertTrue(gotExceptionLatch.await(10_000, TimeUnit.MILLISECONDS));
 
         assertEquals(gotException.get().getCause().getClass(), StorageException.class);
 
@@ -352,7 +348,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             }
         });
 
-        gotExceptionLatch.await();
+        assertTrue(gotExceptionLatch.await(10_000, TimeUnit.MILLISECONDS));
 
         assertEquals(gotException.get().getClass(), IllegalStateException.class);
     }
@@ -400,7 +396,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
 
             lenient().when(cursor.next()).thenAnswer(ninvocation ->
-                    ReadResult.createFromCommitted(new RowId(0), submittedItems.get(cursorTouchCnt.getAndIncrement()), clock.now()));
+                    ReadResult.createFromCommitted(new RowId(0), submittedItems.get(cursorTouchCnt.getAndIncrement()),
+                            internalTbl.CLOCK.now()));
 
             return cursor;
         });

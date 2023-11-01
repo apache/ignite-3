@@ -28,9 +28,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.CursorClosedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An async iterator over the execution tree.
@@ -55,6 +56,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     private final AtomicBoolean taskScheduled = new AtomicBoolean();
 
     private final Queue<PendingRequest<OutRowT>> pendingRequests = new ConcurrentLinkedQueue<>();
+
+    private final CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
 
     private volatile boolean closed = false;
 
@@ -149,7 +152,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                     Throwable th = ex.get();
 
                     if (th == null) {
-                        th = new ExecutionCancelledException();
+                        th = new QueryCancelledException();
                     }
 
                     Throwable th0 = th;
@@ -169,6 +172,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                         }
                     }, source::onError);
 
+                    completePrefetchFuture(th);
+
                     closed = true;
                 }
             }
@@ -181,8 +186,10 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      * Starts the execution of the fragment and keeps the result in the intermediate buffer.
      *
      * <p>Note: this method must be called by the same thread that will execute the whole fragment.
+     *
+     * @return Future representing pending completion of the prefetch operation.
      */
-    public void prefetch() {
+    public CompletableFuture<Void> startPrefetch() {
         assert source.context().description().prefetch();
 
         if (waiting == 0) {
@@ -192,9 +199,13 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 onError(ex);
             }
         }
+
+        return prefetchFut;
     }
 
     private void flush() throws Exception {
+        completePrefetchFuture(null);
+
         // flush may be triggered by prefetching, so let's do nothing in this case
         if (pendingRequests.isEmpty()) {
             return;
@@ -231,6 +242,21 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
             source.context().execute(this::flush, source::onError);
+        }
+    }
+
+    /**
+     * Completes prefetch future if it has not already been completed.
+     *
+     * @param ex Exceptional completion cause or {@code null} if the future must complete successfully.
+     */
+    private void completePrefetchFuture(@Nullable Throwable ex) {
+        if (!prefetchFut.isDone()) {
+            if (ex != null) {
+                prefetchFut.completeExceptionally(ex);
+            } else {
+                prefetchFut.complete(null);
+            }
         }
     }
 

@@ -37,6 +37,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -66,6 +67,8 @@ public class ApiClientFactory {
 
     private final Map<ApiClientSettings, ApiClient> clientMap = new ConcurrentHashMap<>();
 
+    private final AtomicReference<ApiClientSettings> currentSessionSettings = new AtomicReference<>();
+
     private final ConfigManagerProvider configManagerProvider;
 
     public ApiClientFactory(ConfigManagerProvider configManagerProvider) {
@@ -79,17 +82,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        return getClientFromSettings(settings(path, true));
-    }
-
-    /**
-     * Returns {@link ApiClient} for the base path without basic authentication.
-     *
-     * @param path Base path.
-     * @return created API client.
-     */
-    public ApiClient getClientWithoutBasicAuthentication(String path) {
-        return getClientFromSettings(settings(path, false));
+        return getClientFromSettings(settingsWithAuth(path));
     }
 
     private ApiClient getClientFromSettings(ApiClientSettings settings) {
@@ -98,7 +91,7 @@ public class ApiClientFactory {
         return apiClient;
     }
 
-    private ApiClientSettings settings(String path, boolean enableBasicAuthentication) {
+    private ApiClientSettings settingsWithAuth(String path) {
         ConfigManager configManager = configManagerProvider.get();
         ApiClientSettingsBuilder builder = ApiClientSettings.builder()
                 .basePath(path)
@@ -106,19 +99,35 @@ public class ApiClientFactory {
                 .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
                 .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
                 .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
-
-        if (enableBasicAuthentication) {
-            builder
-                    .basicAuthenticationUsername(configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()))
-                    .basicAuthenticationPassword(configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()));
-        }
-
-        return builder.build();
+        return setupAuthentication(builder).build();
     }
 
-    public String basicAuthenticationUsername() {
+    private ApiClientSettingsBuilder settingsBuilder(String path) {
         ConfigManager configManager = configManagerProvider.get();
-        return configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+        return ApiClientSettings.builder()
+                .basePath(path)
+                .keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
+                .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
+                .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
+                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
+    }
+
+    private ApiClientSettingsBuilder setupAuthentication(ApiClientSettingsBuilder builder) {
+        ConfigManager configManager = configManagerProvider.get();
+
+        // Use credentials from current session settings if exist.
+        ApiClientSettings currentCredentialsSettings = currentSessionSettings();
+        String username = currentCredentialsSettings != null
+                ? currentCredentialsSettings.basicAuthenticationUsername()
+                : configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+        String password = currentCredentialsSettings != null
+                ? currentCredentialsSettings.basicAuthenticationPassword()
+                : configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
+        builder
+                .basicAuthenticationUsername(username)
+                .basicAuthenticationPassword(password);
+
+        return builder;
     }
 
     /**
@@ -148,6 +157,23 @@ public class ApiClientFactory {
         } catch (Exception e) {
             throw new IgniteCliApiException(e, settings.basePath());
         }
+    }
+
+    /**
+     * Set api client settings for current session.
+     *
+     * @param settings api client settings
+     */
+    public void setSessionSettings(@Nullable ApiClientSettings settings) {
+        if (settings != null) {
+            currentSessionSettings.compareAndSet(null, settings);
+        } else {
+            currentSessionSettings.set(null);
+        }
+    }
+
+    public ApiClientSettings currentSessionSettings() {
+        return currentSessionSettings.get();
     }
 
     private static Builder applySslSettings(Builder builder, ApiClientSettings settings) throws UnrecoverableKeyException,

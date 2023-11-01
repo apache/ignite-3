@@ -17,21 +17,12 @@
 
 package org.apache.ignite.internal.cli;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
-import org.apache.ignite.internal.sql.engine.QueryContext;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
@@ -64,6 +55,10 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }\n"
+            + "  rest: {\n"
+            + "    port: {}\n"
+            + "    ssl.port: {}\n"
+            + "  }\n"
             + "}";
 
 
@@ -88,40 +83,9 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
     }
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
-        var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+        Ignite ignite = CLUSTER_NODES.get(0);
 
-        SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
-
-        try {
-            var context = QueryContext.create(SqlQueryType.ALL, tx);
-
-            return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, sql, args))
-            );
-        } finally {
-            queryEngine.closeSession(sessionId);
-        }
-    }
-
-    private static <T> List<T> getAllFromCursor(AsyncCursor<T> cur) {
-        List<T> res = new ArrayList<>();
-        int batchSize = 256;
-
-        var consumer = new Consumer<BatchedResult<T>>() {
-            @Override
-            public void accept(BatchedResult<T> br) {
-                res.addAll(br.items());
-
-                if (br.hasMore()) {
-                    cur.requestNextAsync(batchSize).thenAccept(this);
-                }
-            }
-        };
-
-        await(cur.requestNextAsync(batchSize).thenAccept(consumer));
-        await(cur.closeAsync());
-
-        return res;
+        return SqlTestUtils.sql(ignite, tx, sql, args);
     }
 
     protected static PrintWriter output(List<Character> buffer) {

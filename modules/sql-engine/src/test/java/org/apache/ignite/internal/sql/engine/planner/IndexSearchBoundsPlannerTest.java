@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -27,32 +27,27 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,8 +64,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     private IgniteSchema publicSchema;
 
-    private TestTable tbl;
-
     @BeforeAll
     public static void init() {
         IntStream.rangeClosed(0, 3).forEach(i -> NODES.add(UUID.randomUUID().toString()));
@@ -78,32 +71,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     @BeforeEach
     public void beforeEach() {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-        tbl = new TestTable(
-                new RelDataTypeFactory.Builder(typeFactory)
-                        .add("C1", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
-                        .add("C2", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR), true))
-                        .add("C3", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
-                        .add("C4", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
-                        .add("C5", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.TINYINT), true))
-                        .build(), "TEST") {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.single();
-            }
-        };
-
-        tbl.addIndex("C1C2C3", 0, 1, 2);
-
-        publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
+        publicSchema = createSchemaFrom(tableA("TEST"));
     }
 
     /** Simple case on one field, without multi tuple SEARCH/SARG. */
@@ -206,11 +174,13 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds with DESC ordering. */
     @Test
     public void testBoundsDescOrdering() throws Exception {
-        tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.DESC_NULLS_LAST),
-                TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4");
-
-        tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.ASC_NULLS_FIRST),
-                TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4IDX");
+        publicSchema = createSchemaFrom(tableA("TEST")
+                .andThen(t -> t.sortedIndex()
+                        .name("C4")
+                        .addColumn("C4", Collation.DESC_NULLS_LAST)
+                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
+                        .end())
+        );
 
         assertBounds("SELECT * FROM TEST WHERE C4 > 1",
                 range(null, 1, true, false));
@@ -410,6 +380,14 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds merge. */
     @Test
     public void testBoundsMerge() throws Exception {
+        IgniteSchema publicSchema = createSchemaFrom(tableA("TEST")
+                .andThen(t -> t.sortedIndex()
+                        .name("C4")
+                        .addColumn("C4", Collation.DESC_NULLS_LAST)
+                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
+                        .end()
+                ));
+
         assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1", List.of(10), publicSchema,
                 range("$GREATEST2(?0, 1)", "$NULL_BOUND()", true, false)
         );
@@ -429,9 +407,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         assertBounds("SELECT * FROM TEST WHERE C1 NOT IN (1, 2) AND C1 >= ?", List.of(10), publicSchema,
                 range("?0", "$NULL_BOUND()", true, false)
         );
-
-        tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.DESC_NULLS_LAST),
-                TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4");
 
         assertBounds("SELECT * FROM TEST WHERE C4 > ? AND C4 >= 1 AND C4 < ? AND C4 < ?", List.of(10, 10, 10), publicSchema,
                 range("$LEAST2(?1, ?2)", "$GREATEST2(?0, 1)", false, true)
@@ -471,10 +446,10 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("boundsTypeLimits")
     public void testBoundsTypeLimits(RelDataType type, Object value, Predicate<SearchBounds> bounds) throws Exception {
-        TestTable table = createTableWithIndex("TEST2", "C2", type);
-        publicSchema.addTable(table);
+        IgniteSchema schema = createSchemaFrom(
+                tableB("TEST2", "C2", type).andThen(addSortIndex("C2")));
 
-        assertBounds("SELECT * FROM test2 WHERE C2 = " + value, List.of(), publicSchema, bounds);
+        assertBounds("SELECT * FROM test2 WHERE C2 = " + value, List.of(), schema, bounds);
     }
 
     private static Stream<Arguments> boundsTypeLimits() {
@@ -514,10 +489,10 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 Arguments.arguments(decimal3Type, "(-1000)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
                 Arguments.arguments(decimal3Type, "(-999)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
                 Arguments.arguments(decimal3Type, "999::DECIMAL(3)", exact(decimal3TypeLimits[1])),
-                Arguments.arguments(decimal3Type, "1000::DECIMAL(3)",  exact(decimal3TypeLimits[1])),
+                Arguments.arguments(decimal3Type, "1000::DECIMAL(3)", exact(decimal3TypeLimits[1])),
 
-                Arguments.arguments(decimal53Type, "(-100.000)::DECIMAL(5, 3)",  exact(decimal53TypeLimits[0])),
-                Arguments.arguments(decimal53Type, "(100.000)::DECIMAL(5, 3)",  exact(decimal53TypeLimits[1])),
+                Arguments.arguments(decimal53Type, "(-100.000)::DECIMAL(5, 3)", exact(decimal53TypeLimits[0])),
+                Arguments.arguments(decimal53Type, "(100.000)::DECIMAL(5, 3)", exact(decimal53TypeLimits[1])),
 
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19858
                 //  Cause serialization/deserialization mismatch in AbstractPlannerTest::checkSplitAndSerialization
@@ -562,7 +537,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .and(scan -> matchBounds(scan.searchBounds(), predicates))), params);
     }
 
-    private static boolean  matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
+    private static boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
         for (int i = 0; i < predicates.length; i++) {
             if (!predicates[i].test(searchBounds.get(i))) {
                 return false;
@@ -616,26 +591,31 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         };
     }
 
-    private TestTable createTableWithIndex(String tableName, String column, RelDataType type) {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
+    private static UnaryOperator<TableBuilder> tableA(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .name("TEST")
+                .addColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.STRING)
+                .addColumn("C3", NativeTypes.INT32)
+                .addColumn("C4", NativeTypes.INT32)
+                .addColumn("C5", NativeTypes.INT8)
+                .distribution(IgniteDistributions.single())
+                .size(100)
+                .sortedIndex()
+                .name("C1C2C3")
+                .addColumn("C1", Collation.ASC_NULLS_LAST)
+                .addColumn("C2", Collation.ASC_NULLS_LAST)
+                .addColumn("C3", Collation.ASC_NULLS_LAST)
+                .end();
+    }
 
-        RelDataType rowType = new Builder(typeFactory)
-                .add("C1", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
-                .add(column, typeFactory.createTypeWithNullability(type, true))
-                .build();
-        TestTable testTable = new TestTable(tableName, rowType, 400d) {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.single();
-            }
-        };
-
-        testTable.addIndex(tableName + "_" + column + "_IDX", 1);
-        return testTable;
+    private static UnaryOperator<TableBuilder> tableB(String tableName, String column, RelDataType type) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("C1", NativeTypes.INT32)
+                .addColumn(column, IgniteTypeFactory.relDataTypeToNative(type))
+                .size(400)
+                .distribution(IgniteDistributions.single());
     }
 }

@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static java.util.Collections.singleton;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.endsWith;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Objects;
@@ -41,7 +40,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
@@ -394,8 +393,10 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     public void sortDirectionMustNotBeSpecifiedForHashIndex() {
         var query = "create index my_index on my_table using hash (col1, col2 asc)";
 
-        var ex = assertThrows(SqlException.class, () -> parse(query));
-        assertThat(ex.getMessage(), containsString("Encountered \" \"ASC\""));
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Encountered \"asc\"",
+                () -> parse(query));
     }
 
     @Test
@@ -512,8 +513,10 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     @Test
     public void timestampWithLocalTimeZoneIsNotSupported() {
         Consumer<String> checker = (query) -> {
-            var ex = assertThrows(SqlException.class, () -> parse(query));
-            assertThat(ex.getMessage(), containsString("Encountered \" \"WITH\""));
+            assertThrowsSqlException(
+                    Sql.STMT_PARSE_ERR,
+                    "Encountered \"WITH\"",
+                    () -> parse(query));
         };
 
         checker.accept("CREATE TABLE test (ts TIMESTAMP WITH LOCAL TIME ZONE)");

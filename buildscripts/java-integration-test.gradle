@@ -26,16 +26,21 @@ testing {
             useJUnitJupiter()
 
             dependencies {
-                implementation project
+                implementation project()
                 implementation libs.junit5.api
                 implementation libs.junit5.impl
                 implementation libs.junit5.params
                 implementation libs.mockito.core
                 implementation libs.mockito.junit
-                implementation libs.mockito.inline
                 implementation libs.hamcrest.core
                 implementation libs.hamcrest.optional
                 implementation libs.hamcrest.path
+
+                implementation libs.jansi.core
+                implementation libs.log4j.api
+                implementation libs.log4j.core
+                implementation libs.log4j.bridge
+                implementation libs.slf4j.log4j
             }
 
             sources {
@@ -48,7 +53,8 @@ testing {
                 configureEach {
                     testTask.configure {
                         shouldRunAfter(test)
-                        maxHeapSize = '16g'
+                        jvmArgs "-XX:+HeapDumpOnOutOfMemoryError", "-XX:MaxDirectMemorySize=256m", "-XX:MaxMetaspaceSize=2g"
+                        maxHeapSize = '4g'
 
                         // Define default test timeouts to avoid everhanging tests.
                         systemProperty 'junit.jupiter.execution.timeout.testable.method.default', '10m'
@@ -56,6 +62,8 @@ testing {
 
                         // Enable auto-detection of JUnit 5 extensions to automatically apply DumpThreadsOnTimeout extension.
                         systemProperty 'junit.jupiter.extensions.autodetection.enabled', true
+
+                        systemProperty 'jraft.available_processors', 4
                     }
                 }
             }

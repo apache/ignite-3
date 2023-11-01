@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -30,12 +33,26 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.function.Executable;
 
 /**
@@ -44,20 +61,50 @@ import org.junit.jupiter.api.function.Executable;
 public class SqlTestUtils {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
 
-
     /**
      * <em>Assert</em> that execution of the supplied {@code executable} throws
-     * an {@link SqlException} with expected error code and return the exception.
+     * an {@link SqlException} with expected error code and message.
      *
-     * @param expectedCode Expected error code of {@link SqlException}
+     * @param expectedCode Expected error code of {@link SqlException}.
+     * @param expectedMessage Expected error message of {@link SqlException}.
      * @param executable Supplier to execute and check thrown exception.
      * @return Thrown the {@link SqlException}.
      */
-    public static SqlException assertThrowsSqlException(int expectedCode, Executable executable) {
-        SqlException ex = assertThrows(SqlException.class, executable);
-        assertEquals(expectedCode, ex.code());
+    public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
+        return assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
+    }
+
+    /**
+     * <em>Assert</em> that execution of the supplied {@code executable} throws
+     * an expected {@link SqlException} with expected error code and message.
+     *
+     * @param expectedType Expected exception type.
+     * @param expectedCode Expected error code of {@link SqlException}.
+     * @param expectedMessage Expected error message of {@link SqlException}.
+     * @param executable Supplier to execute and check thrown exception.
+     * @return Thrown the {@link SqlException}.
+     */
+    public static <T extends SqlException> T assertThrowsSqlException(
+            Class<T> expectedType,
+            int expectedCode,
+            String expectedMessage,
+            Executable executable) {
+        T ex = assertThrows(expectedType, executable);
+
+        int expectedErrorCode = ErrorGroup.extractErrorCode(expectedCode);
+        ErrorGroup expectedErrorGroup = ErrorGroups.errorGroupByCode(expectedCode);
+        String expectedError = format("{}-{}", expectedErrorGroup.name(), expectedErrorCode);
+        String actualError = format("{}-{}", ex.groupName(), ex.errorCode());
+
+        assertEquals(expectedError, actualError, "Error does not match. " + ex);
+        assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
         return ex;
+    }
+
+    public static <T> Stream<T> asStream(Iterator<T> sourceIterator) {
+        Iterable<T> iterable = () -> sourceIterator;
+        return StreamSupport.stream(iterable.spliterator(), false);
     }
 
     /**
@@ -111,7 +158,6 @@ public class SqlTestUtils {
      * Generate random value for given SQL type.
      *
      * @param type SQL type to generate value related to the type.
-     *
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(ColumnType type) {
@@ -123,7 +169,6 @@ public class SqlTestUtils {
      *
      * @param base Base value to generate value.
      * @param type SQL type to generate value related to the type.
-     *
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(int base, ColumnType type) {
@@ -139,9 +184,9 @@ public class SqlTestUtils {
             case INT64:
                 return (long) base;
             case FLOAT:
-                return (float) base + ((float) base / 1000);
+                return base + ((float) base / 1000);
             case DOUBLE:
-                return (double) base + ((double) base / 1000);
+                return base + ((double) base / 1000);
             case STRING:
                 return "str_" + base;
             case BYTE_ARRAY:
@@ -149,13 +194,13 @@ public class SqlTestUtils {
             case NULL:
                 return null;
             case DECIMAL:
-                return BigDecimal.valueOf((double) base + ((double) base / 1000));
+                return BigDecimal.valueOf(base + ((double) base / 1000));
             case NUMBER:
                 return BigInteger.valueOf(base);
             case UUID:
                 return new UUID(base, base);
             case BITMASK:
-                return new byte[]{(byte) base};
+                return BitSet.valueOf(BigInteger.valueOf(base).toByteArray());
             case DURATION:
                 return Duration.ofNanos(base);
             case DATETIME:
@@ -175,5 +220,42 @@ public class SqlTestUtils {
             default:
                 throw new IllegalArgumentException("unsupported type " + type);
         }
+    }
+
+    /**
+     * Run SQL on given Ignite instance with given transaction and parameters.
+     *
+     * @param ignite Ignite instance to run a query.
+     * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(Ignite ignite, @Nullable Transaction tx, String sql, Object... args) {
+        try (
+                Session session = ignite.sql().createSession();
+                ResultSet<SqlRow> rs = session.execute(tx, sql, args)
+        ) {
+            return getAllResultSet(rs);
+        }
+    }
+
+    private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
+        List<List<Object>> res = new ArrayList<>();
+
+        while (resultSet.hasNext()) {
+            SqlRow sqlRow = resultSet.next();
+
+            ArrayList<Object> row = new ArrayList<>(sqlRow.columnCount());
+            for (int i = 0; i < sqlRow.columnCount(); i++) {
+                row.add(sqlRow.value(i));
+            }
+
+            res.add(row);
+        }
+
+        resultSet.close();
+
+        return res;
     }
 }

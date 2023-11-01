@@ -38,7 +38,7 @@ namespace Apache.Ignite.Internal
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
     /// </summary>
-    internal sealed class ClientFailoverSocket : IDisposable
+    internal sealed class ClientFailoverSocket : IDisposable, IClientSocketEventListener
     {
         /** Current global endpoint index for Round-robin. */
         private static long _globalEndPointIndex;
@@ -75,6 +75,9 @@ namespace Apache.Ignite.Internal
         /** Local index for round-robin balancing within this FailoverSocket. */
         private long _endPointIndex = Interlocked.Increment(ref _globalEndPointIndex);
 
+        /** Observable timestamp. */
+        private long _observableTimestamp;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
@@ -103,6 +106,11 @@ namespace Apache.Ignite.Internal
         /// Gets the partition assignment version.
         /// </summary>
         public int PartitionAssignmentVersion => Interlocked.CompareExchange(ref _assignmentVersion, -1, -1);
+
+        /// <summary>
+        /// Gets the observable timestamp.
+        /// </summary>
+        public long ObservableTimestamp => Interlocked.Read(ref _observableTimestamp);
 
         /// <summary>
         /// Connects the socket.
@@ -243,6 +251,38 @@ namespace Apache.Ignite.Internal
             }
 
             return res;
+        }
+
+        /// <inheritdoc/>
+        void IClientSocketEventListener.OnAssignmentChanged(ClientSocket clientSocket)
+        {
+            // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
+            // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
+            // So we only react to updates from the last known good channel. When no user-initiated operations are performed on that
+            // channel, heartbeat messages will trigger updates.
+            if (clientSocket == _lastConnectedSocket)
+            {
+                Interlocked.Increment(ref _assignmentVersion);
+            }
+        }
+
+        /// <inheritdoc/>
+        void IClientSocketEventListener.OnObservableTimestampChanged(long timestamp)
+        {
+            // Atomically update the observable timestamp to max(newTs, curTs).
+            while (true)
+            {
+                var current = Interlocked.Read(ref _observableTimestamp);
+                if (current >= timestamp)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _observableTimestamp, timestamp, current) == current)
+                {
+                    return;
+                }
+            }
         }
 
         /// <summary>
@@ -412,7 +452,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+                var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, this).ConfigureAwait(false);
 
                 if (_clusterId == null)
                 {
@@ -437,22 +477,6 @@ namespace Apache.Ignite.Internal
             finally
             {
                 _socketLock.Release();
-            }
-        }
-
-        /// <summary>
-        /// Called when an assignment update is detected.
-        /// </summary>
-        /// <param name="clientSocket">Socket.</param>
-        private void OnAssignmentChanged(ClientSocket clientSocket)
-        {
-            // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
-            // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-            // So we only react to updates from the last known good channel. When no user-initiated operations are performed on that
-            // channel, heartbeat messages will trigger updates.
-            if (clientSocket == _lastConnectedSocket)
-            {
-                Interlocked.Increment(ref _assignmentVersion);
             }
         }
 

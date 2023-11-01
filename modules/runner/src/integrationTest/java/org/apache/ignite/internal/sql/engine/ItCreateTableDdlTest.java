@@ -17,95 +17,92 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
+import java.util.Set;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Integration test for CREATE TABLE DDL command.
  */
-public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
+public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void dropTables() {
         dropAllTables();
-
-        super.tearDownBase(testInfo);
     }
 
     @Test
     public void pkWithNullableColumns() {
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))"),
-                "Primary key cannot contain nullable column [col=ID0]"
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Primary key cannot contain nullable column [col=ID0]",
+                () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))")
         );
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)"),
-                "Primary key cannot contain nullable column [col=ID]"
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Primary key cannot contain nullable column [col=ID]",
+                () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)")
         );
     }
 
     @Test
     public void pkWithInvalidColumns() {
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))"),
-                "Primary key cannot contain nullable column [col=ID0]"
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Primary key constraint contains undefined columns: [cols=[ID2]]",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))")
         );
     }
 
     @Test
     public void emptyPk() {
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY ())"),
-                "Table without primary key is not supported."
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \")\"",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY ())")
         );
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT)"),
-                "Table without primary key is not supported."
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Table without PRIMARY KEY is not supported",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT)")
         );
     }
 
     @Test
     public void tableWithInvalidColumns() {
-        assertThrows(
-                IgniteException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \")\"",
                 () -> sql("CREATE TABLE T0()")
         );
 
-        assertThat(
-                assertThrows(
-                        IgniteException.class,
-                        () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
-                ).getMessage(),
-                containsString("Can't create table with duplicate columns: ID0, ID1, ID0")
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Column with name 'ID0' specified more than once",
+                () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
         );
     }
 
@@ -121,36 +118,28 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void undefinedColumnsInPrimaryKey() {
-        assertThat(
-                assertThrows(
-                        IgniteException.class,
-                        () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
-                ).getMessage(),
-                containsString("Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]")
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]",
+                () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
         );
     }
 
     /**
-     * Check invalid colocation columns configuration:
-     * - not PK columns;
-     * - duplicates colocation columns.
+     * Check invalid colocation columns configuration: - not PK columns; - duplicates colocation columns.
      */
     @Test
     public void invalidColocationColumns() {
-        assertThat(
-                assertThrows(
-                        IgniteException.class,
-                        () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
-                ).getMessage(),
-                containsString("Colocation columns must be subset of primary key")
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Failed to validate query. Colocation column 'VAL' is not part of PK",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
         );
 
-        assertThat(
-                assertThrows(
-                        IgniteException.class,
-                        () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
-                ).getMessage(),
-                containsString("Colocation columns contains duplicates: [duplicates=[ID1]]]")
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Failed to validate query. Colocation column 'ID1' specified more that once",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
         );
     }
 
@@ -161,7 +150,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void implicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(2, colocationColumns.length);
         assertEquals("ID1", colocationColumns[0].name());
@@ -200,6 +189,65 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
         res = sql("SELECT c4 FROM my WHERE c1=3");
 
         assertEquals(3, res.get(0).get(0));
+
+        // Checking the correctness of reading a row created on a different version of the schema.
+        sql("ALTER TABLE my ADD COLUMN (c5 VARCHAR, c6 BOOLEAN)");
+        sql("ALTER TABLE my DROP COLUMN c4");
+        assertQuery("SELECT * FROM my WHERE c1=3")
+                .returns(3, "2", 3, null, null)
+                .check();
+    }
+
+    /**
+     * Adds columns of all supported types and checks that the row
+     * created on the old schema version is read correctly.
+     */
+    @Test
+    public void testDropAndAddColumnsAllTypes() {
+        List<NativeType> allTypes = SchemaTestUtils.ALL_TYPES;
+
+        Set<NativeTypeSpec> unsupportedTypes = Set.of(
+                // TODO https://issues.apache.org/jira/browse/IGNITE-18431
+                NativeTypeSpec.BITMASK,
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19274
+                NativeTypeSpec.TIMESTAMP
+        );
+
+        // List of columns for 'ADD COLUMN' statement.
+        IgniteStringBuilder addColumnsList = new IgniteStringBuilder();
+        // List of columns for 'DROP COLUMN' statement.
+        IgniteStringBuilder dropColumnsList = new IgniteStringBuilder();
+
+        for (int i = 0; i < allTypes.size(); i++) {
+            NativeType type = allTypes.get(i);
+
+            if (unsupportedTypes.contains(type.spec())) {
+                continue;
+            }
+
+            RelDataType relDataType = TypeUtils.native2relationalType(Commons.typeFactory(), type);
+
+            if (addColumnsList.length() > 0) {
+                addColumnsList.app(',');
+                dropColumnsList.app(',');
+            }
+
+            addColumnsList.app("c").app(i).app(' ').app(relDataType.getSqlTypeName());
+            dropColumnsList.app("c").app(i);
+        }
+
+        sql("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO test VALUES (0, 1)");
+        sql(format("ALTER TABLE test ADD COLUMN ({})", addColumnsList.toString()));
+
+        List<List<Object>> res = sql("SELECT * FROM test");
+        assertThat(res.size(), is(1));
+        assertThat(res.get(0).size(), is(allTypes.size() - unsupportedTypes.size() + /* initial columns */ 2));
+
+        sql(format("ALTER TABLE test DROP COLUMN ({})", dropColumnsList.toString()));
+        assertQuery("SELECT * FROM test")
+                .returns(0, 1)
+                .check();
     }
 
     /**
@@ -210,19 +258,15 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void checkSchemaUpdatedWithEqAlterColumn() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        Ignite node = CLUSTER_NODES.get(0);
+        IgniteImpl node = (IgniteImpl) CLUSTER.aliveNode();
 
-        ConfigurationManager cfgMgr = IgniteTestUtils.getFieldValue(node, "clusterCfgMgr");
-
-        TablesConfiguration tablesConfiguration = cfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
-
-        int schIdBefore = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
+        int tableVersionBefore = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
 
         sql("ALTER TABLE TEST ADD COLUMN (VAL1 INT)");
 
-        int schIdAfter = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
+        int tableVersionAfter = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
 
-        assertEquals(schIdBefore + 1, schIdAfter);
+        assertEquals(tableVersionBefore + 1, tableVersionAfter);
     }
 
     /**
@@ -232,7 +276,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void explicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("ID0", colocationColumns[0].name());
@@ -245,7 +289,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void explicitColocationColumnsCaseSensitive() {
         sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
 
-        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("Id0", colocationColumns[0].name());
@@ -253,9 +297,23 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void doNotAllowFunctionsInNonPkColumns() {
-        SqlException t = assertThrows(SqlException.class,
-                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)"));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
+                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)")
+        );
+    }
 
-        assertThat(t.getMessage(), containsString("Functional defaults are not supported for non-primary key columns"));
+    @Test
+    public void dummyAlterColumnDataType() {
+        sql("CREATE TABLE t0 (ID INT PRIMARY KEY, C2 varbinary, C3 varchar, C4 varbinary(10), C5 varchar(11))");
+        sql("ALTER TABLE t0 ALTER COLUMN C2 SET DATA TYPE varbinary");
+        sql("ALTER TABLE t0 ALTER COLUMN C4 SET DATA TYPE varbinary(10)");
+        sql("ALTER TABLE t0 ALTER COLUMN C5 SET DATA TYPE varchar(11)");
+
+        sql("CREATE TABLE t1 (ID INT PRIMARY KEY, DECIMAL_C2 DECIMAL(2))");
+        sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL");
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Decreasing the precision is not allowed",
+                () -> sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL(1)"));
     }
 }

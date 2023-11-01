@@ -86,22 +86,23 @@ public class ReconnectTests
         var cfg = new IgniteClientConfiguration
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
-            ReconnectInterval = TimeSpan.FromMilliseconds(300)
+            ReconnectInterval = TimeSpan.FromMilliseconds(300),
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
 
         using var servers = FakeServerGroup.Create(10);
         using var client = await servers.ConnectClientAsync(cfg);
 
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
+        client.WaitForConnections(10);
         servers.DropNewConnections = true;
         servers.DropExistingConnections();
 
         // Dropped connections are detected by heartbeat.
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 3000);
+        client.WaitForConnections(0);
 
         // Connections are restored in background due to ReconnectInterval.
         servers.DropNewConnections = false;
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
+        client.WaitForConnections(10);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }
@@ -122,7 +123,7 @@ public class ReconnectTests
         servers.DropNewConnections = false;
 
         // When all servers are back online, connections are established in background due to ReconnectInterval.
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 5, 3000);
+        client.WaitForConnections(5);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }
@@ -163,10 +164,6 @@ public class ReconnectTests
 
         // All connections are restored.
         logger.Debug("Waiting for all connections to be restored...");
-
-        TestUtils.WaitForCondition(
-            () => client.GetConnections().Count == 10,
-            5000,
-            () => "Actual connection count: " + client.GetConnections().Count);
+        client.WaitForConnections(10);
     }
 }

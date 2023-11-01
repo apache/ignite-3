@@ -50,7 +50,7 @@ public class PerSessionSerializationService {
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
     /** Integer value that is sent when there is no descriptor. */
-    private static final int NO_DESCRIPTOR_ID = Integer.MIN_VALUE;
+    private static final int NO_DESCRIPTOR_ID = -1;
 
     /** Global serialization service. */
     private final SerializationService serializationService;

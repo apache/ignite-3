@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.benchmarks;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
@@ -34,7 +32,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -121,22 +118,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_SCHEMA_VERSION), schema) {
-            @Override
-            public SchemaDescriptor schema() {
-                return schema;
-            }
-
-            @Override
-            public SchemaDescriptor schema(int ver) {
-                return schema;
-            }
-
-            @Override
-            public int lastSchemaVersion() {
-                return schema.version();
-            }
-        });
+        marshaller = new TupleMarshallerImpl(schema);
 
         if (useString) {
             final byte[] data = new byte[dataSize / fieldsCount];

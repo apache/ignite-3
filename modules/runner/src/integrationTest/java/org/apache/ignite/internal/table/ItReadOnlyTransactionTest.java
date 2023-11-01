@@ -30,15 +30,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
@@ -60,11 +61,11 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
     @BeforeEach
     public void beforeEach() {
         sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
-                ZONE_NAME, nodes(), 10));
+                ZONE_NAME, initialNodes(), 10));
         sql(IgniteStringFormatter.format("CREATE TABLE {}(id INT PRIMARY KEY, val VARCHAR) WITH PRIMARY_ZONE='{}'",
                 TABLE_NAME, ZONE_NAME));
 
-        Ignite ignite = CLUSTER_NODES.get(0);
+        Ignite ignite = CLUSTER.aliveNode();
 
         ignite.transactions().runInTransaction(tx -> {
             for (int i = 0; i < 100; i++) {
@@ -86,12 +87,12 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testFutureRead() throws Exception {
-        for (int i = 0; i < nodes(); i++) {
-            Ignite ignite = CLUSTER_NODES.get(i);
+        for (int i = 0; i < initialNodes(); i++) {
+            IgniteImpl ignite = CLUSTER.node(i);
 
             InternalTable internalTable = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
-            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().schema();
-            HybridClock clock = ((IgniteImpl) ignite).clock();
+            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().lastKnownSchema();
+            HybridClock clock = ignite.clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 
@@ -128,17 +129,20 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             }
         }
 
-        assertEquals(100 + nodes(), checkData(null, id -> id < 100 ? ("str " + id) : ("new str " + id)));
+        assertTrue(IgniteTestUtils.waitForCondition(
+                () -> checkData(null, id -> id < 100 ? ("str " + id) : ("new str " + id)) == 100 + initialNodes(),
+                10_000
+        ));
     }
 
     @Test
     public void testPastRead() throws Exception {
-        for (int i = 0; i < nodes(); i++) {
-            Ignite ignite = CLUSTER_NODES.get(i);
+        for (int i = 0; i < initialNodes(); i++) {
+            IgniteImpl ignite = CLUSTER.node(i);
 
             InternalTable internalTable = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
-            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().schema();
-            HybridClock clock = ((IgniteImpl) ignite).clock();
+            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().lastKnownSchema();
+            HybridClock clock = ignite.clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 
@@ -169,7 +173,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             }
         }
 
-        assertEquals(100 - nodes(), checkData(null, id -> "str " + id));
+        assertEquals(100 - initialNodes(), checkData(null, id -> "str " + id));
     }
 
     private static Row createRow(SchemaDescriptor schema, int id) {
@@ -178,7 +182,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         rowBuilder.appendInt(id);
         rowBuilder.appendString("new str " + id);
 
-        return new Row(schema, rowBuilder.build());
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     private static Row createRowKey(SchemaDescriptor schema, int id) {
@@ -186,7 +190,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
         rowBuilder.appendInt(id);
 
-        return new Row(schema, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
     }
 
     /**

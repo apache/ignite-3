@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.fromBytes;
 import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.toBytes;
+import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.future.InFlightFutures;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -38,7 +40,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 
 /**
  * Local configuration storage.
@@ -221,15 +222,6 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Long> lastRevision() {
         return vaultMgr.get(VERSION_KEY)
                 .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
-    }
-
-    /**
-     * Increments the last character of the given string.
-     */
-    private static String incrementLastChar(String str) {
-        char lastChar = str.charAt(str.length() - 1);
-
-        return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {

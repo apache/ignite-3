@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.InternalTransaction;
+import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteExceptionUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql query cursor.
@@ -34,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final SqlQueryType queryType;
     private final ResultSetMetadata meta;
-    private final @Nullable InternalTransaction implicitTx;
+    private final QueryTransactionWrapper txWrapper;
     private final AsyncCursor<T> dataCursor;
 
     /**
@@ -47,12 +45,12 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
-            @Nullable InternalTransaction implicitTx,
+            QueryTransactionWrapper txWrapper,
             AsyncCursor<T> dataCursor
     ) {
         this.queryType = queryType;
         this.meta = meta;
-        this.implicitTx = implicitTx;
+        this.txWrapper = txWrapper;
         this.dataCursor = dataCursor;
     }
 
@@ -73,16 +71,15 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
             if (t != null) {
-                if (implicitTx != null) {
-                    implicitTx.rollback();
-                }
+                // Always rollback a transaction in case of an error.
+                txWrapper.rollback();
 
-                throw wrapIfNecessary(t);
+                throw new CompletionException(wrapIfNecessary(t));
             }
 
-            if (implicitTx != null && !batch.hasMore()) {
+            if (!batch.hasMore()) {
                 // last batch, need to commit transaction
-                implicitTx.commit();
+                txWrapper.commitImplicit();
             }
 
             return batch;
@@ -92,19 +89,15 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
+        // Commit implicit transaction, if any.
+        txWrapper.commitImplicit();
+
         return dataCursor.closeAsync();
     }
 
-    private static RuntimeException wrapIfNecessary(Throwable t) {
+    private static Throwable wrapIfNecessary(Throwable t) {
         Throwable err = ExceptionUtils.unwrapCause(t);
 
-        if (err instanceof IgniteInternalException) {
-            IgniteInternalException iex = (IgniteInternalException) err;
-
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
-        }
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19539
-        return IgniteExceptionUtils.wrap(t);
+        return SqlExceptionMapperUtil.mapToPublicSqlException(err);
     }
 }

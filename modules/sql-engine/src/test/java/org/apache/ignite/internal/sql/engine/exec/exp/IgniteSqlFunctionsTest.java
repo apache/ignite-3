@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -26,7 +27,7 @@ import java.math.BigDecimal;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -146,6 +147,19 @@ public class IgniteSqlFunctionsTest {
         );
     }
 
+    @Test
+    public void testFractionsToDecimal() {
+        assertEquals(
+                new BigDecimal("0.0101"),
+                IgniteSqlFunctions.toBigDecimal(Float.valueOf(0.0101f), 3, 4)
+        );
+
+        assertEquals(
+                new BigDecimal("0.0101"),
+                IgniteSqlFunctions.toBigDecimal(Double.valueOf(0.0101d), 3, 4)
+        );
+    }
+
     /** Access of dynamic parameter value - parameter is not transformed. */
     @Test
     public void testToBigDecimalFromObject() {
@@ -170,13 +184,30 @@ public class IgniteSqlFunctionsTest {
 
             "0.1, 1, 1, 0.1",
 
+            "0.0101, 3, 4, 0.0101",
+            "0.1234, 2, 1, 0.1",
+            "0.1234, 5, 4, 0.1234",
+            "0.123, 5, 4, 0.1230",
+
             "0.12, 2, 1, 0.1",
             "0.12, 2, 2, 0.12",
+            "0.12, 2, 3, overflow",
+            "0.12, 3, 3, 0.120",
+            "0.12, 3, 2, 0.12",
+
             "0.123, 2, 2, 0.12",
             "0.123, 2, 1, 0.1",
             "0.123, 5, 5, 0.12300",
+            "1.123, 4, 3, 1.123",
+            "1.123, 4, 4, overflow",
 
-            "1.23, 2, 1, 1.2",
+            "0.0011, 1, 3, 0.001",
+            "0.0016, 1, 3, 0.002",
+            "-0.0011, 1, 3, -0.001",
+            "-0.0011, 1, 4, overflow",
+            "-0.0011, 2, 4, -0.0011",
+            "-0.0011, 3, 4, -0.0011",
+            "-0.0011, 2, 5, overflow",
 
             "10, 2, 0, 10",
             "10.0, 2, 0, 10",
@@ -202,13 +233,128 @@ public class IgniteSqlFunctionsTest {
             "-10.1, 2, 1, overflow",
     })
     public void testConvertDecimal(String input, int precision, int scale, String result) {
-        Supplier<BigDecimal> convert = () -> IgniteSqlFunctions.convertDecimal(new BigDecimal(input), precision, scale);
+        Supplier<BigDecimal> convert = () -> IgniteSqlFunctions.toBigDecimal(new BigDecimal(input), precision, scale);
 
         if (!"overflow".equalsIgnoreCase(result)) {
             BigDecimal expected = convert.get();
             assertEquals(new BigDecimal(result), expected);
         } else {
-            assertThrows(SqlException.class, convert::get);
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "Numeric field overflow", convert::get);
         }
+    }
+
+    // ROUND
+
+    /** Tests for ROUND(x) function. */
+    @Test
+    public void testRound() {
+        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.000")));
+        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.123")));
+        assertEquals(1, IgniteSqlFunctions.sround(1), "int");
+        assertEquals(1L, IgniteSqlFunctions.sround(1L), "long");
+        assertEquals(1.0d, IgniteSqlFunctions.sround(1.123d), "double");
+    }
+
+    /** Tests for ROUND(x, s) function, where x is a BigDecimal value. */
+    @ParameterizedTest
+    @CsvSource({
+            "1.123, -1, 0.000",
+            "1.123, 0, 1.000",
+            "1.123, 1, 1.100",
+            "1.123, 2, 1.120",
+            "1.127, 2, 1.130",
+            "1.123, 3, 1.123",
+            "1.123, 4, 1.123",
+            "10.123, 0, 10.000",
+            "10.123, -1, 10.000",
+            "10.123, -2, 0.000",
+            "10.123, 3, 10.123",
+            "10.123, 4, 10.123",
+    })
+    public void testRound2Decimal(String input, int scale, String result) {
+        assertEquals(new BigDecimal(result), IgniteSqlFunctions.sround(new BigDecimal(result), scale));
+    }
+
+    /** Tests for ROUND(x, s) function, where x is a double value. */
+    @ParameterizedTest
+    @CsvSource({
+            "1.123, 3, 1.123",
+            "1.123, 2, 1.12",
+            "1.127, 2, 1.13",
+            "1.245, 1, 1.2",
+            "1.123, 0, 1.0",
+            "1.123, -1, 0.0",
+            "10.123, 0, 10.000",
+            "10.123, -1, 10.000",
+            "10.123, -2, 0.000",
+            "10.123, 3, 10.123",
+            "10.123, 4, 10.123",
+    })
+    public void testRound2Double(double input, int scale, double result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
+    }
+
+    /** Tests for ROUND(x, s) function, where x is an byte. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 50",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -50",
+    })
+    public void testRound2ByteType(byte input, int scale, byte result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
+    }
+
+    /** Tests for ROUND(x, s) function, where x is an short. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 50",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -50",
+    })
+    public void testRound2ShortType(short input, int scale, short result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
+    }
+
+    /** Tests for ROUND(x, s) function, where x is an int. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 50",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -50",
+    })
+    public void testRound2IntType(int input, int scale, int result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
+    }
+
+    /** Tests for ROUND(x, s) function, where x is a long. */
+    @ParameterizedTest
+    @CsvSource({
+            "42, -2, 0",
+            "42, -1, 40",
+            "47, -1, 50",
+            "42, 0, 42",
+            "42, 1, 42",
+            "42, 2, 42",
+            "-42, -1, -40",
+            "-47, -1, -50",
+    })
+    public void testRound2LongType(long input, int scale, long result) {
+        assertEquals(result, IgniteSqlFunctions.sround(input, scale));
     }
 }

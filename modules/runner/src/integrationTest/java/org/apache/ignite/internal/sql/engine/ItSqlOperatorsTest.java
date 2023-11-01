@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,10 +37,10 @@ import org.junit.jupiter.api.Test;
  *
  * @see IgniteSqlOperatorTable
  */
-public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
+public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     /** {@inheritDoc} */
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -144,7 +145,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("LOWER('aA')").returns("aa").check();
         assertExpression("INITCAP('aA')").returns("Aa").check();
         assertExpression("TO_BASE64('aA')").returns("YUE=").check();
-        assertExpression("FROM_BASE64('YUE=')::VARCHAR").returns("aA").check();
+        assertExpression("FROM_BASE64('YUE=')").returns(new byte[] {(byte) 97, (byte) 65}).check();
         assertExpression("MD5('aa')").returns("4124bc0a9335c27f086f24ba207a4912").check();
         assertExpression("SHA1('aa')").returns("e0c9035898dd52fc65c41454cec9c4d2611bfb37").check();
         assertExpression("SUBSTRING('aAaA', 2, 2)").returns("Aa").check();
@@ -177,7 +178,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("EXP(2)").returns(Math.exp(2)).check();
         assertExpression("POWER(2, 2)").returns(Math.pow(2, 2)).check();
         assertExpression("LN(2)").returns(Math.log(2)).check();
-        assertExpression("LOG10(2) ").returns(Math.log10(2)).check();
+        assertExpression("LOG10(2) ").returns(Math.log(2) / Math.log(10)).check();
         assertExpression("ABS(-1)").returns(Math.abs(-1)).check();
         assertExpression("RAND()").check();
         assertExpression("RAND_INTEGER(10)").check();
@@ -199,7 +200,8 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("SINH(1)").returns(Math.sinh(1)).check();
         assertExpression("TAN(1)").returns(Math.tan(1)).check();
         assertExpression("TANH(1)").returns(Math.tanh(1)).check();
-        assertExpression("TRUNCATE(1.7)").returns(BigDecimal.valueOf(1)).check();
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20725
+        // assertExpression("TRUNCATE(1.7)").returns(BigDecimal.valueOf(1)).check();
         assertExpression("PI").returns(Math.PI).check();
     }
 
@@ -246,6 +248,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20162")
     public void testCollections() {
         assertExpression("MAP['a', 1, 'A', 2]").returns(Map.of("a", 1, "A", 2)).check();
         assertExpression("ARRAY[1, 2, 3]").returns(List.of(1, 2, 3)).check();
@@ -274,9 +277,10 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("DECODE(1, 1, 1, 2)").returns(1).check();
         assertExpression("LEAST('a', 'b')").returns("a").check();
         assertExpression("GREATEST('a', 'b')").returns("b").check();
-        assertExpression("COMPRESS('')::VARCHAR").returns("").check();
+        assertExpression("COMPRESS('')").returns(new byte[]{}).check();
         assertExpression("OCTET_LENGTH(x'01')").returns(1).check();
         assertExpression("CAST(INTERVAL 1 SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
+        assertExpression("CAST(INTERVAL 1 DAY AS INT)").returns(1).check(); // Converted to REINTERPRED.
     }
 
     @Test
@@ -296,6 +300,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20163")
     public void testJson() {
         assertExpression("'{\"a\":1}' FORMAT JSON").check();
         assertExpression("JSON_VALUE('{\"a\":1}', '$.a')").returns("1").check();

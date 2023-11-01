@@ -19,6 +19,7 @@ package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -28,27 +29,35 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -59,7 +68,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -74,8 +83,8 @@ import org.jetbrains.annotations.TestOnly;
  * This class allow to start/stop/get a replica.
  */
 public class ReplicaManager implements IgniteComponent {
-    /** Idle safe time propagation period. */
-    public static final int IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
+    /** Default Idle safe time propagation period for tests. */
+    public static final int DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
@@ -106,6 +115,11 @@ public class ReplicaManager implements IgniteComponent {
     /** Message handler for placement driver messages. */
     private final NetworkMessageHandler placementDriverMessageHandler;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
+    private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
+
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
@@ -113,25 +127,66 @@ public class ReplicaManager implements IgniteComponent {
     private final HybridClock clock;
 
     /** Scheduled executor for idle safe time sync. */
-    private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor =
-            Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-idle-safe-time-sync-thread", LOG));
+    private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
 
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
+    /** Executor. */
+    // TODO: IGNITE-20063 Maybe get rid of it
+    private final ExecutorService executor;
+
+    private String localNodeId;
+
     /**
      * Constructor for a replica service.
      *
+     * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
      * @param clock A hybrid logical clock.
      * @param messageGroupsToHandle Message handlers.
+     * @param placementDriver A placement driver.
      */
+    @TestOnly
     public ReplicaManager(
+            String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
             HybridClock clock,
-            Set<Class<?>> messageGroupsToHandle
+            Set<Class<?>> messageGroupsToHandle,
+            PlacementDriver placementDriver
+    ) {
+        this(
+                nodeName,
+                clusterNetSvc,
+                cmgMgr,
+                clock,
+                messageGroupsToHandle,
+                placementDriver,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+        );
+    }
+
+    /**
+     * Constructor for a replica service.
+     *
+     * @param nodeName Node name.
+     * @param clusterNetSvc Cluster network service.
+     * @param cmgMgr Cluster group manager.
+     * @param clock A hybrid logical clock.
+     * @param messageGroupsToHandle Message handlers.
+     * @param placementDriver A placement driver.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     */
+    public ReplicaManager(
+            String nodeName,
+            ClusterService clusterNetSvc,
+            ClusterManagementGroupManager cmgMgr,
+            HybridClock clock,
+            Set<Class<?>> messageGroupsToHandle,
+            PlacementDriver placementDriver,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -139,6 +194,24 @@ public class ReplicaManager implements IgniteComponent {
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
+        this.placementDriver = placementDriver;
+        this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
+
+        scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
+                1,
+                NamedThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
+        );
+
+        int threadCount = Runtime.getRuntime().availableProcessors();
+
+        executor = new ThreadPoolExecutor(
+                threadCount,
+                threadCount,
+                30,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "replica", LOG)
+        );
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
@@ -180,13 +253,10 @@ public class ReplicaManager implements IgniteComponent {
                                     }
                                 }
                         );
-
-                        return replicaFut;
                     } else {
                         sendAwaitReplicaResponse(senderConsistentId, correlationId);
-
-                        return replicaFut;
                     }
+                    return replicaFut;
                 });
 
                 return;
@@ -202,20 +272,33 @@ public class ReplicaManager implements IgniteComponent {
                 return;
             }
 
+            if (requestTimestamp != null) {
+                clock.update(requestTimestamp);
+            }
+
+            boolean sendTimestamp = request instanceof TimestampAware || request instanceof ReadOnlyDirectReplicaRequest;
+
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
-            CompletableFuture<?> result = replica.processRequest(request);
+            // TODO IGNITE-20296 Id of the node should come along with the message itself.
+            String senderId = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId).id();
 
-            result.handle((res, ex) -> {
+            CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
+
+            resFut.handle((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
-                    msg = prepareReplicaResponse(requestTimestamp, res);
+                    msg = prepareReplicaResponse(sendTimestamp, res.result());
                 } else {
-                    LOG.warn("Failed to process replica request [request={}]", ex, request);
+                    if (indicatesUnexpectedProblem(ex)) {
+                        LOG.warn("Failed to process replica request [request={}]", ex, request);
+                    } else {
+                        LOG.debug("Failed to process replica request [request={}]", ex, request);
+                    }
 
-                    msg = prepareReplicaErrorResponse(requestTimestamp, ex);
+                    msg = prepareReplicaErrorResponse(sendTimestamp, ex);
                 }
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
@@ -230,11 +313,38 @@ public class ReplicaManager implements IgniteComponent {
                     }
                 }
 
+                if (ex == null && res.replicationFuture() != null) {
+                    assert request instanceof PrimaryReplicaRequest;
+
+                    res.replicationFuture().handle((res0, ex0) -> {
+                        NetworkMessage msg0;
+
+                        LOG.debug("Sending delayed response for replica request [request={}]", request);
+
+                        if (ex == null) {
+                            msg0 = prepareReplicaResponse(sendTimestamp, res0);
+                        } else {
+                            LOG.warn("Failed to process delayed response [request={}]", ex, request);
+
+                            msg0 = prepareReplicaErrorResponse(sendTimestamp, ex);
+                        }
+
+                        // Using strong send here is important to avoid a reordering with a normal response.
+                        clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+
+                        return null;
+                    });
+                }
+
                 return null;
             });
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private static boolean indicatesUnexpectedProblem(Throwable ex) {
+        return !(ex instanceof ExpectedReplicationException);
     }
 
     /**
@@ -337,7 +447,7 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Internal method for starting a replica.
      *
-     * @param replicaGrpId   Replication group id.
+     * @param replicaGrpId Replication group id.
      * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
@@ -352,7 +462,16 @@ public class ReplicaManager implements IgniteComponent {
     ) {
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
-        Replica newReplica = new Replica(replicaGrpId, whenReplicaReady, listener, storageIndexTracker, raftClient, localNode);
+        Replica newReplica = new Replica(
+                replicaGrpId,
+                whenReplicaReady,
+                listener,
+                storageIndexTracker,
+                raftClient,
+                localNode,
+                executor,
+                placementDriver
+        );
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {
@@ -434,7 +553,7 @@ public class ReplicaManager implements IgniteComponent {
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,
-                IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                idleSafeTimePropagationPeriodMsSupplier.getAsLong(),
                 TimeUnit.MILLISECONDS
         );
 
@@ -446,6 +565,8 @@ public class ReplicaManager implements IgniteComponent {
                     }
                 }
         );
+
+        localNodeId = clusterNetSvc.topologyService().localMember().id();
     }
 
     /** {@inheritDoc} */
@@ -458,6 +579,7 @@ public class ReplicaManager implements IgniteComponent {
         busyLock.block();
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="
@@ -473,7 +595,7 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Extract a hybrid timestamp from timestamp aware request or return null.
      */
-    private HybridTimestamp extractTimestamp(ReplicaRequest request) {
+    private static @Nullable HybridTimestamp extractTimestamp(ReplicaRequest request) {
         if (request instanceof TimestampAware) {
             return ((TimestampAware) request).timestamp();
         } else {
@@ -533,12 +655,12 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Prepares replica response.
      */
-    private NetworkMessage prepareReplicaResponse(HybridTimestamp requestTimestamp, Object result) {
-        if (requestTimestamp != null) {
+    private NetworkMessage prepareReplicaResponse(boolean sendTimestamp, Object result) {
+        if (sendTimestamp) {
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(clock.update(requestTimestamp).longValue())
+                    .timestampLong(clock.nowLong())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -551,12 +673,12 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Prepares replica error response.
      */
-    private NetworkMessage prepareReplicaErrorResponse(HybridTimestamp requestTimestamp, Throwable ex) {
-        if (requestTimestamp != null) {
+    private NetworkMessage prepareReplicaErrorResponse(boolean sendTimestamp, Throwable ex) {
+        if (sendTimestamp) {
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(clock.update(requestTimestamp).longValue())
+                    .timestampLong(clock.nowLong())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -576,9 +698,19 @@ public class ReplicaManager implements IgniteComponent {
                         .groupId(r.join().groupId())
                         .build();
 
-                r.join().processRequest(req);
+                r.join().processRequest(req, localNodeId);
             }
         });
+    }
+
+    /**
+     * Check if replica is started.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return True if the replica is started.
+     */
+    public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        return replicas.containsKey(replicaGrpId);
     }
 
     /**
@@ -589,5 +721,17 @@ public class ReplicaManager implements IgniteComponent {
     @TestOnly
     public Set<ReplicationGroupId> startedGroups() {
         return replicas.keySet();
+    }
+
+    /**
+     * TODO: to be removed after IGNITE-20499 is fixed. This was introduced in a rush because of a burning release, should be fixe asap.
+     */
+    public static long idleSafeTimePropagationPeriodMs() {
+        return Long.parseLong(
+                System.getProperty(
+                        IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY,
+                        Integer.toString(DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS)
+                )
+        );
     }
 }

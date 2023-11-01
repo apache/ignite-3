@@ -30,6 +30,7 @@ import org.apache.ignite.network.AbstractMessagingService;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
@@ -133,7 +134,7 @@ public class ClusterServiceFactory {
         }
 
         private static ClusterNode nodeFromName(String name) {
-            return new ClusterNode(name, name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
+            return new ClusterNodeImpl(name, name, NetworkAddress.from("127.0.0.1:" + NODE_COUNTER.incrementAndGet()));
         }
 
         /** {@inheritDoc} */
@@ -159,6 +160,11 @@ public class ClusterServiceFactory {
         public @Nullable ClusterNode getByConsistentId(String consistentId) {
             return allMembers.get(consistentId);
         }
+
+        @Override
+        public @Nullable ClusterNode getById(String id) {
+            return allMembers.values().stream().filter(member -> member.id().equals(id)).findFirst().orElse(null);
+        }
     }
 
     private class LocalMessagingService extends AbstractMessagingService {
@@ -178,6 +184,15 @@ public class ClusterServiceFactory {
         @Override
         public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
             for (var handler : messagingServicesByNode.get(recipient.name()).messageHandlers(msg.groupType())) {
+                handler.onReceived(msg, localNodeName, null);
+            }
+
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
+            for (var handler : messagingServicesByNode.get(recipientConsistentId).messageHandlers(msg.groupType())) {
                 handler.onReceived(msg, localNodeName, null);
             }
 

@@ -27,15 +27,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Interval coverage tests. */
-public class ItIntervalTest extends ClusterPerClassIntegrationTest {
+public class ItIntervalTest extends BaseSqlIntegrationTest {
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -80,6 +81,10 @@ public class ItIntervalTest extends ClusterPerClassIntegrationTest {
         assertEquals(5, eval("CAST(INTERVAL 5 MONTHS AS INT)"));
         assertEquals(6, eval("CAST(INTERVAL 6 YEARS AS INT)"));
         assertEquals(-6, eval("CAST(INTERVAL -6 YEARS AS INT)"));
+
+        assertEquals("+6", eval("CAST(INTERVAL 6 YEARS AS VARCHAR)"));
+        assertEquals("+1", eval("CAST(INTERVAL 1 HOUR AS VARCHAR)"));
+        assertEquals("+7.000000", eval("CAST(INTERVAL 7 SECONDS AS VARCHAR)"));
 
         assertNull(eval("CAST(NULL::INT AS INTERVAL SECONDS)"));
         assertNull(eval("CAST(NULL::INT AS INTERVAL MONTHS)"));

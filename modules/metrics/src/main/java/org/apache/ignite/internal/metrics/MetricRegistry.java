@@ -27,8 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 
 /**
  * Metric registry. Metrics source (see {@link MetricSource} must be registered in this metrics registry after initialization
@@ -110,7 +109,7 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
-    public MetricSet enable(@NotNull MetricSource src) {
+    public MetricSet enable(MetricSource src) {
         lock.lock();
 
         try {
@@ -164,7 +163,7 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
-    public void disable(@NotNull MetricSource src) {
+    public void disable(MetricSource src) {
         lock.lock();
 
         try {
@@ -218,8 +217,7 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
-    @NotNull
-    private MetricSource checkAndGetRegistered(@NotNull MetricSource src) {
+    private MetricSource checkAndGetRegistered(MetricSource src) {
         assert lock.isHeldByCurrentThread() : "Access to shared state from an incorrect thread " + Thread.currentThread().getName();
 
         requireNonNull(src);

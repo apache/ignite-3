@@ -39,8 +39,15 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal sealed class Table : ITable
     {
-        /** Unknown schema version. */
-        private const int UnknownSchemaVersion = -1;
+        /// <summary>
+        /// Unknown schema version.
+        /// </summary>
+        public const int SchemaVersionUnknown = -1;
+
+        /// <summary>
+        /// Latest schema version, bypassing cache.
+        /// </summary>
+        public const int SchemaVersionForceLatest = -2;
 
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
@@ -64,7 +71,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
 
         /** */
-        private volatile int _latestSchemaVersion = UnknownSchemaVersion;
+        private volatile int _latestSchemaVersion = SchemaVersionUnknown;
 
         /** */
         private volatile int _partitionAssignmentVersion = -1;
@@ -167,16 +174,13 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
-        /// Gets the latest schema.
+        /// Gets the schema by version.
         /// </summary>
+        /// <param name="version">Schema version; when null, latest is used.</param>
         /// <returns>Schema.</returns>
-        internal Task<Schema> GetLatestSchemaAsync()
-        {
-            // _latestSchemaVersion can be -1 (unknown) or a valid version.
-            // In case of unknown version, we request latest from the server and cache it with -1 key
-            // to avoid duplicate requests for latest schema.
-            return GetCachedSchemaAsync(_latestSchemaVersion);
-        }
+        internal Task<Schema> GetSchemaAsync(int? version) => version == SchemaVersionForceLatest
+            ? LoadSchemaAsync(SchemaVersionUnknown)
+            : GetCachedSchemaAsync(version ?? _latestSchemaVersion);
 
         /// <summary>
         /// Gets the preferred node by colocation hash.
@@ -280,13 +284,13 @@ namespace Apache.Ignite.Internal.Table
                 var w = writer.MessageWriter;
                 w.Write(Id);
 
-                if (version == UnknownSchemaVersion)
+                if (version == SchemaVersionUnknown)
                 {
                     w.WriteNil();
                 }
                 else
                 {
-                    w.WriteArrayHeader(1);
+                    w.Write(1);
                     w.Write(version);
                 }
             }
@@ -294,7 +298,7 @@ namespace Apache.Ignite.Internal.Table
             Schema Read()
             {
                 var r = resBuf.GetReader();
-                var schemaCount = r.ReadMapHeader();
+                var schemaCount = r.ReadInt32();
 
                 if (schemaCount == 0)
                 {
@@ -321,7 +325,7 @@ namespace Apache.Ignite.Internal.Table
         private Schema ReadSchema(ref MsgPackReader r)
         {
             var schemaVersion = r.ReadInt32();
-            var columnCount = r.ReadArrayHeader();
+            var columnCount = r.ReadInt32();
             var keyColumnCount = 0;
             var colocationColumnCount = 0;
 
@@ -329,7 +333,7 @@ namespace Apache.Ignite.Internal.Table
 
             for (var i = 0; i < columnCount; i++)
             {
-                var propertyCount = r.ReadArrayHeader();
+                var propertyCount = r.ReadInt32();
                 const int expectedCount = 7;
 
                 Debug.Assert(propertyCount >= expectedCount, "propertyCount >= " + expectedCount);
@@ -399,7 +403,7 @@ namespace Apache.Ignite.Internal.Table
             string[]? Read()
             {
                 var r = resBuf.GetReader();
-                var count = r.ReadArrayHeader();
+                var count = r.ReadInt32();
 
                 if (count == 0)
                 {

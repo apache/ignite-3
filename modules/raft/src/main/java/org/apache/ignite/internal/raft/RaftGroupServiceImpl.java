@@ -53,6 +53,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -84,6 +84,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The implementation of {@link RaftGroupService}.
  */
+// TODO: IGNITE-20738 Methods updateConfiguration/refreshMembers/*Peer/*Learner are not thread-safe
+// and can produce meaningless (peers, learners) pairs as a result.
 public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceImpl.class);
@@ -468,6 +470,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         Function<Peer, ? extends NetworkMessage> requestFactory = p -> factory.readIndexRequest()
                 .groupId(groupId)
                 .peerId(p.consistentId())
+                .serverId(p.consistentId())
                 .build();
 
         Peer leader = leader();
@@ -479,6 +482,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override
     public ClusterService clusterService() {
         return cluster;
+    }
+
+    @Override
+    public void updateConfiguration(PeersAndLearners configuration) {
+        peers = List.copyOf(configuration.peers());
+        learners = List.copyOf(configuration.learners());
+        leader = null;
     }
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
@@ -701,6 +711,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             if (newIdx != lastPeerIndex) {
                 Peer peer = peers0.get(newIdx);
+
+                assert peer != null : "idx=" + newIdx + ", peers=" + peers0;
 
                 if (cluster.topologyService().getByConsistentId(peer.consistentId()) != null) {
                     break;

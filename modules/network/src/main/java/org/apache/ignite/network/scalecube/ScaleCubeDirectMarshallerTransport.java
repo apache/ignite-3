@@ -24,6 +24,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
@@ -31,8 +32,8 @@ import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.message.ScaleCubeMessageBuilder;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -172,7 +173,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
 
             // Create a fake node for nodes that are not in the topology yet
             if (node == null) {
-                node = new ClusterNode(null, null, addr);
+                node = new ClusterNodeImpl(null, null, addr);
             }
 
             return messagingService.send(node, fromMessage(message));

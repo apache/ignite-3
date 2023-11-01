@@ -26,13 +26,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
@@ -45,9 +44,9 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -65,6 +64,8 @@ public class TableImpl implements Table {
 
     private final LockManager lockManager;
 
+    private final SchemaVersions schemaVersions;
+
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
 
@@ -77,12 +78,14 @@ public class TableImpl implements Table {
     /**
      * Constructor.
      *
-     * @param tbl       The table.
+     * @param tbl The table.
      * @param lockManager Lock manager.
+     * @param schemaVersions Schema versions access.
      */
-    public TableImpl(InternalTable tbl, LockManager lockManager) {
+    public TableImpl(InternalTable tbl, LockManager lockManager, SchemaVersions schemaVersions) {
         this.tbl = tbl;
         this.lockManager = lockManager;
+        this.schemaVersions = schemaVersions;
     }
 
     /**
@@ -91,12 +94,13 @@ public class TableImpl implements Table {
      * @param tbl The table.
      * @param schemaReg Table schema registry.
      * @param lockManager Lock manager.
+     * @param schemaVersions Schema versions access.
      */
     @TestOnly
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager) {
-        this.tbl = tbl;
+    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions) {
+        this(tbl, lockManager, schemaVersions);
+
         this.schemaReg = schemaReg;
-        this.lockManager = lockManager;
     }
 
     /**
@@ -153,22 +157,22 @@ public class TableImpl implements Table {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg);
+        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, keyMapper, valMapper);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions);
     }
 
     /**
@@ -181,7 +185,9 @@ public class TableImpl implements Table {
         Objects.requireNonNull(key);
 
         try {
-            final Row keyRow = new TupleMarshallerImpl(schemaReg).marshalKey(key);
+            // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+            // columns never change (so they are the same for all schema versions of the table),
+            Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {
@@ -201,7 +207,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(keyMapper);
 
         BinaryRowEx keyRow;
-        var marshaller = new KvMarshallerImpl<>(schemaReg.schema(), keyMapper, keyMapper);
+        var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), keyMapper, keyMapper);
         try {
             keyRow = marshaller.marshal(key);
         } catch (MarshallerException e) {
@@ -289,7 +295,7 @@ public class TableImpl implements Table {
     public void registerHashIndex(
             StorageHashIndexDescriptor indexDescriptor,
             boolean unique,
-            Function<BinaryRow, BinaryTuple> searchRowResolver,
+            ColumnsExtractor searchRowResolver,
             PartitionSet partitions
     ) {
         int indexId = indexDescriptor.id();
@@ -312,7 +318,7 @@ public class TableImpl implements Table {
      */
     public void registerSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor,
-            Function<BinaryRow, BinaryTuple> searchRowResolver,
+            ColumnsExtractor searchRowResolver,
             PartitionSet partitions
     ) {
         int indexId = indexDescriptor.id();

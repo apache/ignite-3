@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CANCEL_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cancellable;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.SqlException;
 
 /**
  * Holds query cancel state.
@@ -58,7 +57,7 @@ public class QueryCancel {
 
         canceled = true;
 
-        IgniteException ex = null;
+        IgniteInternalException ex = null;
 
         // Run actions in the reverse order.
         for (int i = cancelActions.size() - 1; i >= 0; i--) {
@@ -68,7 +67,7 @@ public class QueryCancel {
                 act.cancel();
             } catch (Exception e) {
                 if (ex == null) {
-                    ex = new SqlException(CANCEL_OPERATION_ERR, e);
+                    ex = new IgniteInternalException(INTERNAL_ERR, e);
                 } else {
                     ex.addSuppressed(e);
                 }

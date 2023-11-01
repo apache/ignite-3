@@ -20,9 +20,9 @@ package org.apache.ignite.internal.metastorage.command;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**

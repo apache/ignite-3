@@ -24,12 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.reuse.ReuseListImpl;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * An abstract class for testing {@link BplusTree} with {@link ReuseList} using different implementations of {@link PageMemory}.
@@ -51,7 +51,8 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
                 pageMem,
                 new TestPageLockListener(),
                 rootId,
-                initNew
+                initNew,
+                log
         );
     }
 
@@ -86,9 +87,10 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
                 PageMemory pageMem,
                 PageLockListener lockLsnr,
                 long metaPageId,
-                boolean initNew
+                boolean initNew,
+                IgniteLogger log
         ) throws IgniteInternalCheckedException {
-            super(name, grpId, partId, pageMem, lockLsnr, BaseIgniteAbstractTest.log, metaPageId, initNew, null);
+            super(name, grpId, partId, pageMem, lockLsnr, log, metaPageId, initNew, null);
         }
 
         static boolean checkNoLocks() {

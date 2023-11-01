@@ -80,45 +80,53 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
-import org.apache.ignite.internal.configuration.AuthenticationView;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEvent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.security.AuthenticationException;
 import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Handles messages from thin clients.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements ConfigurationListener<AuthenticationView> {
+public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements AuthenticationListener {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -126,7 +134,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final IgniteTablesInternal igniteTables;
 
     /** Ignite transactions API. */
-    private final IgniteTransactions igniteTransactions;
+    private final IgniteTransactionsImpl igniteTransactions;
 
     /** JDBC Handler. */
     private final JdbcQueryEventHandler jdbcQueryEventHandler;
@@ -150,10 +158,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
     /** Cluster ID. */
-    private final UUID clusterId;
+    private final CompletableFuture<UUID> clusterId;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
+
+    /** Hybrid clock. */
+    private final HybridClock clock;
 
     /** Context. */
     private ClientContext clientContext;
@@ -170,6 +181,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Authentication manager. */
     private final AuthenticationManager authenticationManager;
 
+    private final SchemaVersions schemaVersions;
+
     /**
      * Constructor.
      *
@@ -183,18 +196,22 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param clusterId Cluster ID.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
+     * @param clock Hybrid clock.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
-            IgniteTransactions igniteTransactions,
+            IgniteTransactionsImpl igniteTransactions,
             QueryProcessor processor,
             ClientConnectorView configuration,
             IgniteCompute compute,
             ClusterService clusterService,
             IgniteSql sql,
-            UUID clusterId,
+            CompletableFuture<UUID> clusterId,
             ClientHandlerMetricSource metrics,
-            AuthenticationManager authenticationManager
+            AuthenticationManager authenticationManager,
+            HybridClock clock,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService
     ) {
         assert igniteTables != null;
         assert igniteTransactions != null;
@@ -206,6 +223,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert clusterId != null;
         assert metrics != null;
         assert authenticationManager != null;
+        assert clock != null;
+        assert schemaSyncService != null;
+        assert catalogService != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -216,13 +236,20 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.clusterId = clusterId;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
+        this.clock = clock;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
-        jdbcQueryEventHandler = 
-                new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources, igniteTransactions);
+        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
+                processor,
+                new JdbcMetadataCatalog(clock, schemaSyncService, catalogService),
+                resources,
+                igniteTransactions
+        );
 
         this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
+
+        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
     }
 
     @Override
@@ -275,7 +302,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
 
             Map<HandshakeExtension, Object> extensions = extractExtensions(unpacker);
-            UserDetails userDetails = authenticate(extensions);
+            AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
+            UserDetails userDetails = authenticationManager.authenticate(authenticationRequest);
 
             clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
@@ -292,10 +320,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClusterNode localMember = clusterService.topologyService().localMember();
             packer.packString(localMember.id());
             packer.packString(localMember.name());
-            packer.packUuid(clusterId);
+            packer.packUuid(clusterId.join());
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             write(packer, ctx);
 
@@ -329,12 +357,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private UserDetails authenticate(Map<HandshakeExtension, Object> extensions) {
-        AuthenticationRequest<?, ?> authenticationRequest = createAuthenticationRequest(extensions);
-
-        return authenticationManager.authenticate(authenticationRequest);
-    }
-
     private static AuthenticationRequest<?, ?> createAuthenticationRequest(Map<HandshakeExtension, Object> extensions) {
         Object authnType = extensions.get(HandshakeExtension.AUTHENTICATION_TYPE);
 
@@ -348,7 +370,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     (String) extensions.get(HandshakeExtension.AUTHENTICATION_SECRET));
         }
 
-        throw new AuthenticationException("Unsupported authentication type: " + authnType);
+        throw new UnsupportedAuthenticationTypeException("Unsupported authentication type: " + authnType);
     }
 
     private void writeMagic(ChannelHandlerContext ctx) {
@@ -384,6 +406,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packLong(requestId);
             writeFlags(packer, ctx);
 
+            // Include server timestamp in error response as well:
+            // an operation can modify data and then throw an exception (e.g. Compute task),
+            // so we still need to update client-side timestamp to preserve causality guarantees.
+            packer.packLong(observableTimestamp(null));
+
             writeErrorCore(err, packer);
 
             write(packer, ctx);
@@ -394,8 +421,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        err = ExceptionUtils.unwrapCause(err);
+        SchemaVersionMismatchException schemaVersionMismatchException = schemaVersionMismatchException(err);
+        err = schemaVersionMismatchException == null ? ExceptionUtils.unwrapCause(err) : schemaVersionMismatchException;
 
+        // Trace ID and error code.
         if (err instanceof TraceableException) {
             TraceableException iex = (TraceableException) err;
             packer.packUuid(iex.traceId());
@@ -405,20 +434,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(INTERNAL_ERR);
         }
 
+        // Class name and message.
         packer.packString(err.getClass().getName());
+        packer.packString(err.getMessage());
 
-        String msg = err.getMessage();
-
-        if (msg == null) {
-            packer.packNil();
-        } else {
-            packer.packString(msg);
-        }
-
+        // Stack trace.
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(err));
         } else {
             packer.packNil();
+        }
+
+        // Extensions.
+        if (schemaVersionMismatchException != null) {
+            packer.packInt(1);
+            packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
+            packer.packInt(schemaVersionMismatchException.expectedVersion());
+        } else {
+            packer.packNil(); // No extensions.
         }
     }
 
@@ -448,6 +481,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
             writeFlags(out, ctx);
+
+            // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
+            int observableTimestampIdx = out.reserveLong();
             out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
@@ -455,6 +491,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             if (fut == null) {
                 // Operation completed synchronously.
                 in.close();
+                out.setLong(observableTimestampIdx, observableTimestamp(out));
                 write(out, ctx);
 
                 if (LOG.isTraceEnabled()) {
@@ -478,6 +515,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                         metrics.requestsFailedIncrement();
                     } else {
+                        out.setLong(observableTimestampIdx, observableTimestamp(out));
                         write(out, ctx);
 
                         metrics.requestsProcessedIncrement();
@@ -510,7 +548,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTablesGetRequest.process(out, igniteTables);
 
             case ClientOp.SCHEMAS_GET:
-                return ClientSchemasGetRequest.process(in, out, igniteTables);
+                return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
 
             case ClientOp.TABLE_GET:
                 return ClientTableGetRequest.process(in, out, igniteTables);
@@ -615,7 +653,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, sql, resources, metrics);
+                return ClientSqlExecuteRequest.process(in, out, sql, resources, metrics, igniteTransactions);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, out, resources);
@@ -676,17 +714,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ctx.close();
     }
 
-    @Override
-    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationView> ctx) {
-        if (clientContext != null && channelHandlerContext != null) {
-            channelHandlerContext.close();
-        }
-        return CompletableFuture.completedFuture(null);
-    }
-
     private static Map<HandshakeExtension, Object> extractExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
-        int mapSize = unpacker.unpackMapHeader();
+        int mapSize = unpacker.unpackInt();
         for (int i = 0; i < mapSize; i++) {
             HandshakeExtension handshakeExtension = HandshakeExtension.fromKey(unpacker.unpackString());
             if (handshakeExtension != null) {
@@ -702,6 +732,55 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             return unpacker.unpackString();
         } else {
             throw new IllegalArgumentException("Unsupported extension type: " + type.getName());
+        }
+    }
+
+    private static @Nullable SchemaVersionMismatchException schemaVersionMismatchException(Throwable e) {
+        while (e != null) {
+            if (e instanceof SchemaVersionMismatchException) {
+                return (SchemaVersionMismatchException) e;
+            }
+
+            e = e.getCause();
+        }
+
+        return null;
+    }
+
+    private long observableTimestamp(@Nullable ClientMessagePacker out) {
+        // Certain operations can override the timestamp and provide it in the meta object.
+        if (out != null) {
+            Object meta = out.meta();
+
+            if (meta instanceof HybridTimestamp) {
+                return ((HybridTimestamp) meta).longValue();
+            }
+        }
+
+        return clock.now().longValue();
+    }
+
+    @Override
+    public void onEvent(AuthenticationEvent event) {
+        switch (event.type()) {
+            case AUTHENTICATION_ENABLED:
+                closeConnection();
+                break;
+            case AUTHENTICATION_PROVIDER_REMOVED:
+            case AUTHENTICATION_PROVIDER_UPDATED:
+                AuthenticationProviderEvent providerEvent = (AuthenticationProviderEvent) event;
+                if (clientContext != null && clientContext.userDetails().providerName().equals(providerEvent.name())) {
+                    closeConnection();
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void closeConnection() {
+        if (channelHandlerContext != null) {
+            channelHandlerContext.close();
         }
     }
 }

@@ -179,7 +179,7 @@ Following method was added to Ignition interface:
      * @param name Node name to stop.
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
-    public void stop(@NotNull String name);
+    public void stop(String name);
 ```
 It's also possible to stop a node by calling ``close()`` on an already started Ignite instance.
 

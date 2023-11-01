@@ -21,9 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.Serializable;
 import java.util.List;
-import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.table.RecordView;
@@ -40,7 +38,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check add a new column to table schema.
      */
     @Test
-    public void testDropColumn() throws Exception {
+    public void testDropColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -77,7 +75,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check drop column from table schema.
      */
     @Test
-    public void testAddNewColumn() throws Exception {
+    public void testAddNewColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -113,7 +111,8 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check column renaming.
      */
     @Test
-    void testRenameColumn() throws Exception {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20315")
+    void testRenameColumn() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -156,7 +155,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19486")
     @Test
-    void testRenameThenAddColumnWithSameName() throws Exception {
+    void testRenameThenAddColumnWithSameName() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -196,7 +195,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
-    public void testMergeChangesAddDropAdd() throws Exception {
+    public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -266,7 +265,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check merge column default value changes.
      */
     @Test
-    public void testMergeChangesColumnDefault() throws Exception {
+    public void testMergeChangesColumnDefault() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -277,13 +276,13 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111));
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
+        changeDefault(grid, colName, "newDefault");
         addColumn(grid, "val VARCHAR DEFAULT 'newDefault'");
 
         tbl.insert(null, Tuple.create().set("key", 2L).set("valInt", 222));
 
-        changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "brandNewDefault");
-        changeDefault(grid, "val", (Supplier<Object> & Serializable) () -> "brandNewDefault");
+        changeDefault(grid, colName, "brandNewDefault");
+        changeDefault(grid, "val", "brandNewDefault");
 
         tbl.insert(null, Tuple.create().set("key", 3L).set("valInt", 333));
 
@@ -311,7 +310,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check operation failed if unknown column found.
      */
     @Test
-    public void testStrictSchemaInsertRowOfNewSchema() throws Exception {
+    public void testStrictSchemaInsertRowOfNewSchema() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);

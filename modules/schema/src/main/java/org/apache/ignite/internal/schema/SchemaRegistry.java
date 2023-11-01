@@ -19,9 +19,10 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Table schema registry interface.
@@ -36,45 +37,52 @@ import org.jetbrains.annotations.Nullable;
  *      beginning.
  * @implSpec Initial schema history MAY be registered without the first outdated versions that could be cleaned up earlier.
  */
-public interface SchemaRegistry {
+public interface SchemaRegistry extends ManuallyCloseable {
     /**
-     * Gets schema descriptor for the latest version if initialized.
+     * Gets schema descriptor for the latest version known locally. It might be not the last schema version cluster-wide.
      *
-     * @return Schema descriptor if initialized, {@code null} otherwise.
+     * <p>No schema synchronization guarantees are provided (that is, one cannot assume that the returned
+     * schema version corresponds to the current moment from the point of view of other nodes).
+     *
+     * <p>This method never blocks.
      */
-    SchemaDescriptor schema();
+    SchemaDescriptor lastKnownSchema();
 
     /**
-     * Gets schema descriptor for given version.
+     * Gets schema descriptor for given version or throws an exception if the given version is not available.
+     * If 0 is passed as a version, this returns the latest known version.
      *
-     * @param ver Schema version to get descriptor for.
-     * @return Schema descriptor of given version.
+     * <p>This method never blocks.
+     *
+     * @param version Schema version to get descriptor for (if 0, then the latest known version is requested).
+     * @return Schema descriptor of given version (or latest known version if version 0 is requested).
      * @throws SchemaRegistryException If no schema found for given version.
      */
-    SchemaDescriptor schema(int ver) throws SchemaRegistryException;
+    SchemaDescriptor schema(int version) throws SchemaRegistryException;
 
     /**
-     * Gets cached schema descriptor for given version.
+     * Gets schema descriptor for given version asynchronously.
      *
-     * @param ver Schema version to get descriptor for.
-     * @return Schema descriptor of given version or {@code null} if missed in cache.
+     * @param version Schema version to get descriptor for (0 is not a valid argument).
+     * @return Future that will complete when a schema descriptor of given version becomes available.
      */
-    @Nullable SchemaDescriptor schemaCached(int ver);
+    CompletableFuture<SchemaDescriptor> schemaAsync(int version);
 
     /**
-     * Gets schema descriptor for the latest version in cluster.
+     * Returns last schema version known locally. It might be not the last schema version cluster-wide.
      *
-     * @return Schema descriptor if initialized, {@code null} otherwise.
+     * <p>No schema synchronization guarantees are provided (that is, one cannot assume that the returned
+     * schema version corresponds to the current moment from the point of view of other nodes).
+     *
+     * <p>This method never blocks.
      */
-    SchemaDescriptor waitLatestSchema();
+    int lastKnownSchemaVersion();
 
     /**
-     * Get last registered schema version.
-     */
-    int lastSchemaVersion();
-
-    /**
-     * Resolve binary row against given schema.
+     * Resolve binary row against given schema ({@code desc}). The row schema version must be lower or equal to the version
+     * of {@code desc}. If the schema versions are not equal, the row will be upgraded to {@code desc}.
+     *
+     * <p>This method never blocks.
      *
      * @param row  Binary row.
      * @param desc Schema descriptor.
@@ -83,18 +91,45 @@ public interface SchemaRegistry {
     Row resolve(BinaryRow row, SchemaDescriptor desc);
 
     /**
-     * Resolve row against the latest schema.
+     * Resolve row against a given schema. The row schema version must be lower or equal to the target version.
+     * If the schema versions are not equal, the row will be upgraded to the target schema.
+     *
+     * <p>This method never blocks.
      *
      * @param row Binary row.
+     * @param targetSchemaVersion Schema version to which the row must be resolved.
      * @return Schema-aware row.
      */
-    Row resolve(BinaryRow row);
+    Row resolve(BinaryRow row, int targetSchemaVersion);
 
     /**
-     * Resolves batch of binary row against the latest schema.
+     * Resolves batch of binary rows against a given schema. Each row schema version must be lower or equal to the target version.
+     * If the schema versions are not equal, the row will be upgraded to the target schema.
+     *
+     * <p>This method never blocks.
      *
      * @param rows Binary rows.
-     * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code rows}.
+     * @param targetSchemaVersion Schema version to which the rows must be resolved.
+     * @return Schema-aware rows. Contains {@code null}s at the same positions as in {@code rows}.
      */
-    List<Row> resolve(Collection<BinaryRow> rows);
+    List<Row> resolve(Collection<BinaryRow> rows, int targetSchemaVersion);
+
+    /**
+     * Resolves batch of binary rows, that only contain the key component, against a given schema.
+     * Each row schema version must be lower or equal to the target version.
+     * If the schema versions are not equal, the row will be upgraded to the target schema.
+     *
+     * <p>This method never blocks.
+     *
+     * @param keyOnlyRows Binary rows that only contain the key component.
+     * @param targetSchemaVersion Schema version to which the rows must be resolved.
+     * @return Schema-aware rows. Contains {@code null}s at the same positions as in {@code keyOnlyRows}.
+     */
+    List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion);
+
+    /**
+     * Closes the registry freeing any resources it holds.
+     */
+    @Override
+    void close();
 }

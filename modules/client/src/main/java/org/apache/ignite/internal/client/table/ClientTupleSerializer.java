@@ -19,35 +19,29 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.UUID;
+import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -75,7 +69,7 @@ public class ClientTupleSerializer {
      */
     void writeTuple(
             @Nullable Transaction tx,
-            @NotNull Tuple tuple,
+            Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out
     ) {
@@ -92,7 +86,7 @@ public class ClientTupleSerializer {
      */
     void writeTuple(
             @Nullable Transaction tx,
-            @NotNull Tuple tuple,
+            Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
             boolean keyOnly
@@ -111,7 +105,7 @@ public class ClientTupleSerializer {
      */
     void writeTuple(
             @Nullable Transaction tx,
-            @NotNull Tuple tuple,
+            Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
             boolean keyOnly,
@@ -134,18 +128,28 @@ public class ClientTupleSerializer {
      * @param out Out.
      * @param keyOnly Key only.
      */
-    public static void writeTupleRaw(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
+    public static void writeTupleRaw(Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
         var builder = new BinaryTupleBuilder(count);
         var noValueSet = new BitSet(count);
 
+        int usedCols = 0;
+
         for (var i = 0; i < count; i++) {
             var col = columns[i];
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
 
+            if (v != NO_VALUE) {
+                usedCols++;
+            }
+
             appendValue(builder, noValueSet, col, v);
+        }
+
+        if (!keyOnly && tuple.columnCount() > usedCols) {
+            throwSchemaMismatchException(tuple, schema, TuplePart.KEY_AND_VAL);
         }
 
         out.out().packBinaryTuple(builder, noValueSet);
@@ -162,7 +166,7 @@ public class ClientTupleSerializer {
      */
     void writeKvTuple(
             @Nullable Transaction tx,
-            @NotNull Tuple key,
+            Tuple key,
             @Nullable Tuple val,
             ClientSchema schema,
             PayloadOutputChannel out,
@@ -178,14 +182,37 @@ public class ClientTupleSerializer {
         var noValueSet = new BitSet(columns.length);
         var builder = new BinaryTupleBuilder(columns.length);
 
+        int usedKeyCols = 0;
+        int usedValCols = 0;
+
         for (ClientColumn col : columns) {
-            Object v = col.key()
-                    ? key.valueOrDefault(col.name(), NO_VALUE)
-                    : val != null
-                            ? val.valueOrDefault(col.name(), NO_VALUE)
-                            : NO_VALUE;
+            Object v;
+
+            if (col.key()) {
+                v = key.valueOrDefault(col.name(), NO_VALUE);
+
+                if (v != NO_VALUE) {
+                    usedKeyCols++;
+                }
+            } else {
+                v = val != null
+                        ? val.valueOrDefault(col.name(), NO_VALUE)
+                        : NO_VALUE;
+
+                if (v != NO_VALUE) {
+                    usedValCols++;
+                }
+            }
 
             appendValue(builder, noValueSet, col, v);
+        }
+
+        if (key.columnCount() > usedKeyCols) {
+            throwSchemaMismatchException(key, schema, TuplePart.KEY);
+        }
+
+        if (val != null && val.columnCount() > usedValCols) {
+            throwSchemaMismatchException(val, schema, TuplePart.VAL);
         }
 
         out.out().packBinaryTuple(builder, noValueSet);
@@ -219,7 +246,7 @@ public class ClientTupleSerializer {
      */
     void writeTuples(
             @Nullable Transaction tx,
-            @NotNull Collection<Tuple> tuples,
+            Collection<Tuple> tuples,
             ClientSchema schema,
             PayloadOutputChannel out,
             boolean keyOnly
@@ -285,11 +312,11 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
+    static List<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
         return readTuples(schema, in, false);
     }
 
-    static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
+    static List<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
@@ -315,94 +342,14 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    private static void appendValue(BinaryTupleBuilder builder, BitSet noValueSet, ClientColumn col, Object v) {
-        if (v == null) {
-            builder.appendNull();
-            return;
-        }
-
+    private static void appendValue(BinaryTupleBuilder builder, BitSet noValueSet, ClientColumn col, @Nullable Object v) {
         if (v == NO_VALUE) {
             noValueSet.set(col.schemaIndex());
             builder.appendNull();
             return;
         }
 
-        try {
-            switch (col.type()) {
-                case BOOLEAN:
-                    builder.appendBoolean((boolean) v);
-                    return;
-
-                case INT8:
-                    builder.appendByte((byte) v);
-                    return;
-
-                case INT16:
-                    builder.appendShort((short) v);
-                    return;
-
-                case INT32:
-                    builder.appendInt((int) v);
-                    return;
-
-                case INT64:
-                    builder.appendLong((long) v);
-                    return;
-
-                case FLOAT:
-                    builder.appendFloat((float) v);
-                    return;
-
-                case DOUBLE:
-                    builder.appendDouble((double) v);
-                    return;
-
-                case DECIMAL:
-                    builder.appendDecimalNotNull((BigDecimal) v, col.scale());
-                    return;
-
-                case UUID:
-                    builder.appendUuidNotNull((UUID) v);
-                    return;
-
-                case STRING:
-                    builder.appendStringNotNull((String) v);
-                    return;
-
-                case BYTE_ARRAY:
-                    builder.appendBytesNotNull((byte[]) v);
-                    return;
-
-                case BITMASK:
-                    builder.appendBitmaskNotNull((BitSet) v);
-                    return;
-
-                case DATE:
-                    builder.appendDateNotNull((LocalDate) v);
-                    return;
-
-                case TIME:
-                    builder.appendTimeNotNull((LocalTime) v);
-                    return;
-
-                case DATETIME:
-                    builder.appendDateTimeNotNull((LocalDateTime) v);
-                    return;
-
-                case TIMESTAMP:
-                    builder.appendTimestampNotNull((Instant) v);
-                    return;
-
-                case NUMBER:
-                    builder.appendNumberNotNull((BigInteger) v);
-                    return;
-
-                default:
-                    throw new IllegalArgumentException("Unsupported type: " + col.type());
-            }
-        } catch (ClassCastException e) {
-            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
-        }
+        ClientBinaryTupleUtils.appendValue(builder, col.type(), col.name(), col.scale(), v);
     }
 
     /**
@@ -412,7 +359,7 @@ public class ClientTupleSerializer {
      * @param rec Tuple.
      * @return Partition awareness provider.
      */
-    public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, Tuple rec) {
         if (tx != null) {
             //noinspection resource
             return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
@@ -429,7 +376,7 @@ public class ClientTupleSerializer {
      * @return Partition awareness provider.
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
-            @Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
+            @Nullable Transaction tx, Mapper<?> mapper, Object rec) {
         if (tx != null) {
             //noinspection resource
             return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
@@ -460,7 +407,7 @@ public class ClientTupleSerializer {
     static Integer getColocationHash(ClientSchema schema, Mapper<?> mapper, Object rec) {
         // Colocation columns are always part of the key - https://cwiki.apache.org/confluence/display/IGNITE/IEP-86%3A+Colocation+Key.
         var hashCalc = new HashCalculator();
-        var marsh = schema.getMarshaller(mapper, TuplePart.KEY);
+        var marsh = schema.getMarshaller(mapper, TuplePart.KEY, true);
 
         for (ClientColumn col : schema.colocationColumns()) {
             Object value = marsh.value(rec, col.schemaIndex());
@@ -468,5 +415,32 @@ public class ClientTupleSerializer {
         }
 
         return hashCalc.hash();
+    }
+
+    private static void throwSchemaMismatchException(Tuple tuple, ClientSchema schema, TuplePart part) {
+        ClientColumn[] columns = schema.columns();
+        Set<String> extraColumns = new HashSet<>();
+        int start = part == TuplePart.VAL ? schema.keyColumnCount() : 0;
+        int end = part == TuplePart.KEY ? schema.keyColumnCount() : columns.length;
+
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            extraColumns.add(tuple.columnName(i));
+        }
+
+
+        for (int i = start; i < end; i++) {
+            extraColumns.remove(columns[i].name());
+        }
+
+        String prefix = "Tuple";
+
+        if (part == TuplePart.KEY) {
+            prefix = "Key tuple";
+        } else if (part == TuplePart.VAL) {
+            prefix = "Value tuple";
+        }
+
+        throw new IllegalArgumentException(String.format("%s doesn't match schema: schemaVersion=%s, extraColumns=%s",
+                prefix, schema.version(), extraColumns), new UnmappedColumnsException());
     }
 }

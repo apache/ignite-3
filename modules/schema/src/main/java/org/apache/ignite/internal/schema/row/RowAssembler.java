@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.schema.row;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.ROW_HAS_VALUE_FLAG;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,18 +30,18 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.AssemblyException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
-import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.type.BitmaskNativeType;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.NumberNativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.util.TemporalTypeUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -75,133 +72,6 @@ public class RowAssembler {
 
     /** Current field index (the field is unset). */
     private int curCol;
-
-    private static boolean hasNulls(Columns columns) {
-        for (int i = 0; i < columns.length(); i++) {
-            if (columns.column(i).nullable()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Helper method.
-     *
-     * @param rowAsm Writes column value to assembler.
-     * @param col    Column.
-     * @param val    Value.
-     * @throws SchemaMismatchException If a value doesn't match the current column type.
-     */
-    public static void writeValue(RowAssembler rowAsm, Column col, Object val) throws SchemaMismatchException {
-        writeValue(rowAsm, col.type(), val);
-    }
-
-    /**
-     * Helper method.
-     *
-     * @param rowAsm Writes a value as a specified type to assembler.
-     * @param type   Type of the value.
-     * @param val    Value.
-     * @throws SchemaMismatchException If a value doesn't match the current column type.
-     */
-    public static void writeValue(RowAssembler rowAsm, NativeType type, @Nullable Object val) throws SchemaMismatchException {
-        if (val == null) {
-            rowAsm.appendNull();
-
-            return;
-        }
-
-        switch (type.spec()) {
-            case BOOLEAN: {
-                rowAsm.appendBoolean((boolean) val);
-
-                break;
-            }
-            case INT8: {
-                rowAsm.appendByte((byte) val);
-
-                break;
-            }
-            case INT16: {
-                rowAsm.appendShort((short) val);
-
-                break;
-            }
-            case INT32: {
-                rowAsm.appendInt((int) val);
-
-                break;
-            }
-            case INT64: {
-                rowAsm.appendLong((long) val);
-
-                break;
-            }
-            case FLOAT: {
-                rowAsm.appendFloat((float) val);
-
-                break;
-            }
-            case DOUBLE: {
-                rowAsm.appendDouble((double) val);
-
-                break;
-            }
-            case UUID: {
-                rowAsm.appendUuid((UUID) val);
-
-                break;
-            }
-            case TIME: {
-                rowAsm.appendTime((LocalTime) val);
-
-                break;
-            }
-            case DATE: {
-                rowAsm.appendDate((LocalDate) val);
-
-                break;
-            }
-            case DATETIME: {
-                rowAsm.appendDateTime((LocalDateTime) val);
-
-                break;
-            }
-            case TIMESTAMP: {
-                rowAsm.appendTimestamp((Instant) val);
-
-                break;
-            }
-            case STRING: {
-                rowAsm.appendString((String) val);
-
-                break;
-            }
-            case BYTES: {
-                rowAsm.appendBytes((byte[]) val);
-
-                break;
-            }
-            case BITMASK: {
-                rowAsm.appendBitmask((BitSet) val);
-
-                break;
-            }
-            case NUMBER: {
-                rowAsm.appendNumber((BigInteger) val);
-
-                break;
-            }
-            case DECIMAL: {
-                rowAsm.appendDecimal((BigDecimal) val);
-
-                break;
-            }
-            default:
-                throw new InvalidTypeException("Unexpected value: " + type);
-        }
-    }
 
     /**
      * Creates a builder.
@@ -241,6 +111,76 @@ public class RowAssembler {
     }
 
     /**
+     * Helper method.
+     *
+     * @param val    Value.
+     * @throws SchemaMismatchException If a value doesn't match the current column type.
+     */
+    public RowAssembler appendValue(@Nullable Object val) throws SchemaMismatchException {
+        if (val == null) {
+            return appendNull();
+        }
+
+        NativeType columnType = curCols.column(curCol).type();
+
+        switch (columnType.spec()) {
+            case BOOLEAN: {
+                return appendBoolean((boolean) val);
+            }
+            case INT8: {
+                return appendByte((byte) val);
+            }
+            case INT16: {
+                return appendShort((short) val);
+            }
+            case INT32: {
+                return appendInt((int) val);
+            }
+            case INT64: {
+                return appendLong((long) val);
+            }
+            case FLOAT: {
+                return appendFloat((float) val);
+            }
+            case DOUBLE: {
+                return appendDouble((double) val);
+            }
+            case UUID: {
+                return appendUuid((UUID) val);
+            }
+            case TIME: {
+                return appendTime((LocalTime) val);
+            }
+            case DATE: {
+                return appendDate((LocalDate) val);
+            }
+            case DATETIME: {
+                return appendDateTime((LocalDateTime) val);
+            }
+            case TIMESTAMP: {
+                return appendTimestamp((Instant) val);
+            }
+            case STRING: {
+                return appendString((String) val);
+            }
+            case BYTES: {
+                return appendBytes((byte[]) val);
+            }
+            case BITMASK: {
+                return appendBitmask((BitSet) val);
+            }
+            case NUMBER: {
+                return appendNumber((BigInteger) val);
+            }
+            case DECIMAL: {
+                return appendDecimal((BigDecimal) val);
+            }
+            default:
+                throw new InvalidTypeException("Unexpected value: " + columnType);
+        }
+    }
+
+    /**
      * Appends {@code null} value for the current column to the chunk.
      *
      * @return {@code this} for chaining.
@@ -257,6 +197,17 @@ public class RowAssembler {
         shiftColumn();
 
         return this;
+    }
+
+    /**
+     * Appends the default value for the current column.
+     *
+     * @return {@code this} for chaining.
+     */
+    public RowAssembler appendDefault() {
+        Column column = curCols.column(curCol);
+
+        return appendValue(column.defaultValue());
     }
 
     /**
@@ -663,46 +614,13 @@ public class RowAssembler {
      * @return Created {@link BinaryRow}.
      */
     public BinaryRow build() {
-        boolean hasValue = flush();
-        ByteBuffer tupleBuffer = builder.build();
-
-        return build(tupleBuffer, schemaVersion, hasValue);
-    }
-
-    /**
-     * Builds serialized row from a BinaryTuple.
-     *
-     * @param binTupleBuffer Binary tuple buffer.
-     * @param schemaVersion Schema version.
-     * @return Created {@link BinaryRow}.
-     */
-    public static BinaryRow build(ByteBuffer binTupleBuffer, int schemaVersion, boolean hasValue) {
-        if (hasValue) {
-            byte flags = binTupleBuffer.get(0);
-
-            binTupleBuffer.put(0, (byte) (flags | ROW_HAS_VALUE_FLAG));
-        }
-
-        return new BinaryRowImpl(schemaVersion, binTupleBuffer);
-    }
-
-    /**
-     * Finish building row.
-     *
-     * @return {@code true} if row contains a value.
-     */
-    private boolean flush() {
         if (keyColumns == curCols) {
             throw new AssemblyException("Key column missed: colIdx=" + curCol);
-        } else {
-            if (curCol == 0) {
-                // Row has no value
-                return false;
-            } else if (valueColumns.length() != curCol) {
-                throw new AssemblyException("Value column missed: colIdx=" + curCol);
-            }
+        } else if (curCol != 0 && valueColumns.length() != curCol) {
+            throw new AssemblyException("Value column missed: colIdx=" + curCol);
         }
-        return true;
+
+        return new BinaryRowImpl(schemaVersion, builder.build());
     }
 
     /**
@@ -718,9 +636,12 @@ public class RowAssembler {
 
         Column col = curCols.column(curCol);
 
+        // Column#validate does not work here, because we must tolerate differences in precision, size, etc.
         if (col.type().spec() != type) {
-            throw new SchemaMismatchException("Failed to set column (" + type.name() + " was passed, but column is of different "
-                    + "type): " + col);
+            throw new InvalidTypeException("Column's type mismatch ["
+                    + "column=" + col
+                    + ", expectedType=" + col.type().spec()
+                    + ", actualType=" + type + ']');
         }
     }
 

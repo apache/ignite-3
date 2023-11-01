@@ -44,12 +44,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +59,7 @@ import org.junit.jupiter.api.function.Executable;
  * Abstract tx storage test.
  */
 public abstract class AbstractTxStateStorageTest {
-    private final int tableId = 1;
+    protected static final int TABLE_ID = 1;
 
     protected TxStateTableStorage tableStorage;
 
@@ -76,7 +76,7 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     @AfterEach
-    void afterTest() {
+    protected void afterTest() {
         tableStorage.close();
     }
 
@@ -97,7 +97,7 @@ public abstract class AbstractTxStateStorageTest {
         for (int i = 0; i < 100; i++) {
             TxMeta txMeta = storage.get(txIds.get(i));
             TxMeta txMetaExpected = new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
-            assertTxMetaEquals(txMetaExpected, txMeta);
+            assertEquals(txMetaExpected, txMeta);
         }
 
         for (int i = 0; i < 100; i++) {
@@ -113,14 +113,14 @@ public abstract class AbstractTxStateStorageTest {
             } else {
                 TxMeta txMeta = storage.get(txIds.get(i));
                 TxMeta txMetaExpected = new TxMeta(TxState.COMMITED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
-                assertTxMetaEquals(txMetaExpected, txMeta);
+                assertEquals(txMetaExpected, txMeta);
             }
         }
     }
 
     private List<TablePartitionId> generateEnlistedPartitions(int c) {
         return IntStream.range(0, c)
-                .mapToObj(partitionNumber -> new TablePartitionId(tableId, partitionNumber))
+                .mapToObj(partitionNumber -> new TablePartitionId(TABLE_ID, partitionNumber))
                 .collect(toList());
     }
 
@@ -155,7 +155,7 @@ public abstract class AbstractTxStateStorageTest {
         TxMeta txMetaNullTimestamp0 = new TxMeta(txMeta1.txState(), txMeta1.enlistedPartitions(), null);
         assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp0, 3, 2));
 
-        assertTxMetaEquals(storage.get(txId), txMeta1);
+        assertEquals(storage.get(txId), txMeta1);
 
         assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
         // Checking idempotency.
@@ -165,7 +165,7 @@ public abstract class AbstractTxStateStorageTest {
         TxMeta txMetaNullTimestamp2 = new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), null);
         assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3, 2));
 
-        assertTxMetaEquals(storage.get(txId), txMeta2);
+        assertEquals(storage.get(txId), txMeta2);
     }
 
     @Test
@@ -194,7 +194,7 @@ public abstract class AbstractTxStateStorageTest {
                 assertNotNull(txMeta);
                 assertNotNull(txData);
                 assertNotNull(txData.getValue());
-                assertTxMetaEquals(txMeta, txData.getValue());
+                assertEquals(txMeta, txData.getValue());
             }
 
             assertTrue(txs.isEmpty());
@@ -472,12 +472,6 @@ public abstract class AbstractTxStateStorageTest {
                 txId,
                 new TxMeta(TxState.COMMITED, generateEnlistedPartitions(enlistedPartsCount), generateTimestamp(txId))
         );
-    }
-
-    private static void assertTxMetaEquals(TxMeta txMeta0, TxMeta txMeta1) {
-        assertEquals(txMeta0.txState(), txMeta1.txState());
-        assertEquals(txMeta0.commitTimestamp(), txMeta1.commitTimestamp());
-        assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
     }
 
     private static void assertThrowsIgniteInternalException(int expFullErrorCode, Executable executable) {

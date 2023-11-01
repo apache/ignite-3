@@ -38,6 +38,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,7 +47,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link StorageUpdateHandler} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class StorageUpdateHandlerTest {
+public class StorageUpdateHandlerTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     private static final int PARTITION_ID = 0;
 
     @InjectConfiguration
@@ -109,7 +112,10 @@ public class StorageUpdateHandlerTest {
         storageUpdateHandler.handleUpdate(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                new TablePartitionId(1, PARTITION_ID),
+                new TablePartitionId(TABLE_ID, PARTITION_ID),
+                null,
+                false,
+                null,
                 null,
                 null
         );
@@ -130,7 +136,9 @@ public class StorageUpdateHandlerTest {
         storageUpdateHandler.handleUpdateAll(
                 UUID.randomUUID(),
                 Map.of(),
-                new TablePartitionId(1, PARTITION_ID),
+                new TablePartitionId(TABLE_ID, PARTITION_ID),
+                false,
+                null,
                 null
         );
 
@@ -151,7 +159,9 @@ public class StorageUpdateHandlerTest {
     }
 
     private static PartitionDataStorage createPartitionDataStorage() {
-        PartitionDataStorage partitionStorage = spy(new TestPartitionDataStorage(new TestMvPartitionStorage(PARTITION_ID)));
+        PartitionDataStorage partitionStorage = spy(
+                new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, new TestMvPartitionStorage(PARTITION_ID))
+        );
 
         return partitionStorage;
     }

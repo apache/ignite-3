@@ -34,6 +34,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog descriptor represents database schema snapshot.
@@ -56,6 +57,8 @@ public class Catalog {
     private final Map<String, CatalogSchemaDescriptor> schemasByName;
     private final Map<String, CatalogZoneDescriptor> zonesByName;
 
+    @IgniteToStringExclude
+    private final Int2ObjectMap<CatalogSchemaDescriptor> schemasById;
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogTableDescriptor> tablesById;
     @IgniteToStringExclude
@@ -87,9 +90,10 @@ public class Catalog {
         Objects.requireNonNull(schemas, "schemas");
         Objects.requireNonNull(zones, "zones");
 
-        this.schemasByName = schemas.stream().collect(toMapByName());
-        this.zonesByName = zones.stream().collect(toMapByName());
+        schemasByName = schemas.stream().collect(toMapByName());
+        zonesByName = zones.stream().collect(toMapByName());
 
+        schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         zonesById = zones.stream().collect(toMapById());
@@ -107,27 +111,39 @@ public class Catalog {
         return objectIdGen;
     }
 
-    public CatalogSchemaDescriptor schema(String name) {
+    public @Nullable CatalogSchemaDescriptor schema(String name) {
         return schemasByName.get(name);
+    }
+
+    public @Nullable CatalogSchemaDescriptor schema(int schemaId) {
+        return schemasById.get(schemaId);
     }
 
     public Collection<CatalogSchemaDescriptor> schemas() {
         return schemasByName.values();
     }
 
-    public CatalogTableDescriptor table(int tableId) {
+    public @Nullable CatalogTableDescriptor table(int tableId) {
         return tablesById.get(tableId);
     }
 
-    public CatalogIndexDescriptor index(int indexId) {
+    public Collection<CatalogTableDescriptor> tables() {
+        return tablesById.values();
+    }
+
+    public @Nullable CatalogIndexDescriptor index(int indexId) {
         return indexesById.get(indexId);
     }
 
-    public CatalogZoneDescriptor zone(String name) {
+    public Collection<CatalogIndexDescriptor> indexes() {
+        return indexesById.values();
+    }
+
+    public @Nullable CatalogZoneDescriptor zone(String name) {
         return zonesByName.get(name);
     }
 
-    public CatalogZoneDescriptor zone(int zoneId) {
+    public @Nullable CatalogZoneDescriptor zone(int zoneId) {
         return zonesById.get(zoneId);
     }
 
@@ -135,7 +151,6 @@ public class Catalog {
         return zonesByName.values();
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

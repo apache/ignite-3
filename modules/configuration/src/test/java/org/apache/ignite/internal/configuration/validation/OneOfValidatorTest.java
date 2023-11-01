@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -34,7 +35,7 @@ import org.mockito.ArgumentCaptor;
 /**
  * Test class for {@link OneOf}.
  */
-public class OneOfValidatorTest {
+public class OneOfValidatorTest extends BaseIgniteAbstractTest {
     /**
      * Test.
      */

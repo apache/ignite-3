@@ -19,6 +19,9 @@ package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Column descriptor which contains a column name, a type and a nullability flag.
@@ -229,7 +232,7 @@ public class Column {
      *
      * @param val Object to validate.
      */
-    public void validate(Object val) {
+    public void validate(@Nullable Object val) {
         if (val == null && !nullable) {
             throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): "
                     + "[col=" + this + ']');

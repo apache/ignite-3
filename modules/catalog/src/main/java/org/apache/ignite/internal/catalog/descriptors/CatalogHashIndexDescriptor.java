@@ -21,16 +21,14 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
-/**
- * Hash index descriptor.
- */
+/** Hash index descriptor. */
 public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
     private static final long serialVersionUID = -6784028115063219759L;
 
     private final List<String> columns;
 
     /**
-     * Constructs a hash index descriptor.
+     * Constructs a hash index descriptor in write-only state.
      *
      * @param id Id of the index.
      * @param name Name of the index.
@@ -40,7 +38,23 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
     public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        super(id, name, tableId, unique);
+        this(id, name, tableId, unique, columns, false);
+    }
+
+    /**
+     * Constructs a hash index descriptor.
+     *
+     * @param id Id of the index.
+     * @param name Name of the index.
+     * @param tableId Id of the table index belongs to.
+     * @param unique Unique flag.
+     * @param columns A list of indexed columns. Must not contains duplicates.
+     * @param available Availability flag, {@code true} means it is available (the index has been built), otherwise it is registered
+     *      (the index has not yet been built).
+     * @throws IllegalArgumentException If columns list contains duplicates.
+     */
+    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns, boolean available) {
+        super(id, name, tableId, unique, available);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }
@@ -50,13 +64,6 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
         return columns;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean hasColumn(String columnName) {
-        return columns.contains(columnName);
-    }
-
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

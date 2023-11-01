@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker.SqlPrepare;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DynamicTest;
@@ -51,7 +52,7 @@ import org.opentest4j.AssertionFailedError;
 /**
  * Tests for {@link StatementChecker}.
  */
-public class StatementCheckerTest {
+public class StatementCheckerTest extends BaseIgniteAbstractTest {
 
     private final RelNode dummyNode = Mockito.mock(IgniteRel.class);
 
@@ -139,7 +140,7 @@ public class StatementCheckerTest {
 
         RexLiteral lit = rexBuilder.makeLiteral("1");
 
-        IgniteValues values = new IgniteValues(Commons.cluster(), rowType, ImmutableList.<ImmutableList<RexLiteral>>builder()
+        IgniteValues values = new IgniteValues(Commons.emptyCluster(), rowType, ImmutableList.<ImmutableList<RexLiteral>>builder()
                 .add(ImmutableList.of(lit))
                 .add(ImmutableList.of(lit)).build(), RelTraitSet.createEmpty());
 

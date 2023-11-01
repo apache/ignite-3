@@ -58,14 +58,14 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     }
 
     private void addVolatileDataRegionConfig(String name) throws Exception {
-        ignite.clusterConfiguration().getConfiguration(VolatilePageMemoryStorageEngineConfiguration.KEY)
+        ignite.nodeConfiguration().getConfiguration(VolatilePageMemoryStorageEngineConfiguration.KEY)
                 .regions()
                 .change(regionsChange -> regionsChange.create(name, c -> {}))
                 .get(1, TimeUnit.SECONDS);
     }
 
     private void addPersistentDataRegionConfig(String name) throws Exception {
-        ignite.clusterConfiguration().getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)
+        ignite.nodeConfiguration().getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)
                 .regions()
                 .change(regionsChange -> regionsChange.create(name, c -> {}))
                 .get(1, TimeUnit.SECONDS);

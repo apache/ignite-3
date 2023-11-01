@@ -49,6 +49,16 @@ public interface NodeManagementApi {
     })
     NodeState state();
 
+    @Get("info")
+    @Operation(operationId = "nodeInfo", description = "Gets node info.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Node info.",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeInfo.class))),
+            @ApiResponse(responseCode = "500", description = "Internal error.",
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    })
+    NodeInfo info();
+
     @Get("version")
     @Operation(operationId = "nodeVersion", description = "Gets the version of Apache Ignite the node uses.")
     @ApiResponse(responseCode = "200", description = "Node version.",

@@ -50,7 +50,7 @@ public class IniFile {
         this.file = file;
     }
 
-    public IniSection getSection(String name) {
+    public synchronized IniSection getSection(String name) {
         return content.get(name);
     }
 
@@ -63,11 +63,11 @@ public class IniFile {
         return topLevelSection;
     }
 
-    public Collection<String> getSectionNames() {
+    public synchronized Collection<String> getSectionNames() {
         return content.keySet();
     }
 
-    public Collection<IniSection> getSections() {
+    public synchronized Collection<IniSection> getSections() {
         return content.values();
     }
 
@@ -115,12 +115,22 @@ public class IniFile {
      * @param name of section.
      * @return new section.
      */
-    public IniSection createSection(String name) {
+    public synchronized IniSection createSection(String name) {
         if (content.containsKey(name)) {
             throw new SectionAlreadyExistsException(name);
         }
         IniSection iniSection = new IniSection(name);
         content.put(name, iniSection);
         return iniSection;
+    }
+
+    /**
+     * Returns existing or creates a new {@link IniSection} with provided name.
+     *
+     * @param name Section name.
+     * @return Existing or new section.
+     */
+    public synchronized IniSection getOrCreateSection(String name) {
+        return content.computeIfAbsent(name, IniSection::new);
     }
 }

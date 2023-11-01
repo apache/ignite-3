@@ -30,6 +30,7 @@ import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
@@ -38,13 +39,16 @@ import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -78,14 +82,17 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
 
+    /** Clock. */
+    private final HybridClock clock;
+
     /** Netty channel. */
     private volatile Channel channel;
 
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
 
-    /** Authentication configuration. */
-    private final AuthenticationConfiguration authenticationConfiguration;
+    /** Security configuration. */
+    private final SecurityConfiguration securityConfiguration;
 
     /**
      * Constructor.
@@ -99,6 +106,8 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param compute Compute.
      * @param clusterId Cluster id.
      * @param metrics Metrics.
+     * @param securityConfiguration Security configuration.
+     * @param clock Clock.
      */
     public TestClientHandlerModule(
             Ignite ignite,
@@ -110,7 +119,8 @@ public class TestClientHandlerModule implements IgniteComponent {
             IgniteCompute compute,
             UUID clusterId,
             ClientHandlerMetricSource metrics,
-            AuthenticationConfiguration authenticationConfiguration) {
+            SecurityConfiguration securityConfiguration,
+            HybridClock clock) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -124,7 +134,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.compute = compute;
         this.clusterId = clusterId;
         this.metrics = metrics;
-        this.authenticationConfiguration = authenticationConfiguration;
+        this.securityConfiguration = securityConfiguration;
+        this.clock = clock;
     }
 
     /** {@inheritDoc} */
@@ -184,15 +195,20 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ResponseDelayHandler(responseDelay),
                                 new ClientInboundMessageHandler(
                                         (IgniteTablesInternal) ignite.tables(),
-                                        ignite.transactions(),
+                                        (IgniteTransactionsImpl) ignite.transactions(),
                                         mock(QueryProcessor.class),
                                         configuration,
                                         compute,
                                         clusterService,
                                         ignite.sql(),
-                                        clusterId,
+                                        CompletableFuture.completedFuture(clusterId),
                                         metrics,
-                                        authenticationManager(authenticationConfiguration)));
+                                        authenticationManager(securityConfiguration),
+                                        clock,
+                                        new AlwaysSyncedSchemaSyncService(),
+                                        TestServer.mockCatalogService()
+                                )
+                        );
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -274,9 +290,9 @@ public class TestClientHandlerModule implements IgniteComponent {
         }
     }
 
-    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
+    private AuthenticationManager authenticationManager(SecurityConfiguration securityConfiguration) {
         AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(manager);
+        securityConfiguration.listen(manager);
         return manager;
     }
 }

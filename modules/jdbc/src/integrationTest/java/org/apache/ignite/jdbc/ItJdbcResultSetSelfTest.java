@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -39,12 +38,10 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.GregorianCalendar;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -56,8 +53,8 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     private static final String STATIC_SQL =
             "SELECT 1::INTEGER as id, true as boolVal, 1::TINYINT as byteVal, 1::SMALLINT as shortVal, 1::INTEGER as intVal, 1::BIGINT "
                     + "as longVal, 1.0::FLOAT as floatVal, 1.0::DOUBLE as doubleVal, 1.0::DECIMAL as bigVal, "
-                    + "'1' as strVal, '1', '1901-02-01'::DATE as dateVal, '01:01:01'::TIME as timeVal, 0::TIMESTAMP as tsVal,"
-                    + "'fd10556e-fc27-4a99-b5e4-89b8344cb3ce'::UUID as uuidVal";
+                    + "'1' as strVal, '1', '1901-02-01'::DATE as dateVal, '01:01:01'::TIME as timeVal, "
+                    + "TIMESTAMP '1970-01-01 00:00:00' as tsVal, 'fd10556e-fc27-4a99-b5e4-89b8344cb3ce'::UUID as uuidVal";
 
     /** SQL query. */
     private static final String SQL_SINGLE_RES = "select id, boolVal, byteVal, shortVal, intVal, longVal, floatVal, "
@@ -154,19 +151,23 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         assertTrue(rs0.next());
         assertFalse(rs0.getBoolean(1));
 
-        assertThrows(SQLException.class, () -> {
-            ResultSet badRs = stmt.executeQuery("select ''");
+        JdbcTestUtils.assertThrowsSqlException(
+                "Cannot convert to boolean: ",
+                () -> {
+                    ResultSet badRs = stmt.executeQuery("select ''");
 
-            assertTrue(badRs.next());
-            assertTrue(badRs.getBoolean(1));
-        }, "Cannot convert to boolean: ");
+                    assertTrue(badRs.next());
+                    assertTrue(badRs.getBoolean(1));
+                });
 
-        assertThrows(SQLException.class, () -> {
-            ResultSet badRs = stmt.executeQuery("select 'qwe'");
+        JdbcTestUtils.assertThrowsSqlException(
+                "Cannot convert to boolean: qwe",
+                () -> {
+                    ResultSet badRs = stmt.executeQuery("select 'qwe'");
 
-            assertTrue(badRs.next());
-            assertTrue(badRs.getBoolean(1));
-        }, "Cannot convert to boolean: qwe");
+                    assertTrue(badRs.next());
+                    assertTrue(badRs.getBoolean(1));
+                });
     }
 
     @Test
@@ -559,16 +560,17 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
         assertTrue(rs.next());
 
-        Instant localEpoch = ZonedDateTime.of(LocalDate.EPOCH, LocalTime.MIDNIGHT, ZoneId.systemDefault()).toInstant();
+        Timestamp localEpoch = Timestamp.valueOf("1970-01-01 00:00:00");
+        Instant localEpochInst = localEpoch.toInstant();
 
-        assertEquals(Timestamp.from(localEpoch), rs.getTimestamp("tsVal"));
-        assertEquals(Date.from(localEpoch), rs.getDate(14));
-        assertEquals(Time.from(localEpoch), rs.getTime(14));
-        assertEquals(Timestamp.from(localEpoch), rs.getTimestamp(14));
+        assertEquals(localEpoch, rs.getTimestamp("tsVal"));
+        assertEquals(Date.from(localEpochInst), rs.getDate(14));
+        assertEquals(Time.from(localEpochInst), rs.getTime(14));
+        assertEquals(Timestamp.from(localEpochInst), rs.getTimestamp(14));
 
-        assertEquals(Date.from(localEpoch), rs.getObject(14, Date.class));
-        assertEquals(Time.from(localEpoch), rs.getObject(14, Time.class));
-        assertEquals(Timestamp.from(localEpoch), rs.getObject(14, Timestamp.class));
+        assertEquals(Date.from(localEpochInst), rs.getObject(14, Date.class));
+        assertEquals(Time.from(localEpochInst), rs.getObject(14, Time.class));
+        assertEquals(Timestamp.from(localEpochInst), rs.getObject(14, Timestamp.class));
 
         assertFalse(rs.next());
     }
@@ -628,19 +630,19 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testFindColumn() throws Exception {
-        final ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
+        ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
 
         assertNotNull(rs);
         assertTrue(rs.next());
 
         assertEquals(1, rs.findColumn("id"));
 
-        assertThrows(SQLException.class, () -> rs.findColumn("wrong"), "Column not found: wrong");
+        JdbcTestUtils.assertThrowsSqlException("Column not found: wrong", () -> rs.findColumn("wrong"));
     }
 
     @Test
     public void testNotSupportedTypes() throws Exception {
-        final ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
+        ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
 
         assertTrue(rs.next());
 
@@ -691,7 +693,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testUpdateNotSupported() throws Exception {
-        final ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
+        ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
 
         assertTrue(rs.next());
 
@@ -864,7 +866,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testExceptionOnClosedResultSet() throws Exception {
-        final ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
+        ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
 
         rs.close();
 

@@ -25,20 +25,20 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaException;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 
 /**
  * Adapter for row of older schema.
  */
-class UpgradingRowAdapter extends Row {
+public class UpgradingRowAdapter extends Row {
     /** Column mapper. */
     private final ColumnMapper mapper;
 
@@ -47,23 +47,36 @@ class UpgradingRowAdapter extends Row {
 
     private final BinaryTupleSchema newBinaryTupleSchema;
 
-    /**
-     * Constructor.
-     *
-     * @param newSchema    Row adapter schema descriptor.
-     * @param rowSchema Row schema descriptor.
-     * @param row       Row.
-     * @param mapper    Column mapper.
-     */
-    UpgradingRowAdapter(SchemaDescriptor newSchema, SchemaDescriptor rowSchema, BinaryRow row, ColumnMapper mapper) {
-        super(rowSchema, row);
+    private UpgradingRowAdapter(SchemaDescriptor newSchema, BinaryTupleSchema newBinaryTupleSchema, Row row, ColumnMapper mapper) {
+        super(row.schema(), row.binaryTupleSchema(), row);
 
         this.newSchema = newSchema;
         this.mapper = mapper;
+        this.newBinaryTupleSchema = newBinaryTupleSchema;
+    }
 
-        newBinaryTupleSchema = row.hasValue()
-                ? BinaryTupleSchema.createRowSchema(newSchema)
-                : BinaryTupleSchema.createKeySchema(newSchema);
+    /**
+     * Creates an adapter that converts a given {@code row} to a new schema.
+     *
+     * @param newSchema New schema that the {@code row} will be converted to.
+     * @param mapper Column mapper for converting columns to the new schema.
+     * @param row Row to convert.
+     * @return Adapter that converts a given {@code row} to a new schema.
+     */
+    public static UpgradingRowAdapter upgradeRow(SchemaDescriptor newSchema, ColumnMapper mapper, Row row) {
+        return new UpgradingRowAdapter(newSchema, BinaryTupleSchema.createRowSchema(newSchema), row, mapper);
+    }
+
+    /**
+     * Creates an adapter that converts a given {@code row}, that only contains a key component, to a new schema.
+     *
+     * @param newSchema New schema that the {@code row} will be converted to.
+     * @param mapper Column mapper for converting columns to the new schema.
+     * @param row Row to convert, that only contains a key component.
+     * @return Adapter that converts a given {@code row} to a new schema.
+     */
+    public static UpgradingRowAdapter upgradeKeyOnlyRow(SchemaDescriptor newSchema, ColumnMapper mapper, Row row) {
+        return new UpgradingRowAdapter(newSchema, BinaryTupleSchema.createKeySchema(newSchema), row, mapper);
     }
 
     /** {@inheritDoc} */
@@ -96,6 +109,34 @@ class UpgradingRowAdapter extends Row {
         return mappedId < 0
                 ? mapper.mappedColumn(colIdx).defaultValue()
                 : newBinaryTupleSchema.value(this, colIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean booleanValue(int colIdx) {
+        int mappedId = mapColumn(colIdx);
+
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
+
+        if (NativeTypeSpec.BOOLEAN != column.type().spec()) {
+            throw new SchemaException("Type conversion is not supported yet.");
+        }
+
+        return mappedId < 0 ? (boolean) column.defaultValue() : super.booleanValue(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Boolean booleanValueBoxed(int colIdx) {
+        int mappedId = mapColumn(colIdx);
+
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
+
+        if (NativeTypeSpec.BOOLEAN != column.type().spec()) {
+            throw new SchemaException("Type conversion is not supported yet.");
+        }
+
+        return mappedId < 0 ? (Boolean) column.defaultValue() : super.booleanValueBoxed(mappedId);
     }
 
     /** {@inheritDoc} */
@@ -417,5 +458,12 @@ class UpgradingRowAdapter extends Row {
         }
 
         return mappedId < 0 ? (Instant) column.defaultValue() : super.timestampValue(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BinaryTuple binaryTuple() {
+        // Underlying binary tuple can not be used directly.
+        return null;
     }
 }

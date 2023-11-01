@@ -34,7 +34,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
@@ -42,6 +41,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -50,9 +52,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMa
 import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor.RunnableX;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -317,7 +316,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /**
      * Returns view for all page stores of all groups.
      */
-    public Collection<GroupPartitionPageStore<FilePageStore>> allPageStores() {
+    public Stream<GroupPartitionPageStore<FilePageStore>> allPageStores() {
         return groupPageStores.getAll();
     }
 
@@ -357,7 +356,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param cleanFiles Delete files.
      */
     void stopAllGroupFilePageStores(boolean cleanFiles) {
-        List<FilePageStore> partitionPageStores = groupPageStores.getAll().stream()
+        List<FilePageStore> partitionPageStores = groupPageStores.getAll()
                 .map(GroupPartitionPageStore::pageStore)
                 .collect(toList());
 

@@ -18,34 +18,22 @@
 package org.apache.ignite.internal.replicator.listener;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
 
-/**
- * Replica listener.
- */
+/** Replica listener. */
 @FunctionalInterface
 public interface ReplicaListener {
     /**
      * Invokes a replica listener to process request.
      *
      * @param request Replica request.
+     * @param senderId Sender id.
      * @return Listener response.
      */
-    CompletableFuture<?> invoke(ReplicaRequest request);
+    CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
 
-    /**
-     * Callback on becoming the primary replica.
-     *
-     * @param clusterNode Primary replica node.
-     */
-    default void onBecomePrimary(ClusterNode clusterNode) {
-        // No-op.
-    }
-
-    /**
-     * Callback on replica shutdown.
-     */
+    /** Callback on replica shutdown. */
     default void onShutdown() {
         // No-op.
     }

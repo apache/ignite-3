@@ -19,20 +19,24 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.generate;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.MAX_LENGTH_OF_ALIASES;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.time.Duration;
-import java.time.Period;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Group of tests to verify the query metadata returned alongside the query result.
  */
-public class ItMetadataTest extends ClusterPerClassIntegrationTest {
+public class ItMetadataTest extends BaseSqlIntegrationTest {
     /**
      * Before all.
      */
@@ -42,30 +46,28 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void trimColumnNames() {
-        String var300 = generate(() -> "X").limit(300).collect(joining());
-        String var256 = "'" + var300.substring(0, 255);
+        String var300 = "'" + generate(() -> "X").limit(300).collect(joining()) + "'";
+        String var256 = var300.substring(0, Math.min(var300.length(), MAX_LENGTH_OF_ALIASES));
 
-        assertQuery("select '" + var300 + "' from person").columnNames(var256).check();
+        assertQuery("select " + var300 + " from person").columnNames(var256).check();
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
                 .columnNames("EXPR$0", "EXPR$1").check();
         assertQuery("select (select count(*) from person) as subquery from person")
                 .columnNames("SUBQUERY").check();
 
-        assertQuery("select salary*2, salary/2, salary+2, salary-2, mod(salary, 2)  from person")
-                .columnNames("SALARY * 2", "SALARY / 2", "SALARY + 2", "SALARY - 2", "MOD(SALARY, 2)").check();
-        assertQuery("select salary*2 as first, salary/2 as secOND from person").columnNames("FIRST", "SECOND").check();
+        assertQuery("select salary*2, salary*2 as \"SaLaRy\", salary/2, salary+2, salary-2, mod(salary, 2)  from person")
+                .columnNames("SALARY * 2", "SaLaRy", "SALARY / 2", "SALARY + 2", "SALARY - 2", "MOD(SALARY, 2)").check();
+        assertQuery("select salary*2 as first, salary/2 as LAst from person").columnNames("FIRST", "LAST").check();
 
         assertQuery("select trim(name) tr_name from person").columnNames("TR_NAME").check();
         assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM NAME)").check();
@@ -88,28 +90,62 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")
-                .columnNames("ID", "TID", "SID", "VID", "ID :: INTERVAL INTERVAL_HOUR", "ID :: INTERVAL INTERVAL_YEAR")
-                .columnTypes(Integer.class, Byte.class, Short.class, String.class, Duration.class, Period.class)
-                .check();
+                .columnMetadata(
+                        new MetadataMatcher().name("ID").type(ColumnType.INT32),
+                        new MetadataMatcher().name("TID").type(ColumnType.INT8),
+                        new MetadataMatcher().name("SID").type(ColumnType.INT16),
+                        new MetadataMatcher().name("VID").type(ColumnType.STRING),
+                        new MetadataMatcher().name("ID :: INTERVAL INTERVAL_HOUR").type(ColumnType.DURATION),
+                        new MetadataMatcher().name("ID :: INTERVAL INTERVAL_YEAR").type(ColumnType.PERIOD)
+                ).check();
     }
 
     @Test
     public void columnOrder() {
         sql("CREATE TABLE column_order (double_c DOUBLE, long_c BIGINT PRIMARY KEY, string_c VARCHAR, int_c INT)");
+        sql("CREATE TABLE column_order1 (double_c DOUBLE, long_c BIGINT PRIMARY KEY, string_c VARCHAR)");
+
+        assertQuery("select *, double_c, double_c * 2 from column_order")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C", "DOUBLE_C * 2")
+                .check();
+
+        assertQuery("select *, double_c as J, double_c * 2, double_c as J2 from column_order")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "J", "DOUBLE_C * 2", "J2")
+                .check();
+
+        assertQuery("select double_c * 2, * from column_order")
+                .columnNames("DOUBLE_C * 2", "DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
+                .check();
+
+        assertQuery("select *, *, double_c * 2 from column_order")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C0", "LONG_C0", "STRING_C0", "INT_C0", "DOUBLE_C * 2")
+                .check();
+
+        assertQuery("select *, double_c * 2, double_c * 2, * from column_order")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C * 2", "DOUBLE_C * 2", "DOUBLE_C0", "LONG_C0",
+                        "STRING_C0", "INT_C0").check();
 
         assertQuery("select * from column_order")
                 .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
+                .check();
+
+        assertQuery("select a.*, a.double_c * 2, b.*  from column_order a, column_order1 b where a.double_c = b.double_c")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "A.DOUBLE_C * 2", "DOUBLE_C0", "LONG_C0", "STRING_C0")
+                .check();
+
+        assertQuery("select a.*, a.double_c * 2, a.double_c * 2 as J, b.*  from column_order a, column_order1 b "
+                + "where a.double_c = b.double_c")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "A.DOUBLE_C * 2", "J", "DOUBLE_C0", "LONG_C0", "STRING_C0")
                 .check();
     }
 
     @Test
     public void metadata() {
         sql("CREATE TABLE METADATA_TABLE (" + "ID INT PRIMARY KEY, "
-                 + "BOOLEAN_C BOOLEAN, "
+                + "BOOLEAN_C BOOLEAN, "
 
                 // Exact numeric types
                 + "TINY_C TINYINT, " // TINYINT is not a part of any SQL standard.
@@ -225,5 +261,42 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
                         new MetadataMatcher().name("NON_NULL_C").nullable(false)
                 )
                 .check();
+    }
+
+    @Test
+    public void caseSensitivity() {
+        sql("CREATE TABLE sens(\"Col1\" int, col2 int, \"Col3.a\" int, COL4 int, PRIMARY KEY(\"Col1\", col2))");
+
+        assertQuery("select * from sens")
+                .columnMetadata(
+                        new MetadataMatcher().name("Col1"),
+                        new MetadataMatcher().name("COL2"),
+                        new MetadataMatcher().name("Col3.a"),
+                        new MetadataMatcher().name("COL4"))
+                .check();
+
+        sql("INSERT INTO sens VALUES (1, 1, 1, 1)");
+
+        Session ses = igniteSql().createSession();
+        ResultSet<SqlRow> res = ses.execute(null, "select * from sens");
+        SqlRow row = res.next();
+        assertNotNull(row.intValue("\"Col1\""));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("col1"));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("Col1"));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("COL1"));
+
+        assertNotNull(row.intValue("col2"));
+        assertNotNull(row.intValue("COL2"));
+
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("\""));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue(""));
+
+        assertNotNull(row.intValue("\"Col3.a\""));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("col3.a"));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("Col3.a"));
+        assertThrows(IllegalArgumentException.class, () -> row.intValue("COL3.a"));
+
+        assertNotNull(row.intValue("col4"));
+        assertNotNull(row.intValue("COL4"));
     }
 }

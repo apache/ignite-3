@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -66,7 +68,7 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -92,7 +94,7 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -121,7 +123,7 @@ public class RecordMarshallerValidationsTest {
 
         RecordMarshaller<TruncatedRecClass> marshaller = factory.create(schema, TruncatedRecClass.class);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertEquals(rec.id, restoredRec.id);
         assertEquals(rec.fbyte1, restoredRec.fbyte1);
@@ -143,11 +145,14 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshallerFull.marshal(fullRec);
 
-        Object restoredRec = marshallerFull.unmarshal(new Row(schema, row));
+        Object restoredRec = marshallerFull.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(fullRec.getClass().isInstance(restoredRec));
 
-        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestK2V1.class), "No field found for column k1");
+        assertThrowsWithCause(
+                () -> factory.create(schema, TestK2V1.class),
+                IllegalArgumentException.class,
+                "No mapped object field found for column 'K1'");
     }
 
     /**
@@ -239,4 +244,3 @@ public class RecordMarshallerValidationsTest {
         }
     }
 }
-

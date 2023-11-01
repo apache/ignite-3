@@ -28,14 +28,11 @@ import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * IgniteMapHashAggregate.
@@ -89,26 +86,9 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
     /** {@inheritDoc} */
     @Override
     protected RelDataType deriveRowType() {
-        return rowType(Commons.typeFactory(getCluster()), !aggCalls.isEmpty());
-    }
+        IgniteTypeFactory typeFactory = (IgniteTypeFactory) getCluster().getTypeFactory();
 
-    /**
-     * RowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RelDataType rowType(RelDataTypeFactory typeFactory, boolean addData) {
-        assert typeFactory instanceof IgniteTypeFactory;
-
-        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-
-        builder.add("GROUP_ID", typeFactory.createJavaType(byte.class));
-        builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
-
-        if (addData) {
-            builder.add("AGG_DATA", typeFactory.createArrayType(typeFactory.createJavaType(Accumulator.class), -1));
-        }
-
-        return builder.build();
+        return PlanUtils.createHashAggRowType(groupSets, typeFactory, input.getRowType(), aggCalls);
     }
 
     /** {@inheritDoc} */

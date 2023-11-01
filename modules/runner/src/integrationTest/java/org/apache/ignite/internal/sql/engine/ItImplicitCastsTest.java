@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -45,7 +46,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Implicit casts are added where it is necessary to do so.
  */
-public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
+public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
 
     @BeforeEach
     @AfterEach
@@ -196,7 +197,7 @@ public class ItImplicitCastsTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void initData(ColumnPair columnPair) {
-        Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
         sql(tx, format("INSERT INTO T11 VALUES(1, CAST({} AS {}))", columnPair.lhsLiteral(1), columnPair.lhs));
         sql(tx, format("INSERT INTO T11 VALUES(2, CAST({} AS {}))", columnPair.lhsLiteral(3), columnPair.lhs));
         sql(tx, format("INSERT INTO T12 VALUES(1, CAST({} AS {}))", columnPair.lhsLiteral(2), columnPair.rhs));

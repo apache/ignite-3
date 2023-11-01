@@ -18,7 +18,8 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
-import static org.apache.ignite.lang.ErrorGroups.Authentication.COMMON_AUTHENTICATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,10 +33,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +49,7 @@ import org.msgpack.core.MessagePack;
  * Client connector integration tests with real sockets.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItClientHandlerTest {
+public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     private ClientHandlerModule serverModule;
 
     private TestServer testServer;
@@ -56,11 +58,11 @@ public class ItClientHandlerTest {
 
     @SuppressWarnings("unused")
     @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
+    private SecurityConfiguration securityConfiguration;
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        testServer = new TestServer(null, authenticationConfiguration);
+        testServer = new TestServer(null, securityConfiguration);
         serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();
     }
@@ -104,7 +106,7 @@ public class ItClientHandlerTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             out.write(packer.toByteArray());
             out.flush();
@@ -128,7 +130,7 @@ public class ItClientHandlerTest {
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
 
-            var extensionsLen = unpacker.unpackMapHeader();
+            var extensionsLen = unpacker.unpackInt();
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
@@ -139,6 +141,70 @@ public class ItClientHandlerTest {
             assertEquals(5000, idleTimeout);
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
+        }
+    }
+
+    @Test
+    void testHandshakeWithUnsupportedAuthenticationType() throws Exception {
+        setupAuthentication("admin", "password");
+
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
+            OutputStream out = sock.getOutputStream();
+
+            // Magic: IGNI
+            out.write(MAGIC);
+
+            // Handshake.
+            var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(66); // Size.
+
+            packer.packInt(3); // Major.
+            packer.packInt(0); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packInt(2); // Client type: general purpose.
+
+            packer.packBinaryHeader(0); // Features.
+            packer.packInt(3); // Extensions.
+            packer.packString("authn-type");
+            packer.packString("ldap");
+            packer.packString("authn-identity");
+            packer.packString("admin");
+            packer.packString("authn-secret");
+            packer.packString("password");
+
+            out.write(packer.toByteArray());
+            out.flush();
+
+            // Read response.
+            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
+            var magic = unpacker.readPayload(4);
+            unpacker.readPayload(4); // Length.
+            final var major = unpacker.unpackInt();
+            final var minor = unpacker.unpackInt();
+            final var patch = unpacker.unpackInt();
+
+            unpacker.skipValue(); // traceId
+            final var code = unpacker.tryUnpackNil() ? INTERNAL_ERR : unpacker.unpackInt();
+            final var errClassName = unpacker.unpackString();
+            final var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            final var errStackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+
+            assertArrayEquals(MAGIC, magic);
+            assertEquals(3, major);
+            assertEquals(0, minor);
+            assertEquals(0, patch);
+            assertEquals(UNSUPPORTED_AUTHENTICATION_TYPE_ERR, code);
+
+            assertThat(errMsg, containsString("Unsupported authentication type: ldap"));
+            assertEquals(
+                    "org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException",
+                    errClassName
+            );
+            assertNull(errStackTrace);
         }
     }
 
@@ -166,7 +232,7 @@ public class ItClientHandlerTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(3); // Extensions.
+            packer.packInt(3); // Extensions.
             packer.packString("authn-type");
             packer.packString("basic");
             packer.packString("authn-identity");
@@ -196,7 +262,7 @@ public class ItClientHandlerTest {
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
 
-            var extensionsLen = unpacker.unpackMapHeader();
+            var extensionsLen = unpacker.unpackInt();
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
@@ -207,6 +273,67 @@ public class ItClientHandlerTest {
             assertEquals(5000, idleTimeout);
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
+        }
+    }
+
+    @Test
+    void testHandshakeWithAuthenticationInvalidCredentials() throws Exception {
+        setupAuthentication("admin", "password");
+
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
+            OutputStream out = sock.getOutputStream();
+
+            // Magic: IGNI
+            out.write(MAGIC);
+
+            // Handshake.
+            var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(75); // Size.
+
+            packer.packInt(3); // Major.
+            packer.packInt(0); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packInt(2); // Client type: general purpose.
+
+            packer.packBinaryHeader(0); // Features.
+            packer.packInt(3); // Extensions.
+            packer.packString("authn-type");
+            packer.packString("basic");
+            packer.packString("authn-identity");
+            packer.packString("admin");
+            packer.packString("authn-secret");
+            packer.packString("invalid-password");
+
+            out.write(packer.toByteArray());
+            out.flush();
+
+            // Read response.
+            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
+            var magic = unpacker.readPayload(4);
+            unpacker.readPayload(4); // Length.
+            final var major = unpacker.unpackInt();
+            final var minor = unpacker.unpackInt();
+            final var patch = unpacker.unpackInt();
+
+            unpacker.skipValue(); // traceId
+            final var code = unpacker.tryUnpackNil() ? INTERNAL_ERR : unpacker.unpackInt();
+            final var errClassName = unpacker.unpackString();
+            final var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            final var errStackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+
+            assertArrayEquals(MAGIC, magic);
+            assertEquals(3, major);
+            assertEquals(0, minor);
+            assertEquals(0, patch);
+            assertEquals(INVALID_CREDENTIALS_ERR, code);
+
+            assertThat(errMsg, containsString("Authentication failed"));
+            assertEquals("org.apache.ignite.security.exception.InvalidCredentialsException", errClassName);
+            assertNull(errStackTrace);
         }
     }
 
@@ -234,7 +361,7 @@ public class ItClientHandlerTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             out.write(packer.toByteArray());
             out.flush();
@@ -257,10 +384,10 @@ public class ItClientHandlerTest {
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
-            assertEquals(COMMON_AUTHENTICATION_ERR, code);
+            assertEquals(INVALID_CREDENTIALS_ERR, code);
 
             assertThat(errMsg, containsString("Authentication failed"));
-            assertEquals("org.apache.ignite.security.AuthenticationException", errClassName);
+            assertEquals("org.apache.ignite.security.exception.InvalidCredentialsException", errClassName);
             assertNull(errStackTrace);
         }
     }
@@ -287,7 +414,7 @@ public class ItClientHandlerTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             out.write(packer.toByteArray());
             out.flush();
@@ -329,9 +456,9 @@ public class ItClientHandlerTest {
     }
 
     private void setupAuthentication(String username, String password) {
-        authenticationConfiguration.change(change -> {
+        securityConfiguration.change(change -> {
             change.changeEnabled(true);
-            change.changeProviders().create("basic", authenticationProviderChange -> {
+            change.changeAuthentication().changeProviders().create("basic", authenticationProviderChange -> {
                 authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
                         .changeUsername(username)
                         .changePassword(password);

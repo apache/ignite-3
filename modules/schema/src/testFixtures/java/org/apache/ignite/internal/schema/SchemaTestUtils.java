@@ -33,9 +33,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.BitmaskNativeType;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.TemporalNativeType;
 
 /**
  * Test utility class.
@@ -48,7 +55,7 @@ public final class SchemaTestUtils {
     private static final int MAX_YEAR = (1 << 14) - 1;
 
     /** All types for tests. */
-    public static List<NativeType> ALL_TYPES = List.of(
+    public static final List<NativeType> ALL_TYPES = List.of(
             NativeTypes.BOOLEAN,
             NativeTypes.INT8,
             NativeTypes.INT16,
@@ -61,9 +68,9 @@ public final class SchemaTestUtils {
             NativeTypes.numberOf(20),
             NativeTypes.decimalOf(25, 5),
             NativeTypes.bitmaskOf(22),
-            NativeTypes.time(),
-            NativeTypes.datetime(),
-            NativeTypes.timestamp(),
+            NativeTypes.time(0),
+            NativeTypes.datetime(6),
+            NativeTypes.timestamp(6),
             NativeTypes.BYTES,
             NativeTypes.STRING);
 
@@ -98,7 +105,7 @@ public final class SchemaTestUtils {
                 return rnd.nextDouble();
 
             case UUID:
-                return new java.util.UUID(rnd.nextLong(), rnd.nextLong());
+                return new UUID(rnd.nextLong(), rnd.nextLong());
 
             case STRING:
                 return IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
@@ -146,6 +153,48 @@ public final class SchemaTestUtils {
 
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
+    /** Creates a native type from given type spec. */
+    public static NativeType specToType(NativeTypeSpec spec) {
+        switch (spec) {
+            case BOOLEAN:
+                return NativeTypes.BOOLEAN;
+            case INT8:
+                return NativeTypes.INT8;
+            case INT16:
+                return NativeTypes.INT16;
+            case INT32:
+                return NativeTypes.INT32;
+            case INT64:
+                return NativeTypes.INT64;
+            case FLOAT:
+                return NativeTypes.FLOAT;
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+            case DECIMAL:
+                return NativeTypes.decimalOf(10, 3);
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME:
+                return NativeTypes.time(0);
+            case DATETIME:
+                return NativeTypes.datetime(6);
+            case TIMESTAMP:
+                return NativeTypes.timestamp(6);
+            case NUMBER:
+                return NativeTypes.numberOf(10);
+            case STRING:
+                return NativeTypes.stringOf(8);
+            case UUID:
+                return NativeTypes.UUID;
+            case BYTES:
+                return NativeTypes.blobOf(8);
+            case BITMASK:
+                return NativeTypes.bitmaskOf(16);
+            default:
+                throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
         }
     }
 

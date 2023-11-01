@@ -46,8 +46,8 @@ import org.apache.ignite.internal.cli.config.exception.ConfigInitializationExcep
 import org.apache.ignite.internal.cli.config.exception.ProfileNotFoundException;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
-import org.apache.ignite.internal.cli.util.OperatingSystem;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.util.OperatingSystem;
 
 /**
  * Implementation of {@link ConfigManager} based on {@link IniFile}.
@@ -136,9 +136,7 @@ public class IniConfigManager implements ConfigManager {
             throw new ProfileNotFoundException(profile);
         }
 
-        IniSection secretSection = secretConfigFile.getSection(profile) == null
-                ? secretConfigFile.createSection(profile)
-                : secretConfigFile.getSection(profile);
+        IniSection secretSection = secretConfigFile.getOrCreateSection(profile);
 
         IniConfig config = new IniConfig(section, configFile::store);
         IniConfig secretConfig = new IniConfig(secretSection, secretConfigFile::store);

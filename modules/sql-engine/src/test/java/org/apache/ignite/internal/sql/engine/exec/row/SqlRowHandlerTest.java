@@ -1,0 +1,258 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.sql.engine.exec.row;
+
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.toInternal;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
+import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Named;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+/**
+ * Tests for {@link SqlRowHandler}.
+ */
+public class SqlRowHandlerTest extends IgniteAbstractTest {
+    private static final RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+
+    private final long seed = ThreadLocalRandom.current().nextLong();
+
+    private final Random rnd = new Random(seed);
+
+    @BeforeEach
+    void printSeed() {
+        log.info("Using seed: " + seed);
+    }
+
+    @Test
+    public void testBytebufferSerialization() {
+        List<ColumnType> columnTypes = columnTypes();
+        Object[] sourceData = values(columnTypes);
+        RowSchema schema = rowSchema(columnTypes, sourceData);
+
+        int elementsCount = schema.fields().size();
+
+        RowFactory<RowWrapper> factory = handler.factory(schema);
+        RowWrapper src = factory.create(wrap(sourceData));
+
+        // Serialization to binary tuple representation.
+        BinaryTuple tuple = handler.toBinaryTuple(src);
+        RowWrapper dest = factory.create(tuple);
+
+        for (int i = 0; i < elementsCount; i++) {
+            String msg = schema.fields().get(i).toString();
+
+            Object expected = toInternal(sourceData[i]);
+
+            assertThat(msg, handler.get(i, src), equalTo(expected));
+            assertThat(msg, handler.get(i, dest), equalTo(expected));
+        }
+    }
+
+    @ParameterizedTest(name = "{0} - {1}")
+    @MethodSource("concatTestArguments")
+    public void testConcat(boolean leftTupleRequired, boolean rightTupleRequired) {
+        ConcatTestParameters params = new ConcatTestParameters(leftTupleRequired, rightTupleRequired);
+
+        RowWrapper concatenated = handler.concat(params.left, params.right);
+
+        int leftLen = params.leftData.length;
+        int rightLen = params.rightData.length;
+        int totalElementsCount = leftLen + rightLen;
+
+        assertThat(handler.columnCount(concatenated), equalTo(totalElementsCount));
+
+        // Build combined schema.
+        Builder builder = RowSchema.builder();
+        params.leftSchema.fields().forEach(builder::addField);
+        params.rightSchema.fields().forEach(builder::addField);
+
+        RowSchema concatenatedSchema = builder.build();
+
+        // Serialize.
+        BinaryTuple tuple = handler.toBinaryTuple(concatenated);
+
+        // Wrap into row.
+        RowWrapper result = handler.factory(concatenatedSchema).create(tuple);
+
+        for (int i = 0; i < leftLen; i++) {
+            assertThat(handler.get(i, result), equalTo(TypeUtils.toInternal(params.leftData[i])));
+        }
+
+        for (int i = 0; i < rightLen; i++) {
+            assertThat(handler.get(leftLen + i, result), equalTo(TypeUtils.toInternal(params.rightData[i])));
+        }
+    }
+
+    @Test
+    public void testMap() {
+        List<ColumnType> columnTypes = List.of(
+                ColumnType.INT32,
+                ColumnType.STRING,
+                ColumnType.BOOLEAN,
+                ColumnType.INT32,
+                ColumnType.DOUBLE,
+                ColumnType.STRING
+        );
+
+        int[] mapping = {3, 5};
+
+        Object[] sourceData = values(columnTypes);
+        RowSchema schema = rowSchema(columnTypes, sourceData);
+
+        RowFactory<RowWrapper> factory = handler.factory(schema);
+
+        RowWrapper srcRow = factory.create(sourceData);
+        RowWrapper srcBinRow = factory.create(handler.toBinaryTuple(srcRow));
+
+        RowWrapper mappedRow = handler.map(srcRow, mapping);
+        RowWrapper mappedFromBinRow = handler.map(srcBinRow, mapping);
+
+        RowSchema mappedSchema = rowSchema(columnTypes.subList(0, mapping.length), Arrays.copyOf(sourceData, mapping.length));
+        RowWrapper deserializedMappedBinRow = handler.factory(mappedSchema).create(handler.toBinaryTuple(mappedFromBinRow));
+
+        assertThat(handler.columnCount(mappedRow), equalTo(mapping.length));
+        assertThat(handler.columnCount(mappedFromBinRow), equalTo(mapping.length));
+
+        for (int i = 0; i < mapping.length; i++) {
+            Object expected = handler.get(mapping[i], srcRow);
+
+            assertThat(handler.get(i, mappedRow), equalTo(expected));
+            assertThat(handler.get(i, mappedFromBinRow), equalTo(expected));
+            assertThat(handler.get(i, deserializedMappedBinRow), equalTo(expected));
+        }
+    }
+
+    private static Stream<Arguments> concatTestArguments() {
+        return Stream.of(
+                Arguments.of(Named.of("array", false), Named.of("array", false)),
+                Arguments.of(Named.of("array", false), Named.of("tuple", true)),
+                Arguments.of(Named.of("tuple", true), Named.of("array", false)),
+                Arguments.of(Named.of("tuple", true), Named.of("tuple", true))
+        );
+    }
+
+    private RowSchema rowSchema(List<ColumnType> columnTypes, Object[] values) {
+        Builder schemaBuilder = RowSchema.builder();
+
+        for (int i = 0; i < values.length; i++) {
+            ColumnType type = columnTypes.get(i);
+
+            if (type == ColumnType.NULL) {
+                schemaBuilder.addField(new NullTypeSpec());
+
+                continue;
+            }
+
+            NativeType nativeType = values[i] == null
+                    ? columnType2NativeType(type, 9, 3, 20)
+                    : NativeTypes.fromObject(values[i]);
+
+            schemaBuilder.addField(nativeType, values[i] == null || rnd.nextBoolean());
+        }
+
+        return schemaBuilder.build();
+    }
+
+    private Object[] values(List<ColumnType> columnTypes) {
+        Object[] values = new Object[columnTypes.size()];
+        int baseValue = rnd.nextInt();
+
+        for (int i = 0; i < values.length; i++) {
+            ColumnType type = columnTypes.get(i);
+
+            values[i] = type == ColumnType.NULL ? null : generateValueByType(baseValue, type);
+        }
+
+        return values;
+    }
+
+    private static Object[] wrap(Object[] values) {
+        Object[] newValues = new Object[values.length];
+
+        for (int i = 0; i < values.length; i++) {
+            newValues[i] = toInternal(values[i]);
+        }
+
+        return newValues;
+    }
+
+    private List<ColumnType> columnTypes() {
+        List<ColumnType> columnTypes = new ArrayList<>(
+                // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
+                EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION))
+        );
+
+        Collections.shuffle(columnTypes, rnd);
+
+        return columnTypes;
+    }
+
+    private final class ConcatTestParameters {
+        final RowSchema leftSchema;
+        final RowSchema rightSchema;
+        final Object[] leftData;
+        final Object[] rightData;
+        final RowWrapper left;
+        final RowWrapper right;
+
+        ConcatTestParameters(boolean leftTupleRequired, boolean rightTupleRequired) {
+            List<ColumnType> columnTypes1 = columnTypes();
+            List<ColumnType> columnTypes2 = columnTypes();
+
+            leftData = values(columnTypes1);
+            rightData = values(columnTypes2);
+            leftSchema = rowSchema(columnTypes1, leftData);
+            rightSchema = rowSchema(columnTypes2, rightData);
+
+            RowFactory<RowWrapper> factory1 = handler.factory(leftSchema);
+            RowFactory<RowWrapper> factory2 = handler.factory(rightSchema);
+
+            RowWrapper left = factory1.create(wrap(leftData));
+            RowWrapper right = factory2.create(wrap(rightData));
+
+            this.left = leftTupleRequired ? factory1.create(handler.toBinaryTuple(left)) : left;
+            this.right = rightTupleRequired ? factory2.create(handler.toBinaryTuple(right)) : right;
+        }
+    }
+}

@@ -26,7 +26,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
@@ -37,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Utility to convert {@link BinaryRow} to {@link BinaryTuple} with specified columns set.
  */
-public class BinaryRowConverter {
+public class BinaryRowConverter implements ColumnsExtractor {
 
     private final BinaryTupleSchema srcSchema;
     private final BinaryTupleSchema dstSchema;
@@ -59,18 +58,14 @@ public class BinaryRowConverter {
     /**
      * Convert a binary row to a binary tuple.
      *
-     * @param binaryRow Binary row.
+     * @param row Binary row.
      * @return Binary tuple.
      */
-
-    public @Nullable BinaryTuple toTuple(@Nullable BinaryRow binaryRow) {
+    @Override
+    public BinaryTuple extractColumns(BinaryRow row) {
         assert srcSchema.convertible();
 
-        if (binaryRow == null) {
-            return null;
-        }
-
-        ByteBuffer tupleBuffer = binaryRow.tupleSlice();
+        ByteBuffer tupleBuffer = row.tupleSlice();
         var parser = new BinaryTupleParser(srcSchema.elementCount(), tupleBuffer);
 
         // Estimate total data size.
@@ -163,34 +158,18 @@ public class BinaryRowConverter {
     }
 
     /** Helper method to convert from a full row or key-only row to the key-only tuple. */
-    public static Function<BinaryRow, BinaryTuple> keyExtractor(SchemaDescriptor schema) {
-        return binaryRow -> {
-            if (binaryRow.hasValue()) {
-                BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
-                BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
+    public static ColumnsExtractor keyExtractor(SchemaDescriptor schema) {
+        BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
+        BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
 
-                return new BinaryRowConverter(rowSchema, keySchema).toTuple(binaryRow);
-            } else {
-                return new BinaryTuple(schema.keyColumns().length(), binaryRow.tupleSlice());
-            }
-        };
+        return new BinaryRowConverter(rowSchema, keySchema);
     }
 
     /** Helper method to convert from a full row or key-only row to the tuple with specified columns. */
-    public static Function<BinaryRow, BinaryTuple> columnsExtractor(SchemaDescriptor schema, int... columns) {
-        BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
-        BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
+    public static ColumnsExtractor columnsExtractor(SchemaDescriptor schema, int... columns) {
         BinaryTupleSchema trimmedSchema = BinaryTupleSchema.createSchema(schema, columns);
+        BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
 
-        BinaryRowConverter rowConverter = new BinaryRowConverter(rowSchema, trimmedSchema);
-        BinaryRowConverter keyConverter = new BinaryRowConverter(keySchema, trimmedSchema);
-
-        return binaryRow -> {
-            if (binaryRow.hasValue()) {
-                return rowConverter.toTuple(binaryRow);
-            } else {
-                return keyConverter.toTuple(binaryRow);
-            }
-        };
+        return new BinaryRowConverter(rowSchema, trimmedSchema);
     }
 }

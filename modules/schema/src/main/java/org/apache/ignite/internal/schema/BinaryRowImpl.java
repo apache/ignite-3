@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.ROW_HAS_VALUE_FLAG;
-
 import java.nio.ByteBuffer;
 
 /**
@@ -46,22 +44,8 @@ public class BinaryRowImpl implements BinaryRow {
     }
 
     @Override
-    public boolean hasValue() {
-        return (binaryTuple.get(0) & ROW_HAS_VALUE_FLAG) != 0;
-    }
-
-    @Override
     public ByteBuffer tupleSlice() {
-        return binaryTuple.duplicate().order(ORDER);
-    }
-
-    @Override
-    public ByteBuffer byteBuffer() {
-        return ByteBuffer.allocate(tupleSliceLength() + Short.BYTES)
-                .order(ORDER)
-                .putShort((short) schemaVersion())
-                .put(tupleSlice())
-                .rewind();
+        return binaryTuple.duplicate().order(BinaryTuple.ORDER);
     }
 
     @Override

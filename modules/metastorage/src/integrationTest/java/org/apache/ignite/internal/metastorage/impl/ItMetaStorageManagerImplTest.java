@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -40,6 +41,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -47,6 +50,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
@@ -57,6 +62,7 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -64,7 +70,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -95,7 +100,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     void setUp(
             TestInfo testInfo,
             @InjectConfiguration RaftConfiguration raftConfiguration,
-            @InjectConfiguration MetaStorageConfiguration metaStorageConfiguration
+            @InjectConfiguration("mock.idleSyncTimeInterval = 100") MetaStorageConfiguration metaStorageConfiguration
     ) {
         var addr = new NetworkAddress("localhost", 10_000);
 
@@ -261,5 +266,50 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         verify(listener, timeout(5000).atLeast(1)).onUpdated(anyLong());
 
         assertThat(revisionCapture.getAllValues(), is(List.of(revision + 1)));
+    }
+
+    /**
+     * Tests that idle safe time propagation does not advance safe time while watches of a normal command are being executed.
+     */
+    @Test
+    void testIdleSafeTimePropagationAndNormalSafeTimePropagationInteraction(TestInfo testInfo) throws Exception {
+        var key = new ByteArray("foo");
+        byte[] value = "bar".getBytes(UTF_8);
+
+        AtomicBoolean watchCompleted = new AtomicBoolean(false);
+        CompletableFuture<HybridTimestamp> watchEventTsFuture = new CompletableFuture<>();
+
+        metaStorageManager.registerExactWatch(key, new WatchListener() {
+            @Override
+            public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                watchEventTsFuture.complete(event.timestamp());
+
+                // The future will set the flag and complete after 300ms to allow idle safe time mechanism (which ticks each 100ms)
+                // to advance SafeTime (if there is still a bug for which this test is written).
+                return waitFor(300, TimeUnit.MILLISECONDS)
+                        .whenComplete((res, ex) -> watchCompleted.set(true));
+            }
+
+            @Override
+            public void onError(Throwable e) {
+            }
+        });
+
+        metaStorageManager.put(key, value);
+
+        ClusterTime clusterTime = metaStorageManager.clusterTime();
+
+        assertThat(watchEventTsFuture, willSucceedIn(5, TimeUnit.SECONDS));
+
+        HybridTimestamp watchEventTs = watchEventTsFuture.join();
+        assertThat(clusterTime.waitFor(watchEventTs), willCompleteSuccessfully());
+
+        assertThat("Safe time is advanced too early", watchCompleted.get(), is(true));
+    }
+
+    private static CompletableFuture<Void> waitFor(int timeout, TimeUnit unit) {
+        return new CompletableFuture<Void>()
+                .orTimeout(timeout, unit)
+                .exceptionally(ex -> null);
     }
 }

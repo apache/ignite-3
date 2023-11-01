@@ -26,11 +26,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.binary.BinaryObjects;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Dummy table storage implementation.
@@ -41,7 +38,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public TestTupleBuilder set(@NotNull String columnName, Object value) {
+    public TestTupleBuilder set(String columnName, Object value) {
         map.put(IgniteNameUtils.parseSimpleName(columnName), value);
 
         return this;
@@ -49,13 +46,13 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public <T> T valueOrDefault(@NotNull String columnName, T def) {
+    public <T> T valueOrDefault(String columnName, T def) {
         return (T) map.getOrDefault(IgniteNameUtils.parseSimpleName(columnName), def);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> T value(@NotNull String columnName) {
+    public <T> T value(String columnName) {
         return (T) map.get(IgniteNameUtils.parseSimpleName(columnName));
     }
 
@@ -79,22 +76,8 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public int columnIndex(@NotNull String columnName) {
+    public int columnIndex(String columnName) {
         throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(@NotNull String columnName) {
-        byte[] data = value(columnName);
-
-        return BinaryObjects.wrap(data);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
-        return null;
     }
 
     /** {@inheritDoc} */
@@ -111,7 +94,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public byte byteValue(@NotNull String columnName) {
+    public byte byteValue(String columnName) {
         return value(columnName);
     }
 
@@ -123,7 +106,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public short shortValue(@NotNull String columnName) {
+    public short shortValue(String columnName) {
         return value(columnName);
     }
 
@@ -135,7 +118,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public int intValue(@NotNull String columnName) {
+    public int intValue(String columnName) {
         return value(columnName);
     }
 
@@ -147,7 +130,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public long longValue(@NotNull String columnName) {
+    public long longValue(String columnName) {
         return value(columnName);
     }
 
@@ -159,7 +142,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public float floatValue(@NotNull String columnName) {
+    public float floatValue(String columnName) {
         return value(columnName);
     }
 
@@ -171,7 +154,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public double doubleValue(@NotNull String columnName) {
+    public double doubleValue(String columnName) {
         return value(columnName);
     }
 
@@ -183,7 +166,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public String stringValue(@NotNull String columnName) {
+    public String stringValue(String columnName) {
         return value(columnName);
     }
 
@@ -195,7 +178,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public UUID uuidValue(@NotNull String columnName) {
+    public UUID uuidValue(String columnName) {
         return value(columnName);
     }
 
@@ -207,7 +190,7 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public BitSet bitmaskValue(@NotNull String columnName) {
+    public BitSet bitmaskValue(String columnName) {
         return value(columnName);
     }
 
@@ -266,7 +249,6 @@ public class TestTupleBuilder implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Iterator<Object> iterator() {
         throw new UnsupportedOperationException();

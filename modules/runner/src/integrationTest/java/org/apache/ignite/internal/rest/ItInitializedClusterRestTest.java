@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCodeAndBody;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -129,7 +131,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And rocksDb.defaultRegion.cache can be read
-        assertThat(config.getString("rocksDb.defaultRegion.cache"), is(equalTo("lru")));
+        assertThat(config.getInt("gc.onUpdateBatchSize"), is(equalTo(5)));
     }
 
     @Test
@@ -137,7 +139,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster
         HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "rocksDb.defaultRegion.writeBufferSize=1024"),
+                patch("/management/v1/configuration/cluster", "gc.onUpdateBatchSize=1"),
                 BodyHandlers.ofString()
         );
 
@@ -148,7 +150,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         assertThat(getResponse.statusCode(), is(200));
         // And
         Config config = ConfigFactory.parseString(getResponse.body());
-        assertThat(config.getInt("rocksDb.defaultRegion.writeBufferSize"), is(1024));
+        assertThat(config.getInt("gc.onUpdateBatchSize"), is(equalTo(1)));
     }
 
     @Test
@@ -156,14 +158,24 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/cluster invalid with invalid value
         HttpResponse<String> patchRequest = client.send(
-                patch("/management/v1/configuration/cluster", "rocksDb.defaultRegion.cache=invalid"),
+                patch("/management/v1/configuration/cluster", "{\n"
+                        + "    security.enabled:true, \n"
+                        + "    security.authentication.providers:null\n"
+                        + "}"),
                 BodyHandlers.ofString()
         );
 
         // Then
-        assertThat(patchRequest.statusCode(), is(400));
-        // And invalidParams key is in response body
-        assertThat(patchRequest.body(), hasJsonPath("$.invalidParams"));
+        assertThat(
+                patchRequest,
+                hasStatusCodeAndBody(
+                        400,
+                        containsString(
+                                "Validation did not pass for keys: "
+                                        + "[security.authentication.providers, Providers must be present, if security is enabled]"
+                        )
+                )
+        );
     }
 
     @Test
@@ -171,7 +183,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     void clusterConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/cluster and path selector is "rocksDb.defaultRegion"
         HttpResponse<String> response = client.send(
-                get("/management/v1/configuration/cluster/rocksDb.defaultRegion"),
+                get("/management/v1/configuration/cluster/gc"),
                 BodyHandlers.ofString()
         );
 
@@ -180,7 +192,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
         // And rocksDb.defaultRegion.cache can be read
-        assertThat(config.getString("cache"), is(equalTo("lru")));
+        assertThat(config.getInt("onUpdateBatchSize"), is(equalTo(5)));
     }
 
     @Test

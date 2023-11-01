@@ -35,19 +35,20 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link CheckpointDirtyPages} testing.
  */
-public class CheckpointDirtyPagesTest {
+public class CheckpointDirtyPagesTest extends BaseIgniteAbstractTest {
     @Test
     void testDirtyPagesCount() {
         DataRegionDirtyPages<FullPageId[]> dirtyPages0 = createDirtyPages(of(0, 0, 0), of(0, 0, 1));

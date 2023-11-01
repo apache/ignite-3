@@ -19,7 +19,6 @@ package org.apache.ignite;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.internal.util.StringUtils;
 
 /** Builder of {@link org.apache.ignite.InitParameters}. */
 public class InitParametersBuilder {
@@ -36,7 +35,7 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder destinationNodeName(String destinationNodeName) {
-        if (StringUtils.nullOrBlank(destinationNodeName)) {
+        if (destinationNodeName == null || destinationNodeName.isBlank()) {
             throw new IllegalArgumentException("Node name cannot be null or empty.");
         }
         this.destinationNodeName = destinationNodeName;
@@ -84,7 +83,7 @@ public class InitParametersBuilder {
      * @return {@code this} for chaining.
      */
     public InitParametersBuilder clusterName(String clusterName) {
-        if (StringUtils.nullOrBlank(clusterName)) {
+        if (clusterName == null || clusterName.isBlank()) {
             throw new IllegalArgumentException("Cluster name cannot be null or empty.");
         }
         this.clusterName = clusterName;

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Internal exception used by the {@link ClusterManagementGroupManager} to respond to incorrect user commands.

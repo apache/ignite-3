@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -33,33 +35,32 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.Collection;
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,7 +88,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     private static final Row ROW_2 = createKeyValueRow(2, 1002);
 
-    private static final Function<BinaryRow, BinaryTuple> KEY_EXTRACTOR = BinaryRowConverter.keyExtractor(SCHEMA);
+    private static final ColumnsExtractor KEY_EXTRACTOR = BinaryRowConverter.keyExtractor(SCHEMA);
 
     /** Mock partition storage. */
     @Mock
@@ -102,6 +103,9 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     /** Internal table to test. */
     private InternalTable internalTbl;
+
+    @Mock
+    private BinaryRowEx someRow;
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
@@ -238,19 +242,19 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         when(tx.isReadOnly()).thenReturn(true);
 
         List<Executable> executables = List.of(
-                () -> internalTbl.delete(null, tx).get(),
-                () -> internalTbl.deleteAll(null, tx).get(),
-                () -> internalTbl.deleteExact(null, tx).get(),
-                () -> internalTbl.deleteAllExact(null, tx).get(),
-                () -> internalTbl.getAndDelete(null, tx).get(),
-                () -> internalTbl.getAndReplace(null, tx).get(),
-                () -> internalTbl.getAndUpsert(null, tx).get(),
-                () -> internalTbl.upsert(null, tx).get(),
-                () -> internalTbl.upsertAll(null, tx).get(),
-                () -> internalTbl.insert(null, tx).get(),
-                () -> internalTbl.insertAll(null, tx).get(),
-                () -> internalTbl.replace(null, tx).get(),
-                () -> internalTbl.replace(null, null, tx).get()
+                () -> internalTbl.delete(someRow, tx).get(),
+                () -> internalTbl.deleteAll(List.of(someRow), tx).get(),
+                () -> internalTbl.deleteExact(someRow, tx).get(),
+                () -> internalTbl.deleteAllExact(List.of(someRow), tx).get(),
+                () -> internalTbl.getAndDelete(someRow, tx).get(),
+                () -> internalTbl.getAndReplace(someRow, tx).get(),
+                () -> internalTbl.getAndUpsert(someRow, tx).get(),
+                () -> internalTbl.upsert(someRow, tx).get(),
+                () -> internalTbl.upsertAll(List.of(someRow), tx).get(),
+                () -> internalTbl.insert(someRow, tx).get(),
+                () -> internalTbl.insertAll(List.of(someRow), tx).get(),
+                () -> internalTbl.replace(someRow, tx).get(),
+                () -> internalTbl.replace(someRow, someRow, tx).get()
         );
 
         executables.forEach(executable -> {
@@ -279,7 +283,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
         rowBuilder.appendLong(id);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -295,48 +299,35 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     private void mockReadOnlyMultiRowRequest() {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
-        when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlyMultiRowReplicaRequest.class))).thenAnswer(args -> {
-            Collection<BinaryRow> requestedRows = args.getArgument(1, ReadOnlyMultiRowReplicaRequest.class).binaryRows();
+        when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlyMultiRowPkReplicaRequest.class))).thenAnswer(args -> {
+            List<ByteBuffer> primaryKeys = args.getArgument(1, ReadOnlyMultiRowPkReplicaRequest.class).primaryKeys();
 
-            List<BinaryRow> result = new ArrayList<>(requestedRows.size());
-
-            for (BinaryRow searchRow : requestedRows) {
-                BinaryRow resultRow = null;
-
-                for (BinaryRow row : rowStore) {
-                    if (KEY_EXTRACTOR.apply(row).byteBuffer().equals(KEY_EXTRACTOR.apply(searchRow).byteBuffer())) {
-                        resultRow = row;
-
-                        break;
-                    }
-                }
-
-                result.add(resultRow);
-            }
-
-            return CompletableFuture.completedFuture(result);
+            return primaryKeys.stream()
+                    .map(pk -> rowStore.stream().filter(row -> rowMatchesPk(row, pk)).findFirst().orElse(null))
+                    .collect(collectingAndThen(toList(), CompletableFuture::completedFuture));
         });
     }
 
     private void mockReadOnlySingleRowRequest() {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
-        when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlySingleRowReplicaRequest.class))).thenAnswer(args -> {
-            for (BinaryRow row : rowStore) {
-                BinaryRow searchRow = args.getArgument(1, ReadOnlySingleRowReplicaRequest.class).binaryRow();
+        when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlySingleRowPkReplicaRequest.class))).thenAnswer(args -> {
+            ByteBuffer primaryKey = args.getArgument(1, ReadOnlySingleRowPkReplicaRequest.class).primaryKey();
 
-                if (KEY_EXTRACTOR.apply(row).byteBuffer().equals(KEY_EXTRACTOR.apply(searchRow).byteBuffer())) {
-                    return CompletableFuture.completedFuture(row);
-                }
-            }
-
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(rowStore.stream()
+                    .filter(row -> rowMatchesPk(row, primaryKey))
+                    .findFirst()
+                    .orElse(null));
         });
+    }
+
+    private static boolean rowMatchesPk(BinaryRow row, ByteBuffer pk) {
+        return KEY_EXTRACTOR.extractColumns(row).byteBuffer().equals(pk);
     }
 }

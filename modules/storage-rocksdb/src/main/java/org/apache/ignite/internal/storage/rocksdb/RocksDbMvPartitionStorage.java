@@ -52,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -67,7 +68,6 @@ import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.ColumnFamilyHandle;
@@ -75,7 +75,6 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -821,21 +820,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
+            ByteBuffer prefix = prepareDirectKeyBuf(rowId)
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
 
-            byte[] lowerBound = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
-
-            incrementRowId(keyBuf);
-
-            Slice upperBound = new Slice(copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
-
-            var options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
+            var options = new ReadOptions().setPrefixSameAsStart(true);
 
             RocksIterator it = db.newIterator(helper.partCf, options);
 
             it = helper.wrapIterator(it, helper.partCf);
 
-            it.seek(lowerBound);
+            it.seek(prefix);
 
             return new RocksIteratorAdapter<ReadResult>(it) {
                 @Override
@@ -871,7 +866,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     super.close();
 
-                    RocksUtils.closeAll(options, upperBound);
+                    RocksUtils.closeAll(options);
                 }
             };
         });
@@ -966,11 +961,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            try (
-                    var upperBound = new Slice(helper.partitionEndPrefix());
-                    var options = new ReadOptions().setIterateUpperBound(upperBound);
-                    RocksIterator it = db.newIterator(helper.partCf, options)
-            ) {
+            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
                 it.seek(helper.partitionStartPrefix());
 
                 long size = 0;
@@ -1440,7 +1431,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
-        // Changed storage states and expect all storage operations to stop soon.
+        // Change storage states and expect all storage operations to stop soon.
         busyLock.block();
 
         try {

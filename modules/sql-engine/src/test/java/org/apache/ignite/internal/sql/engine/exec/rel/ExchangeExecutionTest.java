@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayDeque;
@@ -38,7 +40,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -46,12 +47,15 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ClusterServiceFactory;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -59,8 +63,11 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.PredicateMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.util.NonReentrantLock;
@@ -74,23 +81,32 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify Outbox to Inbox interoperation.
  */
-public class ExchangeExecutionTest extends AbstractExecutionTest {
+public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
     private static final String ROOT_NODE_NAME = "N1";
     private static final String ANOTHER_NODE_NAME = "N2";
     private static final List<String> NODE_NAMES = List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME);
     private static final ClusterNode ROOT_NODE =
-            new ClusterNode(ROOT_NODE_NAME, ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"));
+            new ClusterNodeImpl(ROOT_NODE_NAME, ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"));
     private static final ClusterNode ANOTHER_NODE =
-            new ClusterNode(ANOTHER_NODE_NAME, ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"));
+            new ClusterNodeImpl(ANOTHER_NODE_NAME, ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"));
     private static final int SOURCE_FRAGMENT_ID = 0;
     private static final int TARGET_FRAGMENT_ID = 1;
     private static final Comparator<Object[]> COMPARATOR = Comparator.comparingInt(o -> (Integer) o[0]);
 
     private static final Map<String, QueryTaskExecutor> executors = new HashMap<>();
 
-    public static final CustomMatcher<Object[]> ODD_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 != 0, "odd key");
+    private static final CustomMatcher<Object[]> ODD_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 != 0, "odd key");
 
-    public static final CustomMatcher<Object[]> EVEN_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 == 0, "even key");
+    private static final CustomMatcher<Object[]> EVEN_KEY_MATCHER = new PredicateMatcher<>(e -> ((int) (e[0])) % 2 == 0, "even key");
+
+    /**
+     * Schema of the rows used in the tests. All data providers created within this test class must
+     * conform to this row schema.
+     */
+    private static final RowSchema ROW_SCHEMA = RowSchema.builder()
+            .addField(NativeTypes.INT32)
+            .addField(NativeTypes.INT32)
+            .build();
 
     private final Map<String, MailboxRegistry> mailboxes = new HashMap<>();
     private final Map<String, ExchangeService> exchangeServices = new HashMap<>();
@@ -214,7 +230,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
      * <p>The test verifies that batches from diagram above are ignored.
      */
     @Test
-    public void racesBetweenRewindAndBatchesFromPreviousRequest() {
+    public void racesBetweenRewindAndBatchesFromPreviousRequest() throws InterruptedException {
         UUID queryId = UUID.randomUUID();
         String dataNode1Name = "DATA_NODE_1";
         String dataNode2Name = "DATA_NODE_2";
@@ -222,7 +238,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, dataNode1Name, dataNode2Name));
 
         TestDataProvider node1DataProvider = new TestDataProvider(3);
-        ClusterNode dataNode1 = new ClusterNode(dataNode1Name, dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode1 = new ClusterNodeImpl(dataNode1Name, dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
         createSourceFragment(
                 queryId,
                 dataNode1,
@@ -231,7 +247,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         );
 
         TestDataProvider node2DataProvider = new TestDataProvider(3);
-        ClusterNode dataNode2 = new ClusterNode(dataNode2Name, dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
+        ClusterNode dataNode2 = new ClusterNodeImpl(dataNode2Name, dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
         createSourceFragment(
                 queryId,
                 dataNode2,
@@ -255,6 +271,18 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
             // this is arrow 1 from the sequence
             BatchedResult<Object[]> res = await(root.requestNextAsync(2));
+
+            // We have to make sure that cursor was opened on node 2 before we proceed with test scenario.
+            // Otherwise there is a chance that rewind will outran scan task spawned by first request message.
+            // Problematic task sequence looks like this:
+            //      [taskId: 1, request N rows on Node 2]
+            //      [taskId: 2, rewind and request another N rows on Node2]
+            //      [taskId: 3, <spawned by taskId: 1> scan the iterator and emit rows on Node 2]
+            //
+            // This is not a problem for general query execution since rewind will clean up state and drop
+            // all collected rows so far, but TestDataProvider mutates its state on every invoke of `iterator()`
+            // method, and this test verify certain invariants relates to this mutation
+            assertTrue(waitForCondition(() -> node2DataProvider.awaitingResume() > 0, 1_000));
 
             assertThat(res.items(), hasSize(1));
             assertThat(res.items().get(0), equalTo(new Object[]{1, 0}));
@@ -292,7 +320,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(1200);
-        ClusterNode dataNode = new ClusterNode(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode = new ClusterNodeImpl(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
                 queryId,
@@ -359,7 +387,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(8000);
-        ClusterNode dataNode = new ClusterNode(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        ClusterNode dataNode = new ClusterNodeImpl(dataNodeName, dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
                 queryId,
@@ -468,7 +496,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> targetCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
                 .localNode(localNode)
                 .build();
 
@@ -479,7 +507,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowHandler().factory(ROW_SCHEMA),
+                SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 
         mailboxRegistry.register(inbox);
@@ -511,7 +540,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
                 .localNode(localNode)
                 .build();
 
@@ -543,7 +572,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
                 .localNode(localNode)
                 .build();
 
@@ -585,7 +614,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             MailboxRegistry mailboxRegistry
     ) {
         MessageService messageService = new MessageServiceImpl(
-                clusterService.topologyService(),
+                clusterService.topologyService().localMember().name(),
                 clusterService.messagingService(),
                 taskExecutor,
                 new IgniteSpinBusyLock()
@@ -669,6 +698,11 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             }
         }
 
+        /** Returns approximate number of threads awaiting this data provider to be {@link #resume() resumed}. */
+        int awaitingResume() {
+            return lock.getQueueLength();
+        }
+
         /** {@inheritDoc} */
         @Override
         public Iterator<Object[]> iterator() {
@@ -706,5 +740,10 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
                 }
             };
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

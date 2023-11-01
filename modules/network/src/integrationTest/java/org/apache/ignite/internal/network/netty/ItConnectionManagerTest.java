@@ -39,6 +39,7 @@ import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.messages.TestMessage;
@@ -55,8 +57,8 @@ import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
@@ -71,7 +73,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link ConnectionManager}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItConnectionManagerTest {
+public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     /** Started connection managers. */
     private final List<ConnectionManagerWrapper> startedManagers = new ArrayList<>();
 
@@ -353,7 +355,7 @@ public class ItConnectionManagerTest {
 
             assertTrue(
                     waitForCondition(
-                            () -> manager1.channels().size() == 1 && manager2.channels().size() == 1,
+                            () -> singleOpenedChannel(manager1) && singleOpenedChannel(manager2),
                             TimeUnit.SECONDS.toMillis(1)
                     )
             );
@@ -387,6 +389,12 @@ public class ItConnectionManagerTest {
             assertEquals(locAddr1.getPort(), remoteAddr2.getPort());
             assertEquals(locAddr2.getPort(), remoteAddr1.getPort());
         }
+    }
+
+    private static boolean singleOpenedChannel(ConnectionManagerWrapper manager) {
+        Iterator<NettySender> it = manager.channels().values().iterator();
+
+        return it.hasNext() && it.next().isOpen() && !it.hasNext();
     }
 
     /**

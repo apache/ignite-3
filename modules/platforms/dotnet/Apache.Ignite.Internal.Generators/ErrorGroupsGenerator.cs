@@ -38,7 +38,7 @@ namespace Apache.Ignite.Internal.Generators
         {
             var javaErrorGroupsFile = Path.GetFullPath(Path.Combine(
                 context.GetJavaModulesDirectory(),
-                "core",
+                "api",
                 "src",
                 "main",
                 "java",
@@ -58,7 +58,7 @@ namespace Apache.Ignite.Internal.Generators
             // ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
             var javaErrorGroups = Regex.Matches(
                     javaErrorGroupsText,
-                    @"public static class ([A-Za-z]+) {\s+/\*\*.*?\*/\s+public static final ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""([\w_]+)"", \(short\)\s*(\d+)",
+                    @"public static class ([A-Za-z]+) {\s+/\*\*.*?\*/\s+public static final ErrorGroup ([\w_]+)_ERR_GROUP = registerGroup\(""([\w_]+)"", \(short\)\s*(\d+)",
                     RegexOptions.Singleline | RegexOptions.CultureInvariant)
                 .Cast<Match>()
                 .Select(x => (ClassName: x.Groups[1].Value, GroupName: x.Groups[2].Value, ShortGroupName: x.Groups[3].Value, Code: short.Parse(x.Groups[4].Value, CultureInfo.InvariantCulture)))

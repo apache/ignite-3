@@ -39,7 +39,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -100,25 +99,25 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         } else if ("SELECT META".equals(statement.query())) {
             columns = new ArrayList<>();
 
-            columns.add(new FakeColumnMetadata("bool", ColumnType.BOOLEAN));
-            columns.add(new FakeColumnMetadata("int8", ColumnType.INT8));
-            columns.add(new FakeColumnMetadata("int16", ColumnType.INT16));
-            columns.add(new FakeColumnMetadata("int32", ColumnType.INT32));
-            columns.add(new FakeColumnMetadata("int64", ColumnType.INT64));
-            columns.add(new FakeColumnMetadata("float", ColumnType.FLOAT));
-            columns.add(new FakeColumnMetadata("double", ColumnType.DOUBLE));
-            columns.add(new FakeColumnMetadata("decimal", ColumnType.DECIMAL, 1, 2,
+            columns.add(new FakeColumnMetadata("BOOL", ColumnType.BOOLEAN));
+            columns.add(new FakeColumnMetadata("INT8", ColumnType.INT8));
+            columns.add(new FakeColumnMetadata("INT16", ColumnType.INT16));
+            columns.add(new FakeColumnMetadata("INT32", ColumnType.INT32));
+            columns.add(new FakeColumnMetadata("INT64", ColumnType.INT64));
+            columns.add(new FakeColumnMetadata("FLOAT", ColumnType.FLOAT));
+            columns.add(new FakeColumnMetadata("DOUBLE", ColumnType.DOUBLE));
+            columns.add(new FakeColumnMetadata("DECIMAL", ColumnType.DECIMAL, 1, 2,
                     true, new ColumnOrigin("SCHEMA1", "TBL2", "BIG_DECIMAL")));
-            columns.add(new FakeColumnMetadata("date", ColumnType.DATE));
-            columns.add(new FakeColumnMetadata("time", ColumnType.TIME));
-            columns.add(new FakeColumnMetadata("datetime", ColumnType.DATETIME));
-            columns.add(new FakeColumnMetadata("timestamp", ColumnType.TIMESTAMP));
-            columns.add(new FakeColumnMetadata("uuid", ColumnType.UUID));
-            columns.add(new FakeColumnMetadata("bitmask", ColumnType.BITMASK));
-            columns.add(new FakeColumnMetadata("byte_array", ColumnType.BYTE_ARRAY));
-            columns.add(new FakeColumnMetadata("period", ColumnType.PERIOD));
-            columns.add(new FakeColumnMetadata("duration", ColumnType.DURATION));
-            columns.add(new FakeColumnMetadata("number", ColumnType.NUMBER));
+            columns.add(new FakeColumnMetadata("DATE", ColumnType.DATE));
+            columns.add(new FakeColumnMetadata("TIME", ColumnType.TIME));
+            columns.add(new FakeColumnMetadata("DATETIME", ColumnType.DATETIME));
+            columns.add(new FakeColumnMetadata("TIMESTAMP", ColumnType.TIMESTAMP));
+            columns.add(new FakeColumnMetadata("UUID", ColumnType.UUID));
+            columns.add(new FakeColumnMetadata("BITMASK", ColumnType.BITMASK));
+            columns.add(new FakeColumnMetadata("BYTE_ARRAY", ColumnType.BYTE_ARRAY));
+            columns.add(new FakeColumnMetadata("PERIOD", ColumnType.PERIOD));
+            columns.add(new FakeColumnMetadata("DURATION", ColumnType.DURATION));
+            columns.add(new FakeColumnMetadata("NUMBER", ColumnType.NUMBER));
 
             var row = getRow(
                     true,
@@ -211,7 +210,6 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         return CompletableFuture.completedFuture(null);
     }
 
-    @NotNull
     private SqlRow getRow(Object... vals) {
         return new FakeSqlRow(List.of(vals), metadata());
     }

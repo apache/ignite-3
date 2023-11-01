@@ -57,10 +57,10 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     /** Default constructor. */
     public SqlExceptionHandler() {
         sqlExceptionMappers.put(Client.CONNECTION_ERR, this::connectionErrUiComponent);
-        sqlExceptionMappers.put(Sql.QUERY_INVALID_ERR, this::invalidQueryErrUiComponent);
+        sqlExceptionMappers.put(Sql.STMT_PARSE_ERR, this::sqlParseErrUiComponent);
     }
 
-    private ErrorComponentBuilder invalidQueryErrUiComponent(IgniteException e) {
+    private ErrorComponentBuilder sqlParseErrUiComponent(IgniteException e) {
         return fromExWithHeader(PARSING_ERROR_MESSAGE, e.code(), e.traceId(), e.getMessage());
     }
 

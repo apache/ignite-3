@@ -31,6 +31,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +39,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class CompoundModuleTest {
+class CompoundModuleTest extends BaseIgniteAbstractTest {
     @Mock
     private RootKey<?, ?> rootKeyA;
     @Mock
@@ -99,10 +100,10 @@ class CompoundModuleTest {
 
     @Test
     void returnsUnionOfInternalSchemaExtensionsOfItsModules() {
-        when(moduleA.internalSchemaExtensions()).thenReturn(Set.of(ExtensionA.class));
-        when(moduleB.internalSchemaExtensions()).thenReturn(Set.of(ExtensionB.class));
+        when(moduleA.schemaExtensions()).thenReturn(Set.of(ExtensionA.class));
+        when(moduleB.schemaExtensions()).thenReturn(Set.of(ExtensionB.class));
 
-        assertThat(compound.internalSchemaExtensions(), containsInAnyOrder(ExtensionA.class, ExtensionB.class));
+        assertThat(compound.schemaExtensions(), containsInAnyOrder(ExtensionA.class, ExtensionB.class));
     }
 
     @Test

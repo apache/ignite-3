@@ -23,6 +23,23 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-runner'
 
+sourceSets {
+    defaultsGenerator {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    defaultsGeneratorImplementation.extendsFrom implementation
+    defaultsGenerator {
+        canBeConsumed = true
+        canBeResolved = false
+        // this configuration will share the same dependencies as the main one
+        extendsFrom implementation, runtimeOnly
+    }
+}
+
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.picocli.annotation.processor
@@ -38,7 +55,6 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
-    implementation project(':ignite-baseline')
     implementation project(':ignite-affinity')
     implementation project(':ignite-table')
     implementation project(':ignite-index')
@@ -58,15 +74,17 @@ dependencies {
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-placement-driver')
     implementation project(':ignite-code-deployment')
+    implementation project(':ignite-security-api')
     implementation project(':ignite-security')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-system-view-api')
+    implementation project(':ignite-system-view')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
     implementation libs.micronaut.runtime
     implementation libs.micronaut.picocli
     implementation libs.picocli.core
-    implementation libs.slf4j.jdk14
     implementation libs.typesafe.config
     implementation libs.auto.service.annotations
     implementation libs.disruptor
@@ -84,6 +102,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-jdbc'))
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.hamcrest.path
@@ -97,14 +116,12 @@ dependencies {
     testImplementation libs.auto.service.annotations
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
-    integrationTestAnnotationProcessor libs.auto.service
     integrationTestAnnotationProcessor libs.jmh.annotation.processor
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
-    integrationTestImplementation project(':ignite-baseline')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-client-handler')
@@ -130,6 +147,8 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-system-view')
+    integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -144,6 +163,8 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-transactions'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-placement-driver-api'))
+    integrationTestImplementation testFixtures(project(':ignite-jdbc'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
@@ -156,9 +177,10 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
     integrationTestImplementation libs.typesafe.config
-    integrationTestImplementation libs.auto.service.annotations
     integrationTestImplementation libs.netty.common
     integrationTestImplementation libs.netty.handler
+
+    testFixturesAnnotationProcessor libs.auto.service
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
@@ -169,9 +191,11 @@ dependencies {
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-sql-engine'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.auto.service.annotations
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {
@@ -203,7 +227,18 @@ integrationTest {
 jar {
     manifest {
         attributes(
-            'Main-Class': 'org.apache.ignite.app.IgniteRunner'
+            'Main-Class': 'org.apache.ignite.internal.app.IgniteRunner'
         )
     }
+}
+
+
+tasks.register('defaultsJar', Jar) {
+    from sourceSets.defaultsGenerator.output
+    archiveAppendix = "generator"
+}
+
+artifacts {
+    // declare both jars to provide enough dependencies to the caller
+    defaultsGenerator defaultsJar, jar
 }

@@ -27,21 +27,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.handler.requests.table.ClientTableCommon;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -83,9 +82,9 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
         sql("create table " + tableName + "(id integer, id0 bigint, id1 varchar, v INTEGER, "
                 + "primary key(id, id0, id1)) colocate by " + (reverseColocationOrder ? "(id1, id0)" : "(id0, id1)"));
 
-        Table serverTable = CLUSTER_NODES.get(0).tables().table(tableName);
+        Table serverTable = CLUSTER.aliveNode().tables().table(tableName);
         RecordBinaryViewImpl serverView = (RecordBinaryViewImpl) serverTable.recordView();
-        TupleMarshallerImpl marsh = IgniteTestUtils.getFieldValue(serverView, "marsh");
+        TupleMarshaller marsh = serverView.marshaller(1);
 
         try (IgniteClient client = IgniteClient.builder().addresses("localhost").build()) {
             // Perform get to populate schema.
@@ -124,7 +123,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
         var colocationColumns = new String[]{columnName};
         var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
 
-        return new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        return new TupleMarshallerImpl(schema);
     }
 
     private static Stream<Arguments> nativeTypes() {
@@ -145,7 +144,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
 
         var types2 = new ArrayList<NativeType>();
 
-        for (int i = 0; i <= TemporalNativeType.MAX_TIME_PRECISION; i++) {
+        for (int i = 0; i <= CatalogUtils.MAX_TIME_PRECISION; i++) {
             types2.add(NativeTypes.time(i));
             types2.add(NativeTypes.datetime(i));
             types2.add(NativeTypes.timestamp(i));

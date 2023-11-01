@@ -36,7 +36,7 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
     };
 
     m_connection->perform_request<std::optional<table>>(
-        client_operation::TABLE_GET, writer_func, std::move(reader_func), std::move(callback));
+        protocol::client_operation::TABLE_GET, writer_func, std::move(reader_func), std::move(callback));
 }
 
 void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback) {
@@ -45,19 +45,19 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
             return {};
 
         std::vector<table> tables;
-        tables.reserve(reader.read_map_size());
+        auto size = reader.read_int32();
+        tables.reserve(size);
 
-        reader.read_map<std::int32_t, std::string>([conn, &tables](auto &&id, auto &&name) {
-            auto table0 =
-                std::make_shared<table_impl>(std::forward<std::string>(name), std::forward<std::int32_t>(id), conn);
-            tables.push_back(table{table0});
-        });
-
+        for (std::int32_t table_idx = 0; table_idx < size; ++table_idx) {
+            auto id = reader.read_int32();
+            auto name = reader.read_string();
+            tables.emplace_back(table{std::make_shared<table_impl>(std::move(name), id, conn)});
+        }
         return tables;
     };
 
     m_connection->perform_request_rd<std::vector<table>>(
-        client_operation::TABLES_GET, std::move(reader_func), std::move(callback));
+        protocol::client_operation::TABLES_GET, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail

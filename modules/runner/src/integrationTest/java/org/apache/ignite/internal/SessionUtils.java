@@ -35,7 +35,7 @@ public class SessionUtils {
      *     be executed n an implicit transaction.
      */
     public static void executeUpdate(String sql, Session session, @Nullable Transaction transaction) {
-        try (ResultSet ignored = session.execute(transaction, sql)) {
+        try (ResultSet<?> ignored = session.execute(transaction, sql)) {
             // Do nothing, just adhere to the syntactic ceremony...
         }
     }

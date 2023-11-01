@@ -17,23 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
-import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -52,35 +56,40 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Converter for DDL command classes to Catalog command params classes.
  */
 class DdlToCatalogCommandConverter {
-    static CreateTableParams convert(CreateTableCommand cmd) {
+    static CatalogCommand convert(CreateTableCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
-        return CreateTableParams.builder()
+        return org.apache.ignite.internal.catalog.commands.CreateTableCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
                 .columns(columns)
-                .colocationColumns(cmd.colocationColumns())
                 .primaryKeyColumns(cmd.primaryKeyColumns())
+                .colocationColumns(cmd.colocationColumns())
 
                 .zone(cmd.zone())
 
                 .build();
     }
 
-    static DropTableParams convert(DropTableCommand cmd) {
-        return DropTableParams.builder()
+    static CatalogCommand convert(DropTableCommand cmd) {
+        return org.apache.ignite.internal.catalog.commands.DropTableCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
                 .build();
     }
 
     static CreateZoneParams convert(CreateZoneCommand cmd) {
+        // TODO: IGNITE-19719 We need to define the default engine differently and the parameters should depend on the engine
+        String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
+        String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
+
         return CreateZoneParams.builder()
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())
@@ -89,6 +98,7 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
+                .dataStorage(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
                 .build();
     }
 
@@ -122,13 +132,21 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static AlterColumnParams convert(AlterColumnCommand cmd) {
-        AlterColumnParams.Builder builder = AlterColumnParams.builder()
+    static CatalogCommand convert(AlterColumnCommand cmd) {
+        AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
-                .columnName(cmd.columnName())
-                .notNull(cmd.notNull())
-                .defaultValueResolver(cmd.defaultValueResolver());
+                .columnName(cmd.columnName());
+
+        Boolean notNull = cmd.notNull();
+        if (notNull != null) {
+            builder.nullable(!notNull);
+        }
+
+        Function<ColumnType, DefaultValue> defaultValueResolver = cmd.defaultValueResolver();
+        if (defaultValueResolver != null) {
+            builder.deferredDefaultValue(defaultValueResolver::apply);
+        }
 
         RelDataType type = cmd.type();
 
@@ -151,10 +169,10 @@ class DdlToCatalogCommandConverter {
         return builder.build();
     }
 
-    static AlterTableAddColumnParams convert(AlterTableAddCommand cmd) {
+    static CatalogCommand convert(AlterTableAddCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
-        return AlterTableAddColumnParams.builder()
+        return AlterTableAddColumnCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
@@ -163,8 +181,8 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static AlterTableDropColumnParams convert(AlterTableDropCommand cmd) {
-        return AlterTableDropColumnParams.builder()
+    static CatalogCommand convert(AlterTableDropCommand cmd) {
+        return AlterTableDropColumnCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
@@ -174,10 +192,10 @@ class DdlToCatalogCommandConverter {
     }
 
 
-    static AbstractIndexCommandParams convert(CreateIndexCommand cmd) {
+    static CatalogCommand convert(CreateIndexCommand cmd) {
         switch (cmd.type()) {
             case HASH:
-                return CreateHashIndexParams.builder()
+                return CreateHashIndexCommand.builder()
                         .schemaName(cmd.schemaName())
                         .indexName(cmd.indexName())
 
@@ -190,7 +208,7 @@ class DdlToCatalogCommandConverter {
                         .map(DdlToCatalogCommandConverter::convert)
                         .collect(Collectors.toList());
 
-                return CreateSortedIndexParams.builder()
+                return CreateSortedIndexCommand.builder()
                         .schemaName(cmd.schemaName())
                         .indexName(cmd.indexName())
 
@@ -204,8 +222,8 @@ class DdlToCatalogCommandConverter {
         }
     }
 
-    static DropIndexParams convert(DropIndexCommand cmd) {
-        return DropIndexParams.builder()
+    static CatalogCommand convert(DropIndexCommand cmd) {
+        return org.apache.ignite.internal.catalog.commands.DropIndexCommand.builder()
                 .schemaName(cmd.schemaName())
                 .indexName(cmd.indexName())
                 .build();
@@ -216,6 +234,9 @@ class DdlToCatalogCommandConverter {
                 .name(def.name())
                 .type(TypeUtils.columnType(def.type()))
                 .nullable(def.nullable())
+                .precision(def.precision())
+                .scale(def.scale())
+                .length(def.length())
                 .defaultValue(convert(def.defaultValueDefinition()))
                 .build();
     }

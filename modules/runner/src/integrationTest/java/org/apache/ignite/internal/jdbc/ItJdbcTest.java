@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.jdbc;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -26,6 +24,7 @@ import java.sql.SQLException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -70,11 +69,11 @@ class ItJdbcTest extends IgniteIntegrationTest {
         @BeforeAll
         void setUp(TestInfo testInfo, @WorkDirectory Path workDir) {
             cluster = new Cluster(testInfo, workDir);
-            cluster.startAndInit(1, new int[]{ 0 }, builder -> builder.clusterConfiguration(
+            cluster.startAndInit(1, builder -> builder.clusterConfiguration(
                     "{\n"
                             + "  \"security\": {\n"
+                            + "  \"enabled\": true,\n"
                             + "    \"authentication\": {\n"
-                            + "      \"enabled\": true,\n"
                             + "      \"providers\": [\n"
                             + "        {\n"
                             + "          \"name\": \"basic\",\n"
@@ -98,7 +97,7 @@ class ItJdbcTest extends IgniteIntegrationTest {
         @DisplayName("Jdbc client can not connect without basic authentication configured")
         void jdbcCanNotConnectWithoutBasicAuthentication() {
             var url = "jdbc:ignite:thin://127.0.0.1:10800";
-            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+            JdbcTestUtils.assertThrowsSqlException("Failed to connect to server", () -> DriverManager.getConnection(url));
         }
 
         @Test

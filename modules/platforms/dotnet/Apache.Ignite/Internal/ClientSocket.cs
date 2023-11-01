@@ -92,8 +92,8 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
-        /** Partition assignment change callback. */
-        private readonly Action<ClientSocket> _assignmentChangeCallback;
+        /** Event listener. */
+        private readonly IClientSocketEventListener _listener;
 
         /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
         private readonly byte[] _prefixBuffer = new byte[ProtoCommon.MessagePrefixSize];
@@ -110,18 +110,18 @@ namespace Apache.Ignite.Internal
         /// <param name="stream">Network stream.</param>
         /// <param name="configuration">Configuration.</param>
         /// <param name="connectionContext">Connection context.</param>
-        /// <param name="assignmentChangeCallback">Partition assignment change callback.</param>
+        /// <param name="listener">Event listener.</param>
         /// <param name="logger">Logger.</param>
         private ClientSocket(
             Stream stream,
             IgniteClientConfiguration configuration,
             ConnectionContext connectionContext,
-            Action<ClientSocket> assignmentChangeCallback,
+            IClientSocketEventListener listener,
             IIgniteLogger? logger)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
-            _assignmentChangeCallback = assignmentChangeCallback;
+            _listener = listener;
             _logger = logger;
             _socketTimeout = configuration.SocketTimeout;
 
@@ -154,7 +154,7 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
         /// <param name="configuration">Configuration.</param>
-        /// <param name="assignmentChangeCallback">Partition assignment change callback.</param>
+        /// <param name="listener">Event listener.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
             "Microsoft.Reliability",
@@ -163,7 +163,7 @@ namespace Apache.Ignite.Internal
         public static async Task<ClientSocket> ConnectAsync(
             SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
-            Action<ClientSocket> assignmentChangeCallback)
+            IClientSocketEventListener listener)
         {
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
@@ -209,7 +209,7 @@ namespace Apache.Ignite.Internal
                     logger.Debug($"Handshake succeeded [remoteAddress={socket.RemoteEndPoint}]: {context}.");
                 }
 
-                return new ClientSocket(stream, configuration, context, assignmentChangeCallback, logger);
+                return new ClientSocket(stream, configuration, context, listener, logger);
             }
             catch (Exception e)
             {
@@ -399,8 +399,23 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
+            var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
 
-            return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
+            int extensionCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
+            for (int i = 0; i < extensionCount; i++)
+            {
+                var key = reader.ReadString();
+                if (key == ErrorExtensions.ExpectedSchemaVersion)
+                {
+                    ex.Data[key] = reader.ReadInt32();
+                }
+                else
+                {
+                    reader.Skip(); // Unknown extension - ignore.
+                }
+            }
+
+            return ex;
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
@@ -497,7 +512,7 @@ namespace Apache.Ignite.Internal
 
             if (configuration.Authenticator != null)
             {
-                w.WriteMapHeader(3); // Extensions.
+                w.Write(3); // Extensions.
 
                 w.Write(HandshakeExtensions.AuthenticationType);
                 w.Write(configuration.Authenticator.Type);
@@ -510,7 +525,7 @@ namespace Apache.Ignite.Internal
             }
             else
             {
-                w.WriteMapHeader(0); // Extensions.
+                w.Write(0); // Extensions.
             }
         }
 
@@ -694,8 +709,11 @@ namespace Apache.Ignite.Internal
                         $"Partition assignment change notification received [remoteAddress={ConnectionContext.ClusterNode.Address}]");
                 }
 
-                _assignmentChangeCallback(this);
+                _listener.OnAssignmentChanged(this);
             }
+
+            var observableTimestamp = reader.ReadInt64();
+            _listener.OnObservableTimestampChanged(observableTimestamp);
 
             var exception = ReadError(ref reader);
 

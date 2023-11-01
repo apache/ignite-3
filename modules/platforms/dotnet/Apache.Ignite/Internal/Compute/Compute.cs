@@ -66,8 +66,8 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             params object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
-            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobClassName);
 
             return await ExecuteOnOneNode<T>(GetRandomNode(nodes), units, jobClassName, args).ConfigureAwait(false);
         }
@@ -112,9 +112,9 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             params object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
-            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
-            IgniteArgumentCheck.NotNull(units, nameof(units));
+            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(jobClassName);
+            IgniteArgumentCheck.NotNull(units);
 
             var res = new Dictionary<IClusterNode, Task<T>>();
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
@@ -153,18 +153,11 @@ namespace Apache.Ignite.Internal.Compute
 
             if (units.TryGetNonEnumeratedCount(out var count))
             {
-                w.WriteArrayHeader(count);
+                w.Write(count);
                 foreach (var unit in units)
                 {
-                    if (string.IsNullOrEmpty(unit.Name))
-                    {
-                        throw new ArgumentException("Deployment unit name can't be null or empty.");
-                    }
-
-                    if (string.IsNullOrEmpty(unit.Version))
-                    {
-                        throw new ArgumentException("Deployment unit version can't be null or empty.");
-                    }
+                    IgniteArgumentCheck.NotNullOrEmpty(unit.Name);
+                    IgniteArgumentCheck.NotNullOrEmpty(unit.Version);
 
                     w.Write(unit.Name);
                     w.Write(unit.Version);
@@ -195,7 +188,7 @@ namespace Apache.Ignite.Internal.Compute
             string jobClassName,
             object?[]? args)
         {
-            IgniteArgumentCheck.NotNull(node, nameof(node));
+            IgniteArgumentCheck.NotNull(node);
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
@@ -243,6 +236,7 @@ namespace Apache.Ignite.Internal.Compute
             throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName}' does not exist.");
         }
 
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
@@ -252,23 +246,24 @@ namespace Apache.Ignite.Internal.Compute
             params object?[]? args)
             where TKey : notnull
         {
-            IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
-            IgniteArgumentCheck.NotNull(key, nameof(key));
-            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+            IgniteArgumentCheck.NotNull(tableName);
+            IgniteArgumentCheck.NotNull(key);
+            IgniteArgumentCheck.NotNull(jobClassName);
 
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
+            int? schemaVersion = null;
 
             while (true)
             {
                 var table = await GetTableAsync(tableName).ConfigureAwait(false);
-                var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
-
-                using var bufferWriter = ProtoCommon.GetMessageWriter();
-                var colocationHash = Write(bufferWriter, table, schema);
-                var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
+                var schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
 
                 try
                 {
+                    using var bufferWriter = ProtoCommon.GetMessageWriter();
+                    var colocationHash = Write(bufferWriter, table, schema);
+                    var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
+
                     using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
                         .ConfigureAwait(false);
 
@@ -279,6 +274,17 @@ namespace Apache.Ignite.Internal.Compute
                     // Table was dropped - remove from cache.
                     // Try again in case a new table with the same name exists.
                     _tableCache.TryRemove(tableName, out _);
+                    schemaVersion = null;
+                }
+                catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                                schemaVersion != e.GetExpectedSchemaVersion())
+                {
+                    schemaVersion = e.GetExpectedSchemaVersion();
+                }
+                catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                          schemaVersion == null)
+                {
+                    schemaVersion = Table.SchemaVersionForceLatest;
                 }
             }
 

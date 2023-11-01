@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import static org.apache.calcite.sql.fun.SqlInternalOperators.LITERAL_AGG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.createRowType;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * AccumulatorsFactory.
@@ -102,7 +102,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
     private static Function<Object, Object> compileCast(IgniteTypeFactory typeFactory, RelDataType from,
             RelDataType to) {
-        RelDataType rowType = createRowType(typeFactory, from);
+        RelDataType rowType = createRowType(typeFactory, List.of(from));
         ParameterExpression in = Expressions.parameter(Object.class, "in");
 
         RexToLixTranslator.InputGetter getter =
@@ -184,7 +184,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             return new AccumulatorWrapperImpl(accumulator, call, inAdapter, outAdapter);
         }
 
-        @NotNull
         private Accumulator accumulator() {
             if (accFactory != null) {
                 return accFactory.get();
@@ -200,7 +199,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             return accumulator;
         }
 
-        @NotNull
         private Function<Object[], Object[]> createInAdapter(Accumulator accumulator) {
             if (type == AggregateType.REDUCE || nullOrEmpty(call.getArgList())) {
                 return Function.identity();
@@ -232,7 +230,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             };
         }
 
-        @NotNull
         private Function<Object, Object> createOutAdapter(Accumulator accumulator) {
             if (type == AggregateType.MAP) {
                 return Function.identity();
@@ -258,6 +255,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         private final List<Integer> argList;
 
+        private final boolean literalAgg;
+
         private final int filterArg;
 
         private final boolean ignoreNulls;
@@ -274,6 +273,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
 
+            literalAgg = call.getAggregation() == LITERAL_AGG;
             argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
@@ -284,15 +284,17 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public void add(RowT row) {
-            assert type != AggregateType.REDUCE;
-
-            if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
+            if (type != AggregateType.REDUCE && filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
                 return;
             }
 
-            Object[] args = new Object[argList.size()];
-            for (int i = 0; i < argList.size(); i++) {
-                args[i] = handler.get(argList.get(i), row);
+            // need to be refactored after https://issues.apache.org/jira/browse/CALCITE-5969
+            int params = literalAgg ? 1 : argList.size();
+
+            Object[] args = new Object[params];
+            for (int i = 0; i < params; i++) {
+                int argPos = literalAgg ? 0 : argList.get(i);
+                args[i] = handler.get(argPos, row);
 
                 if (ignoreNulls && args[i] == null) {
                     return;
@@ -305,25 +307,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            assert type != AggregateType.MAP;
-
             return outAdapter.apply(accumulator.end());
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator accumulator) {
-            assert type == AggregateType.REDUCE;
-
-            this.accumulator.apply(accumulator);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Accumulator accumulator() {
-            assert type == AggregateType.MAP;
-
-            return accumulator;
-        }
     }
 }

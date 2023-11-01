@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import java.io.Serializable;
 import java.util.Set;
@@ -30,6 +31,7 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -39,14 +41,16 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockSettings;
+import org.mockito.quality.Strictness;
 
 /**
  * MetaStorageManager dummy implementation.
@@ -58,6 +62,8 @@ import org.mockito.ArgumentCaptor;
 @TestOnly
 public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final String TEST_NODE_NAME = "standalone-ms-node";
+
+    private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
     /**
      * Creates standalone MetaStorage manager for provided VaultManager.
@@ -136,7 +142,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     private static RaftManager mockRaftManager() {
         ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
-        RaftManager raftManager = mock(RaftManager.class);
+        RaftManager raftManager = mock(RaftManager.class, LENIENT_SETTINGS);
         TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
 
         try {
@@ -164,7 +170,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             Command command = invocation.getArgument(0);
             RaftGroupListener listener = listenerCaptor.getValue();
 
-            listener.onBeforeApply(command);
+            if (listener instanceof BeforeApplyHandler) {
+                ((BeforeApplyHandler) listener).onBeforeApply(command);
+            }
 
             return runCommand(command, listener);
         });
@@ -173,8 +181,8 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     private static MetaStorageConfiguration mockConfiguration() {
-        MetaStorageConfiguration configuration = mock(MetaStorageConfiguration.class);
-        ConfigurationValue<Long> value = mock(ConfigurationValue.class);
+        MetaStorageConfiguration configuration = mock(MetaStorageConfiguration.class, LENIENT_SETTINGS);
+        ConfigurationValue<Long> value = mock(ConfigurationValue.class, LENIENT_SETTINGS);
 
         when(configuration.idleSyncTimeInterval()).thenReturn(value);
         when(value.value()).thenReturn(1000L);

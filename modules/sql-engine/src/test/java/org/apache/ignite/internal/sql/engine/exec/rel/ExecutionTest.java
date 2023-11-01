@@ -42,10 +42,13 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -57,8 +60,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * ExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
-public class ExecutionTest extends AbstractExecutionTest {
+public class ExecutionTest extends AbstractExecutionTest<Object[]> {
     @Test
     public void testSimpleExecution() {
         // SELECT P.ID, P.NAME, PR.NAME AS PROJECT
@@ -68,7 +70,6 @@ public class ExecutionTest extends AbstractExecutionTest {
         // WHERE P.ID >= 2
 
         ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
                 new Object[]{0, "Igor", "Seliverstov"},
@@ -84,9 +85,14 @@ public class ExecutionTest extends AbstractExecutionTest {
                 new Object[]{3, 0, "Core"}
         ));
 
-        RelDataType outType = TypeUtils.createRowType(tf, int.class, String.class, String.class, int.class, int.class, String.class);
-        RelDataType leftType = TypeUtils.createRowType(tf, int.class, String.class, String.class);
-        RelDataType rightType = TypeUtils.createRowType(tf, int.class, int.class, String.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.STRING));
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -180,10 +186,13 @@ public class ExecutionTest extends AbstractExecutionTest {
                 new Object[]{2, "SQL"}
         ));
 
-        RelDataType outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class,
-                int.class, String.class);
-        RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -235,10 +244,13 @@ public class ExecutionTest extends AbstractExecutionTest {
                 new Object[]{3, "QA"}
         ));
 
-        RelDataType outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, int.class,
-                String.class, Integer.class);
-        RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
-        RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -290,10 +302,13 @@ public class ExecutionTest extends AbstractExecutionTest {
                 new Object[]{3, "QA"}
         ));
 
-        RelDataType outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class,
-                int.class, String.class);
-        RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -346,9 +361,13 @@ public class ExecutionTest extends AbstractExecutionTest {
                 new Object[]{3, "QA"}
         ));
 
-        RelDataType outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -398,9 +417,13 @@ public class ExecutionTest extends AbstractExecutionTest {
                 new Object[]{3, "QA"}
         ));
 
-        RelDataType outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
-        RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -433,18 +456,31 @@ public class ExecutionTest extends AbstractExecutionTest {
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsForCnlJtest")
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason =
+            "This test uses AbstractExecutionTest.IgniteTestStripedThreadPoolExecutor"
+                    + "which use LockSupport.parkNanos as way to sleep with nanotime to emulate different JVM pauses or another cases."
+                    + "Windows doesn't support park() with nanos argument,"
+                    + " see https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/19fb8f93c59dfd791f62d41f332db9e306bc1422/src/hotspot/os/windows/os_windows.cpp#L5228C59-L5228C59"
+                    + "So, as described above Windows OS doesn't support nanotime park "
+                    + "without additional manipulation (different hacks via JNI)."
+    )
     public void testCorrelatedNestedLoopJoin(int leftSize, int rightSize, int rightBufSize, JoinRelType joinType) {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
         ScanNode<Object[]> left = new ScanNode<>(ctx, new TestTable(leftSize, rowType));
         ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(rightSize, rowType));
 
-        RelDataType joinRowType = TypeUtils.createRowType(
-                tf,
-                int.class, String.class, int.class,
-                int.class, String.class, int.class);
+        RowSchema joinRowType = RowSchema.builder()
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
+                .addField(NativeTypes.INT32)
+                .build();
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -453,7 +489,7 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
                 Set.of(new CorrelationId(0)),
                 joinType,
-                hnd.factory(ctx.getTypeFactory(), joinRowType)
+                hnd.factory(joinRowType)
         );
 
         IgniteTestUtils.setFieldValue(join, "rightInBufferSize", rightBufSize);
@@ -481,7 +517,8 @@ public class ExecutionTest extends AbstractExecutionTest {
     public void testMergeJoin() {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
@@ -648,5 +685,10 @@ public class ExecutionTest extends AbstractExecutionTest {
         }
 
         return args.stream();
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

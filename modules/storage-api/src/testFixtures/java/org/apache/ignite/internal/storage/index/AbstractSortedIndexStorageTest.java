@@ -20,15 +20,13 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toSortedIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_LAST;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -41,6 +39,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,32 +50,25 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.internal.schema.testutils.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.ColumnTypeSpec;
-import org.apache.ignite.internal.schema.testutils.definition.index.ColumnarIndexDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.sql.ColumnType;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
@@ -84,63 +79,56 @@ import org.junit.jupiter.params.ParameterizedTest;
  * Base class for Sorted Index storage tests.
  */
 public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorageTest<SortedIndexStorage, StorageSortedIndexDescriptor> {
-    private static final IgniteLogger log = Loggers.forClass(AbstractSortedIndexStorageTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(AbstractSortedIndexStorageTest.class);
 
     @Override
     protected SortedIndexStorage createIndexStorage(String name, ColumnType... columnTypes) {
-        SortedIndexDefinitionBuilder builder = SchemaBuilders.sortedIndex(name);
-
-        for (ColumnType columnType : columnTypes) {
-            builder = builder.addIndexColumn(columnType.typeSpec().name()).asc().done();
-        }
-
-        return createIndexStorage(builder.build());
+        return createIndexStorage(
+                name,
+                Stream.of(columnTypes)
+                        .map(AbstractIndexStorageTest::columnName)
+                        .map(columnName -> new CatalogIndexColumnDescriptor(columnName, ASC_NULLS_FIRST))
+                        .toArray(CatalogIndexColumnDescriptor[]::new)
+        );
     }
 
     /**
      * Creates a Sorted Index using the given columns.
      */
-    protected SortedIndexStorage createIndexStorage(String name, List<ColumnDefinition> indexSchema) {
-        SortedIndexDefinitionBuilder indexDefinitionBuilder = SchemaBuilders.sortedIndex(name);
-
-        indexSchema.forEach(column -> {
-            SortedIndexColumnBuilder columnBuilder = indexDefinitionBuilder.addIndexColumn(column.name());
-
-            if (random.nextBoolean()) {
-                columnBuilder.asc();
-            } else {
-                columnBuilder.desc();
-            }
-
-            columnBuilder.done();
-        });
-
-        SortedIndexDefinition indexDefinition = indexDefinitionBuilder.build();
-
-        return createIndexStorage(indexDefinition);
+    protected SortedIndexStorage createIndexStorage(String name, List<ColumnParams> indexSchema) {
+        return createIndexStorage(
+                name,
+                indexSchema.stream()
+                        .map(ColumnParams::name)
+                        .map(columnName -> new CatalogIndexColumnDescriptor(
+                                columnName,
+                                random.nextBoolean() ? ASC_NULLS_FIRST : DESC_NULLS_LAST
+                        ))
+                        .toArray(CatalogIndexColumnDescriptor[]::new)
+        );
     }
 
     /**
      * Creates a Sorted Index using the given index definition.
      */
-    protected SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
-        CompletableFuture<Void> createIndexFuture =
-                tablesCfg.indexes().change(chg -> chg.create(indexDefinition.name(), idx -> {
-                    int tableId = tablesCfg.tables().value().get(TABLE_NAME).id();
+    protected SortedIndexStorage createIndexStorage(String name, CatalogIndexColumnDescriptor... columns) {
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
-                    addIndex(indexDefinition, tableId, indexDefinition.name().hashCode(), idx);
-                }));
+        CatalogSortedIndexDescriptor catalogSortedIndexDescriptor = new CatalogSortedIndexDescriptor(
+                catalogId.getAndIncrement(),
+                name,
+                catalogTableDescriptor.id(),
+                false,
+                List.of(columns),
+                true
+        );
 
-        assertThat(createIndexFuture, willCompleteSuccessfully());
-
-        TablesView tablesView = tablesCfg.value();
-
-        TableIndexView indexView = tablesView.indexes().get(indexDefinition.name());
-        TableView tableView = findTableView(tablesView, indexView.tableId());
+        when(catalogService.index(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
+        when(catalogService.index(eq(catalogSortedIndexDescriptor.id()), anyInt())).thenReturn(catalogSortedIndexDescriptor);
 
         return tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
-                new StorageSortedIndexDescriptor(toTableDescriptor(tableView), toSortedIndexDescriptor((SortedIndexView) indexView))
+                new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndexDescriptor)
         );
     }
 
@@ -154,7 +142,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @Test
     void testRowSerialization() {
-        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ALL_TYPES_COLUMN_DEFINITIONS);
+        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ALL_TYPES_COLUMN_PARAMS);
 
         Object[] columns = indexStorage.indexDescriptor().columns().stream()
                 .map(StorageSortedIndexColumnDescriptor::type)
@@ -172,7 +160,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
     @Test
     void testEmpty() {
-        SortedIndexStorage index = createIndexStorage(INDEX_NAME, shuffledRandomDefinitions());
+        SortedIndexStorage index = createIndexStorage(INDEX_NAME, shuffledRandomColumnParams());
 
         assertThat(scan(index, null, null, 0), is(empty()));
     }
@@ -181,9 +169,9 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * Tests the Put-Get-Remove case when an index is created using a single column.
      */
     @ParameterizedTest
-    @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
-    void testSingleColumnIndex(ColumnDefinition columnDefinition) {
-        testPutGetRemove(List.of(columnDefinition));
+    @VariableSource("ALL_TYPES_COLUMN_PARAMS")
+    void testSingleColumnIndex(ColumnParams columnParms) {
+        testPutGetRemove(List.of(columnParms));
     }
 
     /**
@@ -191,7 +179,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @Test
     void testMultiplePuts() {
-        SortedIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.string(), ColumnType.INT32);
+        SortedIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.STRING, ColumnType.INT32);
 
         var columnValues1 = new Object[] { "foo", 1 };
         var columnValues2 = new Object[] { "bar", 3 };
@@ -219,7 +207,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @Test
     void testRemoveAndScan() {
-        SortedIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.string(), ColumnType.INT32);
+        SortedIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.STRING, ColumnType.INT32);
 
         var columnValues1 = new Object[] { "foo", 1 };
         var columnValues2 = new Object[] { "bar", 3 };
@@ -268,7 +256,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @RepeatedTest(5)
     void testCreateMultiColumnIndex() {
-        testPutGetRemove(shuffledDefinitions());
+        testPutGetRemove(shuffledColumnParams());
     }
 
     /**
@@ -276,7 +264,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @RepeatedTest(5)
     void testScan() {
-        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, shuffledDefinitions());
+        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, shuffledColumnParams());
 
         List<TestIndexRow> entries = IntStream.range(0, 10)
                 .mapToObj(i -> {
@@ -313,26 +301,25 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
     @Test
     public void testBoundsAndOrder() {
-        ColumnTypeSpec string = ColumnTypeSpec.STRING;
-        ColumnTypeSpec int32 = ColumnTypeSpec.INT32;
+        ColumnType string = ColumnType.STRING;
+        ColumnType int32 = ColumnType.INT32;
 
-        SortedIndexDefinition index1Definition = SchemaBuilders.sortedIndex("TEST_INDEX_1")
-                .addIndexColumn(string.name()).asc().done()
-                .addIndexColumn(int32.name()).asc().done()
-                .build();
+        SortedIndexStorage index1 = createIndexStorage(
+                "TEST_INDEX_1",
+                new CatalogIndexColumnDescriptor(columnName(string), ASC_NULLS_LAST),
+                new CatalogIndexColumnDescriptor(columnName(int32), ASC_NULLS_LAST)
+        );
 
-        SortedIndexDefinition index2Definition = SchemaBuilders.sortedIndex("TEST_INDEX_2")
-                .addIndexColumn(string.name()).asc().done()
-                .addIndexColumn(int32.name()).desc().done()
-                .build();
+        SortedIndexStorage index2 = createIndexStorage(
+                "TEST_INDEX_2",
+                new CatalogIndexColumnDescriptor(columnName(string), ASC_NULLS_LAST),
+                new CatalogIndexColumnDescriptor(columnName(int32), DESC_NULLS_LAST)
+        );
 
-        SortedIndexStorage index1 = createIndexStorage(index1Definition);
-        SortedIndexStorage index2 = createIndexStorage(index2Definition);
-
-        Object[] val1090 = { "10", 90 };
-        Object[] val1080 = { "10", 80 };
-        Object[] val2090 = { "20", 90 };
-        Object[] val2080 = { "20", 80 };
+        Object[] val1090 = {"10", 90};
+        Object[] val1080 = {"10", 80};
+        Object[] val2090 = {"20", 90};
+        Object[] val2080 = {"20", 80};
 
         for (SortedIndexStorage index : Arrays.asList(index1, index2)) {
             var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
@@ -404,7 +391,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @Test
     void testEmptyRange() {
-        List<ColumnDefinition> indexSchema = shuffledRandomDefinitions();
+        List<ColumnParams> indexSchema = shuffledRandomColumnParams();
 
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
 
@@ -426,9 +413,9 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     }
 
     @ParameterizedTest
-    @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
-    void testNullValues(ColumnDefinition columnDefinition) {
-        SortedIndexStorage storage = createIndexStorage(INDEX_NAME, List.of(columnDefinition));
+    @VariableSource("ALL_TYPES_COLUMN_PARAMS")
+    void testNullValues(ColumnParams columnParams) {
+        SortedIndexStorage storage = createIndexStorage(INDEX_NAME, List.of(columnParams));
 
         TestIndexRow entry1 = TestIndexRow.randomRow(storage);
 
@@ -1352,29 +1339,29 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         assertThrows(NoSuchElementException.class, scan::next);
     }
 
-    private List<ColumnDefinition> shuffledRandomDefinitions() {
-        return shuffledDefinitions(d -> random.nextBoolean());
+    private List<ColumnParams> shuffledRandomColumnParams() {
+        return shuffledColumnParams(d -> random.nextBoolean());
     }
 
-    private List<ColumnDefinition> shuffledDefinitions() {
-        return shuffledDefinitions(d -> true);
+    private List<ColumnParams> shuffledColumnParams() {
+        return shuffledColumnParams(d -> true);
     }
 
-    private List<ColumnDefinition> shuffledDefinitions(Predicate<ColumnDefinition> filter) {
-        List<ColumnDefinition> shuffledDefinitions = ALL_TYPES_COLUMN_DEFINITIONS.stream()
+    private List<ColumnParams> shuffledColumnParams(Predicate<ColumnParams> filter) {
+        List<ColumnParams> shuffledDefinitions = ALL_TYPES_COLUMN_PARAMS.stream()
                 .filter(filter)
                 .collect(toList());
 
         if (shuffledDefinitions.isEmpty()) {
-            shuffledDefinitions = new ArrayList<>(ALL_TYPES_COLUMN_DEFINITIONS);
+            shuffledDefinitions = new ArrayList<>(ALL_TYPES_COLUMN_PARAMS);
         }
 
         Collections.shuffle(shuffledDefinitions, random);
 
-        if (log.isInfoEnabled()) {
-            List<String> columnNames = shuffledDefinitions.stream().map(ColumnDefinition::name).collect(toList());
+        if (LOG.isInfoEnabled()) {
+            List<String> columnNames = shuffledDefinitions.stream().map(ColumnParams::name).collect(toList());
 
-            log.info("Creating index with the following column order: " + columnNames);
+            LOG.info("Creating index with the following column order: " + columnNames);
         }
 
         return shuffledDefinitions;
@@ -1384,7 +1371,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * Tests the Get-Put-Remove scenario: inserts some keys into the storage and checks that they have been successfully persisted and can
      * be removed.
      */
-    private void testPutGetRemove(List<ColumnDefinition> indexSchema) {
+    private void testPutGetRemove(List<ColumnParams> indexSchema) {
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
 
         TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);

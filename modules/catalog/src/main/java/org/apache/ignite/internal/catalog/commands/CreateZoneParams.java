@@ -17,175 +17,52 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * CREATE ZONE statement.
- */
-public class CreateZoneParams extends AbstractZoneCommandParams {
+/** CREATE ZONE statement. */
+public class CreateZoneParams extends AbstractUpdateZoneCommandParams {
+    /** Constructor. */
+    private CreateZoneParams(
+            String zoneName,
+            @Nullable Integer partitions,
+            @Nullable Integer replicas,
+            @Nullable Integer dataNodesAutoAdjust,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            @Nullable DataStorageParams dataStorage
+    ) {
+        super(
+                zoneName,
+                partitions,
+                replicas,
+                dataNodesAutoAdjust,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                dataStorage
+        );
+    }
+
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Default number of zone partitions. */
-    public static final int DEFAULT_PARTITION_COUNT = 25;
-    /** Default number of zone replicas. */
-    public static final int DEFAULT_REPLICA_COUNT = 1;
-    /** Default infinite value for the distribution zones' timers. */
-    public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
-
-    /** Amount of zone partitions. */
-    private int partitions = DEFAULT_PARTITION_COUNT;
-
-    /** Amount of zone partition replicas. */
-    private int replicas = DEFAULT_REPLICA_COUNT;
-
-    /** Data nodes auto adjust timeout. */
-    private int dataNodesAutoAdjust = INFINITE_TIMER_VALUE;
-
-    /** Data nodes auto adjust scale up timeout. */
-    private int dataNodesAutoAdjustScaleUp = INFINITE_TIMER_VALUE;
-
-    /** Data nodes auto adjust scale down timeout. */
-    private int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
-
-    /**
-     * Default filter value for a distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes
-     * of nodes.
-     */
-    public static final String DEFAULT_FILTER = "$.+";
-    /** Nodes' filter. */
-    protected String filter = DEFAULT_FILTER;
-
-    /**
-     * Returns amount of zone partitions.
-     */
-    public int partitions() {
-        return partitions;
-    }
-
-    /**
-     * Return amount of zone replicas.
-     */
-    public int replicas() {
-        return replicas;
-    }
-
-    /**
-     * Gets timeout in seconds between node added or node left topology event itself and data nodes switch.
-     *
-     * @return Data nodes auto adjust timeout.
-     */
-    public int dataNodesAutoAdjust() {
-        return dataNodesAutoAdjust;
-    }
-
-    /**
-     * Gets timeout in seconds between node added topology event itself and data nodes switch.
-     *
-     * @return Data nodes auto adjust scale up timeout.
-     */
-    public int dataNodesAutoAdjustScaleUp() {
-        return dataNodesAutoAdjustScaleUp;
-    }
-
-    /**
-     * Gets timeout in seconds between node left topology event itself and data nodes switch.
-     *
-     * @return Data nodes auto adjust scale down timeout.
-     */
-    public int dataNodesAutoAdjustScaleDown() {
-        return dataNodesAutoAdjustScaleDown;
-    }
-
-    /**
-     * Gets nodes' filter.
-     *
-     * @return Nodes' filter.
-     */
-    public String filter() {
-        return filter;
-    }
-
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<CreateZoneParams, Builder> {
-        Builder() {
-            super(new CreateZoneParams());
-        }
-
-
-        /**
-         * Sets amount of zone partitions.
-         *
-         * @param partitions Amount of partitions.
-         */
-        public Builder partitions(@Nullable Integer partitions) {
-            params.partitions = Objects.requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT);
-
-            return this;
-        }
-
-        /**
-         * Sets amount of zone replicas.
-         *
-         * @param replicas Amount of replicas.
-         */
-        public Builder replicas(@Nullable Integer replicas) {
-            params.replicas = Objects.requireNonNullElse(replicas, DEFAULT_REPLICA_COUNT);
-
-            return this;
-        }
-
-        /**
-         * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
-         *
-         * @param dataNodesAutoAdjust Timeout.
-         * @return This instance.
-         */
-        public Builder dataNodesAutoAdjust(@Nullable Integer dataNodesAutoAdjust) {
-            params.dataNodesAutoAdjust = Objects.requireNonNullElse(dataNodesAutoAdjust, INFINITE_TIMER_VALUE);
-
-            return this;
-        }
-
-        /**
-         * Sets timeout in seconds between node added topology event itself and data nodes switch.
-         *
-         * @param dataNodesAutoAdjustScaleUp Timeout.
-         * @return This instance.
-         */
-        public Builder dataNodesAutoAdjustScaleUp(@Nullable Integer dataNodesAutoAdjustScaleUp) {
-            params.dataNodesAutoAdjustScaleUp = Objects.requireNonNullElse(dataNodesAutoAdjustScaleUp, INFINITE_TIMER_VALUE);
-
-            return this;
-        }
-
-        /**
-         * Sets timeout in seconds between node left topology event itself and data nodes switch.
-         *
-         * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
-         * @return This instance.
-         */
-        public Builder dataNodesAutoAdjustScaleDown(@Nullable Integer dataNodesAutoAdjustScaleDown) {
-            params.dataNodesAutoAdjustScaleDown = Objects.requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE);
-
-            return this;
-        }
-
-        /**
-         * Sets nodes' filter.
-         *
-         * @param filter Nodes' filter.
-         * @return This instance.
-         */
-        public Builder filter(@Nullable String filter) {
-            params.filter = Objects.requireNonNullElse(filter, DEFAULT_FILTER);
-
-            return this;
+    /** Parameters builder. */
+    public static class Builder extends AbstractUpdateZoneBuilder<CreateZoneParams, Builder> {
+        @Override
+        protected CreateZoneParams createParams() {
+            return new CreateZoneParams(
+                    zoneName,
+                    partitions,
+                    replicas,
+                    dataNodesAutoAdjust,
+                    dataNodesAutoAdjustScaleUp,
+                    dataNodesAutoAdjustScaleDown,
+                    filter,
+                    dataStorage
+            );
         }
     }
 }

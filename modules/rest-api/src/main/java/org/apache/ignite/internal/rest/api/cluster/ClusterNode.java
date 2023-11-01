@@ -35,7 +35,6 @@ public class ClusterNode {
     @Schema(description = "Unique cluster name.")
     private final String name;
 
-    /** Network address of this node. */
     @Schema(description = "Cluster network address information.")
     private final NetworkAddress address;
 

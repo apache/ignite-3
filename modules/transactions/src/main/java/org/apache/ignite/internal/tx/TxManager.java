@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -38,45 +38,41 @@ public interface TxManager extends IgniteComponent {
     /**
      * Starts a read-write transaction coordinated by a local node.
      *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
      * @return The transaction.
      */
-    InternalTransaction begin();
+    InternalTransaction begin(HybridTimestampTracker timestampTracker);
 
     /**
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
+     *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
-     * @param observableTimestamp Observable timestamp, applicable only for read-only transactions. Read-only transactions
-     *      can use some time to the past to avoid waiting for time that is safe for reading on non-primary replica. To do so, client
-     *      should provide this observable timestamp that is calculated according to the commit time of the latest read-write transaction,
-     *      to guarantee that read-only transaction will see the modified data.
+     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The started transaction.
-     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data available
-     *      in the tables.
+     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data
+     *         available in the tables.
      */
-    InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp);
+    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
 
     /**
-     * Returns a transaction state.
+     * Returns a transaction state meta.
      *
      * @param txId Transaction id.
-     * @return The state or null if the state is unknown.
+     * @return The state meta or null if the state is unknown.
      */
-    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-    @Deprecated
-    @Nullable TxState state(UUID txId);
+    @Nullable TxStateMeta stateMeta(UUID txId);
 
     /**
-     * Atomically changes the state of a transaction.
+     * Atomically changes the state meta of a transaction.
      *
      * @param txId Transaction id.
-     * @param before Before state.
-     * @param after After state.
+     * @param updater Transaction meta updater.
      */
-    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-    @Deprecated
-    void changeState(UUID txId, @Nullable TxState before, TxState after);
+    void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater);
 
     /**
      * Returns lock manager.
@@ -88,37 +84,67 @@ public interface TxManager extends IgniteComponent {
     public LockManager lockManager();
 
     /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param runnable Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
+
+    /**
+     * Execute transaction cleanup asynchronously.
+     *
+     * @param action Cleanup action.
+     * @return Future that completes once the cleanup action finishes.
+     */
+    CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action);
+
+    /**
+     * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
+     *
+     * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
+     *         updated with commit timestamp of every committed transaction.
+     * @param txId Transaction id.
+     * @param commit {@code True} if a commit requested.
+     */
+    void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit);
+
+    /**
      * Finishes a dependant transactions.
      *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
+     *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state.
      * @param recipientNode Recipient node.
      * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups with raft terms.
+     * @param enlistedGroups Enlisted partition groups with consistency token.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
+            HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
             boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     );
 
     /**
      * Sends cleanup request to the specified primary replica.
      *
-     * @param recipientNode Primary replica to process given cleanup request.
-     * @param tablePartitionIds Table partition ids with raft terms.
+     * @param primaryConsistentId  A consistent id of the primary replica node.
+     * @param tablePartitionId Table partition id.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            ClusterNode recipientNode,
-            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+            String primaryConsistentId,
+            TablePartitionId tablePartitionId,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -149,4 +175,19 @@ public interface TxManager extends IgniteComponent {
      * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
      */
     CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
+
+    /**
+     * Registers the infligh update for a transaction.
+     *
+     * @param txId The transaction id.
+     * @return {@code True} if the inflight was registered. The update must be failed on false.
+     */
+    boolean addInflight(UUID txId);
+
+    /**
+     * Unregisters the inflight for a transaction.
+     *
+     * @param txId The transction id
+     */
+    void removeInflight(UUID txId);
 }

@@ -32,13 +32,14 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.UpdateDistributedConfigurationAction;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class DistributedConfigurationUpdaterTest {
+class DistributedConfigurationUpdaterTest extends BaseIgniteAbstractTest {
 
     @Mock
     public ConfigurationPresentation<String> presentation;
@@ -53,7 +54,7 @@ class DistributedConfigurationUpdaterTest {
         when(presentation.update(anyString())).thenReturn(completedFuture(null));
 
         CompletableFuture<Void> nextAction = new CompletableFuture<>();
-        String configuration = "security.authentication.enabled:true";
+        String configuration = "security.enabled:true";
         UpdateDistributedConfigurationAction updateDistributedConfigurationAction =
                 new UpdateDistributedConfigurationAction(
                         configuration,

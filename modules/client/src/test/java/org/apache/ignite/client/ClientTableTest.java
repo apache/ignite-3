@@ -111,25 +111,23 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     @Test
     public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() throws Exception {
-        FakeSchemaRegistry.setLastVer(2);
-
-        var table = defaultTable();
-        var recView = table.recordView();
-        Tuple tuple = tuple();
-        recView.upsert(null, tuple);
-
-        FakeSchemaRegistry.setLastVer(1);
+        var embeddedView = defaultTable().recordView();
 
         try (var client2 = startClient()) {
-            RecordView<Tuple> table2 = client2.tables().table(table.name()).recordView();
-            var resTuple = table2.get(null, tuple);
+            // Upsert from client, which will cache schema version 1.
+            FakeSchemaRegistry.setLastVer(1);
+            RecordView<Tuple> clientView = client2.tables().table(DEFAULT_TABLE).recordView();
+            clientView.upsert(null, tuple(-1L));
 
-            assertEquals(2, tuple.columnCount());
+            // Upsert from server with schema version 2.
+            FakeSchemaRegistry.setLastVer(2);
+            embeddedView.upsert(null, tuple());
+
+            // Get from client, which should force schema update and retry.
+            var resTuple = clientView.get(null, defaultTupleKey());
+
             assertEquals(3, resTuple.columnCount());
-
-            assertEquals(-1, tuple.columnIndex("XYZ"));
             assertEquals(2, resTuple.columnIndex("XYZ"));
-
             assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
             assertEquals(DEFAULT_ID, resTuple.longValue("id"));
         }
@@ -410,9 +408,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         var tuple = Tuple.create().set("id", "str");
 
         var ex = assertThrows(IgniteException.class, () -> defaultTable().recordView().upsert(null, tuple));
-
-        String expectedErr = "Incorrect value type for column 'ID': class java.lang.String cannot be cast to class java.lang.Long";
-        assertThat(ex.getMessage(), containsString(expectedErr));
+        assertEquals("Column's type mismatch [column=ID, expectedType=INT64, actualType=class java.lang.String]", ex.getMessage());
     }
 
     @Test

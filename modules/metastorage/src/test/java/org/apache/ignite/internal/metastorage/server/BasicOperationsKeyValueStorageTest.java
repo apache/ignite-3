@@ -52,6 +52,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -1346,7 +1346,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(2, storage.updateCounter());
 
         boolean branch = invokeOnMs(
-                new TombstoneCondition(key1),
+                new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, key1),
                 List.of(put(new ByteArray(key2), val2)),
                 List.of(put(new ByteArray(key3), val3))
         );
@@ -1398,7 +1398,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
-                new TombstoneCondition(key1),
+                new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, key1),
                 List.of(put(new ByteArray(key2), val2)),
                 List.of(put(new ByteArray(key3), val3))
         );
@@ -1422,6 +1422,111 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e3.tombstone());
         assertEquals(2, e3.revision());
         assertEquals(2, e3.updateCounter());
+        assertArrayEquals(val3, e3.value());
+
+        // "Success" branch isn't applied.
+        Entry e2 = storage.get(key2);
+
+        assertTrue(e2.empty());
+    }
+
+    @Test
+    public void invokeWithNotTombstoneCondition_successBranch() {
+        byte[] key1 = key(1);
+        byte[] val11 = keyValue(1, 11);
+
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
+
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        putToMs(key1, val11);
+
+        assertEquals(1, storage.revision());
+        assertEquals(1, storage.updateCounter());
+
+        boolean branch = invokeOnMs(
+                new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, key1),
+                List.of(put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
+        );
+
+        // "Success" branch is applied.
+        assertTrue(branch);
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+
+        Entry e1 = storage.get(key1);
+
+        assertFalse(e1.empty());
+        assertFalse(e1.tombstone());
+        assertEquals(1, e1.revision());
+        assertEquals(1, e1.updateCounter());
+        assertArrayEquals(val11, e1.value());
+
+        Entry e2 = storage.get(key2);
+
+        assertFalse(e2.empty());
+        assertFalse(e2.tombstone());
+        assertEquals(2, e2.revision());
+        assertEquals(2, e2.updateCounter());
+        assertArrayEquals(val2, e2.value());
+
+        // "Failure" branch isn't applied.
+        Entry e3 = storage.get(key3);
+
+        assertTrue(e3.empty());
+    }
+
+    @Test
+    public void invokeWithNotTombstoneCondition_failureBranch() {
+        byte[] key1 = key(1);
+        byte[] val11 = keyValue(1, 11);
+
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
+
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        putToMs(key1, val11);
+        removeFromMs(key1); // Should be tombstone after remove.
+
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+
+        boolean branch = invokeOnMs(
+                new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, key1),
+                List.of(put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
+        );
+
+        // "Failure" branch is applied.
+        assertFalse(branch);
+        assertEquals(3, storage.revision());
+        assertEquals(3, storage.updateCounter());
+
+        Entry e1 = storage.get(key1);
+
+        assertFalse(e1.empty());
+        assertTrue(e1.tombstone());
+        assertEquals(2, e1.revision());
+        assertEquals(2, e1.updateCounter());
+        assertNull(e1.value());
+
+        Entry e3 = storage.get(key3);
+
+        assertFalse(e3.empty());
+        assertFalse(e3.tombstone());
+        assertEquals(3, e3.revision());
+        assertEquals(3, e3.updateCounter());
         assertArrayEquals(val3, e3.value());
 
         // "Success" branch isn't applied.
@@ -1969,7 +2074,17 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         long appliedRevision = storage.revision();
 
-        storage.startWatches(1, (event, ts) -> completedFuture(null));
+        storage.startWatches(1, new OnRevisionAppliedCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                // No-op.
+            }
+
+            @Override
+            public CompletableFuture<Void> onRevisionApplied(WatchEvent event) {
+                return completedFuture(null);
+            }
+        });
 
         CompletableFuture<byte[]> fut = new CompletableFuture<>();
 
@@ -2308,7 +2423,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
 
-        when(mockCallback.onRevisionApplied(any(), any())).thenReturn(completedFuture(null));
+        when(mockCallback.onRevisionApplied(any())).thenReturn(completedFuture(null));
 
         storage.startWatches(1, mockCallback);
 
@@ -2320,7 +2435,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         verify(mockListener3, timeout(10_000)).onUpdate(any());
 
-        verify(mockCallback, never()).onRevisionApplied(any(), any());
+        verify(mockCallback, never()).onRevisionApplied(any());
     }
 
     @Test
@@ -2505,7 +2620,17 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
         });
 
-        storage.startWatches(1, (event, ts) -> completedFuture(null));
+        storage.startWatches(1, new OnRevisionAppliedCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                // No-op.
+            }
+
+            @Override
+            public CompletableFuture<Void> onRevisionApplied(WatchEvent event) {
+                return completedFuture(null);
+            }
+        });
 
         return resultFuture;
     }

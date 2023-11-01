@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
+import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
 
-import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -46,6 +52,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -69,6 +76,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private static final int MAX_TX_DATA_BATCH_SIZE = 1000;
 
+    /** Number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
+    private static final int WAIT_FOR_METADATA_CATCHUP_MS = 3000;
+
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
     private final SnapshotUri snapshotUri;
@@ -88,7 +98,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private volatile SnapshotMeta snapshotMeta;
 
     @Nullable
-    private volatile CompletableFuture<?> rebalanceFuture;
+    private volatile CompletableFuture<Boolean> metadataSufficiencyFuture;
+
+    @Nullable
+    private volatile CompletableFuture<Void> rebalanceFuture;
 
     /**
      * Future is to wait in {@link #join()} because it is important for us to wait for the rebalance to finish or abort.
@@ -113,20 +126,57 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         LOG.info("Copier is started for the partition [{}]", createPartitionInfo());
 
-        rebalanceFuture = partitionSnapshotStorage.partition().startRebalance()
-                .thenCompose(unused -> {
-                    ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
+        ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
 
-                    if (snapshotSender == null) {
-                        throw new StorageRebalanceException("Snapshot sender not found: " + snapshotUri.nodeName);
-                    }
+        metadataSufficiencyFuture = snapshotSender == null
+                ? failedFuture(new StorageRebalanceException("Snapshot sender not found: " + snapshotUri.nodeName))
+                : loadSnapshotMeta(snapshotSender)
+                        // Give metadata some time to catch up as it's very probable that the leader is ahead metadata-wise.
+                        .thenCompose(unused -> waitForMetadataWithTimeout())
+                        .thenApply(unused -> metadataIsSufficientlyComplete())
+                ;
 
-                    return loadSnapshotMeta(snapshotSender)
-                            .thenCompose(unused1 -> loadSnapshotMvData(snapshotSender, executor))
-                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+        rebalanceFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
+            if (metadataSufficient) {
+                return partitionSnapshotStorage.partition().startRebalance()
+                        .thenCompose(unused -> {
+                            assert snapshotSender != null;
+
+                            return loadSnapshotMvData(snapshotSender, executor)
+                                    .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+                        });
+            } else {
+                logMetadataInsufficiencyAndSetError();
+
+                return completedFuture(null);
+            }
+        });
+
+        joinFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
+            if (metadataSufficient) {
+                return rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
+            } else {
+                return completedFuture(null);
+            }
+        });
+    }
+
+    private CompletableFuture<?> waitForMetadataWithTimeout() {
+        CompletableFuture<?> metadataReadyFuture = partitionSnapshotStorage.catalogService()
+                .catalogReadyFuture(snapshotMeta.requiredCatalogVersion());
+        CompletableFuture<?> readinessTimeoutFuture = completeOnMetadataReadinessTimeout();
+
+        return anyOf(metadataReadyFuture, readinessTimeoutFuture);
+    }
+
+    private static CompletableFuture<?> completeOnMetadataReadinessTimeout() {
+        return new CompletableFuture<>()
+                .orTimeout(WAIT_FOR_METADATA_CATCHUP_MS, TimeUnit.MILLISECONDS)
+                .exceptionally(ex -> {
+                    assert (ex instanceof TimeoutException);
+
+                    return null;
                 });
-
-        joinFuture = rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
     }
 
     @Override
@@ -141,14 +191,16 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             } catch (ExecutionException e) {
                 Throwable cause = e.getCause();
 
-                LOG.error("Error when completing the copier", cause);
+                if (!(cause instanceof CancellationException)) {
+                    LOG.error("Error when completing the copier", cause);
 
-                if (!isOk()) {
-                    setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
+                    if (isOk()) {
+                        setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
+                    }
+
+                    // By analogy with LocalSnapshotCopier#join.
+                    throw new IllegalStateException(cause);
                 }
-
-                // By analogy with LocalSnapshotCopier#join.
-                throw new IllegalStateException(cause);
             }
         }
     }
@@ -164,11 +216,14 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         LOG.info("Copier is canceled for partition [{}]", createPartitionInfo());
 
-        CompletableFuture<?> fut = rebalanceFuture;
+        // Cancel all futures that might be upstream wrt joinFuture.
+        List<CompletableFuture<?>> futuresToCancel = Stream.of(metadataSufficiencyFuture, rebalanceFuture)
+                .filter(Objects::nonNull)
+                .collect(toList());
 
-        if (fut != null) {
-            fut.cancel(false);
+        futuresToCancel.forEach(future -> future.cancel(false));
 
+        if (!futuresToCancel.isEmpty()) {
             try {
                 // Because after the cancellation, no one waits for #join.
                 join();
@@ -213,6 +268,28 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             });
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private boolean metadataIsSufficientlyComplete() {
+        return isMetadataAvailableFor(snapshotMeta.requiredCatalogVersion(), partitionSnapshotStorage.catalogService());
+    }
+
+    private void logMetadataInsufficiencyAndSetError() {
+        LOG.warn(
+                "Metadata not yet available, rejecting snapshot installation [uri={}, requiredVersion={}].",
+                this.snapshotUri,
+                snapshotMeta.requiredCatalogVersion()
+        );
+
+        String errorMessage = String.format(
+                "Metadata not yet available, URI '%s', required level %s; rejecting snapshot installation.",
+                this.snapshotUri,
+                snapshotMeta.requiredCatalogVersion()
+        );
+
+        if (isOk()) {
+            setError(RaftError.EBUSY, errorMessage);
         }
     }
 
@@ -277,7 +354,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Requests and stores data into {@link TxStateStorage}.
      */
-    private CompletableFuture<?> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
+    private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
         if (!busyLock.enterBusy()) {
             return completedFuture(null);
         }
@@ -341,7 +418,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     private CompletableFuture<Void> completeRebalance(@Nullable Throwable throwable) {
         if (!busyLock.enterBusy()) {
-            if (!isOk()) {
+            if (isOk()) {
                 setError(RaftError.ECANCELED, "Copier is cancelled");
             }
 
@@ -352,7 +429,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             if (throwable != null) {
                 LOG.error("Partition rebalancing error [{}]", throwable, createPartitionInfo());
 
-                if (!isOk()) {
+                if (isOk()) {
                     setError(RaftError.UNKNOWN, throwable.getMessage());
                 }
 
@@ -393,9 +470,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private void writeVersion(ResponseEntry entry, int i) {
         RowId rowId = new RowId(partId(), entry.rowId());
 
-        ByteBuffer rowVersion = entry.rowVersions().get(i);
+        BinaryRowMessage rowVersion = entry.rowVersions().get(i);
 
-        BinaryRow binaryRow = rowVersion == null ? null : new ByteBufferRow(rowVersion.rewind());
+        BinaryRow binaryRow = rowVersion == null ? null : rowVersion.asBinaryRow();
 
         PartitionAccess partition = partitionSnapshotStorage.partition();
 

@@ -35,7 +35,15 @@ import org.jetbrains.annotations.Nullable;
 public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -2021394971104316570L;
 
+    public static final int INITIAL_TABLE_VERSION = 1;
+
     private final int zoneId;
+
+    private final int schemaId;
+
+    private final int pkIndexId;
+
+    private final int tableVersion;
 
     private final List<CatalogTableColumnDescriptor> columns;
     private final List<String> primaryKeyColumns;
@@ -48,23 +56,32 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * Constructor.
      *
      * @param id Table id.
+     * @param pkIndexId Primary key index id.
      * @param name Table name.
      * @param zoneId Distribution zone ID.
+     * @param tableVersion Version of the table.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
      * @param colocationCols Colocation column names.
      */
     public CatalogTableDescriptor(
             int id,
+            int schemaId,
+            int pkIndexId,
             String name,
             int zoneId,
+            int tableVersion,
             List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
-            @Nullable List<String> colocationCols
+            @Nullable List<String> colocationCols,
+            long causalityToken
     ) {
-        super(id, Type.TABLE, name);
+        super(id, Type.TABLE, name, causalityToken);
 
+        this.schemaId = schemaId;
+        this.pkIndexId = pkIndexId;
         this.zoneId = zoneId;
+        this.tableVersion = tableVersion;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
         primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
         colocationColumns = colocationCols == null ? pkCols : colocationCols;
@@ -85,8 +102,20 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return columnsMap.get(columnName);
     }
 
+    public int schemaId() {
+        return schemaId;
+    }
+
     public int zoneId() {
         return zoneId;
+    }
+
+    public int primaryKeyIndexId() {
+        return pkIndexId;
+    }
+
+    public int tableVersion() {
+        return tableVersion;
     }
 
     public List<String> primaryKeyColumns() {

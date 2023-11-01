@@ -17,61 +17,55 @@
 
 package org.apache.ignite.internal.schema;
 
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.causality.CompletionListener;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.schema.configuration.ColumnView;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.event.SchemaEvent;
-import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The class services a management of table schemas.
+ * This class services management of table schemas.
  */
-public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
-    private static final IgniteLogger LOGGER = Loggers.forClass(SchemaManager.class);
-
-    /** Initial version for schemas. */
-    public static final int INITIAL_SCHEMA_VERSION = 1;
-
+public class SchemaManager implements IgniteComponent {
     /** Schema history key predicate part. */
     private static final String SCHEMA_STORE_PREFIX = ".sch-hist.";
+    private static final String LATEST_SCHEMA_VERSION_STORE_SUFFIX = ".sch-hist-latest";
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -79,10 +73,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Tables configuration. */
-    private final TablesConfiguration tablesCfg;
+    private final CatalogService catalogService;
 
-    /** Versioned store for tables by name. */
+    /** Versioned store for tables by ID. */
     private final IncrementalVersionedValue<Map<Integer, SchemaRegistryImpl>> registriesVv;
 
     /** Meta storage manager. */
@@ -91,49 +84,79 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** Constructor. */
     public SchemaManager(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
-            TablesConfiguration tablesCfg,
+            CatalogService catalogService,
             MetaStorageManager metastorageMgr
     ) {
         this.registriesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
-        this.tablesCfg = tablesCfg;
+        this.catalogService = catalogService;
         this.metastorageMgr = metastorageMgr;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
-        tablesCfg.tables().any().columns().listen(this::onSchemaChange);
+        catalogService.listen(CatalogEvent.TABLE_CREATE, this::onTableCreated);
+        catalogService.listen(CatalogEvent.TABLE_ALTER, this::onTableAltered);
+
+        registerExistingTables();
     }
 
-    /**
-     * Listener of schema configuration changes.
-     *
-     * @param ctx Configuration context.
-     * @return A future.
-     */
-    private CompletableFuture<?> onSchemaChange(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
+    private void registerExistingTables() {
+        // TODO: IGNITE-20051 - add proper recovery (consider tables that are removed now; take token and catalog version
+        // exactly matching the tables).
+
+        long causalityToken = metastorageMgr.appliedRevision();
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
+            onTableCreated(new CreateTableEventParameters(causalityToken, catalogVersion, tableDescriptor), null);
+        }
+
+        registriesVv.complete(causalityToken);
+    }
+
+    private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
+        if (ex != null) {
+            return failedFuture(ex);
+        }
+
+        CreateTableEventParameters creationEvent = (CreateTableEventParameters) event;
+
+        return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken());
+    }
+
+    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
+        if (ex != null) {
+            return failedFuture(ex);
+        }
+
+        assert event instanceof TableEventParameters;
+
+        TableEventParameters tableEvent = ((TableEventParameters) event);
+
+        CatalogTableDescriptor tableDescriptor = catalogService.table(tableEvent.tableId(), tableEvent.catalogVersion());
+
+        assert tableDescriptor != null;
+
+        return onTableCreatedOrAltered(tableDescriptor, event.causalityToken());
+    }
+
+    private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
         if (!busyLock.enterBusy()) {
-            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
-            ExtendedTableView tblCfg = ctx.newValue(ExtendedTableView.class);
+            int tableId = tableDescriptor.id();
+            int newSchemaVersion = tableDescriptor.tableVersion();
 
-            int newSchemaVersion = tblCfg.schemaId();
-
-            int tblId = tblCfg.id();
-
-            if (searchSchemaByVersion(tblId, newSchemaVersion) != null) {
-                return completedFuture(null);
+            if (searchSchemaByVersion(tableId, newSchemaVersion) != null) {
+                return completedFuture(false);
             }
 
-            SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(newSchemaVersion, tblCfg);
+            SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(tableDescriptor);
 
-            // This is intentionally a blocking call to enforce configuration listener execution order. Unfortunately it is not possible
-            // to execute this method asynchronously, because the schema descriptor is needed to fire the CREATE event as a synchronous part
-            // of the configuration listener.
             try {
-                setColumnMapping(newSchema, tblId);
+                setColumnMapping(newSchema, tableId);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
 
@@ -142,34 +165,23 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 return failedFuture(e);
             }
 
-            long causalityToken = ctx.storageRevision();
-
-            // Fire event early, because dependent listeners have to register VersionedValues' update futures
-            var eventParams = new SchemaEventParameters(causalityToken, tblId, newSchema);
-
-            fireEvent(SchemaEvent.CREATE, eventParams)
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            LOGGER.warn("Error when processing CREATE event", e);
-                        }
-                    });
-
             return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
-                            "Cannot create a schema for the table [tblId={}, ver={}]", tblId, newSchemaVersion), e)
+                            "Cannot create a schema for the table [tblId={}, ver={}]", tableId, newSchemaVersion), e)
                     );
                 }
 
-                return registerSchema(registries, tblId, tblCfg.name(), newSchema);
-            }));
+                return saveSchemaDescriptor(tableId, newSchema)
+                        .thenApply(t -> registerSchema(registries, tableId, newSchema));
+            })).thenApply(ignored -> false);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     private void setColumnMapping(SchemaDescriptor schema, int tableId) throws ExecutionException, InterruptedException {
-        if (schema.version() == INITIAL_SCHEMA_VERSION) {
+        if (schema.version() == CatalogTableDescriptor.INITIAL_TABLE_VERSION) {
             return;
         }
 
@@ -178,133 +190,96 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         SchemaDescriptor prevSchema = searchSchemaByVersion(tableId, prevVersion);
 
         if (prevSchema == null) {
-            // This is intentionally a blocking call, because this method is used in a synchronous part of the configuration listener.
-            // See the call site for more details.
-            prevSchema = schemaByVersion(tableId, prevVersion).get();
+            prevSchema = loadSchemaDescriptor(tableId, prevVersion);
         }
 
         schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
     }
 
     /**
-     * Registers the new schema in a Schema Registry.
+     * Loads the table schema descriptor by version from local Metastore storage.
+     * If called with a schema version for which the schema is not yet saved to the Metastore, an exception
+     * will be thrown.
      *
-     * @param registries Map of schema registries.
-     * @param tableId Table id.
-     * @param tableName Table name.
-     * @param schema Schema descriptor.
-     * @return Future that, when complete, will resolve into an updated map of schema registries
-     *     (to be used in {@link IncrementalVersionedValue#update}).
+     * @param tblId Table id.
+     * @param ver Schema version (must not be higher than the latest version saved to the  Metastore).
+     * @return Schema representation.
      */
-    private CompletableFuture<Map<Integer, SchemaRegistryImpl>> registerSchema(
-            Map<Integer, SchemaRegistryImpl> registries,
-            int tableId,
-            String tableName,
-            SchemaDescriptor schema
-    ) {
-        ByteArray key = schemaWithVerHistKey(tableId, schema.version());
+    private SchemaDescriptor loadSchemaDescriptor(int tblId, int ver) {
+        Entry entry = metastorageMgr.getLocally(schemaWithVerHistKey(tblId, ver), Long.MAX_VALUE);
+
+        assert !entry.tombstone() : "Table " + tblId + ", version " + ver;
+
+        byte[] value = entry.value();
+
+        assert value != null;
+
+        return SchemaSerializerImpl.INSTANCE.deserialize(value);
+    }
+
+    /**
+     * Saves a schema in the MetaStorage.
+     *
+     * @param tableId Table id.
+     * @param schema Schema descriptor.
+     * @return Future that will be completed when the schema gets saved.
+     */
+    private CompletableFuture<Void> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
+        ByteArray schemaKey = schemaWithVerHistKey(tableId, schema.version());
+        ByteArray latestSchemaVersionKey = latestSchemaVersionKey(tableId);
 
         byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schema);
 
-        return metastorageMgr.invoke(notExists(key), put(key, serializedSchema), noop())
-                .thenApply(t -> {
-                    SchemaRegistryImpl reg = registries.get(tableId);
+        return metastorageMgr.invoke(
+                notExists(schemaKey),
+                List.of(
+                        put(schemaKey, serializedSchema),
+                        put(latestSchemaVersionKey, intToBytes(schema.version()))
+                ),
+                emptyList()
+        ).thenApply(unused -> null);
+    }
 
-                    if (reg == null) {
-                        Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
+    /**
+     * Registers the new schema in the registries.
+     *
+     * @param registries Registries before registering this schema.
+     * @param tableId ID of the table to which the schema belongs.
+     * @param schema The schema to register.
+     * @return Registries after registering this schema.
+     */
+    private Map<Integer, SchemaRegistryImpl> registerSchema(
+            Map<Integer, SchemaRegistryImpl> registries,
+            int tableId,
+            SchemaDescriptor schema
+    ) {
+        SchemaRegistryImpl reg = registries.get(tableId);
 
-                        copy.put(tableId, createSchemaRegistry(tableId, tableName, schema));
+        if (reg == null) {
+            Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
 
-                        return copy;
-                    } else {
-                        reg.onSchemaRegistered(schema);
+            copy.put(tableId, createSchemaRegistry(tableId, schema));
 
-                        return registries;
-                    }
-                });
+            return copy;
+        } else {
+            reg.onSchemaRegistered(schema);
+
+            return registries;
+        }
     }
 
     /**
      * Create schema registry for the table.
      *
      * @param tableId Table id.
-     * @param tableName Table name.
      * @param initialSchema Initial schema for the registry.
      * @return Schema registry.
      */
-    private SchemaRegistryImpl createSchemaRegistry(int tableId, String tableName, SchemaDescriptor initialSchema) {
+    private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
-                ver -> inBusyLock(busyLock, () -> tableSchema(tableId, tableName, ver)),
-                () -> inBusyLock(busyLock, () -> latestSchemaVersion(tableId)),
+                ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
                 initialSchema
         );
-    }
-
-    /**
-     * Return table schema of certain version from history.
-     *
-     * @param tblId Table id.
-     * @param schemaVer Schema version.
-     * @return Schema descriptor.
-     */
-    private CompletableFuture<SchemaDescriptor> tableSchema(int tblId, String tableName, int schemaVer) {
-        TableConfiguration tblCfg = tablesCfg.tables().get(tableName);
-
-        CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
-
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        if (registry.lastSchemaVersion() > schemaVer) {
-            return getSchemaDescriptor(schemaVer, tblCfg);
-        }
-
-        CompletionListener<Map<Integer, SchemaRegistryImpl>> schemaListener = (token, regs, e) -> {
-            if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
-                SchemaRegistry registry0 = registriesVv.latest().get(tblId);
-
-                SchemaDescriptor desc = registry0.schemaCached(schemaVer);
-
-                assert desc != null : "Unexpected empty schema description.";
-
-                fut.complete(desc);
-            }
-        };
-
-        registriesVv.whenComplete(schemaListener);
-
-        // This check is needed for the case when we have registered schemaListener,
-        // but registriesVv has already been completed, so listener would be triggered only for the next versioned value update.
-        if (checkSchemaVersion(tblId, schemaVer)) {
-            registriesVv.removeWhenComplete(schemaListener);
-
-            registry = registriesVv.latest().get(tblId);
-
-            SchemaDescriptor desc = registry.schemaCached(schemaVer);
-
-            assert desc != null : "Unexpected empty schema description.";
-
-            fut.complete(desc);
-        }
-
-        return fut.thenApply(res -> {
-            registriesVv.removeWhenComplete(schemaListener);
-            return res;
-        });
-    }
-
-    /**
-     * Checks that the provided schema version is less or equal than the latest version from the schema registry.
-     *
-     * @param tblId Unique table id.
-     * @param schemaVer Schema version for the table.
-     * @return True, if the schema version is less or equal than the latest version from the schema registry, false otherwise.
-     */
-    private boolean checkSchemaVersion(int tblId, int schemaVer) {
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
-
-        return schemaVer <= registry.lastSchemaVersion();
     }
 
     /**
@@ -317,24 +292,11 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private @Nullable SchemaDescriptor searchSchemaByVersion(int tblId, int schemaVer) {
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
-        if (registry != null && schemaVer <= registry.lastSchemaVersion()) {
+        if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
             return registry.schema(schemaVer);
         } else {
             return null;
         }
-    }
-
-    /**
-     * Gets a schema descriptor from the configuration storage.
-     *
-     * @param schemaVer Schema version.
-     * @param tblCfg Table configuration.
-     * @return Schema descriptor.
-     */
-    private CompletableFuture<SchemaDescriptor> getSchemaDescriptor(int schemaVer, TableConfiguration tblCfg) {
-        CompletableFuture<Entry> ent = metastorageMgr.get(schemaWithVerHistKey(tblCfg.id().value(), schemaVer));
-
-        return ent.thenApply(e -> SchemaSerializerImpl.INSTANCE.deserialize(e.value()));
     }
 
     /**
@@ -370,12 +332,18 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
-     * Drop schema registry for the given table id.
+     * Drops schema registry for the given table id (along with the corresponding schemas).
      *
      * @param causalityToken Causality token.
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistry(long causalityToken, int tableId) {
+        return removeRegistry(causalityToken, tableId).thenCompose(unused -> {
+            return destroySchemas(tableId);
+        });
+    }
+
+    private CompletableFuture<?> removeRegistry(long causalityToken, int tableId) {
         return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(
@@ -384,13 +352,30 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             Map<Integer, SchemaRegistryImpl> regs = new HashMap<>(registries);
 
-            regs.remove(tableId);
+            SchemaRegistryImpl removedRegistry = regs.remove(tableId);
+            removedRegistry.close();
 
             return completedFuture(regs);
         }));
     }
 
-    /** {@inheritDoc} */
+    private CompletableFuture<?> destroySchemas(int tableId) {
+        return latestSchemaVersion(tableId)
+                .thenCompose(latestVersion -> {
+                    if (latestVersion == null) {
+                        // Nothing to remove.
+                        return completedFuture(null);
+                    }
+
+                    Set<ByteArray> keysToRemove = IntStream.rangeClosed(CatalogTableDescriptor.INITIAL_TABLE_VERSION, latestVersion)
+                            .mapToObj(version -> schemaWithVerHistKey(tableId, version))
+                            .collect(toSet());
+                    keysToRemove.add(latestSchemaVersionKey(tableId));
+
+                    return metastorageMgr.removeAll(keysToRemove);
+                });
+    }
+
     @Override
     public void stop() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {
@@ -398,73 +383,26 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
 
         busyLock.block();
+
+        //noinspection ConstantConditions
+        IgniteUtils.closeAllManually(registriesVv.latest().values());
     }
 
     /**
-     * Gets the latest version of the table schema which available in Metastore.
+     * Gets the latest version of the table schema which is available in Metastore or {@code null} if nothing is available.
      *
-     * @param tblId Table id.
-     * @return The latest schema version.
+     * @param tableId Table id.
+     * @return The latest schema version or {@code null} if nothing is available.
      */
-    private CompletableFuture<Integer> latestSchemaVersion(int tblId) {
-        var latestVersionFuture = new CompletableFuture<Integer>();
-
-        metastorageMgr.prefix(schemaHistPrefix(tblId)).subscribe(new Subscriber<>() {
-            private int lastVer = INITIAL_SCHEMA_VERSION;
-
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                // Request unlimited demand.
-                subscription.request(Long.MAX_VALUE);
-            }
-
-            @Override
-            public void onNext(Entry item) {
-                String key = new String(item.key(), StandardCharsets.UTF_8);
-                int descVer = extractVerFromSchemaKey(key);
-
-                if (descVer > lastVer) {
-                    lastVer = descVer;
-                }
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                latestVersionFuture.completeExceptionally(throwable);
-            }
-
-            @Override
-            public void onComplete() {
-                latestVersionFuture.complete(lastVer);
-            }
-        });
-
-        return latestVersionFuture;
-    }
-
-    /**
-     * Gets the defined version of the table schema which available in Metastore.
-     *
-     * @param tblId Table id.
-     * @return Schema representation if schema found, {@code null} otherwise.
-     */
-    private CompletableFuture<SchemaDescriptor> schemaByVersion(int tblId, int ver) {
-        return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))
+    private CompletableFuture<Integer> latestSchemaVersion(int tableId) {
+        return metastorageMgr.get(latestSchemaVersionKey(tableId))
                 .thenApply(entry -> {
-                    byte[] value = entry.value();
-
-                    assert value != null;
-
-                    return SchemaSerializerImpl.INSTANCE.deserialize(value);
+                    if (entry == null || entry.value() == null) {
+                        return null;
+                    } else {
+                        return ByteUtils.bytesToInt(entry.value());
+                    }
                 });
-    }
-
-    private int extractVerFromSchemaKey(String key) {
-        int pos = key.lastIndexOf('.');
-        assert pos != -1 : "Unexpected key: " + key;
-
-        key = key.substring(pos + 1);
-        return Integer.parseInt(key);
     }
 
     /**
@@ -478,13 +416,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         return ByteArray.fromString(tblId + SCHEMA_STORE_PREFIX + ver);
     }
 
-    /**
-     * Forms schema history predicate.
-     *
-     * @param tblId Table id.
-     * @return {@link ByteArray} representation.
-     */
-    private static ByteArray schemaHistPrefix(int tblId) {
-        return ByteArray.fromString(tblId + SCHEMA_STORE_PREFIX);
+    private static ByteArray latestSchemaVersionKey(int tableId) {
+        return ByteArray.fromString(tableId + LATEST_SCHEMA_VERSION_STORE_SUFFIX);
     }
 }

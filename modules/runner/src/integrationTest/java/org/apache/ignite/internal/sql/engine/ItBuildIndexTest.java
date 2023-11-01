@@ -22,12 +22,10 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,38 +39,38 @@ import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Integration test of index building.
- */
-public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
-    private static final String ZONE_NAME = "zone_table";
+/** Integration test of index building. */
+public class ItBuildIndexTest extends BaseSqlIntegrationTest {
+    private static final String ZONE_NAME = "ZONE_TABLE";
 
-    private static final String TABLE_NAME = "test_table";
+    private static final String TABLE_NAME = "TEST_TABLE";
 
-    private static final String INDEX_NAME = "test_index";
+    private static final String INDEX_NAME = "TEST_INDEX";
 
     @AfterEach
     void tearDown() {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
 
-        CLUSTER_NODES.stream()
-                .map(IgniteImpl.class::cast)
-                .forEach(IgniteImpl::stopDroppingMessages);
+        CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
     }
 
     @ParameterizedTest(name = "replicas : {0}")
@@ -87,7 +85,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
         assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
-                .matches(containsIndexScan("PUBLIC", TABLE_NAME.toUpperCase(), INDEX_NAME.toUpperCase()))
+                .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)
                 .returns(2, 2)
                 .returns(3, 3)
@@ -97,6 +95,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20525")
     void testChangePrimaryReplicaOnMiddleBuildIndex() throws Exception {
         prepareBuildIndexToChangePrimaryReplica();
 
@@ -120,19 +119,19 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         assertThat(sendBuildIndexCommandFuture, willSucceedFast());
 
         // Let's make sure that the indexes are eventually built.
-        checkIndexBuild(1, nodes(), INDEX_NAME);
+        checkIndexBuild(1, initialNodes(), INDEX_NAME);
     }
 
     /**
      * Prepares an index build for a primary replica change.
      * <ul>
-     *     <li>Creates a table (replicas = {@link #nodes()}, partitions = 1) and populates it;</li>
+     *     <li>Creates a table (replicas = {@link #initialNodes()}, partitions = 1) and populates it;</li>
      *     <li>Creates an index;</li>
      *     <li>Drop send {@link BuildIndexCommand} from the primary replica.</li>
      * </ul>
      */
     private void prepareBuildIndexToChangePrimaryReplica() throws Exception {
-        int nodes = nodes();
+        int nodes = initialNodes();
         assertThat(nodes, greaterThanOrEqualTo(2));
 
         createAndPopulateTable(nodes, 1);
@@ -172,7 +171,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
 
         sql(IgniteStringFormatter.format(
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
-                TABLE_NAME, ZONE_NAME.toUpperCase()
+                TABLE_NAME, ZONE_NAME
         ));
 
         sql(IgniteStringFormatter.format(
@@ -188,16 +187,13 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
-     * Waits for all nodes in the cluster to have the given index in the configuration.
+     * Waits for all nodes in the cluster to have the given index in the Catalog.
      *
-     * @param indexName  An index.
+     * @param indexName Name of an index to wait for.
      */
     private static void waitForIndex(String indexName) throws InterruptedException {
-        // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
-        assertFalse(nullOrEmpty(CLUSTER_NODES));
         assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
+                () -> CLUSTER.runningNodes().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
     }
@@ -215,7 +211,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
      * @param partitionId Partition ID.
      */
     private static List<Peer> collectPeers(int partitionId) {
-        RaftGroupService raftGroupService = getRaftClient(CLUSTER_NODES.get(0), partitionId);
+        RaftGroupService raftGroupService = getRaftClient(CLUSTER.aliveNode(), partitionId);
 
         List<Peer> peers = raftGroupService.peers();
         assertNotNull(peers);
@@ -273,5 +269,17 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
                     IgniteStringFormatter.format("p={}, nodes={}", entry.getKey(), entry.getValue())
             );
         }
+    }
+
+    /**
+     * Returns the index ID from the catalog, {@code null} if there is no index.
+     *
+     * @param node Node.
+     * @param indexName Index name.
+     */
+    private static @Nullable Integer indexId(Ignite node, String indexName) {
+        CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, indexName);
+
+        return indexDescriptor == null ? null : indexDescriptor.id();
     }
 }

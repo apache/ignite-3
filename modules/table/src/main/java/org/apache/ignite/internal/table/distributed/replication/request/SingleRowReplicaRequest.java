@@ -18,20 +18,20 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Single-row replica request.
  */
-public interface SingleRowReplicaRequest extends ReplicaRequest {
-    ByteBuffer binaryRowBytes();
+public interface SingleRowReplicaRequest extends SchemaVersionAwareReplicaRequest {
+    ByteBuffer binaryTuple();
 
     default BinaryRow binaryRow() {
-        return new ByteBufferRow(binaryRowBytes());
+        return new BinaryRowImpl(schemaVersion(), binaryTuple());
     }
 
     @Marshallable

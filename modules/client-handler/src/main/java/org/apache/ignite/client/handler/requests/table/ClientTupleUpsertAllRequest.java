@@ -47,11 +47,11 @@ public class ClientTupleUpsertAllRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
-            var tuples = readTuples(in, table, false);
-
-            return table.recordView().upsertAllAsync(tx, tuples)
-                    .thenAccept(unused -> out.packInt(table.schemaView().lastSchemaVersion()));
+            var tx = readTx(in, out, resources);
+            return readTuples(in, table, false).thenCompose(tuples -> {
+                return table.recordView().upsertAllAsync(tx, tuples)
+                        .thenAccept(unused -> out.packInt(table.schemaView().lastKnownSchemaVersion()));
+            });
         });
     }
 }

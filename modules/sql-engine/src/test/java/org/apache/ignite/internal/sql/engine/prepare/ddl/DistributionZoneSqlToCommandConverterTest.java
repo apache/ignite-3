@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -267,7 +267,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 () -> converter.convert(node, createContext())
         );
 
-        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+        assertThat(ex.code(), equalTo(Sql.STMT_VALIDATION_ERR));
         assertThat(ex.getMessage(), containsString("Zone option validation failed [option=" + invalidOption));
     }
 
@@ -277,7 +277,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 () -> converter.convert(node, createContext())
         );
 
-        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+        assertThat(ex.code(), equalTo(Sql.STMT_VALIDATION_ERR));
         assertThat(ex.getMessage(), containsString("Invalid zone option type [option=" + invalidOption));
     }
 
@@ -287,7 +287,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 () -> converter.convert(node, createContext())
         );
 
-        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+        assertThat(ex.code(), equalTo(Sql.STMT_VALIDATION_ERR));
         assertThat(ex.getMessage(), containsString("Unexpected zone option [option=" + invalidOption));
     }
 
@@ -297,7 +297,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 () -> converter.convert(node, createContext())
         );
 
-        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+        assertThat(ex.code(), equalTo(Sql.STMT_VALIDATION_ERR));
         assertThat(ex.getMessage(), containsString("Duplicate zone option has been specified [option=" + option));
     }
 }

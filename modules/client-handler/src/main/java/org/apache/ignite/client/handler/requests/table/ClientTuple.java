@@ -21,12 +21,11 @@ import java.util.BitSet;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.table.MutableTupleBinaryTupleAdapter;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +58,7 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, @Nullable Object value) {
+    public Tuple set(String columnName, @Nullable Object value) {
         throw new UnsupportedOperationException("Operation not supported.");
     }
 
@@ -71,7 +70,7 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaColumnIndex(@NotNull String columnName) {
+    protected int schemaColumnIndex(String columnName) {
         Column column = schema.column(columnName);
         return column == null ? -1 : column.schemaIndex();
     }

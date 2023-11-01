@@ -37,7 +37,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
     implementation project(':ignite-code-deployment')
-    implementation project(':ignite-security')
+    implementation project(':ignite-security-api')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
@@ -57,7 +57,6 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
-    testImplementation libs.slf4j.jdk14
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
     testImplementation libs.mockito.core

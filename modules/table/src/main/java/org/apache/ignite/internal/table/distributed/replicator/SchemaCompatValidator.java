@@ -19,42 +19,47 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.stream.Collectors.toSet;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Validates schema compatibility.
  */
 class SchemaCompatValidator {
     private final Schemas schemas;
+    private final CatalogService catalogService;
 
-    SchemaCompatValidator(Schemas schemas) {
+    /** Constructor. */
+    SchemaCompatValidator(Schemas schemas, CatalogService catalogService) {
         this.schemas = schemas;
+        this.catalogService = catalogService;
     }
 
     /**
-     * Performs commit forward compatibility validation. That is, for each table enlisted in the transaction, checks to see whether the
-     * initial schema (identified by the begin timestamp) is forward-compatible with the commit schema (identified by the commit
-     * timestamp).
+     * Performs commit validation. That is, checks that each table enlisted in the tranasction still exists at the commit timestamp,
+     * and that the initial schema of the table (identified by the begin timestamp) is forward-compatible with the commit schema
+     * (identified by the commit timestamp).
      *
      * @param txId ID of the transaction that gets validated.
      * @param enlistedGroupIds IDs of the partitions that are enlisted with the transaction.
-     * @param commitTimestamp Commit timestamp (or {@code null} if it's an abort).
+     * @param commitTimestamp Commit timestamp.
      * @return Future of validation result.
      */
-    CompletableFuture<CompatValidationResult> validateForward(
+    CompletableFuture<CompatValidationResult> validateCommit(
             UUID txId,
-            List<TablePartitionId> enlistedGroupIds,
-            @Nullable HybridTimestamp commitTimestamp
+            Collection<TablePartitionId> enlistedGroupIds,
+            HybridTimestamp commitTimestamp
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
@@ -62,23 +67,18 @@ class SchemaCompatValidator {
                 .map(TablePartitionId::tableId)
                 .collect(toSet());
 
-        assert commitTimestamp != null;
         // Using compareTo() instead of after()/begin() because the latter methods take clock skew into account
         // which only makes sense when comparing 'unrelated' timestamps. beginTs and commitTs have a causal relationship,
         // so we don't need to account for clock skew.
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
         return schemas.waitForSchemasAvailability(commitTimestamp)
-                .thenApply(ignored -> validateForwardSchemasCompatibility(tableIds, commitTimestamp, beginTimestamp));
+                .thenApply(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp));
     }
 
-    private CompatValidationResult validateForwardSchemasCompatibility(
-            Set<Integer> tableIds,
-            HybridTimestamp commitTimestamp,
-            HybridTimestamp beginTimestamp
-    ) {
+    private CompatValidationResult validateCommit(Set<Integer> tableIds, HybridTimestamp commitTimestamp, HybridTimestamp beginTimestamp) {
         for (int tableId : tableIds) {
-            CompatValidationResult validationResult = validateForwardSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
+            CompatValidationResult validationResult = validateCommit(beginTimestamp, commitTimestamp, tableId);
 
             if (!validationResult.isSuccessful()) {
                 return validationResult;
@@ -88,6 +88,29 @@ class SchemaCompatValidator {
         return CompatValidationResult.success();
     }
 
+    private CompatValidationResult validateCommit(HybridTimestamp beginTimestamp, HybridTimestamp commitTimestamp, int tableId) {
+        CatalogTableDescriptor tableAtCommitTs = catalogService.table(tableId, commitTimestamp.longValue());
+
+        if (tableAtCommitTs == null) {
+            CatalogTableDescriptor tableAtTxStart = catalogService.table(tableId, beginTimestamp.longValue());
+            assert tableAtTxStart != null : "No table " + tableId + " at ts " + beginTimestamp;
+
+            return CompatValidationResult.tableDropped(tableId, tableAtTxStart.schemaId());
+        }
+
+        return validateForwardSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
+    }
+
+    /**
+     * Performs forward compatibility validation. That is, for the given table, checks to see whether the
+     * initial schema (identified by the begin timestamp) is forward-compatible with the commit schema (identified by the commit
+     * timestamp).
+     *
+     * @param beginTimestamp Begin timestamp of a transaction.
+     * @param commitTimestamp Commit timestamp.
+     * @param tableId ID of the table that is under validation.
+     * @return Validation result.
+     */
     private CompatValidationResult validateForwardSchemaCompatibility(
             HybridTimestamp beginTimestamp,
             HybridTimestamp commitTimestamp,
@@ -101,7 +124,7 @@ class SchemaCompatValidator {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
             if (!isForwardCompatible(oldSchema, newSchema)) {
-                return CompatValidationResult.failure(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
+                return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
             }
         }
 
@@ -154,7 +177,7 @@ class SchemaCompatValidator {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
             if (!isBackwardCompatible(oldSchema, newSchema)) {
-                return CompatValidationResult.failure(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
+                return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
             }
         }
 
@@ -164,5 +187,57 @@ class SchemaCompatValidator {
     private boolean isBackwardCompatible(FullTableSchema oldSchema, FullTableSchema newSchema) {
         // TODO: IGNITE-19229 - is backward compatibility always symmetric with the forward compatibility?
         return isForwardCompatible(newSchema, oldSchema);
+    }
+
+    void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
+        HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
+        CatalogTableDescriptor tableAtBeginTs = catalogService.table(tableId, beginTs.longValue());
+        CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
+
+        assert tableAtBeginTs != null;
+
+        if (tableAtOpTs == null) {
+            throw tableWasDroppedException(tableId);
+        }
+
+        if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
+            throw new IncompatibleSchemaException(
+                    String.format(
+                            "Table schema was updated after the transaction was started [table=%d, startSchema=%d, operationSchema=%d]",
+                            tableId, tableAtBeginTs.tableVersion(), tableAtOpTs.tableVersion()
+                    )
+            );
+        }
+    }
+
+    private static IncompatibleSchemaException tableWasDroppedException(int tableId) {
+        return new IncompatibleSchemaException(String.format("Table was dropped [table=%d]", tableId));
+    }
+
+    void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, int tableId) {
+        CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
+
+        if (tableAtOpTs == null) {
+            throw tableWasDroppedException(tableId);
+        }
+    }
+
+    /**
+     * Throws an {@link InternalSchemaVersionMismatchException} if the schema version passed in the request differs from the schema version
+     * corresponding to the transaction timestamp.
+     *
+     * @param txTs Transaction timestamp.
+     * @param requestSchemaVersion Schema version passed in the operation request.
+     * @param tableId ID of the table.
+     * @throws InternalSchemaVersionMismatchException Thrown if the schema versions are different.
+     */
+    void failIfRequestSchemaDiffersFromTxTs(HybridTimestamp txTs, int requestSchemaVersion, int tableId) {
+        CatalogTableDescriptor table = catalogService.table(tableId, txTs.longValue());
+
+        assert table != null : "No table " + tableId + " at " + txTs;
+
+        if (table.tableVersion() != requestSchemaVersion) {
+            throw new InternalSchemaVersionMismatchException();
+        }
     }
 }

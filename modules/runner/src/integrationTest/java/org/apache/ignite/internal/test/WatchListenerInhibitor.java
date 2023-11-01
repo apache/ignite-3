@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldV
 
 import java.lang.reflect.Field;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.ReadWriteLock;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -34,7 +35,11 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 public class WatchListenerInhibitor {
     private final WatchProcessor watchProcessor;
 
-    private final Field notificationFutureField;
+    private final RocksDbKeyValueStorage storage;
+
+    private final Field processorNotificationFutureField;
+
+    private final Field storageRwLockField;
 
     /** Future used to block the watch notification thread. */
     private final CompletableFuture<Void> inhibitFuture = new CompletableFuture<>();
@@ -46,19 +51,24 @@ public class WatchListenerInhibitor {
      * @return Listener inhibitor.
      */
     public static WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite) {
-        //TODO: IGNITE-15723 After a component factory will be implemented, need to got rid of reflection here.
-        var metaStorageManager = (MetaStorageManagerImpl) getFieldValue(ignite, IgniteImpl.class, "metaStorageMgr");
+        IgniteImpl igniteImpl = (IgniteImpl) ignite;
 
+        var metaStorageManager = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
+
+        //TODO: IGNITE-15723 After a component factory is implemented, need to got rid of reflection here.
         var storage = (RocksDbKeyValueStorage) getFieldValue(metaStorageManager, MetaStorageManagerImpl.class, "storage");
 
         var watchProcessor = (WatchProcessor) getFieldValue(storage, RocksDbKeyValueStorage.class, "watchProcessor");
 
-        return new WatchListenerInhibitor(watchProcessor);
+        return new WatchListenerInhibitor(watchProcessor, storage);
     }
 
-    private WatchListenerInhibitor(WatchProcessor watchProcessor) {
+    private WatchListenerInhibitor(WatchProcessor watchProcessor, RocksDbKeyValueStorage storage) {
         this.watchProcessor = watchProcessor;
-        this.notificationFutureField = getField(watchProcessor, WatchProcessor.class, "notificationFuture");
+        this.storage = storage;
+
+        processorNotificationFutureField = getField(watchProcessor, WatchProcessor.class, "notificationFuture");
+        storageRwLockField = getField(storage, RocksDbKeyValueStorage.class, "rwLock");
     }
 
     /**
@@ -66,9 +76,19 @@ public class WatchListenerInhibitor {
      */
     public void startInhibit() {
         try {
-            CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) notificationFutureField.get(watchProcessor);
+            // We take this lock because it's actually used by RocksDbKeyValueStorage, among other things, to make future chaining
+            // correct wrt concurrency.
+            ReadWriteLock rwLock = (ReadWriteLock) storageRwLockField.get(storage);
 
-            notificationFutureField.set(watchProcessor, notificationFuture.thenCompose(v -> inhibitFuture));
+            rwLock.writeLock().lock();
+
+            try {
+                CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) processorNotificationFutureField.get(watchProcessor);
+
+                processorNotificationFutureField.set(watchProcessor, notificationFuture.thenCompose(v -> inhibitFuture));
+            } finally {
+                rwLock.writeLock().unlock();
+            }
         } catch (IllegalAccessException e) {
             throw new RuntimeException(e);
         }

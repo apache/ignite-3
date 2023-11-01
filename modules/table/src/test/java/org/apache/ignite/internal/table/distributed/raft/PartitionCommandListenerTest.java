@@ -53,6 +53,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -69,8 +70,8 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
@@ -80,6 +81,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -87,22 +90,28 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -117,55 +126,45 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class PartitionCommandListenerTest {
-    /** Key count. */
+public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private static final int KEY_COUNT = 100;
 
-    /** Partition id. */
+    private static final int TABLE_ID = 1;
+
     private static final int PARTITION_ID = 0;
 
-    /** Schema. */
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT32, false)},
             new Column[]{new Column("value", NativeTypes.INT32, false)}
     );
 
-    /** Table command listener. */
     private PartitionListener commandListener;
 
-    /** RAFT index. */
     private final AtomicLong raftIndex = new AtomicLong();
 
-    /** Primary index. */
     private final TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
             1,
-            new TestHashIndexStorage(PARTITION_ID, null),
+            new TestHashIndexStorage(
+                    PARTITION_ID,
+                    new StorageHashIndexDescriptor(1, List.of(new StorageHashIndexColumnDescriptor("key", NativeTypes.INT32, false)))
+            ),
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
 
-    /** Partition storage. */
     private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-    private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(mvPartitionStorage));
+    private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage));
 
-    /** Transaction meta storage. */
     private final TxStateStorage txStateStorage = spy(new TestTxStateStorage());
 
-    /** Work directory. */
     @WorkDirectory
     private Path workDir;
 
-    /** Factory for command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
 
-    /** Factory for replica messages. */
-    private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
-
-    /** Hybrid clock. */
     private final HybridClock hybridClock = new HybridClockImpl();
 
-    /** Safe time tracker. */
     private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker;
 
     @Captor
@@ -204,6 +203,7 @@ public class PartitionCommandListenerTest {
         ));
 
         commandListener = new PartitionListener(
+                mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
@@ -288,7 +288,7 @@ public class PartitionCommandListenerTest {
      */
     @Test
     public void testOnSnapshotSavePropagateLastAppliedIndexAndTerm(@InjectConfiguration GcConfiguration gcConfig) {
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage);
 
         IndexUpdateHandler indexUpdateHandler1 = new IndexUpdateHandler(
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.id(), pkStorage))
@@ -304,6 +304,7 @@ public class PartitionCommandListenerTest {
         );
 
         PartitionListener testCommandListener = new PartitionListener(
+                mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
@@ -511,12 +512,6 @@ public class PartitionCommandListenerTest {
 
     private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
         return msgFactory.buildIndexCommand()
-                .tablePartitionId(
-                        msgFactory.tablePartitionIdMessage()
-                                .tableId(1)
-                                .partitionId(PARTITION_ID)
-                                .build()
-                )
                 .indexId(indexId)
                 .rowIds(rowUuids)
                 .finish(finish)
@@ -621,14 +616,17 @@ public class PartitionCommandListenerTest {
      * Inserts all rows.
      */
     private void insertAll() {
-        Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
+        Map<UUID, TimedBinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(1, PARTITION_ID);
+        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row row = getTestRow(i, i);
-
-            rows.put(TestTransactionIds.newTransactionId(), row.byteBuffer());
+            rows.put(
+                    TestTransactionIds.newTransactionId(),
+                    msgFactory.timedBinaryRowMessage()
+                            .binaryRowMessage(getTestRow(i, i))
+                            .build()
+            );
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -639,9 +637,10 @@ public class PartitionCommandListenerTest {
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
-                .rowsToUpdate(rows)
+                .messageRowsToUpdate(rows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
         invokeBatchedCommand(msgFactory.txCleanupCommand()
@@ -649,6 +648,7 @@ public class PartitionCommandListenerTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -659,13 +659,17 @@ public class PartitionCommandListenerTest {
      */
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(1, PARTITION_ID);
-        Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
+        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
+        Map<UUID, TimedBinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row row = getTestRow(i, keyValueMapper.apply(i));
+            ReadResult readResult = readRow(getTestKey(i));
 
-            rows.put(readRow(row).uuid(), row.byteBuffer());
+            rows.put(readResult.rowId().uuid(),
+                    msgFactory.timedBinaryRowMessage()
+                            .binaryRowMessage(getTestRow(i, keyValueMapper.apply(i)))
+                            .build()
+            );
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -676,9 +680,10 @@ public class PartitionCommandListenerTest {
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
-                .rowsToUpdate(rows)
+                .messageRowsToUpdate(rows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
         invokeBatchedCommand(msgFactory.txCleanupCommand()
@@ -686,6 +691,7 @@ public class PartitionCommandListenerTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -694,13 +700,14 @@ public class PartitionCommandListenerTest {
      */
     private void deleteAll() {
         UUID txId = TestTransactionIds.newTransactionId();
-        var commitPartId = new TablePartitionId(1, PARTITION_ID);
-        Map<UUID, ByteBuffer> keyRows = new HashMap<>(KEY_COUNT);
+        var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
+        Map<UUID, TimedBinaryRowMessage> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row row = getTestRow(i, i);
+            ReadResult readResult = readRow(getTestKey(i));
 
-            keyRows.put(readRow(row).uuid(), null);
+            keyRows.put(readResult.rowId().uuid(), msgFactory.timedBinaryRowMessage()
+                    .build());
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -711,9 +718,10 @@ public class PartitionCommandListenerTest {
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
-                .rowsToUpdate(keyRows)
+                .messageRowsToUpdate(keyRows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
         invokeBatchedCommand(msgFactory.txCleanupCommand()
@@ -721,6 +729,7 @@ public class PartitionCommandListenerTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
     }
 
@@ -734,10 +743,8 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = TestTransactionIds.newTransactionId();
-            Row row = getTestRow(i, keyValueMapper.apply(i));
-            RowId rowId = readRow(row);
-
-            assertNotNull(rowId);
+            BinaryRowMessage row = getTestRow(i, keyValueMapper.apply(i));
+            ReadResult readResult = readRow(getTestKey(i));
 
             txIds.add(txId);
 
@@ -748,10 +755,13 @@ public class PartitionCommandListenerTest {
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
-                            .rowUuid(rowId.uuid())
-                            .rowBuffer(row.byteBuffer())
+                            .rowUuid(readResult.rowId().uuid())
+                            .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                    .binaryRowMessage(row)
+                                    .build())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
+                            .txCoordinatorId(UUID.randomUUID().toString())
                             .build());
 
             doAnswer(invocation -> {
@@ -768,6 +778,7 @@ public class PartitionCommandListenerTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build()));
     }
 
@@ -779,10 +790,7 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = TestTransactionIds.newTransactionId();
-            Row row = getTestRow(i, i);
-            RowId rowId = readRow(row);
-
-            assertNotNull(rowId);
+            ReadResult readResult = readRow(getTestKey(i));
 
             txIds.add(txId);
 
@@ -793,9 +801,10 @@ public class PartitionCommandListenerTest {
                             .tablePartitionId(msgFactory.tablePartitionIdMessage()
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
-                            .rowUuid(rowId.uuid())
+                            .rowUuid(readResult.rowId().uuid())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
+                            .txCoordinatorId(UUID.randomUUID().toString())
                             .build());
 
             doAnswer(invocation -> {
@@ -812,6 +821,7 @@ public class PartitionCommandListenerTest {
                 .commit(true)
                 .commitTimestampLong(commitTimestamp.longValue())
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build()));
     }
 
@@ -832,19 +842,17 @@ public class PartitionCommandListenerTest {
      */
     private void readAndCheck(boolean existed, Function<Integer, Integer> keyValueMapper) {
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row keyRow = getTestKey(i);
-
-            RowId rowId = readRow(keyRow);
+            ReadResult readResult = readRow(getTestKey(i));
 
             if (existed) {
-                ReadResult readResult = mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE);
+                assertNotNull(readResult);
 
-                Row row = new Row(SCHEMA, readResult.binaryRow());
+                Row row = Row.wrapBinaryRow(SCHEMA, readResult.binaryRow());
 
                 assertEquals(i, row.intValue(0));
                 assertEquals(keyValueMapper.apply(i), row.intValue(1));
             } else {
-                assertNull(rowId);
+                assertNull(readResult);
             }
         }
     }
@@ -857,7 +865,6 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = TestTransactionIds.newTransactionId();
-            Row row = getTestRow(i, i);
             txIds.add(txId);
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
@@ -868,9 +875,12 @@ public class PartitionCommandListenerTest {
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(UUID.randomUUID())
-                            .rowBuffer(row.byteBuffer())
+                            .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                    .binaryRowMessage(getTestRow(i, i))
+                                    .build())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
+                            .txCoordinatorId(UUID.randomUUID().toString())
                             .build());
 
             doAnswer(invocation -> {
@@ -888,6 +898,7 @@ public class PartitionCommandListenerTest {
                         .commit(true)
                         .commitTimestampLong(commitTimestamp)
                         .safeTimeLong(hybridClock.nowLong())
+                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build()));
     }
 
@@ -896,12 +907,12 @@ public class PartitionCommandListenerTest {
      *
      * @return Row.
      */
-    private Row getTestKey(int key) {
-        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA);
+    private static BinaryTuple getTestKey(int key) {
+        ByteBuffer buf = new BinaryTupleBuilder(1)
+                .appendInt(key)
+                .build();
 
-        rowBuilder.appendInt(key);
-
-        return new Row(SCHEMA, rowBuilder.build());
+        return new BinaryTuple(1, buf);
     }
 
     /**
@@ -909,13 +920,18 @@ public class PartitionCommandListenerTest {
      *
      * @return Row.
      */
-    private Row getTestRow(int key, int val) {
+    private BinaryRowMessage getTestRow(int key, int val) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendInt(key);
         rowBuilder.appendInt(val);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        BinaryRow row = rowBuilder.build();
+
+        return msgFactory.binaryRowMessage()
+                .binaryTuple(row.tupleSlice())
+                .schemaVersion(row.schemaVersion())
+                .build();
     }
 
     private void invokeBatchedCommand(WriteCommand cmd) {
@@ -932,21 +948,13 @@ public class PartitionCommandListenerTest {
         }));
     }
 
-    private RowId readRow(BinaryRow binaryRow) {
-        try (Cursor<RowId> cursor = pkStorage.get(binaryRow)) {
-            while (cursor.hasNext()) {
-                RowId rowId = cursor.next();
-
-                ReadResult readResult = mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE);
-
-                if (!readResult.isEmpty() && readResult.binaryRow() != null) {
-                    return rowId;
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    private @Nullable ReadResult readRow(BinaryTuple pk) {
+        try (Cursor<RowId> cursor = pkStorage.storage().get(pk)) {
+            return cursor.stream()
+                    .map(rowId ->  mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE))
+                    .filter(readResult -> !readResult.isEmpty())
+                    .findAny()
+                    .orElse(null);
         }
-
-        return null;
     }
 }

@@ -33,6 +33,7 @@ import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.RetryPolicyContextImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LoggerFactory;
@@ -46,7 +47,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests thin client retry behavior.
  */
-public class RetryPolicyTest {
+public class RetryPolicyTest extends BaseIgniteAbstractTest {
     private static final int ITER = 100;
 
     private TestServer server;

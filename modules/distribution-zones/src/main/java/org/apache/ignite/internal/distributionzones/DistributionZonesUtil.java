@@ -20,11 +20,11 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -39,28 +39,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Util class for Distribution Zones flow.
  */
 public class DistributionZonesUtil {
+    /** Key prefix for distribution zone's keys. */
+    private static final String DISTRIBUTION_ZONE_PREFIX = "distributionZone.";
+
     /** Key prefix for zone's data nodes and trigger keys. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
@@ -93,11 +92,12 @@ public class DistributionZonesUtil {
     /** Key prefix for zones' logical topology nodes in vault. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault." + DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY;
 
+    /** Key prefix for zones' configurations in vault. */
+    private static final String DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT = "vault." + DISTRIBUTION_ZONE_PREFIX
+            + "versionedConfiguration.";
+
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
-
-    /** Key prefix, needed for processing the event about zone's update was triggered only once. */
-    private static final String DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX = "distributionZones.change.trigger.";
 
     /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.*/
     private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX = "vault.distributionZones.topologyAugmentation.";
@@ -155,11 +155,21 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT}.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneVersionedConfigurationKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT + zoneId);
+    }
+
+    /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX}.
      *
      * @return ByteArray representation.
      */
-    static ByteArray zonesLogicalTopologyPrefix() {
+    public static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
@@ -173,14 +183,6 @@ public class DistributionZonesUtil {
         var strKey = new String(key, StandardCharsets.UTF_8);
 
         return Integer.parseInt(strKey.substring(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.length()));
-    }
-
-    /**
-     * The key needed for processing an event about zone's creation and deletion.
-     * With this key we can be sure that event was triggered only once.
-     */
-    public static ByteArray zonesChangeTriggerKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX + zoneId);
     }
 
     /**
@@ -218,7 +220,7 @@ public class DistributionZonesUtil {
     /**
      * The key prefix needed for processing an event about zone's data nodes.
      */
-    static ByteArray zonesDataNodesPrefix() {
+    public static ByteArray zonesDataNodesPrefix() {
         return DISTRIBUTION_ZONES_DATA_NODES_KEY;
     }
 
@@ -259,17 +261,27 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Condition for updating {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} key.
-     * Update only if the revision of the event is newer than value in that trigger key.
+     * Condition for creating all data nodes' related keys in Meta Storage. Condition passes only when
+     * {@link DistributionZonesUtil#zoneDataNodesKey(int)} not exists and not a tombstone in the Meta Storage.
      *
-     * @param revision Event revision.
+     * @param zoneId Distribution zone id
      * @return Update condition.
      */
-    static CompoundCondition triggerKeyConditionForZonesChanges(long revision, int zoneId) {
-        return or(
-                notExists(zonesChangeTriggerKey(zoneId)),
-                value(zonesChangeTriggerKey(zoneId)).lt(ByteUtils.longToBytes(revision))
+    static CompoundCondition conditionForZoneCreation(int zoneId) {
+        return and(
+                notExists(zoneDataNodesKey(zoneId)),
+                notTombstone(zoneDataNodesKey(zoneId))
         );
+    }
+
+    /**
+     * Condition for removing all data nodes' related keys in Meta Storage.
+     *
+     * @param zoneId Distribution zone id
+     * @return Update condition.
+     */
+    static SimpleCondition conditionForZoneRemoval(int zoneId) {
+        return exists(zoneDataNodesKey(zoneId));
     }
 
     /**
@@ -316,6 +328,14 @@ public class DistributionZonesUtil {
         ).yield(true);
     }
 
+    /**
+     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
+     *
+     * @param zoneId Distribution zone id
+     * @param revision Revision of the event.
+     * @param nodes Data nodes.
+     * @return Update command for the meta storage.
+     */
     static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
         return ops(
                 put(zoneDataNodesKey(zoneId), nodes),
@@ -325,8 +345,8 @@ public class DistributionZonesUtil {
 
 
     /**
-     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} and {@link DistributionZonesUtil#zonesChangeTriggerKey(int)}.
+     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} and
+     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
      *
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
@@ -337,26 +357,23 @@ public class DistributionZonesUtil {
         return ops(
                 put(zoneDataNodesKey(zoneId), nodes),
                 put(zoneScaleUpChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision)),
-                put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision)),
-                put(zonesChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
+                put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
         ).yield(true);
     }
 
     /**
      * Deletes data nodes, {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} values for a zone. Also sets {@code revision} to
-     * {@link DistributionZonesUtil#zonesChangeTriggerKey(int)}.
+     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} values for a zone.
      *
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
      * @return Update command for the meta storage.
      */
-    static Update deleteDataNodesAndUpdateTriggerKeys(int zoneId, long revision) {
+    static Update deleteDataNodesAndTriggerKeys(int zoneId, long revision) {
         return ops(
                 remove(zoneDataNodesKey(zoneId)),
                 remove(zoneScaleUpChangeTriggerKey(zoneId)),
-                remove(zoneScaleDownChangeTriggerKey(zoneId)),
-                put(zonesChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
+                remove(zoneScaleDownChangeTriggerKey(zoneId))
         ).yield(true);
     }
 
@@ -369,7 +386,7 @@ public class DistributionZonesUtil {
      */
     public static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
         Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
                 .collect(toSet());
 
         return ops(
@@ -436,48 +453,6 @@ public class DistributionZonesUtil {
             return bytesToLong(revisionEntry.value());
         } else {
             return INITIAL_TRIGGER_REVISION_VALUE;
-        }
-    }
-
-    /**
-     * Finds a zone configuration from zones configuration by its id.
-     *
-     * @param dstZnsCfg Distribution zones config.
-     * @param zoneId Id of zone.
-     * @return Zone configuration with appropriate zone id.
-     */
-    public static DistributionZoneConfiguration getZoneById(DistributionZonesConfiguration dstZnsCfg, int zoneId) {
-        if (zoneId == DEFAULT_ZONE_ID) {
-            return dstZnsCfg.defaultDistributionZone();
-        }
-
-        for (UUID id : dstZnsCfg.distributionZones().internalIds()) {
-            DistributionZoneConfiguration distributionZoneConfiguration = dstZnsCfg.distributionZones().get(id);
-
-            assert distributionZoneConfiguration != null;
-
-            if (distributionZoneConfiguration.zoneId().value().equals(zoneId)) {
-                return distributionZoneConfiguration;
-            }
-        }
-
-        throw new DistributionZoneNotFoundException(zoneId);
-    }
-
-    /**
-     * Checks if the zone with specified id exists.
-     *
-     * @param dstZnsCfg Distribution zones config.
-     * @param zoneId Id of zone.
-     * @return {@code true} if the zone exists. {@code false} if the zone doesn't exist.
-     */
-    static boolean isZoneExist(DistributionZonesConfiguration dstZnsCfg, int zoneId) {
-        try {
-            getZoneById(dstZnsCfg, zoneId);
-
-            return true;
-        } catch (DistributionZoneNotFoundException e) {
-            return false;
         }
     }
 
@@ -571,19 +546,31 @@ public class DistributionZonesUtil {
 
     /**
      * Create an executor for the zone manager.
-     * Used a single thread executor to avoid concurrent executing several tasks for the same zone.
+     * Used a striped thread executor to avoid concurrent executing several tasks for the same zone.
      * ScheduledThreadPoolExecutor guarantee that tasks scheduled for exactly the same
      * execution time are enabled in first-in-first-out (FIFO) order of submission.
-     * // TODO: IGNITE-19783 Need to use a striped executor.
      *
+     * @param concurrencyLvl Number of threads.
      * @param namedThreadFactory Named thread factory.
      * @return Executor.
      */
-    static ScheduledExecutorService createZoneManagerExecutor(NamedThreadFactory namedThreadFactory) {
-        return new ScheduledThreadPoolExecutor(
-                1,
+    static StripedScheduledThreadPoolExecutor createZoneManagerExecutor(int concurrencyLvl, NamedThreadFactory namedThreadFactory) {
+        return new StripedScheduledThreadPoolExecutor(
+                concurrencyLvl,
                 namedThreadFactory,
                 new ThreadPoolExecutor.DiscardPolicy()
         );
+    }
+
+    /** Key prefix for zone's scale up change trigger key. */
+    @TestOnly
+    public static ByteArray zoneScaleUpChangeTriggerKeyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
+    }
+
+    /** Key prefix for zone's scale down change trigger key. */
+    @TestOnly
+    public static ByteArray zoneScaleDownChangeTriggerKeyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
     }
 }

@@ -28,6 +28,7 @@ namespace Apache.Ignite.Tests
     using Ignite.Compute;
     using Ignite.Sql;
     using Internal.Buffers;
+    using Internal.Common;
     using Internal.Network;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
@@ -120,6 +121,10 @@ namespace Apache.Ignite.Tests
 
         public int RequestCount { get; set; }
 
+        public long ObservableTimestamp { get; set; }
+
+        public long LastClientObservableTimestamp { get; set; }
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -159,7 +164,7 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(Node.Name); // Node name (consistent id).
             handshakeWriter.Write(ClusterId);
             handshakeWriter.WriteBinaryHeader(0); // Features.
-            handshakeWriter.WriteMapHeader(0); // Extensions.
+            handshakeWriter.Write(0); // Extensions.
 
             var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
             handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
@@ -191,8 +196,8 @@ namespace Apache.Ignite.Tests
                 switch (opCode)
                 {
                     case ClientOp.TablesGet:
-                        // Empty map.
-                        Send(handler, requestId, new byte[] { 128 }.AsMemory());
+                        // Zero tables.
+                        Send(handler, requestId, new byte[] { 0 }.AsMemory());
                         continue;
 
                     case ClientOp.TableGet:
@@ -228,7 +233,7 @@ namespace Apache.Ignite.Tests
                     {
                         using var arrayBufferWriter = new PooledArrayBuffer();
                         var writer = new MsgPackWriter(arrayBufferWriter);
-                        writer.WriteArrayHeader(PartitionAssignment.Length);
+                        writer.Write(PartitionAssignment.Length);
 
                         foreach (var nodeId in PartitionAssignment)
                         {
@@ -281,6 +286,9 @@ namespace Apache.Ignite.Tests
                         continue;
 
                     case ClientOp.TxBegin:
+                        reader.Skip(); // Read only.
+                        LastClientObservableTimestamp = reader.ReadInt64();
+
                         Send(handler, requestId, new byte[] { 0 }.AsMemory());
                         continue;
 
@@ -316,10 +324,11 @@ namespace Apache.Ignite.Tests
                 using var errWriter = new PooledArrayBuffer();
                 var w = new MsgPackWriter(errWriter);
                 w.Write(Guid.Empty);
-                w.Write(262147);
+                w.Write(262150);
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.
+                w.WriteNil(); // Error extensions.
 
                 Send(handler, requestId, errWriter, isError: true);
             }
@@ -338,6 +347,7 @@ namespace Apache.Ignite.Tests
             writer.Write(0); // Message type.
             writer.Write(requestId);
             writer.Write(PartitionAssignmentChanged ? (int)ResponseFlags.PartitionAssignmentChanged : 0);
+            writer.Write(ObservableTimestamp); // Observable timestamp.
 
             if (!isError)
             {
@@ -361,7 +371,7 @@ namespace Apache.Ignite.Tests
             using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
-            writer.WriteArrayHeader(500); // Page size.
+            writer.Write(500); // Page size.
             for (int i = 0; i < 500; i++)
             {
                 using var tuple = new BinaryTupleBuilder(1);
@@ -409,6 +419,17 @@ namespace Apache.Ignite.Tests
             var sql = reader.ReadString();
             props["sql"] = sql;
 
+            if (!reader.TryReadNil())
+            {
+                var argCount = reader.ReadInt32();
+                if (argCount > 0)
+                {
+                    reader.Skip();
+                }
+            }
+
+            LastClientObservableTimestamp = reader.ReadInt64();
+
             LastSql = sql;
             LastSqlPageSize = pageSize;
             LastSqlTimeoutMs = timeoutMs;
@@ -426,9 +447,9 @@ namespace Apache.Ignite.Tests
                 writer.Write(false); // WasApplied.
                 writer.Write(0); // AffectedRows.
 
-                writer.WriteArrayHeader(2); // Meta.
+                writer.Write(2); // Meta.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.Write(6); // Column props.
                 writer.Write("NAME"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)ColumnType.String);
@@ -436,7 +457,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.Write(6); // Column props.
                 writer.Write("VAL"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)ColumnType.String);
@@ -444,7 +465,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
-                writer.WriteArrayHeader(props.Count); // Page size.
+                writer.Write(props.Count); // Page size.
                 foreach (var (key, val) in props)
                 {
                     using var tuple = new BinaryTupleBuilder(2);
@@ -460,8 +481,8 @@ namespace Apache.Ignite.Tests
                 writer.Write(false); // WasApplied.
                 writer.Write(0); // AffectedRows.
 
-                writer.WriteArrayHeader(1); // Meta.
-                writer.WriteArrayHeader(6); // Column props.
+                writer.Write(1); // Meta.
+                writer.Write(6); // Column props.
                 writer.Write("ID"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)ColumnType.Int32);
@@ -469,7 +490,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
-                writer.WriteArrayHeader(512); // Page size.
+                writer.Write(512); // Page size.
                 for (int i = 0; i < 512; i++)
                 {
                     using var tuple = new BinaryTupleBuilder(1);
@@ -487,13 +508,13 @@ namespace Apache.Ignite.Tests
 
             using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
-            writer.WriteMapHeader(1);
+            writer.Write(1);
             writer.Write(1); // Version.
 
             if (tableId == ExistingTableId)
             {
-                writer.WriteArrayHeader(1); // Columns.
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(1); // Columns.
+                writer.Write(7); // Column props.
                 writer.Write("ID");
                 writer.Write((int)ColumnType.Int32);
                 writer.Write(true); // Key.
@@ -504,9 +525,9 @@ namespace Apache.Ignite.Tests
             }
             else if (tableId == CompositeKeyTableId)
             {
-                writer.WriteArrayHeader(2); // Columns.
+                writer.Write(2); // Columns.
 
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ColumnType.String);
                 writer.Write(true); // Key.
@@ -515,7 +536,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
 
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ColumnType.Uuid);
                 writer.Write(true); // Key.
@@ -526,9 +547,9 @@ namespace Apache.Ignite.Tests
             }
             else if (tableId == CustomColocationKeyTableId)
             {
-                writer.WriteArrayHeader(2); // Columns.
+                writer.Write(2); // Columns.
 
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ColumnType.String);
                 writer.Write(true); // Key.
@@ -537,7 +558,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
 
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ColumnType.Uuid);
                 writer.Write(true); // Key.
@@ -556,7 +577,7 @@ namespace Apache.Ignite.Tests
             // Else: node name.
             reader.Skip(colocated ? 4 : 1);
 
-            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadArrayHeader();
+            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
             var units = new List<DeploymentUnit>(unitsCount);
             for (int i = 0; i < unitsCount; i++)
             {
@@ -569,7 +590,7 @@ namespace Apache.Ignite.Tests
                 ? new
                 {
                     NodeName = Node.Name,
-                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
+                    Units = units.Select(u => $"{u.Name}|{u.Version}").StringJoin(),
                     jobClassName
                 }.ToString()
                 : Node.Name;

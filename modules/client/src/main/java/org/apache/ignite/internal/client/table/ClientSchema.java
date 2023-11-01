@@ -28,7 +28,6 @@ import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -99,7 +98,7 @@ public class ClientSchema {
      *
      * @return Columns.
      */
-    public @NotNull ClientColumn[] columns() {
+    public ClientColumn[] columns() {
         return columns;
     }
 
@@ -119,7 +118,7 @@ public class ClientSchema {
      * @return Column by name.
      * @throws IgniteException When a column with the specified name does not exist.
      */
-    public @NotNull ClientColumn column(String name) {
+    public ClientColumn column(String name) {
         var column = map.get(name);
 
         if (column == null) {
@@ -150,10 +149,10 @@ public class ClientSchema {
 
     public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
         // TODO: Cache Marshallers (IGNITE-16094).
-        return createMarshaller(mapper, part);
+        return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 
-    private Marshaller createMarshaller(Mapper mapper, TuplePart part) {
+    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part, boolean allowUnmappedFields) {
         int colCount = columns.length;
         int firstColIdx = 0;
 
@@ -172,7 +171,7 @@ public class ClientSchema {
             cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
         }
 
-        return Marshaller.createMarshaller(cols, mapper, part == TuplePart.KEY);
+        return Marshaller.createMarshaller(cols, mapper, true, allowUnmappedFields);
     }
 
     private static BinaryMode mode(ColumnType dataType) {

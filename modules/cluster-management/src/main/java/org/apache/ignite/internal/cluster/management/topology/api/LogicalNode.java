@@ -22,12 +22,13 @@ import java.util.Map;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
  * Representation of a logical node in a cluster.
  */
-public class LogicalNode extends ClusterNode {
+public class LogicalNode extends ClusterNodeImpl {
     /**
      * Node's attributes.
      *
@@ -35,7 +36,14 @@ public class LogicalNode extends ClusterNode {
      *         documentation</a>
      */
     @IgniteToStringInclude
-    private final Map<String, String> nodeAttributes;
+    private final Map<String, String> userAttributes;
+
+    @IgniteToStringInclude
+    private final Map<String, String> systemAttributes;
+
+    // TODO: add javadoc https://issues.apache.org/jira/browse/IGNITE-20564
+    @IgniteToStringInclude
+    private final Map<String, String> storageProfiles;
 
     /**
      * Constructor.
@@ -51,19 +59,40 @@ public class LogicalNode extends ClusterNode {
     ) {
         super(id, name, address);
 
-        this.nodeAttributes = Collections.emptyMap();
+        this.userAttributes = Collections.emptyMap();
+        this.systemAttributes = Collections.emptyMap();
+        this.storageProfiles = Collections.emptyMap();
     }
 
     /**
      * Constructor.
      *
-     * @param clusterNode    Represents a node in a cluster.
-     * @param nodeAttributes Node attributes.
+     * @param clusterNode Represents a node in a cluster.
+     * @param userAttributes  Node attributes defined in configuration.
      */
-    public LogicalNode(ClusterNode clusterNode, Map<String, String> nodeAttributes) {
+    public LogicalNode(ClusterNode clusterNode, Map<String, String> userAttributes) {
+        this(clusterNode, userAttributes, Collections.emptyMap(), Collections.emptyMap());
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param clusterNode Represents a node in a cluster.
+     * @param userAttributes Node attributes defined in configuration.
+     * @param systemAttributes Internal node attributes provided by system components at startup.
+     * @param storageProfiles TODO: add javadoc https://issues.apache.org/jira/browse/IGNITE-20564
+     */
+    public LogicalNode(
+            ClusterNode clusterNode,
+            Map<String, String> userAttributes,
+            Map<String, String> systemAttributes,
+            Map<String, String> storageProfiles
+    ) {
         super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());
 
-        this.nodeAttributes = nodeAttributes;
+        this.userAttributes = userAttributes == null ? Collections.emptyMap() : userAttributes;
+        this.systemAttributes = systemAttributes == null ? Collections.emptyMap() : systemAttributes;
+        this.storageProfiles = storageProfiles == null ? Collections.emptyMap() : storageProfiles;
     }
 
     /**
@@ -72,18 +101,34 @@ public class LogicalNode extends ClusterNode {
      * @param clusterNode    Represents a node in a cluster.
      */
     public LogicalNode(ClusterNode clusterNode) {
-        super(clusterNode.id(), clusterNode.name(), clusterNode.address(), clusterNode.nodeMetadata());
-
-        this.nodeAttributes = Collections.emptyMap();
+        this(clusterNode, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
     }
 
     /**
-     * Returns node's attributes.
+     * Returns node's attributes provided by user using node's configuration.
      *
-     * @return Node's attributes.
+     * @return Node's attributes provided by user using node's configuration.
      */
-    public Map<String, String> nodeAttributes() {
-        return nodeAttributes;
+    public Map<String, String> userAttributes() {
+        return userAttributes;
+    }
+
+    /**
+     * Returns Internal node attributes provided by system components at startup.
+     *
+     * @return Internal node attributes provided by system components at startup.
+     */
+    public Map<String, String> systemAttributes() {
+        return systemAttributes;
+    }
+
+    /**
+     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+     *
+     * @return add java doc https://issues.apache.org/jira/browse/IGNITE-20564.
+     */
+    public Map<String, String> storageProfiles() {
+        return storageProfiles;
     }
 
     /** {@inheritDoc} */

@@ -22,13 +22,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -38,9 +42,15 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Group of tests to verify aggregation functions.
  */
-public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
-    private static final String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+public class ItAggregatesTest extends BaseSqlIntegrationTest {
+    private static final String[] DISABLED_RULES = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
             "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
+
+    private static final List<String> MAP_REDUCE_RULES = List.of("MapReduceHashAggregateConverterRule",
+            "MapReduceSortAggregateConverterRule");
+
+    private static final List<String> COLO_RULES = Arrays.stream(DISABLED_RULES).filter(r -> !MAP_REDUCE_RULES.contains(r))
+            .collect(Collectors.toList());
 
     private static final int ROWS = 103;
 
@@ -48,7 +58,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
      * Before all.
      */
     @BeforeAll
-    static void initTestData() throws InterruptedException {
+    static void initTestData() {
         createAndPopulateTable();
 
         sql("CREATE ZONE test_zone with replicas=2, partitions=10");
@@ -62,6 +72,25 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
             sql("INSERT INTO test (id, grp0, grp1, val0, val1) VALUES (?, ?, ?, ?, ?)", i, i / 10, i / 100, 1, 2);
             sql("INSERT INTO test_one_col_idx (pk, col0) VALUES (?, ?)", i, i);
         }
+
+        sql("CREATE TABLE t1_colo_val1(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
+                + "COLOCATE BY (val1)");
+
+        sql("CREATE TABLE t2_colo_va1(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
+                + "COLOCATE BY (val1)");
+
+        for (int i = 0; i < 100; i++) {
+            sql("INSERT INTO t1_colo_val1 VALUES (?, ?, ?, ?)", i, "val" + i, "val" + i % 2, "val" + i);
+        }
+
+        sql("INSERT INTO t2_colo_va1 VALUES (0, 'val0', 'val0', 'val0'), (1, 'val1', 'val1', 'val1')");
+
+        sql("CREATE TABLE test_a_b_s (id INTEGER PRIMARY KEY, a INTEGER, b INTEGER, s VARCHAR);");
+        sql("INSERT INTO test_a_b_s VALUES (1, 11, 1, 'hello'), (2, 12, 2, 'world'), (3, 11, 3, NULL)");
+        sql("INSERT INTO test_a_b_s VALUES (4, 11, 3, 'hello'), (5, 12, 2, 'world'), (6, 10, 5, 'ahello'), (7, 13, 6, 'world')");
+
+        sql("CREATE TABLE test_str_int_real_dec "
+                + "(id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER,  real_col REAL, dec_col DECIMAL)");
     }
 
     @ParameterizedTest
@@ -190,21 +219,23 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                 .returns(0L, null)
                 .check();
 
-        assertQuery("select avg(salary) from person")
-                .disableRules(rules)
-                .returns(12.0)
-                .check();
+        if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
+            assertQuery("select avg(salary) from person")
+                    .disableRules(rules)
+                    .returns(12.0)
+                    .check();
 
-        assertQuery("select name, salary from person where person.salary > (select avg(person.salary) from person)")
-                .disableRules(rules)
-                .returns(null, 15d)
-                .returns("Ilya", 15d)
-                .check();
+            assertQuery("select name, salary from person where person.salary > (select avg(person.salary) from person)")
+                    .disableRules(rules)
+                    .returns(null, 15d)
+                    .returns("Ilya", 15d)
+                    .check();
 
-        assertQuery("select avg(salary) from (select avg(salary) as salary from person union all select salary from person)")
-                .disableRules(rules)
-                .returns(12d)
-                .check();
+            assertQuery("select avg(salary) from (select avg(salary) as salary from person union all select salary from person)")
+                    .disableRules(rules)
+                    .returns(12d)
+                    .check();
+        }
     }
 
     @ParameterizedTest
@@ -256,94 +287,63 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testColocatedAggregate() {
-        try {
-            sql("CREATE TABLE t1(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
-                    + "COLOCATE BY (val1)");
+        String sql = "SELECT val1, count(val2) FROM t1_colo_val1 GROUP BY val1";
 
-            sql("CREATE TABLE t2(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
-                    + "COLOCATE BY (val1)");
+        assertQuery(sql)
+                .matches(QueryChecker.matches(".*Exchange.*Colocated.*Aggregate.*"))
+                .returns("val0", 50L)
+                .returns("val1", 50L)
+                .check();
 
-            for (int i = 0; i < 100; i++) {
-                sql("INSERT INTO t1 VALUES (?, ?, ?, ?)", i, "val" + i, "val" + i % 2, "val" + i);
-            }
+        sql = "SELECT t2_colo_va1.val1, agg.cnt "
+                + "FROM t2_colo_va1 JOIN (SELECT val1, COUNT(val2) AS cnt FROM t1_colo_val1 GROUP BY val1) "
+                + "AS agg ON t2_colo_va1.val1 = agg.val1";
 
-            sql("INSERT INTO t2 VALUES (0, 'val0', 'val0', 'val0'), (1, 'val1', 'val1', 'val1')");
-
-            String sql = "SELECT val1, count(val2) FROM t1 GROUP BY val1";
-
-            assertQuery(sql)
-                    .matches(QueryChecker.matches(".*Exchange.*Colocated.*Aggregate.*"))
-                    .returns("val0", 50L)
-                    .returns("val1", 50L)
-                    .check();
-
-            sql = "SELECT t2.val1, agg.cnt "
-                    + "FROM t2 JOIN (SELECT val1, COUNT(val2) AS cnt FROM t1 GROUP BY val1) AS agg ON t2.val1 = agg.val1";
-
-            assertQuery(sql)
-                    .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
-                    .returns("val0", 50L)
-                    .returns("val1", 50L)
-                    .check();
-        } finally {
-            sql("DROP TABLE IF EXISTS t1");
-            sql("DROP TABLE IF EXISTS t2");
-        }
+        assertQuery(sql)
+                .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
+                .returns("val0", 50L)
+                .returns("val1", 50L)
+                .check();
     }
 
     @ParameterizedTest
     @MethodSource("provideRules")
     public void testColocatedAggregate(String[] rules) {
-        try {
-            sql("CREATE TABLE t1(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
-                    + "COLOCATE BY (val1)");
+        String sql = "SELECT val1, count(val2) FROM t1_colo_val1 GROUP BY val1";
 
-            sql("CREATE TABLE t2(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
-                    + "COLOCATE BY (val1)");
+        assertQuery(sql)
+                .disableRules(rules)
+                .returns("val0", 50L)
+                .returns("val1", 50L)
+                .check();
 
-            for (int i = 0; i < 100; i++) {
-                sql("INSERT INTO t1 VALUES (?, ?, ?, ?)", i, "val" + i, "val" + i % 2, "val" + i);
-            }
+        sql = "SELECT t2_colo_va1.val1, agg.cnt "
+                + "FROM t2_colo_va1 JOIN (SELECT val1, COUNT(val2) AS cnt FROM t1_colo_val1 GROUP BY val1) "
+                + "AS agg ON t2_colo_va1.val1 = agg.val1";
 
-            sql("INSERT INTO t2 VALUES (0, 'val0', 'val0', 'val0'), (1, 'val1', 'val1', 'val1')");
-
-            String sql = "SELECT val1, count(val2) FROM t1 GROUP BY val1";
-
-            assertQuery(sql)
-                    .disableRules(rules)
-                    .returns("val0", 50L)
-                    .returns("val1", 50L)
-                    .check();
-
-            sql = "SELECT t2.val1, agg.cnt "
-                    + "FROM t2 JOIN (SELECT val1, COUNT(val2) AS cnt FROM t1 GROUP BY val1) AS agg ON t2.val1 = agg.val1";
-
-            assertQuery(sql)
-                    .disableRules(rules)
-                    .returns("val0", 50L)
-                    .returns("val1", 50L)
-                    .check();
-        } finally {
-            sql("DROP TABLE IF EXISTS t1");
-            sql("DROP TABLE IF EXISTS t2");
-        }
+        assertQuery(sql)
+                .disableRules(rules)
+                .returns("val0", 50L)
+                .returns("val1", 50L)
+                .check();
     }
 
     @Test
     public void testEverySomeAggregate() {
-        sql("CREATE TABLE t(c0 INT PRIMARY KEY, c1 INT, c2 INT)");
-        sql("INSERT INTO t VALUES (1, null, 0)");
-        sql("INSERT INTO t VALUES (2, 0, null)");
-        sql("INSERT INTO t VALUES (3, null, null)");
-        sql("INSERT INTO t VALUES (4, 0, 1)");
-        sql("INSERT INTO t VALUES (5, 1, 1)");
-        sql("INSERT INTO t VALUES (6, 1, 2)");
-        sql("INSERT INTO t VALUES (7, 2, 2)");
+        sql("DELETE FROM test_a_b_s");
 
-        assertQuery("SELECT EVERY(c1 < c2) FROM t").returns(false).check();
-        assertQuery("SELECT SOME(c1 < c2) FROM t").returns(true).check();
-        assertQuery("SELECT EVERY(c1 <= c2) FROM t").returns(true).check();
-        assertQuery("SELECT SOME(c1 > c2) FROM t").returns(false).check();
+        sql("INSERT INTO test_a_b_s(id, a, b) VALUES (1, null, 0)");
+        sql("INSERT INTO test_a_b_s(id, a, b) VALUES (2, 0, null)");
+        sql("INSERT INTO test_a_b_s(id, a, b) VALUES (3, null, null)");
+        sql("INSERT INTO test_a_b_s(id, a, b) VALUES (4, 0, 1)");
+        sql("INSERT INTO test_a_b_s(id, a, b) VALUES (5, 1, 1)");
+        sql("INSERT INTO test_a_b_s(id, a, b) VALUES (6, 1, 2)");
+        sql("INSERT INTO test_a_b_s(id, a, b) VALUES (7, 2, 2)");
+
+        assertQuery("SELECT EVERY(a < b) FROM test_a_b_s").returns(false).check();
+        assertQuery("SELECT SOME(a < b) FROM test_a_b_s").returns(true).check();
+        assertQuery("SELECT EVERY(a <= b) FROM test_a_b_s").returns(true).check();
+        assertQuery("SELECT SOME(a > b) FROM test_a_b_s").returns(false).check();
     }
 
     @Test
@@ -379,41 +379,37 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     @MethodSource("provideRules")
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testDifferentAgg(String[] rules) {
-        try {
-            sql("CREATE TABLE testMe (a INTEGER, b INTEGER, s VARCHAR);");
-            sql("INSERT INTO testMe VALUES (11, 1, 'hello'), (12, 2, 'world'), (11, 3, NULL)");
-            sql("INSERT INTO testMe VALUES (11, 3, 'hello'), (12, 2, 'world'), (10, 5, 'ahello'), (13, 6, 'world')");
+        assertQuery("SELECT DISTINCT(a) as a FROM test_a_b_s ORDER BY a")
+                .disableRules(rules)
+                .returns(10)
+                .returns(11)
+                .returns(12)
+                .returns(13)
+                .check();
 
-            assertQuery("SELECT DISTINCT(a) as a FROM testMe ORDER BY a")
+        assertQuery("SELECT COUNT(*) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(7L)
+                .check();
+
+        // Such kind of queries can`t be processed with
+        if (Arrays.stream(rules).anyMatch(r -> r.contains("MapReduceSortAggregateConverterRule"))) {
+            assertQuery("SELECT COUNT(a), COUNT(DISTINCT(b)) FROM test_a_b_s")
                     .disableRules(rules)
-                    .returns(10)
-                    .returns(11)
-                    .returns(12)
-                    .returns(13)
+                    .returns(7L, 5L)
                     .check();
+        }
 
-            assertQuery("SELECT COUNT(*) FROM testMe")
-                    .disableRules(rules)
-                    .returns(7L)
-                    .check();
+        assertQuery("SELECT COUNT(a) as a, s FROM test_a_b_s GROUP BY s ORDER BY a, s")
+                .disableRules(rules)
+                .returns(1L, "ahello")
+                .returns(1L, null)
+                .returns(2L, "hello")
+                .returns(3L, "world")
+                .check();
 
-            // Such kind of queries can`t be processed with
-            if (Arrays.stream(rules).anyMatch(r -> r.contains("MapReduceSortAggregateConverterRule"))) {
-                assertQuery("SELECT COUNT(a), COUNT(DISTINCT(b)) FROM testMe")
-                        .disableRules(rules)
-                        .returns(7L, 5L)
-                        .check();
-            }
-
-            assertQuery("SELECT COUNT(a) as a, s FROM testMe GROUP BY s ORDER BY a, s")
-                    .disableRules(rules)
-                    .returns(1L, "ahello")
-                    .returns(1L, null)
-                    .returns(2L, "hello")
-                    .returns(3L, "world")
-                    .check();
-
-            assertQuery("SELECT COUNT(a) as a, AVG(a) as b, MIN(a), MIN(b), s FROM testMe GROUP BY s ORDER BY a, b")
+        if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
+            assertQuery("SELECT COUNT(a) as a, AVG(a) as b, MIN(a), MIN(b), s FROM test_a_b_s GROUP BY s ORDER BY a, b")
                     .disableRules(rules)
                     .returns(1L, 10, 10, 5, "ahello")
                     .returns(1L, 11, 11, 3, null)
@@ -421,7 +417,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                     .returns(3L, 12, 12, 2, "world")
                     .check();
 
-            assertQuery("SELECT COUNT(a) as a, AVG(a) as bb, MIN(a), MIN(b), s FROM testMe GROUP BY s, b ORDER BY a, s")
+            assertQuery("SELECT COUNT(a) as a, AVG(a) as bb, MIN(a), MIN(b), s FROM test_a_b_s GROUP BY s, b ORDER BY a, s")
                     .disableRules(rules)
                     .returns(1L, 10, 10, 5, "ahello")
                     .returns(1L, 11, 11, 1, "hello")
@@ -430,71 +426,165 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                     .returns(1L, 11, 11, 3, null)
                     .returns(2L, 12, 12, 2, "world")
                     .check();
+        }
 
-            assertQuery("SELECT COUNT(a) FROM testMe")
-                    .disableRules(rules)
-                    .returns(7L)
-                    .check();
 
-            assertQuery("SELECT COUNT(DISTINCT(a)) FROM testMe")
-                    .disableRules(rules)
-                    .returns(4L)
-                    .check();
+        assertQuery("SELECT COUNT(a) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(7L)
+                .check();
 
-            assertQuery("SELECT COUNT(a), COUNT(s), COUNT(*) FROM testMe")
-                    .disableRules(rules)
-                    .returns(7L, 6L, 7L)
-                    .check();
+        assertQuery("SELECT COUNT(DISTINCT(a)) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(4L)
+                .check();
 
-            assertQuery("SELECT AVG(a) FROM testMe")
+        assertQuery("SELECT COUNT(a), COUNT(s), COUNT(*) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(7L, 6L, 7L)
+                .check();
+
+        if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
+            assertQuery("SELECT AVG(a) FROM test_a_b_s")
                     .disableRules(rules)
                     .returns(11)
                     .check();
-
-            assertQuery("SELECT MIN(a) FROM testMe")
-                    .disableRules(rules)
-                    .returns(10)
-                    .check();
-
-            assertQuery("SELECT COUNT(a), COUNT(DISTINCT(a)) FROM testMe")
-                    .disableRules(rules)
-                    .returns(7L, 4L)
-                    .check();
-
-            assertQuery("SELECT COUNT(a), COUNT(DISTINCT a), SUM(a), SUM(DISTINCT a) FROM testMe")
-                    .disableRules(rules)
-                    .returns(7L, 4L, 80L, 46L)
-                    .check();
-        } finally {
-            sql("DROP TABLE IF EXISTS testMe");
         }
+
+        assertQuery("SELECT MIN(a) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(10)
+                .check();
+
+        assertQuery("SELECT COUNT(a), COUNT(DISTINCT(a)) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(7L, 4L)
+                .check();
+
+        assertQuery("SELECT COUNT(a), COUNT(DISTINCT a), SUM(a), SUM(DISTINCT a) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(7L, 4L, 80L, 46L)
+                .check();
     }
 
     @ParameterizedTest
     @MethodSource("provideRules")
-    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void checkEmptyTable(String[] rules) {
-        sql("CREATE TABLE t (a INTEGER, b INTEGER)");
+        sql("DELETE FROM test_a_b_s");
 
-        try {
-            assertQuery("SELECT min(b) FROM t GROUP BY a")
-                    .disableRules(rules)
-                    .returnNothing().check();
-        } finally {
-            sql("DROP TABLE t");
-        }
+        assertQuery("SELECT min(b) FROM test_a_b_s GROUP BY a")
+                .disableRules(rules)
+                .returnNothing().check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("rulesForGroupingSets")
+    public void testGroupingSets(String[] rules) {
+        sql("DELETE FROM test_str_int_real_dec");
+
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (2, 's1', 20)");
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (3, 's2', 10)");
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (4, 's3', 40)");
+
+        assertQuery("SELECT str_col, SUM(int_col), COUNT(str_col) FROM test_str_int_real_dec GROUP BY GROUPING SETS "
+                + "( (str_col, int_col), (str_col), (int_col), () ) HAVING SUM(int_col) > 0")
+                .disableRules(rules)
+                .returns(null, 80L, 4L)
+                .returns("s1", 10L, 1L)
+                .returns("s3", 40L, 1L)
+                .returns("s1", 20L, 1L)
+                .returns("s2", 10L, 1L)
+                .returns("s2", 10L, 1L)
+                .returns("s3", 40L, 1L)
+                .returns("s1", 30L, 2L)
+                .returns(null, 40L, 1L)
+                .returns(null, 20L, 2L)
+                .returns(null, 20L, 1L)
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("rulesForGroupingSets")
+    public void testDuplicateGroupingSets(String[] rules) {
+        sql("DELETE FROM test_str_int_real_dec");
+
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (2, 's1', 20)");
+        sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (3, 's2', 10)");
+
+        assertQuery("SELECT str_col  FROM test_str_int_real_dec GROUP BY GROUPING SETS ((str_col), (), (str_col), ()) ORDER BY str_col")
+                .disableRules(rules)
+                .returns("s1")
+                .returns("s2")
+                .returns(null)
+                .returns("s1")
+                .returns("s2")
+                .returns(null)
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideRules")
+    public void testAvgOnEmptyGroup(String[] rules) {
+        sql("DELETE FROM test_str_int_real_dec");
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20009
+        //  Remove after is fixed.
+        Assumptions.assumeFalse(Arrays.stream(rules)
+                .filter(COLO_RULES::contains).count() == COLO_RULES.size(), "AVG is disabled for MAP/REDUCE");
+
+        assertQuery("SELECT AVG(int_col) FROM test_str_int_real_dec")
+                .disableRules(rules)
+                .returns(new Object[]{null})
+                .check();
+
+        assertQuery("SELECT AVG(real_col) FROM test_str_int_real_dec")
+                .disableRules(rules)
+                .returns(new Object[]{null})
+                .check();
+
+        assertQuery("SELECT AVG(dec_col) FROM test_str_int_real_dec")
+                .disableRules(rules)
+                .returns(new Object[]{null})
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideRules")
+    public void testAggDistinctGroupSet(String[] rules) {
+        sql("DELETE FROM test_a_b_s");
+
+        sql("INSERT INTO test_a_b_s (id, a, b) VALUES (1, 11, 2), (2, 12, 2), (3, 12, 3)");
+
+        assertQuery("SELECT COUNT(a), COUNT(DISTINCT(b)) FROM test_a_b_s")
+                .disableRules(rules)
+                .returns(3L, 2L)
+                .check();
+    }
+
+    private static Stream<Arguments> rulesForGroupingSets() {
+        List<Object[]> rules = Arrays.asList(
+                // Use map/reduce aggregates for grouping sets
+                new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"},
+
+                // Use colocated aggregates grouping sets
+                new String[]{"MapReduceHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"}
+        );
+
+        return rules.stream().map(Object.class::cast).map(Arguments::of);
     }
 
     static String[][] makePermutations(String[] rules) {
         String[][] out = new String[rules.length][rules.length - 1];
 
-        for (int i = 0; i < disabledRules.length; ++i) {
+        for (int i = 0; i < rules.length; ++i) {
             int pos = 0;
-            for (int ruleIdx = 0; ruleIdx < disabledRules.length; ++ruleIdx) {
+            for (int ruleIdx = 0; ruleIdx < rules.length; ++ruleIdx) {
                 if (ruleIdx == i) {
                     continue;
                 }
-                out[i][pos++] = disabledRules[ruleIdx];
+                out[i][pos++] = rules[ruleIdx];
             }
         }
 
@@ -502,7 +592,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Stream<Arguments> provideRules() {
-        return Arrays.stream(makePermutations(disabledRules)).map(k -> Arguments.of((Object) k));
+        return Arrays.stream(makePermutations(DISABLED_RULES)).map(Object.class::cast).map(Arguments::of);
     }
 
     private String appendDisabledRules(String sql, String[] rules) {

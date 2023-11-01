@@ -50,6 +50,7 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -152,6 +153,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final Object[] parameters;
 
+    private final QueryPrefetchCallback prefetchCallback;
+
     private CalciteCatalogReader catalogReader;
 
     /**
@@ -162,7 +165,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
             FrameworkConfig cfg,
             QueryCancel cancel,
             Object[] parameters,
-            IgniteLogger log
+            IgniteLogger log,
+            QueryPrefetchCallback prefetchCallback
     ) {
         super(Contexts.chain(cfg.getContext()));
 
@@ -173,6 +177,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.log = log;
         this.cancel = cancel;
         this.parameters = parameters;
+        this.prefetchCallback = prefetchCallback;
 
         typeFactory = TYPE_FACTORY;
 
@@ -205,10 +210,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return log;
     }
 
-    public String schemaName() {
-        return schema().getName();
-    }
-
     public SchemaPlus schema() {
         return cfg.getDefaultSchema();
     }
@@ -221,8 +222,12 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return rexBuilder;
     }
 
-    public long schemaVersion() {
-        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).schemaVersion();
+    public int schemaVersion() {
+        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).version();
+    }
+
+    public QueryPrefetchCallback prefetchCallback() {
+        return prefetchCallback;
     }
 
     /**
@@ -285,6 +290,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
+        private QueryPrefetchCallback prefetchCallback;
+
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkCfg = Objects.requireNonNull(frameworkCfg);
             return this;
@@ -305,13 +312,18 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
+        public Builder prefetchCallback(QueryPrefetchCallback prefetchCallback) {
+            this.prefetchCallback = prefetchCallback;
+            return this;
+        }
+
         public Builder parameters(Object... parameters) {
             this.parameters = Objects.requireNonNull(parameters);
             return this;
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, prefetchCallback);
         }
     }
 

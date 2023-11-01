@@ -28,7 +28,7 @@ namespace Apache.Ignite
         /// <inheritdoc />
         public override bool ShouldRetry(IRetryPolicyContext context)
         {
-            IgniteArgumentCheck.NotNull(context, nameof(context));
+            IgniteArgumentCheck.NotNull(context);
 
             if (!base.ShouldRetry(context))
             {

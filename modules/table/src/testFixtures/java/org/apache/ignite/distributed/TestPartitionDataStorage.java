@@ -41,14 +41,35 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of {@link PartitionDataStorage}.
  */
 public class TestPartitionDataStorage implements PartitionDataStorage {
+    private final int tableId;
+
+    private final int partitionId;
+
     private final MvPartitionStorage partitionStorage;
 
     private final Lock partitionSnapshotsLock = new ReentrantLock();
 
     private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
-    public TestPartitionDataStorage(MvPartitionStorage partitionStorage) {
+    /** Constructor. */
+    public TestPartitionDataStorage(
+            int tableId,
+            int partitionId,
+            MvPartitionStorage partitionStorage
+    ) {
+        this.tableId = tableId;
+        this.partitionId = partitionId;
         this.partitionStorage = partitionStorage;
+    }
+
+    @Override
+    public int tableId() {
+        return tableId;
+    }
+
+    @Override
+    public int partitionId() {
+        return partitionId;
     }
 
     @Override
@@ -96,6 +117,11 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
         return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+    }
+
+    @Override
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs) {
+        partitionStorage.addWriteCommitted(rowId, row, commitTs);
     }
 
     @Override

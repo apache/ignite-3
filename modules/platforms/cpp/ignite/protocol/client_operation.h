@@ -17,7 +17,7 @@
 
 #pragma once
 
-namespace ignite::detail {
+namespace ignite::protocol {
 
 /**
  * Client operation code.
@@ -80,6 +80,15 @@ enum class client_operation {
     /** Contains tuple. */
     TUPLE_CONTAINS_KEY = 33,
 
+    /** Get table metadata. */
+    JDBC_TABLE_META = 38,
+
+    /** Get column metadata. */
+    JDBC_COLUMN_META = 39,
+
+    /** Get primary key metadata. */
+    JDBC_PK_META = 41,
+
     /** Begin transaction. */
     TX_BEGIN = 43,
 
@@ -119,4 +128,4 @@ enum class message_type {
     NOTIFICATION = 1,
 };
 
-} // namespace ignite::detail
+} // namespace ignite::protocol
