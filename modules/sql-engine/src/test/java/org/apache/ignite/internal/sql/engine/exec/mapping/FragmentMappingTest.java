@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,6 +39,9 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ExecutionTar
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
+import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
+import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
+import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -260,7 +264,16 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
     private IgniteRel parseQuery(IgniteSchema schema, String sqlStmt) {
         try {
-            return physicalPlan(sqlStmt, schema);
+            PlanningContext ctx = PlanningContext.builder()
+                    .parentContext(baseQueryContext(List.of(schema), null))
+                    .query(sqlStmt)
+                    .build();
+
+            try (IgnitePlanner planner = ctx.planner()) {
+                assertNotNull(planner);
+
+                return physicalPlan(planner, ctx.query());
+            }
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse a statement: " + sqlStmt, e);
         }
