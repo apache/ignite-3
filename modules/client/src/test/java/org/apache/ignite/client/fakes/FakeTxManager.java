@@ -169,7 +169,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, UUID txId) {
+    public CompletableFuture<Void> finishEmpty(boolean commit, UUID txId) {
         return null;
     }
 

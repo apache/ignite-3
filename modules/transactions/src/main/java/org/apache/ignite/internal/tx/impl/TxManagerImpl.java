@@ -328,7 +328,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, UUID txId) {
+    public CompletableFuture<Void> finishEmpty(boolean commit, UUID txId) {
         // If there are no enlisted groups, just update local state - we already marked the tx as finished.
         updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, getCommitTimestamp(commit)));
 
@@ -482,7 +482,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
 
                         if (failHandler.checkRecoverable(cause)) {
-                            LOG.warn("Failed to finish Tx {}. The operation will be retried.", ex, txId);
+                            LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
 
                             return makeDurableFinishRequest(
                                     observableTimestampTracker,

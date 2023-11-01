@@ -155,7 +155,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
             return txManager.finish(observableTsTracker, commitPart, commit, enlistedGroups, id());
         } else {
-            return txManager.finish(commit, id());
+            return txManager.finishEmpty(commit, id());
         }
     }
 

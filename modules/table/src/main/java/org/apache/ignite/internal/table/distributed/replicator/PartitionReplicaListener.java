@@ -1465,7 +1465,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // If the locks were not released, we are likely to be in a recovery mode and retrying the finish request.
             // In this case we want to check the expected outcome and the actual one.
             if (commit && txMeta.txState() == ABORTED) {
-                LOG.error("Failed to commit a transaction {} that is aborted.", txId);
+                LOG.error("Failed to commit a transaction that is already aborted [txId={}].", txId);
 
                 throw new TransactionException(TX_WAS_ABORTED_ERR,
                         "Failed to change the outcome of a finished transaction"
@@ -1534,8 +1534,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txManager.cleanup(leaseHolder, partitionId, txId, commit, commitTimestamp))
                 .handle((res, ex) -> {
                     if (ex != null) {
-                        LOG.warn("Failed to perform cleanup on Tx {}." + (attempts > 0 ? " The operation will be retried." : ""),
-                                txId, ex);
+                        if (attempts > 0) {
+                            LOG.warn("Failed to perform cleanup on Tx. The operation will be retried [txId={}].", txId, ex);
+                        } else {
+                            LOG.warn("Failed to perform cleanup on Tx [txId={}].", txId, ex);
+                        }
 
                         if (attempts > 0) {
                             return cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attempts - 1);
