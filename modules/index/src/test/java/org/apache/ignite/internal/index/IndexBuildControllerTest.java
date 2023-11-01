@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.OTHER_NODE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
@@ -39,6 +41,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -68,11 +71,13 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.verification.VerificationMode;
 
 /** For {@link IndexBuildController} testing. */
 public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
@@ -120,48 +125,23 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartBuildIndexesOnIndexCreate() {
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(PARTITION_ID), LOCAL_NODE, clock.now());
 
         clearInvocations(indexBuilder);
 
         createIndex(INDEX_NAME);
 
-        verify(indexBuilder).scheduleBuildIndex(
-                eq(tableId()),
-                eq(PARTITION_ID),
-                eq(indexId(INDEX_NAME)),
-                any(),
-                any(),
-                eq(LOCAL_NODE),
-                anyLong()
-        );
+        verifyScheduleBuildIndex(times(1), replicaId(PARTITION_ID), indexId(INDEX_NAME), LOCAL_NODE);
     }
 
     @Test
     void testStartBuildIndexesOnPrimaryReplicaElected() {
         createIndex(INDEX_NAME);
 
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(PARTITION_ID), LOCAL_NODE, clock.now());
 
-        verify(indexBuilder).scheduleBuildIndex(
-                eq(tableId()),
-                eq(PARTITION_ID),
-                eq(indexId(INDEX_NAME)),
-                any(),
-                any(),
-                eq(LOCAL_NODE),
-                anyLong()
-        );
-
-        verify(indexBuilder).scheduleBuildIndex(
-                eq(tableId()),
-                eq(PARTITION_ID),
-                eq(indexId(pkIndexName(TABLE_NAME))),
-                any(),
-                any(),
-                eq(LOCAL_NODE),
-                anyLong()
-        );
+        verifyScheduleBuildIndex(times(1), replicaId(PARTITION_ID), indexId(INDEX_NAME), LOCAL_NODE);
+        verifyScheduleBuildIndex(times(1), replicaId(PARTITION_ID), indexId(pkIndexName(TABLE_NAME)), LOCAL_NODE);
     }
 
     @Test
@@ -177,8 +157,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStopBuildIndexesOnChangePrimaryReplica() {
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", NODE_ID + "_other", clock.now());
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(PARTITION_ID), LOCAL_NODE, clock.now());
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(PARTITION_ID), OTHER_NODE, clock.now());
 
         verify(indexBuilder).stopBuildingIndexes(tableId(), PARTITION_ID);
     }
@@ -191,25 +171,87 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         makeIndexAvailable(indexId);
 
-        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(PARTITION_ID), LOCAL_NODE, clock.now());
 
-        verify(indexBuilder, never()).scheduleBuildIndex(
-                eq(tableId()),
-                eq(PARTITION_ID),
-                eq(indexId(INDEX_NAME)),
+        verifyScheduleBuildIndex(never(), replicaId(PARTITION_ID), indexId, LOCAL_NODE);
+        verifyScheduleBuildIndex(times(1), replicaId(PARTITION_ID), indexId(pkIndexName(TABLE_NAME)), LOCAL_NODE);
+    }
+
+    @Test
+    void testRecoverBuildingRegisteredIndexesOnly() {
+        createIndex(INDEX_NAME + 0);
+        createIndex(INDEX_NAME + 1);
+
+        int indexId0 = indexId(INDEX_NAME + 0);
+        int indexId1 = indexId(INDEX_NAME + 1);
+
+        makeIndexAvailable(indexId0);
+
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(PARTITION_ID), LOCAL_NODE, clock.now());
+
+        clearInvocations(indexBuilder);
+
+        assertThat(indexBuildController.recoverBuildIndexes(0), willCompleteSuccessfully());
+
+        verifyScheduleBuildIndex(never(), replicaId(PARTITION_ID), indexId0, LOCAL_NODE);
+        verifyScheduleBuildIndex(times(1), replicaId(PARTITION_ID), indexId1, LOCAL_NODE);
+    }
+
+    @Test
+    void testRecoverBuildingIndexForPartitionWhichLocalNodeIsPrimaryReplicaOnly() {
+        createIndex(INDEX_NAME);
+
+        int partitionId0 = PARTITION_ID;
+        int partitionId1 = PARTITION_ID + 1;
+        int partitionId2 = PARTITION_ID + 2;
+        int partitionId3 = PARTITION_ID + 3; // Unknown primaryReplicaMeta.
+
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(partitionId0), LOCAL_NODE, clock.now());
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(partitionId1), OTHER_NODE, clock.now());
+        setPrimaryReplicaWhichExpiresInOneMin(replicaId(partitionId1), LOCAL_NODE, clock.now().addPhysicalTime(-DAYS.toMillis(1)));
+
+        clearInvocations(indexBuilder);
+
+        assertThat(indexBuildController.recoverBuildIndexes(0), willCompleteSuccessfully());
+
+        int indexId = indexId(INDEX_NAME);
+
+        verifyScheduleBuildIndex(times(1), replicaId(partitionId0), indexId, LOCAL_NODE);
+
+        verifyScheduleBuildIndex(never(), replicaId(partitionId1), indexId, OTHER_NODE);
+        verifyScheduleBuildIndex(never(), replicaId(partitionId2), indexId, LOCAL_NODE);
+        verifyScheduleBuildIndexAnyNode(never(), replicaId(partitionId3), indexId);
+    }
+
+    private void verifyScheduleBuildIndex(
+            VerificationMode verificationMode,
+            TablePartitionId replicaGroupId,
+            int indexId,
+            ClusterNode clusterNode
+    ) {
+        verify(indexBuilder, verificationMode).scheduleBuildIndex(
+                eq(replicaGroupId.tableId()),
+                eq(replicaGroupId.partitionId()),
+                eq(indexId),
                 any(),
                 any(),
-                eq(LOCAL_NODE),
+                eq(clusterNode),
                 anyLong()
         );
+    }
 
-        verify(indexBuilder).scheduleBuildIndex(
-                eq(tableId()),
-                eq(PARTITION_ID),
-                eq(indexId(pkIndexName(TABLE_NAME))),
+    private void verifyScheduleBuildIndexAnyNode(
+            VerificationMode verificationMode,
+            TablePartitionId replicaGroupId,
+            int indexId
+    ) {
+        verify(indexBuilder, verificationMode).scheduleBuildIndex(
+                eq(replicaGroupId.tableId()),
+                eq(replicaGroupId.partitionId()),
+                eq(indexId),
                 any(),
                 any(),
-                eq(LOCAL_NODE),
+                any(),
                 anyLong()
         );
     }
@@ -226,15 +268,14 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
-    private void setPrimaryReplicaWhichExpiresInOneSecond(
-            int partitionId,
-            String leaseholder,
-            String leaseholderId,
+    private void setPrimaryReplicaWhichExpiresInOneMin(
+            TablePartitionId replicaGroupId,
+            ClusterNode clusterNode,
             HybridTimestamp startTime
     ) {
-        CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(leaseholder, leaseholderId, startTime));
+        CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneMin(clusterNode, startTime, replicaGroupId));
 
-        assertThat(placementDriver.setPrimaryReplicaMeta(0, replicaId(partitionId), replicaMetaFuture), willCompleteSuccessfully());
+        assertThat(placementDriver.setPrimaryReplicaMeta(0, replicaGroupId, replicaMetaFuture), willCompleteSuccessfully());
     }
 
     private int tableId() {
@@ -249,13 +290,13 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return new TablePartitionId(tableId(), partitionId);
     }
 
-    private ReplicaMeta replicaMetaForOneSecond(String leaseholder, String leaseholderId, HybridTimestamp startTime) {
+    private static ReplicaMeta replicaMetaForOneMin(ClusterNode clusterNode, HybridTimestamp startTime, TablePartitionId replicaGroupId) {
         return new Lease(
-                leaseholder,
-                leaseholderId,
+                clusterNode.name(),
+                clusterNode.id(),
                 startTime,
-                startTime.addPhysicalTime(1_000),
-                new TablePartitionId(tableId(), PARTITION_ID)
+                startTime.addPhysicalTime(MINUTES.toMillis(1)),
+                replicaGroupId
         );
     }
 
@@ -275,7 +316,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         @Override
         public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-            return primaryReplicaMetaFutureById.get(replicationGroupId);
+            return primaryReplicaMetaFutureById.getOrDefault(replicationGroupId, completedFuture(null));
         }
 
         @Override

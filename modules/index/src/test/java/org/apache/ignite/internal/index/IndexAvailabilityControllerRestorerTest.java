@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBui
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
+import static org.apache.ignite.internal.index.TestIndexManagementUtils.OTHER_NODE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.assertMetastoreKeyAbsent;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.assertMetastoreKeyPresent;
@@ -81,9 +81,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -244,10 +242,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
         TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
 
-        ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(
-                new ClusterNodeImpl(NODE_ID + "_ID_OLD", NODE_NAME + "_OLD", mock(NetworkAddress.class)),
-                replicaGroupId
-        );
+        ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(OTHER_NODE, replicaGroupId);
 
         prepareToRestartNode(replicaGroupId, indexId, primaryReplicaMeta);
 

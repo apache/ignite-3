@@ -21,10 +21,13 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,8 +66,9 @@ import org.apache.ignite.network.ClusterService;
  *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - for a new local primary replica, starts the building of all corresponding
  *     indexes, for an expired primary replica, stops the building of all corresponding indexes.</li>
  * </ul>
+ *
+ * <p>To recover the building of indexes on node recovery, you need to use {@link #recoverBuildIndexes(long)}.</p>
  */
-// TODO: IGNITE-20544 Start building indexes on node recovery
 public class IndexBuildController implements IgniteComponent {
     private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
 
@@ -119,6 +123,33 @@ public class IndexBuildController implements IgniteComponent {
         busyLock.block();
 
         indexBuilder.close();
+    }
+
+    /**
+     * Recovers the building of {@link CatalogIndexDescriptor#available() registered} indexes on node recovery. Building of indexes will be 
+     * recovered only for those partitions for which the local node is the primary replica.
+     *
+     * @param recoveryRevision Metastore revision on recovery.
+     * @return Future of recovery execution.
+     */
+    // TODO: IGNITE-20638 Use when adding the IndexBuildingManager
+    public CompletableFuture<Void> recoverBuildIndexes(long recoveryRevision) {
+        return inBusyLockAsync(busyLock, () -> {
+            // // It is expected that the method will only be called on recovery, when the deploy of metastore watches has not yet occurred.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
+            List<CompletableFuture<?>> futures = new ArrayList<>();
+
+            for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion)) {
+                if (!indexDescriptor.available()) {
+                    int partitions = getPartitionCountFromCatalog(catalogService, indexDescriptor.id(), catalogVersion);
+
+                    futures.add(recoverBuildIndexBusy(indexDescriptor, recoveryRevision, partitions));
+                }
+            }
+
+            return allOf(futures.toArray(CompletableFuture[]::new));
+        });
     }
 
     private void addListeners() {
@@ -214,7 +245,7 @@ public class IndexBuildController implements IgniteComponent {
             ReplicaMeta replicaMeta
     ) {
         inBusyLock(busyLock, () -> {
-            if (isLeaseExpire(replicaMeta)) {
+            if (!isPrimaryReplica(replicaMeta, localNode(), clock.now())) {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
@@ -235,7 +266,7 @@ public class IndexBuildController implements IgniteComponent {
             ReplicaMeta replicaMeta
     ) {
         inBusyLock(busyLock, () -> {
-            if (isLeaseExpire(replicaMeta)) {
+            if (!isPrimaryReplica(replicaMeta, localNode(), clock.now())) {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
@@ -320,11 +351,42 @@ public class IndexBuildController implements IgniteComponent {
         return clusterService.topologyService().localMember();
     }
 
-    private boolean isLeaseExpire(ReplicaMeta replicaMeta) {
-        return !isLocalNode(replicaMeta.getLeaseholder()) || clock.now().after(replicaMeta.getExpirationTime());
-    }
-
     private static long enlistmentConsistencyToken(ReplicaMeta replicaMeta) {
         return replicaMeta.getStartTime().longValue();
+    }
+
+    private CompletableFuture<Void> recoverBuildIndexBusy(CatalogIndexDescriptor indexDescriptor, long recoveryRevision, int partitions) {
+        assert !indexDescriptor.available() : indexDescriptor.id();
+
+        List<CompletableFuture<?>> futures = new ArrayList<>();
+
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            int finalPartitionId = partitionId;
+            int tableId = indexDescriptor.tableId();
+
+            CompletableFuture<?> future = indexManager.getMvTableStorage(recoveryRevision, tableId)
+                    .thenCompose(mvTableStorage -> inBusyLockAsync(busyLock, () -> {
+                        TablePartitionId replicaGroupId = new TablePartitionId(tableId, finalPartitionId);
+
+                        return placementDriver.getPrimaryReplica(replicaGroupId, clock.now())
+                                .thenCompose(primaryReplicaMeta -> inBusyLockAsync(busyLock, () -> {
+                                    if (primaryReplicaMeta == null) {
+                                        return completedFuture(null);
+                                    }
+
+                                    if (isPrimaryReplica(primaryReplicaMeta, localNode(), clock.now())) {
+                                        primaryReplicaIds.add(replicaGroupId);
+                                    }
+
+                                    tryScheduleBuildIndex(replicaGroupId, indexDescriptor, mvTableStorage, primaryReplicaMeta);
+
+                                    return completedFuture(null);
+                                }));
+                    }));
+
+            futures.add(future);
+        }
+
+        return allOf(futures.toArray(CompletableFuture[]::new));
     }
 }

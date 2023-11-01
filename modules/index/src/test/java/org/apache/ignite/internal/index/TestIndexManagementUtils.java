@@ -64,6 +64,8 @@ class TestIndexManagementUtils {
 
     static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(NODE_ID, NODE_NAME, mock(NetworkAddress.class));
 
+    static final ClusterNode OTHER_NODE = new ClusterNodeImpl(NODE_ID + "-other", NODE_NAME + "-other", mock(NetworkAddress.class));
+
     static void createTable(CatalogManager catalogManager, String tableName, String columnName) {
         TableTestUtils.createTable(
                 catalogManager,
