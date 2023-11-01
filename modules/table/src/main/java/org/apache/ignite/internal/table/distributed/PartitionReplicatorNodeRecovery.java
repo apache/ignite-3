@@ -60,17 +60,18 @@ class PartitionReplicatorNodeRecovery {
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
 
-    private final IntFunction<TableImpl> tableSupplier;
+    /** Obtains a TableImpl instance by a table ID. */
+    private final IntFunction<TableImpl> tableById;
 
     PartitionReplicatorNodeRecovery(
             MetaStorageManager metaStorageManager,
             MessagingService messagingService,
             Function<String, ClusterNode> clusterNodeResolver,
-            IntFunction<TableImpl> tableSupplier) {
+            IntFunction<TableImpl> tableById) {
         this.metaStorageManager = metaStorageManager;
         this.messagingService = messagingService;
         this.clusterNodeResolver = clusterNodeResolver;
-        this.tableSupplier = tableSupplier;
+        this.tableById = tableById;
     }
 
     /**
@@ -93,7 +94,7 @@ class PartitionReplicatorNodeRecovery {
 
                 boolean contains = false;
 
-                TableImpl table = tableSupplier.apply(tableId);
+                TableImpl table = tableById.apply(tableId);
 
                 if (table != null) {
                     MvTableStorage storage = table.internalTable().storage();
