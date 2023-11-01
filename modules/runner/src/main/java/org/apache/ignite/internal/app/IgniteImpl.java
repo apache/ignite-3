@@ -85,7 +85,7 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.index.IndexBuildController;
+import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -134,7 +134,6 @@ import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -314,8 +313,8 @@ public class IgniteImpl implements Ignite {
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
 
-    /** Index build controller. */
-    private final IndexBuildController indexBuildController;
+    /** Index building manager. */
+    private final IndexBuildingManager indexBuildingManager;
 
     /**
      * The Constructor.
@@ -604,14 +603,14 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
 
-        IndexBuilder indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors(), replicaSvc);
-
-        indexBuildController = new IndexBuildController(
-                indexBuilder,
-                indexManager,
+        indexBuildingManager = new IndexBuildingManager(
+                name,
+                replicaSvc,
                 catalogManager,
-                clusterSvc,
+                metaStorageMgr,
+                indexManager,
                 placementDriverMgr.placementDriver(),
+                clusterSvc,
                 clock
         );
 
@@ -825,7 +824,7 @@ public class IgniteImpl implements Ignite {
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
                                     indexManager,
-                                    indexBuildController,
+                                    indexBuildingManager,
                                     qryEngine,
                                     clientHandlerModule,
                                     deploymentManager

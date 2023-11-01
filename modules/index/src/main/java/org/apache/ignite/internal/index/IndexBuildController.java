@@ -35,8 +35,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -46,7 +46,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -65,7 +64,7 @@ import org.apache.ignite.network.ClusterService;
  * </ul>
  */
 // TODO: IGNITE-20544 Start building indexes on node recovery
-public class IndexBuildController implements IgniteComponent {
+class IndexBuildController implements ManuallyCloseable {
     private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
 
     private final IndexBuilder indexBuilder;
@@ -87,7 +86,7 @@ public class IndexBuildController implements IgniteComponent {
     private final Set<TablePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
-    public IndexBuildController(
+    IndexBuildController(
             IndexBuilder indexBuilder,
             IndexManager indexManager,
             CatalogService catalogService,
@@ -106,12 +105,7 @@ public class IndexBuildController implements IgniteComponent {
     }
 
     @Override
-    public void start() {
-        // No-op.
-    }
-
-    @Override
-    public void stop() {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }

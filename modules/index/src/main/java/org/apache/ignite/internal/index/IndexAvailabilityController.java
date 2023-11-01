@@ -63,8 +63,6 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.table.distributed.index.IndexBuildCompletionListener;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -101,8 +99,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *
  * @see CatalogIndexDescriptor#available()
  */
-// TODO: IGNITE-20638 Need integration with the IgniteImpl
-public class IndexAvailabilityController implements ManuallyCloseable {
+class IndexAvailabilityController implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityController.class);
 
     private final CatalogManager catalogManager;
@@ -114,7 +111,7 @@ public class IndexAvailabilityController implements ManuallyCloseable {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Constructor. */
-    public IndexAvailabilityController(CatalogManager catalogManager, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
+    IndexAvailabilityController(CatalogManager catalogManager, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
         this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;
 

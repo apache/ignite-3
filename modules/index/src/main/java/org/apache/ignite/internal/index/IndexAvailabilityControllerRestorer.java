@@ -75,7 +75,7 @@ import org.apache.ignite.network.ClusterService;
  *     </ul></li>
  * </ul>
  */
-public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
+class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexAvailabilityControllerRestorer.class);
 
     private final CatalogManager catalogManager;
@@ -95,7 +95,7 @@ public class IndexAvailabilityControllerRestorer implements ManuallyCloseable {
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
     /** Constructor. */
-    public IndexAvailabilityControllerRestorer(
+    IndexAvailabilityControllerRestorer(
             CatalogManager catalogManager,
             MetaStorageManager metaStorageManager,
             IndexManager indexManager,
