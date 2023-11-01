@@ -127,41 +127,53 @@ class PartitionReplicatorNodeRecovery {
             PeersAndLearners newConfiguration,
             Assignment localMemberAssignment
     ) {
-        int tableId = tablePartitionId.tableId();
-        int partId = tablePartitionId.partitionId();
-
         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
         // from the Raft group in order to avoid the double vote problem.
-        // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
-        if (internalTable.storage().isVolatile()) {
-            // No majority and not a full partition restart - need to restart nodes
-            // with current partition.
-            return queryDataNodesCount(tableId, partId, newConfiguration.peers())
-                        .thenApply(dataNodesCount -> {
-                            boolean fullPartitionRestart = dataNodesCount == 0;
-
-                            if (fullPartitionRestart) {
-                                return true;
-                            }
-
-                            boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
-
-                            if (majorityAvailable) {
-                                RebalanceUtil.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager);
-
-                                return false;
-                            } else {
-                                // No majority and not a full partition restart - need to restart nodes
-                                // with current partition.
-                                String msg = "Unable to start partition " + partId + ". Majority not available.";
-
-                                throw new IgniteInternalException(msg);
-                            }
-                        });
+        if (mightNeedGroupRecovery(internalTable)) {
+            return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment);
         }
 
         return completedFuture(true);
+    }
+
+    private static boolean mightNeedGroupRecovery(InternalTable internalTable) {
+        // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
+        return internalTable.storage().isVolatile();
+    }
+
+    private CompletableFuture<Boolean> performGroupRecovery(
+            TablePartitionId tablePartitionId,
+            PeersAndLearners newConfiguration,
+            Assignment localMemberAssignment
+    ) {
+        int tableId = tablePartitionId.tableId();
+        int partId = tablePartitionId.partitionId();
+
+        // No majority and not a full partition restart - need to 'remove, then add' nodes
+        // with current partition.
+        return queryDataNodesCount(tableId, partId, newConfiguration.peers())
+                .thenApply(dataNodesCount -> {
+                    boolean fullPartitionRestart = dataNodesCount == 0;
+
+                    if (fullPartitionRestart) {
+                        return true;
+                    }
+
+                    boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
+
+                    if (majorityAvailable) {
+                        RebalanceUtil.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager);
+
+                        return false;
+                    } else {
+                        // No majority and not a full partition restart - need to restart nodes
+                        // with current partition.
+                        String msg = "Unable to start partition " + partId + ". Majority not available.";
+
+                        throw new IgniteInternalException(msg);
+                    }
+                });
     }
 
     /**
