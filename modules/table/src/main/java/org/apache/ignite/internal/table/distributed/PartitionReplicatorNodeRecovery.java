@@ -92,7 +92,7 @@ class PartitionReplicatorNodeRecovery {
                 int tableId = msg.tableId();
                 int partitionId = msg.partitionId();
 
-                boolean contains = false;
+                boolean storageHasData = false;
 
                 TableImpl table = tableById.apply(tableId);
 
@@ -104,11 +104,11 @@ class PartitionReplicatorNodeRecovery {
                     // If node's recovery process is incomplete (no partition storage), then we consider this node's
                     // partition storage empty.
                     if (mvPartition != null) {
-                        contains = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null;
+                        storageHasData = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null;
                     }
                 }
 
-                messagingService.respond(sender, TABLE_MESSAGES_FACTORY.hasDataResponse().result(contains).build(), correlationId);
+                messagingService.respond(sender, TABLE_MESSAGES_FACTORY.hasDataResponse().result(storageHasData).build(), correlationId);
             }
         });
     }
