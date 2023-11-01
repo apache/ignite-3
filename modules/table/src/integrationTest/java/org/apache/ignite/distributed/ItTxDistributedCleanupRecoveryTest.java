@@ -19,7 +19,6 @@ package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -48,9 +47,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -159,44 +156,4 @@ public class ItTxDistributedCleanupRecoveryTest extends ItTxDistributedTestSingl
         log.info("Tables have been started");
     }
 
-
-    @Test
-    @Override
-    public void testDeleteUpsertCommit() throws TransactionException {
-        // The value of 6 is higher than the default retry count.
-        // So we should give up retrying and crash.
-        setDefaultRetryCount(6);
-
-        assertThrows(TransactionException.class, () -> deleteUpsert().commit());
-    }
-
-    @Test
-    @Override
-    public void testTransactionAlreadyRolledback() {
-        // The value of 6 is higher than the default retry count.
-        // So we should give up retrying and crash.
-        setDefaultRetryCount(6);
-
-        // Do not check the locks since we have intentionally dropped the cleanup request thus the locks are not released yet.
-        testTransactionAlreadyFinished(false, false, (transaction, txId) -> {
-            assertThrows(TransactionException.class, transaction::rollback);
-
-            log.info("Rolled back transaction {}", txId);
-        });
-    }
-
-    @Test
-    @Override
-    public void testTransactionAlreadyCommitted() {
-        // The value of 6 is higher than the default retry count.
-        // So we should give up retrying and crash.
-        setDefaultRetryCount(6);
-
-        // Do not check the locks since we have intentionally dropped the cleanup request thus the locks are not released yet.
-        testTransactionAlreadyFinished(true, false, (transaction, txId) -> {
-            assertThrows(TransactionException.class, transaction::commit);
-
-            log.info("Committed transaction {}", txId);
-        });
-    }
 }

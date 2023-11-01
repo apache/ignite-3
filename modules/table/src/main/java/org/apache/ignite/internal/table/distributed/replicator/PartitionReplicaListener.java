@@ -1473,21 +1473,20 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
             // The transaction has already been finished, but the locks are not released.
             // Waiting for the cleanup to do this.
-            CompletableFuture<Void> cleanupAwaitFuture = txDurableFinishFutures.compute(txId, (uuid, future) -> {
-                if (future == null) {
-                    // Check the storage again to avoid a race.
-                    TxMeta storedMeta = txStateStorage.get(txId);
+            // TODO: There is a risk that nobody is cleaning up this transaction.
 
-                    if (storedMeta != null && storedMeta.locksReleased()) {
-                        return null;
-                    }
-
-                    future = new CompletableFuture<>();
-                }
-
-                return future;
-            });
-            return cleanupAwaitFuture != null ? cleanupAwaitFuture : completedFuture(null);
+            //            CompletableFuture<Void> cleanupAwaitFuture = txDurableFinishFutures.computeIfAbsent(txId, uuid -> {
+            //                // Check the storage again to avoid a race.
+            //                TxMeta storedMeta = txStateStorage.get(txId);
+            //
+            //                if (storedMeta != null && storedMeta.locksReleased()) {
+            //                    return null;
+            //                }
+            //
+            //                return new CompletableFuture<>();
+            //            });
+            //
+            //            return cleanupAwaitFuture != null ? cleanupAwaitFuture : completedFuture(null);
         }
 
         // If the transaction is finished - no need to send finish again, just move on to the cleanup phase.
