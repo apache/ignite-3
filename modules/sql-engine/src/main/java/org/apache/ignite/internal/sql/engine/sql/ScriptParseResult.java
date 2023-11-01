@@ -37,6 +37,10 @@ public final class ScriptParseResult extends ParseResult {
     public static final ParseMode<ScriptParseResult> MODE = new ParseMode<>() {
         @Override
         ScriptParseResult createResult(List<SqlNode> list, int dynamicParamsCount) {
+            if (list.size() == 1) {
+                return new ScriptParseResult(List.of(new StatementParseResult(list.get(0), dynamicParamsCount)), dynamicParamsCount);
+            }
+
             SqlDynamicParamsCounter paramsCounter = dynamicParamsCount == 0 ? null : new SqlDynamicParamsCounter();
             List<StatementParseResult> results = list.stream()
                     .map(node -> new StatementParseResult(node, paramsCounter == null ? 0 : paramsCounter.forNode(node)))

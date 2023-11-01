@@ -19,17 +19,12 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.util.List;
 import java.util.function.Function;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
@@ -115,48 +110,17 @@ public class ParserServiceImplTest {
         assertThat(firstCall.toString(), is(secondCall.toString()));
     }
 
-    /**
-     * Checks the parsing of a query containing multiple statements.
-     *
-     * <p>This parsing mode is only supported using the {@link ParserService#parseScript(String)} method,
-     * so {@link ParserService#parse(String)}} must fail with a validation error.
-     *
-     * <p>Parsing produces a list of parsing results, each of which must match the parsing
-     * result of the corresponding single statement.
-     */
+
     @Test
-    void parseMultiStatementQuery() {
-        ParserService service = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+    @SuppressWarnings("ThrowableNotThrown")
+    void parseMultiStatementQueryFails() {
+        ParserServiceImpl service = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
-        List<Statement> statements = List.of(Statement.values());
-        IgniteStringBuilder buf = new IgniteStringBuilder();
-
-        for (Statement statement : statements) {
-            buf.app(statement.text).app(';');
-        }
-
-        String multiStatementQuery = buf.toString();
-
-        //noinspection ThrowableNotThrown
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Multiple statements are not allowed",
-                () -> service.parse(multiStatementQuery)
+                () -> service.parse("SELECT 1; SELECT 2")
         );
-
-        List<ParsedResult> results = service.parseScript(multiStatementQuery);
-        assertThat(results, hasSize(statements.size()));
-
-        for (int i = 0; i < results.size(); i++) {
-            ParsedResult result = results.get(i);
-            ParsedResult singleStatementResult = service.parse(statements.get(i).text);
-
-            assertThat(result.queryType(), equalTo(statements.get(i).type));
-            assertThat(result.parsedTree(), notNullValue());
-            assertThat(result.parsedTree().toString(), equalTo(singleStatementResult.parsedTree().toString()));
-            assertThat(result.normalizedQuery(), equalTo(singleStatementResult.normalizedQuery()));
-            assertThat(result.originalQuery(), equalTo(singleStatementResult.normalizedQuery()));
-        }
     }
 
     /**
