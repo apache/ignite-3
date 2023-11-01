@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -184,13 +184,12 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        PropertiesHolder propsHolder = PropertiesHelper.newBuilder()
+        SqlProperties propsHolder = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
                 .set(QueryProperty.DEFAULT_SCHEMA, schema)
                 .build();
 
-        SessionId sessionId = qryProc.createSession(propsHolder);
-
+        SessionId sessionId = new SessionId(UUID.randomUUID());
         SessionImpl session = new SessionImpl(
                 sessionId,
                 props -> new SessionBuilderImpl(

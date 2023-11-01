@@ -68,17 +68,12 @@ import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
-import org.apache.ignite.internal.sql.engine.session.Session;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionInfo;
-import org.apache.ignite.internal.sql.engine.session.SessionManager;
-import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
@@ -124,8 +119,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Name of the default schema. */
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
-    private static final PropertiesHolder DEFAULT_PROPERTIES = PropertiesHelper.newBuilder()
+    private static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
+            .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
             .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
@@ -156,8 +152,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final SqlSchemaManager sqlSchemaManager;
 
     private final SystemViewManager systemViewManager;
-
-    private final SessionManager sessionManager = new SessionManager();
 
     private volatile QueryTaskExecutor taskExecutor;
 
@@ -322,34 +316,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public SessionId createSession(PropertiesHolder properties) {
-        properties = PropertiesHelper.merge(properties, DEFAULT_PROPERTIES);
-
-        return sessionManager.createSession(
-                properties
-        );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> closeSession(SessionId sessionId) {
-        var session = sessionManager.session(sessionId);
-
-        if (session == null) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        return session.closeAsync();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<SessionInfo> liveSessions() {
-        return sessionManager.liveSessions();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public synchronized void stop() throws Exception {
         busyLock.block();
 
@@ -367,9 +333,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionId,
-            QueryContext context,
+            SqlProperties properties,
             IgniteTransactions transactions,
+            @Nullable InternalTransaction transaction,
             String qry,
             Object... params
     ) {
@@ -378,7 +344,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(sessionId, context, transactions, qry, params);
+            return querySingle0(properties, transactions, transaction, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -391,45 +357,25 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
-            SessionId sessionId,
-            QueryContext context,
+            SqlProperties properties,
             IgniteTransactions transactions,
+            @Nullable InternalTransaction explicitTransaction,
             String sql,
             Object... params
     ) {
-        Session session = sessionManager.session(sessionId);
-
-        if (session == null) {
-            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
-        }
-
-        String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
-
-        InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
+        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
+        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
 
         QueryCancel queryCancel = new QueryCancel();
-
-        AsyncCloseable closeableResource = () -> CompletableFuture.runAsync(
-                queryCancel::cancel,
-                taskExecutor
-        );
-
-        queryCancel.add(() -> session.unregisterResource(closeableResource));
-
-        try {
-            session.registerResource(closeableResource);
-        } catch (IllegalStateException ex) {
-            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
-        }
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>();
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
-            validateParsedStatement(context, result, params, outerTx);
+            validateParsedStatement(properties0, result, params, explicitTransaction);
 
-            QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
+            QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, explicitTransaction);
 
             return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
                     .thenCompose(schema -> {
@@ -544,12 +490,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
-            QueryContext context,
+            SqlProperties properties,
             ParsedResult parsedResult,
             Object[] params,
-            InternalTransaction outerTx
+            @Nullable InternalTransaction outerTx
     ) {
-        Set<SqlQueryType> allowedTypes = context.allowedQueryTypes();
+        Set<SqlQueryType> allowedTypes = properties.get(QueryProperty.ALLOWED_QUERY_TYPES);
         SqlQueryType queryType = parsedResult.queryType();
 
         if (outerTx != null) {

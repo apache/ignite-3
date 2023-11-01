@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,7 +66,7 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     @AfterEach
     void afterEach() throws Exception {
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
-        assertTrue(queryProcessor().liveSessions().isEmpty());
+        assertFalse(hasOpenSessions());
     }
 
     @Override
@@ -82,17 +84,13 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
         rs1.forEachRemaining(c -> {});
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
-        ResultSet<SqlRow> rs2 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
 
         rs1.close();
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
         session.close();
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
-
-        rs2.close();
-
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
@@ -100,16 +98,15 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     public void testMetricsDuringTimeouts() throws Exception {
         Session session = sql.sessionBuilder().idleTimeout(1, TimeUnit.SECONDS).build();
 
-        ResultSet<SqlRow> rs1 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
-        assertTrue(waitForCondition(() -> queryProcessor().liveSessions().isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> !hasOpenSessions(), 10_000));
 
         assertInternalSqlException("Session is closed", () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
 
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
-        rs1.close();
-        session.close();
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        assertThat(session.closed(), is(true));
     }
 
     private static void assertInternalSqlException(String expectedText, Executable executable) {
@@ -144,5 +141,9 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
                         () -> expectedValue.toString().equals(metricSet.get(metricName).getValueAsString()),
                         1000)
         );
+    }
+
+    private boolean hasOpenSessions() {
+        return !((IgniteSqlImpl) sql).sessions().isEmpty();
     }
 }

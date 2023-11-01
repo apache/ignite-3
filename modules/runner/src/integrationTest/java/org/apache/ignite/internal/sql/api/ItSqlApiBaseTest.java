@@ -38,7 +38,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -363,7 +362,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRo = "SELECT VAL0 FROM TEST ORDER BY VAL0";
 
-        assertQuery(outerTx, queryRo).matches(planMatcher).check();
+        assertQuery(queryRo).matches(planMatcher).check();
 
         ResultSet<SqlRow> rs = executeForRead(ses, outerTx, queryRo);
 
@@ -484,11 +483,11 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         ses.close();
 
         SqlException sqlEx = assertThrowsSqlException(
-                Sql.EXECUTION_CANCELLED_ERR,
-                "The query was cancelled while executing",
+                Sql.CURSOR_CLOSED_ERR,
+                "Cursor is closed",
                 () -> rs.forEachRemaining(System.out::println));
 
-        assertTrue(IgniteTestUtils.hasCause(sqlEx, QueryCancelledException.class, null));
+        assertTrue(IgniteTestUtils.hasCause(sqlEx, CursorClosedException.class, null));
         assertThrowsSqlException(Sql.SESSION_CLOSED_ERR, "Session is closed", () -> execute(ses, "SELECT ID FROM TEST"));
     }
 

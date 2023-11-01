@@ -20,10 +20,9 @@ package org.apache.ignite.internal.sql.engine.property;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 /**
- * Exception that is thrown by {@link PropertiesHolder} if given property
- * is not fount in the holder.
+ * Exception that is thrown by {@link SqlProperties} if given property is not fount.
  *
- * @see PropertiesHolder
+ * @see SqlProperties
  */
 public class PropertyNotFoundException extends RuntimeException {
 
