@@ -117,8 +117,10 @@ import org.apache.ignite.internal.table.impl.DummySchemas;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.FailHandler;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.SimpleFailHandler;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -202,6 +204,8 @@ public class ItTxTestCluster {
     protected IgniteTransactions igniteTransactions;
 
     protected String localNodeName;
+
+    protected FailHandler failHandler = new SimpleFailHandler();
 
     private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
         for (ClusterService service : cluster) {
@@ -353,7 +357,8 @@ public class ItTxTestCluster {
                     clock,
                     new TransactionIdGenerator(i),
                     node,
-                    placementDriver
+                    placementDriver,
+                    failHandler
             );
 
             txMgr.start();
@@ -386,7 +391,8 @@ public class ItTxTestCluster {
             HybridClock clock,
             TransactionIdGenerator generator,
             ClusterNode node,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            FailHandler failHandler
     ) {
         return new TxManagerImpl(
                 replicaSvc,
@@ -394,7 +400,8 @@ public class ItTxTestCluster {
                 clock,
                 generator,
                 node::id,
-                placementDriver
+                placementDriver,
+                failHandler
         );
     }
 
@@ -818,7 +825,8 @@ public class ItTxTestCluster {
                 clientClock,
                 new TransactionIdGenerator(-1),
                 localNodeIdSupplier,
-                placementDriver
+                placementDriver,
+                failHandler
         );
 
         clientTxStateResolver = new TransactionStateResolver(

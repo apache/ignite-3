@@ -57,6 +57,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
+import org.apache.ignite.internal.tx.impl.SimpleFailHandler;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -118,7 +119,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 clock,
                 new TransactionIdGenerator(0xdeadbeef),
                 LOCAL_NODE::id,
-                placementDriver
+                placementDriver,
+                new SimpleFailHandler()
         );
 
         txManager.start();

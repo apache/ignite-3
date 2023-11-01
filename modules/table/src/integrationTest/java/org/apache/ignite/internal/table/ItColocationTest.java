@@ -86,6 +86,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.SimpleFailHandler;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
@@ -150,7 +151,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl(),
                 new TransactionIdGenerator(0xdeadbeef),
                 clusterNode::id,
-                new TestPlacementDriver(clusterNode)
+                new TestPlacementDriver(clusterNode),
+                new SimpleFailHandler()
         ) {
             @Override
             public CompletableFuture<Void> finish(

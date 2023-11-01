@@ -60,6 +60,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.SimpleFailHandler;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -119,7 +120,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef),
                     () -> leaseholder,
-                    new TestPlacementDriver(leaseholder, leaseholder)
+                    new TestPlacementDriver(leaseholder, leaseholder),
+                    new SimpleFailHandler()
             );
 
             txManager.start();

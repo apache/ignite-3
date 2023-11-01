@@ -82,6 +82,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.network.NetworkMessage;
@@ -152,6 +153,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final FailHandler failHandler;
+
     /**
      * The constructor.
      *
@@ -166,7 +169,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridClock clock,
             TransactionIdGenerator transactionIdGenerator,
             Supplier<String> localNodeIdSupplier,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            FailHandler failHandler
     ) {
         this(
                 replicaService,
@@ -175,7 +179,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 transactionIdGenerator,
                 localNodeIdSupplier,
                 placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                failHandler
         );
     }
 
@@ -195,7 +200,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TransactionIdGenerator transactionIdGenerator,
             Supplier<String> localNodeIdSupplier,
             PlacementDriver placementDriver,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            FailHandler failHandler
     ) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
@@ -204,6 +210,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
+        this.failHandler = failHandler;
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -461,26 +468,34 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         ))
                 .handle((res, ex) -> {
                     if (ex != null) {
-                        if (ex.getCause() != null && ex.getCause() instanceof TransactionException) {
-                            TransactionException cause = (TransactionException) ex.getCause();
+                        Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                            if (cause.code() == TX_WAS_ABORTED_ERR) {
+                        if (cause instanceof TransactionException) {
+                            TransactionException transactionException = (TransactionException) cause;
+
+                            if (transactionException.code() == TX_WAS_ABORTED_ERR) {
                                 updateTxMeta(txId, old -> new TxStateMeta(ABORTED, old.txCoordinatorId(), null));
 
                                 return CompletableFuture.<Void>failedFuture(cause);
                             }
                         }
-                        LOG.warn("Failed to finish Tx {}. The operation will be retried.", ex, txId);
 
-                        return makeDurableFinishRequest(
-                                observableTimestampTracker,
-                                commitPartition,
-                                commit,
-                                replicationGroupIds,
-                                txId,
-                                commitTimestamp,
-                                txFinishFuture
-                        );
+
+                        if (failHandler.checkRecoverable(cause)) {
+                            LOG.warn("Failed to finish Tx {}. The operation will be retried.", ex, txId);
+
+                            return makeDurableFinishRequest(
+                                    observableTimestampTracker,
+                                    commitPartition,
+                                    commit,
+                                    replicationGroupIds,
+                                    txId,
+                                    commitTimestamp,
+                                    txFinishFuture
+                            );
+                        } else {
+                            return CompletableFuture.<Void>failedFuture(cause);
+                        }
                     }
 
                     return CompletableFuture.<Void>completedFuture(null);
