@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.commands.questions;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent.fromYesNoQuestion;
-import static org.apache.ignite.internal.cli.core.style.element.UiElements.string;
+import static org.apache.ignite.internal.cli.core.style.element.UiElements.username;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Inject;
@@ -31,6 +31,7 @@ import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
 import org.apache.ignite.internal.cli.core.flow.Flow;
@@ -115,18 +116,22 @@ public class ConnectToClusterQuestion {
             }
 
             String oldUsername = sessionInfo.username();
-            String newUsername = input.username();
+            // This username will be used for connect by the connection checker.
+            String newUsername = input.username() != null
+                    ? input.username()
+                    : configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
 
             if (newUsername != null) {
-                if (oldUsername != null) {
-                    return Flows.acceptQuestion(fromYesNoQuestion(
-                            "You are already connected to the %s as %s, do you want to connect as %s?",
-                            UiElements.url(sessionInfo.nodeUrl()), string(oldUsername), string(newUsername)
-                    ), () -> input);
-                } else {
+                if (oldUsername == null) {
                     return Flows.acceptQuestion(fromYesNoQuestion(
                             "You are already connected to the %s, do you want to connect as %s?",
-                            UiElements.url(sessionInfo.nodeUrl()), string(newUsername)
+                            UiElements.url(sessionInfo.nodeUrl()), username(newUsername)
+                    ), () -> input);
+                }
+                if (!oldUsername.equals(newUsername)) {
+                    return Flows.acceptQuestion(fromYesNoQuestion(
+                            "You are already connected to the %s as %s, do you want to connect as %s?",
+                            UiElements.url(sessionInfo.nodeUrl()), username(oldUsername), username(newUsername)
                     ), () -> input);
                 }
             }
@@ -137,20 +142,21 @@ public class ConnectToClusterQuestion {
     /**
      * Ask if the user wants to store credentials in config.
      *
+     * @param configManager Config manager.
      * @param username username.
      * @param password password
      */
-    public void askQuestionToStoreCredentials(@Nullable String username, @Nullable String password) {
+    public static void askQuestionToStoreCredentials(ConfigManager configManager, @Nullable String username, @Nullable String password) {
         if (!nullOrBlank(username) && !nullOrBlank(password)) {
-            String storedUsername = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
-            String storedPassword = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
+            String storedUsername = configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+            String storedPassword = configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
 
             // Ask question only if cli config has different values.
             if (!username.equals(storedUsername) || !password.equals(storedPassword)) {
                 QuestionUiComponent question = fromYesNoQuestion("Remember current credentials?");
                 Flows.acceptQuestion(question, () -> {
-                    configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_USERNAME.value(), username);
-                    configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), password);
+                    configManager.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), username);
+                    configManager.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), password);
                     return "Config saved";
                 }).print().start();
             }

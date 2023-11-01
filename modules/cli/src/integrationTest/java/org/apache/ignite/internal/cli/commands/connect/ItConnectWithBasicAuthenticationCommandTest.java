@@ -246,8 +246,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given basic authentication is NOT configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig());
         // Given prompt before connect
-        String promptBefore = getPrompt();
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
         // And answer is "y"
         bindAnswers("y");
@@ -407,4 +406,30 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 
+    @Test
+    void shouldStoreCredentialsFromAnswer() throws IOException {
+        // Given basic authentication is NOT configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig());
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // And answer "y" to question on auth error, enter username and password and answer "y" to save config question
+        bindAnswers("y", "admin", "password", "y");
+
+        // And connected
+        execute("connect", "--username", "admin", "--password", "wrong-password");
+
+        // And output is
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs(
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
+        );
+
+        // And prompt shows username and node name
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+        // And correct values are stored in config
+        assertEquals("admin", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME));
+        assertEquals("password", configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_PASSWORD));
+    }
 }

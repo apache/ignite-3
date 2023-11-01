@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
+import static org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion.askQuestionToStoreCredentials;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
@@ -96,7 +97,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             sessionInfo = connectWithoutAuthentication(nodeUrl);
             if (sessionInfo == null) {
                 // Try with authentication
-                sessionInfo =  connectionChecker.checkConnection(input);
+                sessionInfo = connectionChecker.checkConnection(input);
                 if (!nullOrBlank(input.username()) && !nullOrBlank(input.password())) {
                     // Use current credentials as default for api clients
                     ApiClientSettings clientSettings = ApiClientSettings.builder()
@@ -113,6 +114,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
                                 sessionInfo.nodeUrl()));
             }
 
+            askQuestionToStoreCredentials(configManagerProvider.get(), input.username(), input.password());
             return connectSuccessCall.execute(sessionInfo);
         } catch (Exception e) {
             if (session.info() != null) {

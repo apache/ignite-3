@@ -58,8 +58,8 @@ public class UiElements {
         return new MarkedUiElement("[Y/n]", fg(Color.GRAY));
     }
 
-    /** Unmarked UI element. */
-    public static UiElement string(String content) {
+    /** Username UI element. */
+    public static UiElement username(String content) {
         return () -> content;
     }
 }
