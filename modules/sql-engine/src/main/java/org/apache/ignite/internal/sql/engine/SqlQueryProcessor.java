@@ -145,7 +145,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
 
-    private final ParserService<ParsedResult> parserService = new ParserServiceImpl(
+    private final ParserService parserService = new ParserServiceImpl(
             PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
     );
 

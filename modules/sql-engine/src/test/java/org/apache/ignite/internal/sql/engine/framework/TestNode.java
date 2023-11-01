@@ -72,7 +72,7 @@ public class TestNode implements LifecycleAware {
     private final SqlSchemaManager schemaManager;
     private final PrepareService prepareService;
     private final ExecutionService executionService;
-    private final ParserService<ParsedResult> parserService;
+    private final ParserService parserService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
@@ -86,7 +86,7 @@ public class TestNode implements LifecycleAware {
     TestNode(
             String nodeName,
             ClusterService clusterService,
-            ParserService<ParsedResult> parserService,
+            ParserService parserService,
             PrepareService prepareService,
             SqlSchemaManager schemaManager,
             MappingService mappingService,

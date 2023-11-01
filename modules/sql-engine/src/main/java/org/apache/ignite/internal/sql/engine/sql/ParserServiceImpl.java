@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -27,7 +29,7 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 /**
  * An implementation of {@link ParserService} that, apart of parsing, introduces cache of parsed results.
  */
-public class ParserServiceImpl implements ParserService<ParsedResult> {
+public class ParserServiceImpl implements ParserService {
 
     private final Cache<String, ParsedResult> queryToParsedResultCache;
 
@@ -72,6 +74,31 @@ public class ParserServiceImpl implements ParserService<ParsedResult> {
         return result;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<ParsedResult> parseScript(String query) {
+        ScriptParseResult parsedStatement = IgniteSqlParser.parse(query, ScriptParseResult.MODE);
+        List<ParsedResult> results = new ArrayList<>(parsedStatement.results().size());
+
+        for (StatementParseResult result : parsedStatement.results()) {
+            SqlNode parsedTree = result.statement();
+            SqlQueryType queryType = Commons.getQueryType(parsedTree);
+            String normalizedQuery = parsedTree.toString();
+
+            assert queryType != null : normalizedQuery;
+
+            results.add(new ParsedResultImpl(
+                    queryType,
+                    normalizedQuery,
+                    normalizedQuery,
+                    result.dynamicParamsCount(),
+                    () -> parsedTree
+            ));
+        }
+
+        return results;
+    }
+
     static class ParsedResultImpl implements ParsedResult {
         private final SqlQueryType queryType;
         private final String originalQuery;
@@ -79,7 +106,7 @@ public class ParserServiceImpl implements ParserService<ParsedResult> {
         private final int dynamicParamCount;
         private final Supplier<SqlNode> parsedTreeSupplier;
 
-        ParsedResultImpl(
+        private ParsedResultImpl(
                 SqlQueryType queryType,
                 String originalQuery,
                 String normalizedQuery,

@@ -173,7 +173,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
-    private ParserService<ParsedResult> parserService;
+    private ParserService parserService;
     private RuntimeException mappingException;
 
     private final List<QueryTaskExecutor> executers = new ArrayList<>();

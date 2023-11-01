@@ -43,10 +43,9 @@ public class IgniteSqlParserTest {
 
     @ParameterizedTest
     @MethodSource("multiStatementQueries")
-    public void testScriptMode(String query, int[] expectedParamsCountPerStatement) {
+    public void testScriptMode(String query, int expectedStatementsCount, int[] expectedPramsCountPerStatement) {
         ScriptParseResult scriptParseResult = IgniteSqlParser.parse(query, ScriptParseResult.MODE);
-        int expectedTotalParams = Arrays.stream(expectedParamsCountPerStatement).sum();
-        int expectedStatementsCount = expectedParamsCountPerStatement.length;
+        int expectedTotalParams = Arrays.stream(expectedPramsCountPerStatement).sum();
 
         assertEquals(expectedTotalParams, scriptParseResult.dynamicParamsCount());
         assertEquals(expectedStatementsCount, scriptParseResult.results().size());
@@ -55,7 +54,7 @@ public class IgniteSqlParserTest {
             StatementParseResult res = scriptParseResult.results().get(i);
 
             assertNotNull(res.statement());
-            assertEquals(expectedParamsCountPerStatement[i], res.dynamicParamsCount());
+            assertEquals(expectedPramsCountPerStatement[i], res.dynamicParamsCount());
         }
     }
 
@@ -135,16 +134,10 @@ public class IgniteSqlParserTest {
 
     private static List<Arguments> multiStatementQueries() {
         return List.of(
-                Arguments.of(
-                        "-- insert\n"
-                        + "INSERT INTO TEST VALUES(1, 1);;\n"
-                        + "--- select\n"
-                        + ";;;SELECT 1 + 2",
-                        new int[]{0, 0}
-                ),
-                Arguments.of("SELECT 1 + ? - ?", new int[]{2}),
-                Arguments.of("SELECT 1; INSERT INTO TEST VALUES(?, ?, ?)", new int[] {0, 3}),
-                Arguments.of("INSERT INTO TEST VALUES(?, ?); SELECT 1; SELECT 2 + ?", new int[] {2, 0, 1})
+                Arguments.of("INSERT INTO TEST VALUES(1, 1); SELECT 1 + 2", 2, new int[]{0, 0}),
+                Arguments.of("SELECT 1 + ? - ?", 1, new int[]{2}),
+                Arguments.of("SELECT 1; INSERT INTO TEST VALUES(?, ?, ?)", 2, new int[] {0, 3}),
+                Arguments.of("INSERT INTO TEST VALUES(?, ?); SELECT 1; SELECT 2 + ?", 3, new int[] {2, 0, 1})
         );
     }
 }

@@ -86,7 +86,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(table);
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
-        ParserService<ParsedResult> parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+        ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
         ParsedResult parsedResult = parserService.parse(qry);
 
         await(prepareService.prepareAsync(parsedResult, ctx));

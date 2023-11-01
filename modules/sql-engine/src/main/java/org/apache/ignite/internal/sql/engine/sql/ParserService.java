@@ -17,16 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import java.util.List;
+
 /**
  * A service whose sole purpose is to take a query string and convert it into a syntax tree according to the rules of grammar.
+ *
+ * @see ParsedResult
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface ParserService<T> {
+public interface ParserService {
     /**
      * Takes a query string and convert it into a syntax tree according to the rules of grammar.
      *
      * @param query A query to convert.
      * @return Result of the parsing.
      */
-    T parse(String query);
+    ParsedResult parse(String query);
+
+    /**
+     * Takes a query containing multiple statements and converts it into a list of syntax trees according to the rules of the grammar.
+     *
+     * @param query A query to convert.
+     * @return List of parsing results.
+     */
+    List<ParsedResult> parseScript(String query);
 }
