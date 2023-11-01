@@ -63,7 +63,7 @@ import org.junit.jupiter.api.Test;
  *     addNodes("N1", "N2", "N3");
  *
  *     // The first statement adds a table with data located at node N1.
- *     // The first one adds a table with data located at nodes N2, N3.
+ *     // The second one adds a table with data located at nodes N2, N3.
  *     // The catalog is going to contain tables "T1_N1" and "T2_N2N3".
  *     // Both tables have distribution affinity([0], tableId, zoneId)
  *     addTable("T1", "N1");
