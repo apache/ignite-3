@@ -128,9 +128,14 @@ public class IgniteSqlFunctions {
         return b instanceof ByteString ? SqlFunctions.octetLength((ByteString) b) : charLength((String) b);
     }
 
-    /** OCTET_LENGTH(VARBINARY|VARCHAR). */
-    public static int octetLength(Object s) {
-        return s instanceof ByteString ? SqlFunctions.octetLength((ByteString) s) : ((String) s).getBytes().length;
+    /** OCTET_LENGTH(VARBINARY). */
+    public static int octetLength(ByteString s) {
+        return s.length();
+    }
+
+    /** OCTET_LENGTH(VARCHAR). */
+    public static int octetLength(String s) {
+        return s.getBytes().length;
     }
 
     // SQL ROUND function

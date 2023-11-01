@@ -71,6 +71,7 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
     @Test
     public void testOctetLength() {
         assertQuery("SELECT OCTET_LENGTH('TEST')").returns(4).check();
+        assertQuery("SELECT OCTET_LENGTH('我愛Java')").returns(10).check();
         assertQuery("SELECT OCTET_LENGTH(x'012F')").returns(2).check();
         assertQuery("SELECT OCTET_LENGTH(NULL)").returns(NULL_RESULT).check();
     }
