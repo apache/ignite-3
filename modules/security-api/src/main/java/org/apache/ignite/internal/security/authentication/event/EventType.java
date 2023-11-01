@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.index;
+package org.apache.ignite.internal.security.authentication.event;
 
-/** Index build completion listener, will be called when a distributed build of an index for a specific partition completes. */
-@FunctionalInterface
-public interface IndexBuildCompletionListener {
-    /** Handles the index build completion event. */
-    void onBuildCompletion(int indexId, int tableId, int partitionId);
+/**
+ * Represents the authentication event type.
+ */
+public enum EventType {
+    AUTHENTICATION_ENABLED,
+    AUTHENTICATION_DISABLED,
+    AUTHENTICATION_PROVIDER_REMOVED,
+    AUTHENTICATION_PROVIDER_UPDATED
 }

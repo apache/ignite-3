@@ -113,7 +113,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
         scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of());
 
-        assertThat(listenCompletionIndexBuildingFuture, willTimeoutFast());
+        assertThat(listenCompletionIndexBuildingFuture, willCompleteSuccessfully());
     }
 
     private void scheduleBuildIndex(int indexId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
