@@ -20,31 +20,42 @@ package org.apache.ignite.internal.index;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterService;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Component is responsible for building indexes and making them {@link CatalogIndexDescriptor#available() available}. Both in a running
  * cluster and when a node is being restored.
  */
 public class IndexBuildingManager implements IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingManager.class);
+
+    private final MetaStorageManager metaStorageManager;
+
     private final IndexBuilder indexBuilder;
 
     private final IndexAvailabilityController indexAvailabilityController;
 
     private final IndexBuildController indexBuildController;
 
-    /** {@code null} after the recovery is complete. */
-    private volatile @Nullable IndexAvailabilityControllerRestorer indexAvailabilityControllerRestorer;
+    private final IndexAvailabilityControllerRestorer indexAvailabilityControllerRestorer;
+
+    /** Versioned value used only at the start of the manager. */
+    private final IncrementalVersionedValue<Void> startVv;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -59,8 +70,11 @@ public class IndexBuildingManager implements IgniteComponent {
             IndexManager indexManager,
             PlacementDriver placementDriver,
             ClusterService clusterService,
-            HybridClock clock
+            HybridClock clock,
+            Consumer<LongFunction<CompletableFuture<?>>> registry
     ) {
+        this.metaStorageManager = metaStorageManager;
+
         indexBuilder = new IndexBuilder(nodeName, Runtime.getRuntime().availableProcessors(), replicaService);
 
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
@@ -75,12 +89,32 @@ public class IndexBuildingManager implements IgniteComponent {
                 clusterService,
                 clock
         );
+
+        startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
     public void start() {
         inBusyLock(busyLock, () -> {
-            // TODO: IGNITE-20638 сделать рекавери
+            CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
+
+            assert recoveryFinishedFuture.isDone();
+
+            long recoveryRevision = recoveryFinishedFuture.join();
+
+            CompletableFuture<Void> recoveryIndexAvailabilityFuture = indexAvailabilityControllerRestorer.recover(recoveryRevision);
+
+            // TODO: IGNITE-20638 может что-то еще понадобиться
+
+            // Forces to wait until recovery is complete before the metastore watches are deployed to avoid races with other components.
+            startVv.update(recoveryRevision, (unused, throwable) -> recoveryIndexAvailabilityFuture)
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            LOG.error("Index build recovery error", throwable);
+                        } else {
+                            LOG.debug("Index build recovery completed successfully");
+                        }
+                    });
         });
     }
 

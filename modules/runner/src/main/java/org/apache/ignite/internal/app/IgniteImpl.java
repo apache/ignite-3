@@ -611,7 +611,8 @@ public class IgniteImpl implements Ignite {
                 indexManager,
                 placementDriverMgr.placementDriver(),
                 clusterSvc,
-                clock
+                clock,
+                registry
         );
 
         qryEngine = new SqlQueryProcessor(
