@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.internal.tracing.OtelSpanManager.rootSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;

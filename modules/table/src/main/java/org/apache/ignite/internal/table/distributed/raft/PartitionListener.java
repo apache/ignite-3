@@ -21,7 +21,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -149,7 +149,7 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        OtelSpanManager.spanWithResult("PartitionListener.onWrite", (span) -> {
+        spanWithResult("PartitionListener.onWrite", (span) -> {
             iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
                 Command command = clo.command();
 

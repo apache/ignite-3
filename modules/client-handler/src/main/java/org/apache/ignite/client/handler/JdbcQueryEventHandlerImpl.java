@@ -19,7 +19,8 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNKNOWN;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.sql.ColumnType;
@@ -123,7 +123,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcConnectResult> connect() {
-        return OtelSpanManager.spanWithResult("JdbcQueryEventHandlerImpl.connect", (span) -> {
+        return spanWithResult("JdbcQueryEventHandlerImpl.connect", (span) -> {
             try {
                 JdbcConnectionContext connectionContext = new JdbcConnectionContext(
                         processor::createSession,
@@ -151,7 +151,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             long connectionId,
             JdbcQueryExecuteRequest req
     ) {
-        return OtelSpanManager.spanWithResult("JdbcQueryEventHandlerImpl.queryAsync", (span) -> {
+        return spanWithResult("JdbcQueryEventHandlerImpl.queryAsync", (span) -> {
             span.addAttribute("connectionId", () -> Objects.toString(connectionId));
             span.addAttribute("req", req::toString);
 
@@ -207,7 +207,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
-        return OtelSpanManager.spanWithResult("JdbcQueryEventHandlerImpl.batchAsync", (span) -> {
+        return spanWithResult("JdbcQueryEventHandlerImpl.batchAsync", (span) -> {
             JdbcConnectionContext connectionContext;
             try {
                 connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
@@ -242,7 +242,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
-        return OtelSpanManager.spanWithResult("JdbcQueryEventHandlerImpl.batchPrepStatementAsync", (span) -> {
+        return spanWithResult("JdbcQueryEventHandlerImpl.batchPrepStatementAsync", (span) -> {
             JdbcConnectionContext connectionContext;
             try {
                 connectionContext = resources.get(connectionId).get(JdbcConnectionContext.class);
@@ -335,7 +335,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
-        return OtelSpanManager.spanWithResult("JdbcQueryEventHandlerImpl.finishTxAsync", (span) -> {
+        return spanWithResult("JdbcQueryEventHandlerImpl.finishTxAsync", (span) -> {
             JdbcConnectionContext connectionContext;
 
             try {
@@ -373,7 +373,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
     private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, JdbcQueryExecuteRequest req) {
-        return OtelSpanManager.spanWithResult("JdbcQueryEventHandlerImpl.createJdbcResult", (span) -> {
+        return spanWithResult("JdbcQueryEventHandlerImpl.createJdbcResult", (span) -> {
             Context context = Context.current();
             return cur.requestNextAsync(req.pageSize()).thenApply(context.wrapFunction(batch -> {
                 boolean hasNext = batch.hasMore();
@@ -470,7 +470,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
          * @return Future that represents the pending completion of the operation.
          */
         CompletableFuture<Void> finishTransactionAsync(boolean commit) {
-            return OtelSpanManager.spanWithResult("JdbcConnectionContext.finishTransactionAsync", (span) -> {
+            return spanWithResult("JdbcConnectionContext.finishTransactionAsync", (span) -> {
                 Transaction tx0 = tx;
 
                 tx = null;

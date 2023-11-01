@@ -262,6 +262,7 @@ opentelemetry-instrumentation-annotations = { module = "io.opentelemetry.instrum
 opentelemetry-api = { module = "io.opentelemetry:opentelemetry-api", version.ref = "opentelemetrySdk" }
 opentelemetry-sdk = { module = "io.opentelemetry:opentelemetry-sdk", version.ref = "opentelemetrySdk" }
 opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetrySdk" }
+opentelemetry-exporter-zipkin = { module = "io.opentelemetry:opentelemetry-exporter-zipkin", version.ref = "opentelemetrySdk" }
 opentelemetry-sdk-extension-autoconfigure = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure", version.ref = "opentelemetrySdk" }
 opentelemetry-sdk-extension-autoconfigure-spi = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi", version.ref = "opentelemetrySdk" }
 opentelemetry-javaagent-extension-api = { module = "io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api", version.ref = "opentelemetryJavaagent" }

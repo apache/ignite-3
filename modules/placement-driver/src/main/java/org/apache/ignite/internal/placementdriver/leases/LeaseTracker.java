@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
@@ -217,7 +217,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
-        return OtelSpanManager.spanWithResult("LeaseTracker.awaitPrimaryReplica", span -> {
+        return spanWithResult("LeaseTracker.awaitPrimaryReplica", span -> {
             return inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
                     .orTimeout(timeout, unit)
                     .exceptionally(e -> {
@@ -233,7 +233,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        return OtelSpanManager.spanWithResult("LeaseTracker.getPrimaryReplica", span -> {
+        return spanWithResult("LeaseTracker.getPrimaryReplica", span -> {
             return inBusyLockAsync(busyLock, () -> {
                 Lease lease = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
 

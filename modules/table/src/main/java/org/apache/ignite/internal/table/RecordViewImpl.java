@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
@@ -37,7 +37,6 @@ import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerI
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -79,7 +78,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec) {
-        return OtelSpanManager.spanWithResult("RecordViewImpl.getAsync", span -> {
+        return spanWithResult("RecordViewImpl.getAsync", span -> {
             Objects.requireNonNull(keyRec);
 
             return withSchemaSync(tx, (schemaVersion) -> {

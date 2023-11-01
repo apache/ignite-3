@@ -121,6 +121,10 @@ public class TransactionsTest {
 
                 AccountKey key = new AccountKey(123);
 
+                accounts.put(null, key, new Account("John", "Doe", 1000.0d));
+
+                System.out.println("\nInitial balance: " + accounts.get(null, key).balance);
+
                 //--------------------------------------------------------------------------------------
                 //
                 // Using synchronous transactional API to update the balance.

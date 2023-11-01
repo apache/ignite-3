@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -44,7 +44,7 @@ public class ClientTablePartitionAssignmentGetRequest {
             ClientMessagePacker out,
             IgniteTablesInternal tables
     ) throws NodeStoppingException {
-        var span = span("ClientTablePartitionAssignmentGetRequest.process");
+        var span= span("ClientTablePartitionAssignmentGetRequest.process");
 
         try (span) {
             int tableId = in.unpackInt();

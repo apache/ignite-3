@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;

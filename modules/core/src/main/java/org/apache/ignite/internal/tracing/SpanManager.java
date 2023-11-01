@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.tracing;
 
+import java.util.function.Consumer;
+import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Manager for {@link TraceSpan} instances.
  */
@@ -29,5 +33,26 @@ public interface SpanManager {
      * @param rootSpan Root span.
      * @return Created span.
      */
-    public TraceSpan createSpan(String spanName, TraceSpan parent, boolean rootSpan, boolean endRequired);
+    TraceSpan createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, boolean endRequired);
+
+    /**
+     * Creates Span with given name.
+     *
+     * @param spanName Span name to create.
+     * @param parent Parent context.
+     * @param rootSpan Root span.
+     * @param closure Closure.
+     * @return Closure result.
+     */
+    <R> R createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure);
+
+    /**
+     * Call closure in span with given name.
+     *
+     * @param spanName Span name to create.
+     * @param parent Parent context.
+     * @param rootSpan Root span.
+     * @param closure Closure.
+     */
+    void createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure);
 }

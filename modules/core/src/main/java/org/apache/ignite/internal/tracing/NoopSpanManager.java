@@ -17,7 +17,29 @@
 
 package org.apache.ignite.internal.tracing;
 
-public interface CloseableScope extends AutoCloseable {
+import java.util.function.Consumer;
+import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Noop implementation of {@link SpanManager}.
+ */
+public class NoopSpanManager implements SpanManager {
+    /** Instance. */
+    public static final SpanManager INSTANCE = new NoopSpanManager();
+
     @Override
-    void close();
+    public TraceSpan createSpan(String spanName, TraceSpan parent, boolean rootSpan, boolean endRequired) {
+        return NoopSpan.INSTANCE;
+    }
+
+    @Override
+    public <R> R createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Function<TraceSpan, R> closure) {
+        return closure.apply(NoopSpan.INSTANCE);
+    }
+
+    @Override
+    public void createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure) {
+        closure.accept(NoopSpan.INSTANCE);
+    }
 }

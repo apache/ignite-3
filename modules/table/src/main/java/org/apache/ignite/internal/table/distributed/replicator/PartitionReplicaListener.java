@@ -27,7 +27,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
@@ -143,7 +143,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -537,7 +536,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             String senderId,
             HybridTimestamp opStartTimestamp
     ) {
-        return OtelSpanManager.spanWithResult("PartitionReplicaListener.processOperationRequest", (span) -> {
+        return spanWithResult("PartitionReplicaListener.processOperationRequest", (span) -> {
             if (request instanceof ReadWriteSingleRowReplicaRequest) {
                 var req = (ReadWriteSingleRowReplicaRequest) request;
 
@@ -562,13 +561,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                 var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
                 // Scan's request.full() has a slightly different semantics than the same field in other requests -
-            // it identifies an implicit transaction. Please note that request.full() is always false in the following `appendTxCommand`.
-            // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
-            // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
-            // If they don't fit the bucket, the transaction is treated as 2pc.
-            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
+                // it identifies an implicit transaction. Please note that request.full() is always false in the following `appendTxCommand`.
+                // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
+                // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
+                // If they don't fit the bucket, the transaction is treated as 2pc.
+                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
 
-            // Implicit RW scan can be committed locally on a last batch or error.
+                // Implicit RW scan can be committed locally on a last batch or error.
                 return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
                         .thenCompose(rows -> {
                             if (allElementsAreNull(rows)) {
@@ -3122,7 +3121,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        return OtelSpanManager.spanWithResult("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
+        return spanWithResult("PartitionReplicaListener.ensureReplicaIsPrimary", (span) -> {
             Long expectedTerm;
 
             if (request instanceof ReadWriteReplicaRequest) {

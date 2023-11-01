@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
-import static org.apache.ignite.internal.tracing.OtelSpanManager.rootSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;

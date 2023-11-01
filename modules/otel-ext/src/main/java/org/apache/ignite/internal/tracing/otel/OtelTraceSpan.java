@@ -15,20 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tracing;
+package org.apache.ignite.internal.tracing.otel;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * 
+ */
 public class OtelTraceSpan implements TraceSpan {
     protected final Context ctx;
     protected final Scope scope;
     protected final Span span;
     protected final boolean endRequired;
 
+    /**
+     * @param ctx
+     * @param scope
+     * @param span
+     * @param endRequired
+     */
     public OtelTraceSpan(Context ctx, Scope scope, Span span, boolean endRequired) {
         this.ctx = ctx;
         this.scope = scope;

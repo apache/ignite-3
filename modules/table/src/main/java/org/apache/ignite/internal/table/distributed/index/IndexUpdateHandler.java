@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+
 import java.nio.ByteBuffer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -28,7 +30,6 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -61,7 +62,7 @@ public class IndexUpdateHandler {
             return;
         }
 
-        try (TraceSpan ignored = OtelSpanManager.span("IndexUpdateHandler.addToIndexes")) {
+        try (TraceSpan ignored = span("IndexUpdateHandler.addToIndexes")) {
             for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
                 index.put(binaryRow, rowId);
             }

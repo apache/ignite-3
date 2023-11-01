@@ -17,11 +17,12 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -41,7 +42,7 @@ public class ClientTableGetRequest {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-        return OtelSpanManager.spanWithResult("ClientTableGetRequest.process", (span) -> {
+        return spanWithResult("ClientTableGetRequest.process", (span) -> {
             String tableName = in.unpackString();
 
             return tables.tableAsync(tableName).thenAccept(table -> {

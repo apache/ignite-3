@@ -20,7 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.concurrent.CompletableFuture;
@@ -28,7 +28,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -42,8 +41,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
-import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
@@ -140,8 +137,7 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        return OtelSpanManager.spanWithResult("Replica.processRequest",
-                (Function<TraceSpan, CompletableFuture<ReplicaResult>>) (span) -> listener.invoke(request, senderId)
+        return spanWithResult("Replica.processRequest", (span) -> listener.invoke(request, senderId)
         );
     }
 

@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tracing.NoopTraceSpan;
+import org.apache.ignite.internal.tracing.NoopSpan;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -129,7 +129,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public TraceSpan traceSpan() {
-        return NoopTraceSpan.INSTANCE;
+        return NoopSpan.INSTANCE;
     }
 
     @Override

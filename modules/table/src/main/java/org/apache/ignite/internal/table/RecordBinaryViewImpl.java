@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -36,7 +36,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
@@ -69,7 +68,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     /** {@inheritDoc} */
     @Override
     public Tuple get(@Nullable Transaction tx, Tuple keyRec) {
-        return OtelSpanManager.spanWithResult("RecordBinaryViewImpl.get", (span) -> {
+        return spanWithResult("RecordBinaryViewImpl.get", (span) -> {
             return sync(getAsync(tx, keyRec));
         });
     }

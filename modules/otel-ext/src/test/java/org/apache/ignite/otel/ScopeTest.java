@@ -1,7 +1,7 @@
 package org.apache.ignite.otel;
 
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.rootSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

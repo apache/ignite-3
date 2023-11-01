@@ -17,14 +17,13 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -57,7 +56,7 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        return OtelSpanManager.spanWithResult("JdbcQueryCursor.requestNextAsync", (span) -> {
+        return spanWithResult("JdbcQueryCursor.requestNextAsync", (span) -> {
             long fetched0 = fetched.addAndGet(rows);
             return cur.requestNextAsync(rows).thenApply(batch -> {
                 if (maxRows == 0 || fetched0 < maxRows) {

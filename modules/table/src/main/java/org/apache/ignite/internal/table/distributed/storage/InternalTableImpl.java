@@ -26,8 +26,8 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -105,7 +105,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.SingleRo
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.SwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
@@ -263,7 +262,7 @@ public class InternalTableImpl implements InternalTable {
             IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
             BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.enlistInTx", (span) -> {
+        return spanWithResult("InternalTableImpl.enlistInTx", (span) -> {
             // Check whether proposed tx is read-only. Complete future exceptionally if true.
             // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself,
             // thus read-write transaction won't be rolled back automatically - it's up to the user or outer engine.
@@ -320,7 +319,7 @@ public class InternalTableImpl implements InternalTable {
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker
     ) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.enlistInTx", (span) -> {
+        return spanWithResult("InternalTableImpl.enlistInTx", (span) -> {
             // Check whether proposed tx is read-only. Complete future exceptionally if true.
             // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself,
             // thus read-write transaction won't be rolled back automatically - it's up to the user or outer engine.
@@ -411,7 +410,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BitSet columnsToInclude,
             boolean implicit
     ) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.enlistCursorInTx", (span) -> {
+        return spanWithResult("InternalTableImpl.enlistCursorInTx", (span) -> {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
@@ -473,7 +472,7 @@ public class InternalTableImpl implements InternalTable {
             boolean full,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.enlistWithRetry", (span) -> {
+        return spanWithResult("InternalTableImpl.enlistWithRetry", (span) -> {
             span.addAttribute("partId", () -> Objects.toString(partId));
             span.addAttribute("attempts", () -> Objects.toString(attempts));
             span.addAttribute("full", () -> Objects.toString(full));
@@ -523,7 +522,7 @@ public class InternalTableImpl implements InternalTable {
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.trackingInvoke", (span) -> {
+        return spanWithResult("InternalTableImpl.trackingInvoke", (span) -> {
             ReplicaRequest request = mapFunc.apply(primaryReplicaAndTerm.get2());
 
             boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
@@ -573,7 +572,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full) {
         assert !(autoCommit && full) : "Invalid combination of flags";
-        return OtelSpanManager.spanWithResult("InternalTableImpl.postEnlist", (span) -> {
+        return spanWithResult("InternalTableImpl.postEnlist", (span) -> {
             return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
                 if (full) { // Full txn is already finished remotely. Just update local state.
                     txManager.finishFull(observableTimestampTracker, tx0.id(), e == null);
@@ -742,7 +741,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.get", (span) -> {
+        return spanWithResult("InternalTableImpl.get", (span) -> {
             if (tx == null) {
                 return evaluateReadOnlyPrimaryNode(
                         keyRow,
@@ -786,7 +785,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.get", (span) -> {
+        return spanWithResult("InternalTableImpl.get", (span) -> {
             int partId = partitionId(keyRow);
             ReplicationGroupId partGroupId = raftGroupServiceByPartitionId.get(partId).groupId();
 
@@ -826,7 +825,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.getAll", (span) -> {
+        return spanWithResult("InternalTableImpl.getAll", (span) -> {
             if (CollectionUtils.nullOrEmpty(keyRows)) {
                 return completedFuture(Collections.emptyList());
             }
@@ -870,7 +869,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.getAll", (span) -> {
+        return spanWithResult("InternalTableImpl.getAll", (span) -> {
             Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
             for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
@@ -964,7 +963,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.upsert", (span) -> {
+        return spanWithResult("InternalTableImpl.upsert", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -987,7 +986,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.upsertAll", (span) -> {
+        return spanWithResult("InternalTableImpl.upsertAll", (span) -> {
             return enlistInTx(
                     rows,
                     tx,
@@ -1001,7 +1000,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.upsertAll", (span) -> {
+        return spanWithResult("InternalTableImpl.upsertAll", (span) -> {
             InternalTransaction tx = txManager.begin(observableTimestampTracker);
             TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
@@ -1021,7 +1020,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.getAndUpsert", (span) -> {
+        return spanWithResult("InternalTableImpl.getAndUpsert", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1044,7 +1043,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.insert", (span) -> {
+        return spanWithResult("InternalTableImpl.insert", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1067,7 +1066,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.insertAll", (span) -> {
+        return spanWithResult("InternalTableImpl.insertAll", (span) -> {
             return enlistInTx(
                     rows,
                     tx,
@@ -1115,7 +1114,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.replace", (span) -> {
+        return spanWithResult("InternalTableImpl.replace", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1141,7 +1140,7 @@ public class InternalTableImpl implements InternalTable {
         assert oldRow.schemaVersion() == newRow.schemaVersion()
                 : "Mismatching schema versions: old " + oldRow.schemaVersion() + ", new " + newRow.schemaVersion();
 
-        return OtelSpanManager.spanWithResult("InternalTableImpl.replace", (span) -> {
+        return spanWithResult("InternalTableImpl.replace", (span) -> {
             return enlistInTx(
                     newRow,
                     tx,
@@ -1165,7 +1164,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.getAndReplace", (span) -> {
+        return spanWithResult("InternalTableImpl.getAndReplace", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1188,7 +1187,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.delete", (span) -> {
+        return spanWithResult("InternalTableImpl.delete", (span) -> {
             return enlistInTx(
                     keyRow,
                     tx,
@@ -1211,7 +1210,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.deleteExact", (span) -> {
+        return spanWithResult("InternalTableImpl.deleteExact", (span) -> {
             return enlistInTx(
                     oldRow,
                     tx,
@@ -1234,7 +1233,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.getAndDelete", (span) -> {
+        return spanWithResult("InternalTableImpl.getAndDelete", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1257,7 +1256,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.deleteAll", (span) -> {
+        return spanWithResult("InternalTableImpl.deleteAll", (span) -> {
             return enlistInTx(
                     rows,
                     tx,
@@ -1285,7 +1284,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> rows,
             InternalTransaction tx
     ) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.deleteAllExact", (span) -> {
+        return spanWithResult("InternalTableImpl.deleteAllExact", (span) -> {
             return enlistInTx(
                     rows,
                     tx,
@@ -1588,7 +1587,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public RaftGroupService partitionRaftGroupService(int partition) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.partitionRaftGroupService", (span) -> {
+        return spanWithResult("InternalTableImpl.partitionRaftGroupService", (span) -> {
             RaftGroupService raftGroupService = raftGroupServiceByPartitionId.get(partition);
             if (raftGroupService == null) {
                 throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
@@ -1771,7 +1770,7 @@ public class InternalTableImpl implements InternalTable {
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
-        return OtelSpanManager.spanWithResult("InternalTableImpl.enlist", (span) -> {
+        return spanWithResult("InternalTableImpl.enlist", (span) -> {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
             tx.assignCommitPartition(tablePartitionId);
 

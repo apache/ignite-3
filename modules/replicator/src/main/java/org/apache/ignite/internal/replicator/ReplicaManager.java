@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -219,7 +219,7 @@ public class ReplicaManager implements IgniteComponent {
             return;
         }
 
-        OtelSpanManager.spanWithResult("ReplicaManager.onReplicaMessageReceived", (span) -> {
+        spanWithResult("ReplicaManager.onReplicaMessageReceived", (span) -> {
             ReplicaRequest request = (ReplicaRequest) message;
 
             if (!busyLock.enterBusy()) {

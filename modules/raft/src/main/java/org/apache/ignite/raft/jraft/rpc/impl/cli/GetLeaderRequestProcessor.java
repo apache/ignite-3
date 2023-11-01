@@ -16,9 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
-
-import java.util.ArrayList;
+import static org.apache.ignite.internal.tracing.TracingManager.span;import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;

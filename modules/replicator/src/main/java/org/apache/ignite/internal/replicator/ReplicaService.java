@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;

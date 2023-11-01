@@ -30,9 +30,7 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.span;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;

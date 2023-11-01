@@ -20,7 +20,10 @@ package org.apache.ignite.internal.tracing;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
-public enum NoopTraceSpan implements TraceSpan {
+/**
+ * Noop implementation of {@link SpanManager}.
+ */
+public enum NoopSpan implements TraceSpan {
     /** Instance. */
     INSTANCE;
 

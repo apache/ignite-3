@@ -23,7 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.tracing.OtelSpanManager.asyncSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -56,7 +56,6 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
-import org.apache.ignite.internal.tracing.OtelSpanManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -119,7 +118,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
-        return OtelSpanManager.spanWithResult("SchemaManager.onTableCreated", (span) -> {
+        return spanWithResult("SchemaManager.onTableCreated", (span) -> {
             if (ex != null) {
                 return failedFuture(ex);
             }
@@ -131,7 +130,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
-        return OtelSpanManager.spanWithResult("SchemaManager.onTableAltered", (span) -> {
+        return spanWithResult("SchemaManager.onTableAltered", (span) -> {
             if (ex != null) {
                 return failedFuture(ex);
             }
@@ -149,7 +148,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
-        return OtelSpanManager.spanWithResult("SchemaManager.onTableCreatedOrAltered", (span) -> {
+        return spanWithResult("SchemaManager.onTableCreatedOrAltered", (span) -> {
             if (!busyLock.enterBusy()) {
                 return failedFuture(new NodeStoppingException());
             }
