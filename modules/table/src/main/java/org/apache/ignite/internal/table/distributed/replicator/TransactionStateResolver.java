@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -138,31 +139,32 @@ public class TransactionStateResolver {
      * @param timestamp Timestamp.
      * @return Future with the transaction state meta as a result.
      */
-    @WithSpan
     public CompletableFuture<TransactionMeta> resolveTxState(
             UUID txId,
             ReplicationGroupId commitGrpId,
             @Nullable HybridTimestamp timestamp
     ) {
-        TxStateMeta localMeta = txManager.stateMeta(txId);
+        return spanWithResult("PartitionReplicaListener.resolveTxState", (span) -> {
+            TxStateMeta localMeta = txManager.stateMeta(txId);
 
-        if (localMeta != null && isFinalState(localMeta.txState())) {
-            return completedFuture(localMeta);
-        }
-
-        CompletableFuture<TransactionMeta> future = txStateFutures.compute(txId, (k, v) -> {
-            if (v == null) {
-                v = new CompletableFuture<>();
-
-                resolveDistributiveTxState(txId, localMeta, commitGrpId, timestamp, v);
+            if (localMeta != null && isFinalState(localMeta.txState())) {
+                return completedFuture(localMeta);
             }
 
-            return v;
+            CompletableFuture<TransactionMeta> future = txStateFutures.compute(txId, (k, v) -> {
+                if (v == null) {
+                    v = new CompletableFuture<>();
+
+                    resolveDistributiveTxState(txId, localMeta, commitGrpId, timestamp, v);
+                }
+
+                return v;
+            });
+
+            future.whenComplete((v, e) -> txStateFutures.remove(txId));
+
+            return future;
         });
-
-        future.whenComplete((v, e) -> txStateFutures.remove(txId));
-
-        return future;
     }
 
     /**
@@ -174,7 +176,6 @@ public class TransactionStateResolver {
      * @param timestamp Timestamp to pass to target node.
      * @param txMetaFuture Tx meta future to complete with the result.
      */
-    @WithSpan
     private void resolveDistributiveTxState(
             UUID txId,
             @Nullable TxStateMeta localMeta,
@@ -186,26 +187,28 @@ public class TransactionStateResolver {
 
         HybridTimestamp timestamp0 = timestamp == null ? HybridTimestamp.MIN_VALUE : timestamp;
 
-        if (localMeta == null) {
-            // Fallback to commit partition path, because we don't have coordinator id.
-            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
-        } else if (localMeta.txState() == PENDING) {
-            resolveTxStateFromTxCoordinator(txId, localMeta.txCoordinatorId(), commitGrpId, timestamp0, txMetaFuture);
-        } else if (localMeta.txState() == FINISHING) {
-            assert localMeta instanceof TxStateMetaFinishing;
+        span("PartitionReplicaListener.resolveDistributiveTxState", (span) -> {
+            if (localMeta == null) {
+                // Fallback to commit partition path, because we don't have coordinator id.
+                resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
+            } else if (localMeta.txState() == PENDING) {
+                resolveTxStateFromTxCoordinator(txId, localMeta.txCoordinatorId(), commitGrpId, timestamp0, txMetaFuture);
+            } else if (localMeta.txState() == FINISHING) {
+                assert localMeta instanceof TxStateMetaFinishing;
 
-            ((TxStateMetaFinishing) localMeta).txFinishFuture().whenComplete((v, e) -> {
-                if (e == null) {
-                    txMetaFuture.complete(v);
-                } else {
-                    txMetaFuture.completeExceptionally(e);
-                }
-            });
-        } else {
-            assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + txId + ", txStateMeta=" + localMeta + ']';
+                ((TxStateMetaFinishing) localMeta).txFinishFuture().whenComplete((v, e) -> {
+                    if (e == null) {
+                        txMetaFuture.complete(v);
+                    } else {
+                        txMetaFuture.completeExceptionally(e);
+                    }
+                });
+            } else {
+                assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + txId + ", txStateMeta=" + localMeta + ']';
 
-            txMetaFuture.complete(localMeta);
-        }
+                txMetaFuture.complete(localMeta);
+            }
+        });
     }
 
     private void resolveTxStateFromTxCoordinator(

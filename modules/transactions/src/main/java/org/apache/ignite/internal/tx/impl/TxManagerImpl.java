@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLo
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -33,7 +34,6 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -442,7 +442,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return tuple.finishFut;
     }
 
-    @WithSpan
     @Override
     public CompletableFuture<Void> cleanup(
             String primaryConsistentId,
@@ -451,16 +450,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        return replicaService.invoke(
-                primaryConsistentId,
-                FACTORY.txCleanupReplicaRequest()
-                        .groupId(tablePartitionId)
-                        .timestampLong(clock.nowLong())
-                        .txId(txId)
-                        .commit(commit)
-                        .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                        .build()
-        );
+        return spanWithResult("TxManagerImpl.cleanup", (span) -> {
+            return replicaService.invoke(
+                    primaryConsistentId,
+                    FACTORY.txCleanupReplicaRequest()
+                            .groupId(tablePartitionId)
+                            .timestampLong(clock.nowLong())
+                            .txId(txId)
+                            .commit(commit)
+                            .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                            .build()
+            );
+        });
     }
 
     @Override
@@ -538,7 +539,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
     }
 
-    @WithSpan
     @Override
     public boolean addInflight(UUID txId) {
         boolean[] res = {true};

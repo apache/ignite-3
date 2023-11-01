@@ -28,6 +28,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tracing.NoopSpan;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -135,6 +137,11 @@ public class FakeTxManager implements TxManager {
             @Override
             public HybridTimestamp startTimestamp() {
                 return timestamp;
+            }
+
+            @Override
+            public TraceSpan traceSpan() {
+                return NoopSpan.INSTANCE;
             }
         };
     }

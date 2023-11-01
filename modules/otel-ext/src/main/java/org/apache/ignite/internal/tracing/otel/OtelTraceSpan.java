@@ -25,19 +25,28 @@ import org.apache.ignite.internal.tracing.TraceSpan;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * 
+ * Implementation of a {@link TraceSpan}.
  */
 public class OtelTraceSpan implements TraceSpan {
+    /** Trace context. */
     protected final Context ctx;
+
+    /** Scope delegate. */
     protected final Scope scope;
+
+    /** Span delegate. */
     protected final Span span;
+
+    /** {@code true} if current span should be ended at close moment. */
     protected final boolean endRequired;
 
     /**
-     * @param ctx
-     * @param scope
-     * @param span
-     * @param endRequired
+     * Constructor.
+     *
+     * @param ctx Trace context.
+     * @param scope Scope delegate.
+     * @param span Span delegate.
+     * @param endRequired {@code true} if current span should be ended at close moment.
      */
     public OtelTraceSpan(Context ctx, Scope scope, Span span, boolean endRequired) {
         this.ctx = ctx;

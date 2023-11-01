@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tracing.TraceSpan;
@@ -73,7 +73,6 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public void commit() throws TransactionException {
         try {
@@ -84,14 +83,12 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return finish(true);
+        return spanWithResult("IgniteAbstractTransactionImpl.commitAsync", (span) -> finish(true));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public void rollback() throws TransactionException {
         try {
@@ -102,10 +99,9 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return finish(false);
+        return spanWithResult("IgniteAbstractTransactionImpl.rollbackAsync", (span) -> finish(false));
     }
 
     /** {@inheritDoc} */

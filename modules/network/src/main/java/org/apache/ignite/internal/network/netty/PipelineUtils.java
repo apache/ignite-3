@@ -62,7 +62,7 @@ public class PipelineUtils {
         pipeline.addLast(HandshakeHandler.NAME, new HandshakeHandler(handshakeManager, messageListener, serializationService));
         pipeline.addLast(CHUNKED_WRITE_HANDLER_NAME, new ChunkedWriteHandler());
         pipeline.addLast(OutboundEncoder.NAME, new OutboundEncoder(serializationService));
-        pipeline.addLast(OutboundTraceHandler.NAME, new OutboundTraceHandler());
+//        pipeline.addLast(OutboundTraceHandler.NAME, new OutboundTraceHandler());
         pipeline.addLast(IoExceptionSuppressingHandler.NAME, new IoExceptionSuppressingHandler());
     }
 

@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -81,84 +82,84 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public V get(@Nullable Transaction tx, K key) {
         return sync(getAsync(tx, key));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(key, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.getAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(key, schemaVersion);
 
-            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
+                return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public NullableValue<V> getNullable(@Nullable Transaction tx, K key) {
         return sync(getNullableAsync(tx, key));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(key, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.getNullableAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(key, schemaVersion);
 
-            return tbl.get(keyRow, (InternalTransaction) tx)
-                    .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
+                return tbl.get(keyRow, (InternalTransaction) tx)
+                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public V getOrDefault(@Nullable Transaction tx, K key, V defaultValue) {
         return sync(getOrDefaultAsync(tx, key, defaultValue));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, V defaultValue) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(key, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.getOrDefaultAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(key, schemaVersion);
 
-            return tbl.get(keyRow, (InternalTransaction) tx)
-                    .thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalNullableValue(r, schemaVersion), defaultValue));
+                return tbl.get(keyRow, (InternalTransaction) tx)
+                        .thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalNullableValue(r, schemaVersion), defaultValue));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public Map<K, V> getAll(@Nullable Transaction tx, Collection<K> keys) {
         return sync(getAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         checkKeysForNulls(keys);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(keys, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.getAllAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                Collection<BinaryRowEx> rows = marshal(keys, schemaVersion);
 
-            return tbl.getAll(rows, (InternalTransaction) tx).thenApply(resultRows -> unmarshalPairs(resultRows, schemaVersion));
+                return tbl.getAll(rows, (InternalTransaction) tx).thenApply(resultRows -> unmarshalPairs(resultRows, schemaVersion));
+            });
         });
     }
 
@@ -171,54 +172,52 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean contains(@Nullable Transaction tx, K key) {
         return sync(containsAsync(tx, key));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(key, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.containsAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(key, schemaVersion);
 
-            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
+                return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public void put(@Nullable Transaction tx, K key, V val) {
         sync(putAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(key, val, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.putAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(key, val, schemaVersion);
 
-            return tbl.upsert(row, (InternalTransaction) tx);
+                return tbl.upsert(row, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public void putAll(@Nullable Transaction tx, Map<K, V> pairs) {
         sync(putAllAsync(tx, pairs));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<K, V> pairs) {
         Objects.requireNonNull(pairs);
@@ -226,255 +225,257 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             Objects.requireNonNull(entry.getKey());
         }
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshalPairs(pairs.entrySet(), schemaVersion);
+        return spanWithResult("KeyValueViewImpl.putAllAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                Collection<BinaryRowEx> rows = marshalPairs(pairs.entrySet(), schemaVersion);
 
-            return tbl.upsertAll(rows, (InternalTransaction) tx);
+                return tbl.upsertAll(rows, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public V getAndPut(@Nullable Transaction tx, K key, V val) {
         return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.getAndUpsert(marshal(key, val, schemaVersion), (InternalTransaction) tx)
-                    .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
+        return spanWithResult("KeyValueViewImpl.getAndPutAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                return tbl.getAndUpsert(marshal(key, val, schemaVersion), (InternalTransaction) tx)
+                        .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, V val) {
         return sync(getNullableAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(key, val, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.getNullableAndPutAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(key, val, schemaVersion);
 
-            return tbl.getAndUpsert(row, (InternalTransaction) tx)
-                   .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
+                return tbl.getAndUpsert(row, (InternalTransaction) tx)
+                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean putIfAbsent(@Nullable Transaction tx, K key, V val) {
         return sync(putIfAbsentAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(key, val, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.putIfAbsentAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(key, val, schemaVersion);
 
-            return tbl.insert(row, (InternalTransaction) tx);
+                return tbl.insert(row, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean remove(@Nullable Transaction tx, K key) {
         return sync(removeAsync(tx, key));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean remove(@Nullable Transaction tx, K key, V val) {
         return sync(removeAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(key, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.removeAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(key, schemaVersion);
 
-            return tbl.delete(row, (InternalTransaction) tx);
+                return tbl.delete(row, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(key, val, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.removeAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(key, val, schemaVersion);
 
-            return tbl.deleteExact(row, (InternalTransaction) tx);
+                return tbl.deleteExact(row, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys) {
         return sync(removeAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         checkKeysForNulls(keys);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(keys, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.removeAllAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                Collection<BinaryRowEx> rows = marshal(keys, schemaVersion);
 
-            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(resultRows -> unmarshalKeys(resultRows, schemaVersion));
+                return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(resultRows -> unmarshalKeys(resultRows, schemaVersion));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public V getAndRemove(@Nullable Transaction tx, K key) {
         return sync(getAndRemoveAsync(tx, key));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(key, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.getAndRemoveAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(key, schemaVersion);
 
-            return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
-                    .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
+                return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
+                        .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key) {
         return sync(getNullableAndRemoveAsync(tx, key));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(key, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.getNullableAndRemoveAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(key, schemaVersion);
 
-            return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
-                   .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
+                return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
+                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean replace(@Nullable Transaction tx, K key, V val) {
         return sync(replaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean replace(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         return sync(replaceAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(key, val, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.replaceAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(key, val, schemaVersion);
 
-            return tbl.replace(row, (InternalTransaction) tx);
+                return tbl.replace(row, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx oldRow = marshal(key, oldVal, schemaVersion);
-            BinaryRowEx newRow = marshal(key, newVal, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.replaceAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx oldRow = marshal(key, oldVal, schemaVersion);
+                BinaryRowEx newRow = marshal(key, newVal, schemaVersion);
 
-            return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+                return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public V getAndReplace(@Nullable Transaction tx, K key, V val) {
         return sync(getAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
-                    .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
+        return spanWithResult("KeyValueViewImpl.getAndReplaceAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
+                        .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, V val) {
         return sync(getNullableAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(key, val, schemaVersion);
+        return spanWithResult("KeyValueViewImpl.getNullableAndReplaceAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(key, val, schemaVersion);
 
-            return tbl.getAndReplace(row, (InternalTransaction) tx)
-                   .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
+                return tbl.getAndReplace(row, (InternalTransaction) tx)
+                        .thenApply(r -> r == null ? null : NullableValue.of(unmarshalNullableValue(r, schemaVersion)));
+            });
         });
     }
 
@@ -507,7 +508,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary row.
      */
-    @WithSpan
     private BinaryRowEx marshal(K key, int schemaVersion) {
         KvMarshaller<K, V> marsh = marshaller(schemaVersion);
 
@@ -526,7 +526,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary row.
      */
-    @WithSpan
     private BinaryRowEx marshal(K key, V val, int schemaVersion) {
         KvMarshaller<K, V> marsh = marshaller(schemaVersion);
 
@@ -544,7 +543,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary rows.
      */
-    @WithSpan
     private Collection<BinaryRowEx> marshal(Collection<K> keys, int schemaVersion) {
         if (keys.isEmpty()) {
             return Collections.emptyList();
@@ -572,7 +570,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when marshalling.
      * @return Binary rows.
      */
-    @WithSpan
     private List<BinaryRowEx> marshalPairs(Collection<Entry<K, V>> pairs, int schemaVersion) {
         if (pairs.isEmpty()) {
             return Collections.emptyList();
@@ -600,7 +597,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when marshalling.
      * @return Keys.
      */
-    @WithSpan
     private Collection<K> unmarshalKeys(Collection<BinaryRow> rows, int schemaVersion) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
@@ -630,7 +626,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when unmarshalling.
      * @return Value object or {@code null} if not exists.
      */
-    @WithSpan
     private @Nullable V unmarshalNullableValue(@Nullable BinaryRow binaryRow, int schemaVersion) {
         if (binaryRow == null) {
             return null;
@@ -654,7 +649,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param schemaVersion Schema version to use when unmarshalling.
      * @return Key-value pairs.
      */
-    @WithSpan
     private Map<K, V> unmarshalPairs(Collection<BinaryRow> rows, int schemaVersion) {
         if (rows.isEmpty()) {
             return Collections.emptyMap();
@@ -685,7 +679,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Value object or {@code null} if not exists.
      * @throws UnexpectedNullValueException if value object is null.
      */
-    @WithSpan
     private @Nullable V unmarshalValue(@Nullable BinaryRow binaryRow, int schemaVersion) {
         if (binaryRow == null) {
             return null;
@@ -701,25 +694,26 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-        // columns never change (so they are the same for all schema versions of the table),
-        var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(
-                rowConverter.registry(),
-                tbl.partitions(),
-                marshaller(rowConverter.registry().lastKnownSchemaVersion())
-        );
+        return spanWithResult("KeyValueViewImpl.streamData", (span) -> {
+            // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+            // columns never change (so they are the same for all schema versions of the table),
+            var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(
+                    rowConverter.registry(),
+                    tbl.partitions(),
+                    marshaller(rowConverter.registry().lastKnownSchemaVersion())
+            );
 
-        StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> {
-            return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.upsertAll(marshalPairs(items, schemaVersion), partitionId);
-            });
-        };
+            StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> {
+                return withSchemaSync(null, (schemaVersion) -> {
+                    return this.tbl.upsertAll(marshalPairs(items, schemaVersion), partitionId);
+                });
+            };
 
-        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+            return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        });
     }
 }

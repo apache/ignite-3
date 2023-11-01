@@ -25,6 +25,7 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.tracing.NoopSpan;
@@ -94,6 +95,11 @@ public class OtelSpanManager implements SpanManager {
 
             throw ex;
         }
+    }
+
+    @Override
+    public Executor taskWrapping(Executor executor) {
+        return Context.taskWrapping(executor);
     }
 
     /**

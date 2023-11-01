@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.tracing;
 
-import static java.util.function.Predicate.not;
-
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -137,5 +136,9 @@ public class TracingManager {
      */
     public static <R> R spanWithResult(String spanName, Function<TraceSpan, R> closure) {
         return SPAN_MANAGER.createSpan(spanName, null, false, closure);
+    }
+
+    public static Executor taskWrapping(Executor executor) {
+        return SPAN_MANAGER.taskWrapping(executor);
     }
 }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -89,281 +88,281 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         });
     }
 
-    @WithSpan
     @Override
     public List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs) {
         return sync(getAllAsync(tx, keyRecs));
     }
 
-    @WithSpan
     @Override
     public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.getAll(marshalKeys(keyRecs, schemaVersion), (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, true));
+        return spanWithResult("RecordViewImpl.getAllAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                return tbl.getAll(marshalKeys(keyRecs, schemaVersion), (InternalTransaction) tx)
+                        .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, true));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public void upsert(@Nullable Transaction tx, R rec) {
         sync(upsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(rec, schemaVersion);
+        return spanWithResult("RecordViewImpl.upsertAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
-            return tbl.upsert(keyRow, (InternalTransaction) tx);
+                return tbl.upsert(keyRow, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public void upsertAll(@Nullable Transaction tx, Collection<R> recs) {
         sync(upsertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            return tbl.upsertAll(marshal(recs, schemaVersion), (InternalTransaction) tx);
+        return spanWithResult("RecordViewImpl.upsertAllAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                return tbl.upsertAll(marshal(recs, schemaVersion), (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public R getAndUpsert(@Nullable Transaction tx, R rec) {
         return sync(getAndUpsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(rec, schemaVersion);
+        return spanWithResult("RecordViewImpl.getAndUpsertAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
-            return tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+                return tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean insert(@Nullable Transaction tx, R rec) {
         return sync(insertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx keyRow = marshal(rec, schemaVersion);
+        return spanWithResult("RecordViewImpl.insertAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
-            return tbl.insert(keyRow, (InternalTransaction) tx);
+                return tbl.insert(keyRow, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public List<R> insertAll(@Nullable Transaction tx, Collection<R> recs) {
         return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
+        return spanWithResult("RecordViewImpl.insertAllAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
-            return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+                return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean replace(@Nullable Transaction tx, R rec) {
         return sync(replaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
         return sync(replaceAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx newRow = marshal(rec, schemaVersion);
+        return spanWithResult("RecordViewImpl.replaceAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx newRow = marshal(rec, schemaVersion);
 
-            return tbl.replace(newRow, (InternalTransaction) tx);
+                return tbl.replace(newRow, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx oldRow = marshal(oldRec, schemaVersion);
-            BinaryRowEx newRow = marshal(newRec, schemaVersion);
+        return spanWithResult("RecordViewImpl.replaceAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx oldRow = marshal(oldRec, schemaVersion);
+                BinaryRowEx newRow = marshal(newRec, schemaVersion);
 
-            return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+                return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public R getAndReplace(@Nullable Transaction tx, R rec) {
         return sync(getAndReplaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(rec, schemaVersion);
+        return spanWithResult("RecordViewImpl.getAndReplaceAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(rec, schemaVersion);
 
-            return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+                return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean delete(@Nullable Transaction tx, R keyRec) {
         return sync(deleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshalKey(keyRec, schemaVersion);
+        return spanWithResult("RecordViewImpl.deleteAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshalKey(keyRec, schemaVersion);
 
-            return tbl.delete(row, (InternalTransaction) tx);
+                return tbl.delete(row, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public boolean deleteExact(@Nullable Transaction tx, R rec) {
         return sync(deleteExactAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshal(keyRec, schemaVersion);
+        return spanWithResult("RecordViewImpl.deleteAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshal(keyRec, schemaVersion);
 
-            return tbl.deleteExact(row, (InternalTransaction) tx);
+                return tbl.deleteExact(row, (InternalTransaction) tx);
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public R getAndDelete(@Nullable Transaction tx, R keyRec) {
         return sync(getAndDeleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            BinaryRowEx row = marshalKey(keyRec, schemaVersion);
+        return spanWithResult("RecordViewImpl.getAndDeleteAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                BinaryRowEx row = marshalKey(keyRec, schemaVersion);
 
-            return tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+                return tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs) {
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(keyRecs, schemaVersion);
+        return spanWithResult("RecordViewImpl.deleteAllAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                Collection<BinaryRowEx> rows = marshal(keyRecs, schemaVersion);
 
-            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+                return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            });
         });
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs) {
         return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(keyRecs, schemaVersion);
+        return spanWithResult("RecordViewImpl.deleteAllExactAsync", (span) -> {
+            return withSchemaSync(tx, (schemaVersion) -> {
+                Collection<BinaryRowEx> rows = marshal(keyRecs, schemaVersion);
 
-            return tbl.deleteAllExact(rows, (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+                return tbl.deleteAllExact(rows, (InternalTransaction) tx)
+                        .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            });
         });
     }
 
@@ -397,7 +396,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param schemaVersion Version with which to marshal.
      * @return Binary row.
      */
-    @WithSpan
     private BinaryRowEx marshal(R rec, int schemaVersion) {
         try {
             RecordMarshaller<R> marsh = marshaller(schemaVersion);
@@ -415,7 +413,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param schemaVersion Version with which to marshal.
      * @return Binary rows collection.
      */
-    @WithSpan
     private Collection<BinaryRowEx> marshal(Collection<R> recs, int schemaVersion) {
         try {
             RecordMarshaller<R> marsh = marshaller(schemaVersion);
@@ -441,7 +438,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param schemaVersion Version with which to marshal.
      * @return Binary row.
      */
-    @WithSpan
     private BinaryRowEx marshalKey(R rec, int schemaVersion) {
         try {
             RecordMarshaller<R> marsh = marshaller(schemaVersion);
@@ -459,7 +455,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param schemaVersion Version with which to marshal.
      * @return Binary rows collection.
      */
-    @WithSpan
     private Collection<BinaryRowEx> marshalKeys(Collection<R> recs, int schemaVersion) {
         try {
             RecordMarshaller<R> marsh = marshaller(schemaVersion);
@@ -485,7 +480,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param targetSchemaVersion Schema version that should be used.
      * @return Value object.
      */
-    @WithSpan
     private @Nullable R unmarshal(@Nullable BinaryRow binaryRow, int targetSchemaVersion) {
         if (binaryRow == null) {
             return null;
@@ -510,7 +504,6 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param targetSchemaVersion Schema version that should be used.
      * @return Records collection.
      */
-    @WithSpan
     private List<R> unmarshal(Collection<BinaryRow> rows, int targetSchemaVersion, boolean addNull) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
@@ -536,25 +529,26 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-        // columns never change (so they are the same for all schema versions of the table),
-        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(
-                rowConverter.registry(),
-                tbl.partitions(),
-                marshaller(rowConverter.registry().lastKnownSchemaVersion())
-        );
+        return spanWithResult("RecordViewImpl.streamData", (span) -> {
+            // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+            // columns never change (so they are the same for all schema versions of the table),
+            var partitioner = new PojoStreamerPartitionAwarenessProvider<>(
+                    rowConverter.registry(),
+                    tbl.partitions(),
+                    marshaller(rowConverter.registry().lastKnownSchemaVersion())
+            );
 
-        StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> {
-            return withSchemaSync(null, (schemaVersion) -> {
-                return this.tbl.upsertAll(marshal(items, schemaVersion), partitionId);
-            });
-        };
+            StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> {
+                return withSchemaSync(null, (schemaVersion) -> {
+                    return this.tbl.upsertAll(marshal(items, schemaVersion), partitionId);
+                });
+            };
 
-        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+            return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        });
     }
 }

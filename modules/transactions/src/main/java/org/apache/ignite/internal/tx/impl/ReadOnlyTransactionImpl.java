@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -109,7 +108,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             .whenComplete(traceSpan::whenComplete);
     }
 
-    @WithSpan
     @Override
     public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
         if (!finishGuard.compareAndSet(false, true)) {

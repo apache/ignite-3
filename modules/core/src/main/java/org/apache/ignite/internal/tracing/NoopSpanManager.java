@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tracing;
 
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
@@ -41,5 +42,10 @@ public class NoopSpanManager implements SpanManager {
     @Override
     public void createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure) {
         closure.accept(NoopSpan.INSTANCE);
+    }
+
+    @Override
+    public Executor taskWrapping(Executor executor) {
+        return executor;
     }
 }

@@ -43,7 +43,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignme
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
 import io.opentelemetry.context.Context;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -661,7 +660,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param table Initialized table entity.
      * @return future, which will be completed when the partitions creations done.
      */
-    @WithSpan
     private CompletableFuture<?> createTablePartitionsLocally(
             long causalityToken,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
@@ -868,35 +866,37 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return allOf(futures);
         });
 
-        // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
-        CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
-                (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenCompose(newAssignments -> {
-                    PartitionSet parts = new BitSetPartitionSet();
+        return spanWithResult("TableManager.createTablePartitionsLocally", (span) -> {
+            // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
+            CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
+                    (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenCompose(newAssignments -> {
+                        PartitionSet parts = new BitSetPartitionSet();
 
-                    for (int i = 0; i < newAssignments.size(); i++) {
-                        parts.set(i);
-                    }
+                        for (int i = 0; i < newAssignments.size(); i++) {
+                            parts.set(i);
+                        }
 
-                    return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
-                        var newValue = new HashMap<>(previous);
+                        return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
+                            var newValue = new HashMap<>(previous);
 
-                        newValue.put(tableId, parts);
+                            newValue.put(tableId, parts);
 
-                        return newValue;
-                    });
-                })));
+                            return newValue;
+                        });
+                    })));
 
-        // We bring the future outside to avoid OutdatedTokenException.
-        CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
+            // We bring the future outside to avoid OutdatedTokenException.
+            CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
 
-        return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
+            return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
-            return localPartsUpdateFuture.thenCompose(unused ->
-                    tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(busyLock, updateAssignmentsClosure), ioExecutor)
-            );
+                return localPartsUpdateFuture.thenCompose(unused ->
+                        tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(busyLock, updateAssignmentsClosure), ioExecutor)
+                );
+            });
         });
     }
 
@@ -1248,7 +1248,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param catalogVersion Catalog version on which the table was created.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
-    @WithSpan
     private CompletableFuture<Void> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
@@ -1261,55 +1260,57 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         LOG.trace("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
 
-        MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
-        TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
+        return spanWithResult("TableManager.createTableLocally", (span) -> {
+            MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
+            TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
 
-        int partitions = zoneDescriptor.partitions();
+            int partitions = zoneDescriptor.partitions();
 
-        InternalTableImpl internalTable = new InternalTableImpl(
-                tableName,
-                tableId,
-                new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
+            InternalTableImpl internalTable = new InternalTableImpl(
+                    tableName,
+                    tableId,
+                    new Int2ObjectOpenHashMap<>(partitions),
+                    partitions, clusterNodeResolver, txManager, tableStorage,
+                    txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions);
+            var table = new TableImpl(internalTable, lockMgr, schemaVersions);
 
-        // TODO: IGNITE-19082 Need another way to wait for indexes
-        table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion));
+            // TODO: IGNITE-19082 Need another way to wait for indexes
+            table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion));
 
-        tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
+            tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
-            return schemaManager.schemaRegistry(causalityToken, tableId)
-                    .thenApply(schema -> {
-                        table.schemaView(schema);
+                return schemaManager.schemaRegistry(causalityToken, tableId)
+                        .thenApply(schema -> {
+                            table.schemaView(schema);
 
-                        var val = new HashMap<>(previous);
+                            var val = new HashMap<>(previous);
 
-                        val.put(tableId, table);
+                            val.put(tableId, table);
 
-                        return val;
-                    });
-        }));
+                            return val;
+                        });
+            }));
 
-        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, table);
+            CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, table);
 
-        pendingTables.put(tableId, table);
-        startedTables.put(tableId, table);
+            pendingTables.put(tableId, table);
+            startedTables.put(tableId, table);
 
-        tablesById(causalityToken).thenAccept(ignored -> inBusyLock(busyLock, () -> {
-            pendingTables.remove(tableId);
-        }));
+            tablesById(causalityToken).thenAccept(ignored -> inBusyLock(busyLock, () -> {
+                pendingTables.remove(tableId);
+            }));
 
-        tablesById(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
+            tablesById(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
-        // TODO should be reworked in IGNITE-16763
+            // TODO should be reworked in IGNITE-16763
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        return createPartsFut.thenApply(ignore -> null);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
+            return createPartsFut.thenApply(ignore -> null);
+        });
     }
 
     /**
@@ -1318,7 +1319,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
      */
-    @WithSpan
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
         CatalogDataStorageDescriptor dataStorage = zoneDescriptor.dataStorage();
 
@@ -1326,14 +1326,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + dataStorage.engine();
 
-        MvTableStorage tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
-                new StorageIndexDescriptorSupplier(catalogService)
-        );
+        return spanWithResult("TableManager.createTableStorage", (span) -> {
+            MvTableStorage tableStorage = engine.createMvTable(
+                    new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
+                    new StorageIndexDescriptorSupplier(catalogService)
+            );
 
-        tableStorage.start();
+            tableStorage.start();
 
-        return tableStorage;
+            return tableStorage;
+        });
     }
 
     /**
@@ -1482,7 +1484,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return join(tablesAsync());
     }
 
-    @WithSpan
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
         return inBusyLockAsync(busyLock, this::tablesAsyncInternalBusy);
@@ -2113,30 +2114,31 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
-    @WithSpan
     private CompletableFuture<Void> getOrCreatePartitionStorages(TableImpl table, PartitionSet partitions) {
-        InternalTable internalTable = table.internalTable();
+        return spanWithResult("TableManager.getOrCreatePartitionStorages", (span) -> {
+            InternalTable internalTable = table.internalTable();
 
-        CompletableFuture<?>[] storageFuts = partitions.stream().mapToObj(partitionId -> {
-            MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
+            CompletableFuture<?>[] storageFuts = partitions.stream().mapToObj(partitionId -> {
+                MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
 
-            return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
-                    .thenComposeAsync(mvPartitionStorage -> {
-                        TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
+                return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
+                        .thenComposeAsync(mvPartitionStorage -> {
+                            TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
 
-                        if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
-                                || txStateStorage.lastAppliedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
-                            return allOf(
-                                    internalTable.storage().clearPartition(partitionId),
-                                    txStateStorage.clear()
-                            ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
-                        } else {
-                            return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
-                        }
-                    }, ioExecutor);
-        }).toArray(CompletableFuture[]::new);
+                            if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
+                                    || txStateStorage.lastAppliedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
+                                return allOf(
+                                        internalTable.storage().clearPartition(partitionId),
+                                        txStateStorage.clear()
+                                ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
+                            } else {
+                                return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
+                            }
+                        }, ioExecutor);
+            }).toArray(CompletableFuture[]::new);
 
-        return allOf(storageFuts);
+            return allOf(storageFuts);
+        });
     }
 
     /**

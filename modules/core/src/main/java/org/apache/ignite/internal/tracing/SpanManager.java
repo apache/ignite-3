@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tracing;
 
+import io.opentelemetry.context.Context;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
@@ -55,4 +57,9 @@ public interface SpanManager {
      * @param closure Closure.
      */
     void createSpan(String spanName, @Nullable TraceSpan parent, boolean rootSpan, Consumer<TraceSpan> closure);
+
+    /**
+     * Returns a {@link Runnable} that restore trace context and then invokes the input {@link Runnable}.
+     */
+    Executor taskWrapping(Executor executor);
 }

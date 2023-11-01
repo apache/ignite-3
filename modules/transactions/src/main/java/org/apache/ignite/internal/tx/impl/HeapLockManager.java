@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
-import io.opentelemetry.instrumentation.annotations.SpanAttribute;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -88,42 +88,53 @@ public class HeapLockManager implements LockManager {
                 : null;
     }
 
-    @WithSpan
     @Override
-    public CompletableFuture<Lock> acquire(@SpanAttribute("txId") UUID txId, LockKey lockKey, @SpanAttribute("mode") LockMode lockMode) {
-        while (true) {
+    public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+        return spanWithResult("HeapLockManager.acquire", (span) -> {
+            span.addAttribute("lockKey", lockKey::toString);
+            span.addAttribute("mode", lockMode::toString);
+
+            while (true) {
+                LockState state = lockState(lockKey);
+
+                IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = state.tryAcquire(txId, lockMode);
+
+                if (futureTuple.get1() == null) {
+                    continue; // Obsolete state.
+                }
+
+                LockMode newLockMode = futureTuple.get2();
+
+                return futureTuple.get1().thenApply(res -> new Lock(lockKey, newLockMode, txId));
+            }
+        });
+    }
+
+    @Override
+    public void release(Lock lock) {
+        span("HeapLockManager.release", (span) -> {
+            span.addAttribute("lockKey", lock.lockKey()::toString);
+
+            LockState state = lockState(lock.lockKey());
+
+            if (state.tryRelease(lock.txId())) {
+                locks.remove(lock.lockKey(), state);
+            }
+        });
+    }
+
+    @Override
+    public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
+        span("HeapLockManager.release", (span) -> {
+            span.addAttribute("lockKey", lockKey::toString);
+            span.addAttribute("mode", lockMode::toString);
+
             LockState state = lockState(lockKey);
 
-            IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = state.tryAcquire(txId, lockMode);
-
-            if (futureTuple.get1() == null) {
-                continue; // Obsolete state.
+            if (state.tryRelease(txId, lockMode)) {
+                locks.remove(lockKey, state);
             }
-
-            LockMode newLockMode = futureTuple.get2();
-
-            return futureTuple.get1().thenApply(res -> new Lock(lockKey, newLockMode, txId));
-        }
-    }
-
-    @WithSpan
-    @Override
-    public void release(@SpanAttribute("id") Lock lock) {
-        LockState state = lockState(lock.lockKey());
-
-        if (state.tryRelease(lock.txId())) {
-            locks.remove(lock.lockKey(), state);
-        }
-    }
-
-    @WithSpan
-    @Override
-    public void release(@SpanAttribute("id") UUID txId, LockKey lockKey, @SpanAttribute("mode") LockMode lockMode) {
-        LockState state = lockState(lockKey);
-
-        if (state.tryRelease(txId, lockMode)) {
-            locks.remove(lockKey, state);
-        }
+        });
     }
 
     @Override

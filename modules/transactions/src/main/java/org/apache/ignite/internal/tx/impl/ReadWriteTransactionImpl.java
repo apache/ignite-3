@@ -131,23 +131,21 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        return spanWithResult("ReadWriteTransactionImpl.finish", (span) -> {
-            if (isFinalState(state())) {
-                return finishFuture;
+        if (isFinalState(state())) {
+            return finishFuture;
+        }
+
+        try {
+            enlistPartitionLock.writeLock().lock();
+
+            if (!isFinalState(state())) {
+                finishFuture = finishInternal(commit);
             }
 
-            try {
-                enlistPartitionLock.writeLock().lock();
-
-                if (!isFinalState(state())) {
-                    finishFuture = finishInternal(commit);
-                }
-
-                return finishFuture;
-            } finally {
-                enlistPartitionLock.writeLock().unlock();
-            }
-        });
+            return finishFuture;
+        } finally {
+            enlistPartitionLock.writeLock().unlock();
+        }
     }
 
     /**

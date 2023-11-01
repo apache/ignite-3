@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -230,58 +230,59 @@ public class StorageUpdateHandler {
         executeBatchGc();
     }
 
-    @WithSpan
     private void performStorageCleanupIfNeeded(UUID txId, RowId rowId, @Nullable HybridTimestamp lastCommitTs) {
         // No previously committed value, this action might be an insert. No need to cleanup.
         if (lastCommitTs == null) {
             return;
         }
 
-        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-            // Okay, lastCommitTs is not null. It means that we are changing the previously committed data.
-            // However, we could have previously called cleanup for the same row.
-            // If the previous operation was "delete" and it was executed successfully, no data will be present in the storage.
-            if (!cursor.hasNext()) {
-                return;
-            }
-
-            ReadResult item = cursor.next();
-            // If there is a write intent in the storage and this intent was created by a different transaction
-            // then check the previous entry.
-            // Otherwise exit the check - everything's fine.
-            if (item.isWriteIntent() && !txId.equals(item.transactionId())) {
+        span("StorageUpdateHandler.performStorageCleanupIfNeeded", (span) -> {
+            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                // Okay, lastCommitTs is not null. It means that we are changing the previously committed data.
+                // However, we could have previously called cleanup for the same row.
+                // If the previous operation was "delete" and it was executed successfully, no data will be present in the storage.
                 if (!cursor.hasNext()) {
-                    // No more data => the write intent we have is actually the first version of this row
-                    // and lastCommitTs is the commit timestamp of it.
-                    // Action: commit this write intent.
-                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
                     return;
                 }
-                // Otherwise there are other versions in the chain.
-                ReadResult committedItem = cursor.next();
 
-                // They should be regular entries, not write intents.
-                assert !committedItem.isWriteIntent() : "Cannot have more than one write intent per row";
+                ReadResult item = cursor.next();
+                // If there is a write intent in the storage and this intent was created by a different transaction
+                // then check the previous entry.
+                // Otherwise exit the check - everything's fine.
+                if (item.isWriteIntent() && !txId.equals(item.transactionId())) {
+                    if (!cursor.hasNext()) {
+                        // No more data => the write intent we have is actually the first version of this row
+                        // and lastCommitTs is the commit timestamp of it.
+                        // Action: commit this write intent.
+                        performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
+                        return;
+                    }
+                    // Otherwise there are other versions in the chain.
+                    ReadResult committedItem = cursor.next();
 
-                assert lastCommitTs.compareTo(committedItem.commitTimestamp()) >= 0 :
-                        "Primary commit timestamp " + lastCommitTs + " is earlier than local commit timestamp "
-                                + committedItem.commitTimestamp();
+                    // They should be regular entries, not write intents.
+                    assert !committedItem.isWriteIntent() : "Cannot have more than one write intent per row";
 
-                if (lastCommitTs.compareTo(committedItem.commitTimestamp()) > 0) {
-                    // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
-                    // Action: commit this write intent.
-                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
-                } else {
-                    // lastCommitTs == committedItem.commitTimestamp()
-                    // So we see a write intent from a different transaction, which was not committed on primary.
-                    // Because of transaction locks we cannot have two transactions creating write intents for the same row.
-                    // So if we got up to here, it means that the previous transaction was aborted,
-                    // but the storage was not cleaned after it.
-                    // Action: abort this write intent.
-                    performAbortWrite(item.transactionId(), Set.of(rowId));
+                    assert lastCommitTs.compareTo(committedItem.commitTimestamp()) >= 0 :
+                            "Primary commit timestamp " + lastCommitTs + " is earlier than local commit timestamp "
+                                    + committedItem.commitTimestamp();
+
+                    if (lastCommitTs.compareTo(committedItem.commitTimestamp()) > 0) {
+                        // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
+                        // Action: commit this write intent.
+                        performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
+                    } else {
+                        // lastCommitTs == committedItem.commitTimestamp()
+                        // So we see a write intent from a different transaction, which was not committed on primary.
+                        // Because of transaction locks we cannot have two transactions creating write intents for the same row.
+                        // So if we got up to here, it means that the previous transaction was aborted,
+                        // but the storage was not cleaned after it.
+                        // Action: abort this write intent.
+                        performAbortWrite(item.transactionId(), Set.of(rowId));
+                    }
                 }
             }
-        }
+        });
     }
 
     void executeBatchGc() {
@@ -300,15 +301,16 @@ public class StorageUpdateHandler {
      * @param rowId Row id.
      * @param previousRow Previous write value.
      */
-    @WithSpan
     private void tryRemovePreviousWritesIndex(RowId rowId, BinaryRow previousRow) {
-        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-            if (!cursor.hasNext()) {
-                return;
-            }
+        span("StorageUpdateHandler.tryRemovePreviousWritesIndex", (span) -> {
+            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                if (!cursor.hasNext()) {
+                    return;
+                }
 
-            indexUpdateHandler.tryRemoveFromIndexes(previousRow, rowId, cursor);
-        }
+                indexUpdateHandler.tryRemoveFromIndexes(previousRow, rowId, cursor);
+            }
+        });
     }
 
     /**

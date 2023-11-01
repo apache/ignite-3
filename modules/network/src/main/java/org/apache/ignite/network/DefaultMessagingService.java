@@ -17,8 +17,11 @@
 
 package org.apache.ignite.network;
 
+import static io.opentelemetry.context.Context.taskWrapping;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
+import static org.apache.ignite.internal.thread.NamedThreadFactory.create;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.network.NettyBootstrapFactory.isInNetworkThread;
 
 import io.opentelemetry.api.trace.Span;
@@ -115,10 +118,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.classDescriptorRegistry = classDescriptorRegistry;
         this.marshaller = marshaller;
 
-        this.outboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-outbound-", LOG));
+        this.outboundExecutor = taskWrapping(Executors.newSingleThreadExecutor(create(nodeName, "MessagingService-outbound-", LOG)));
         // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
         // TODO asch This invariant should be preserved while working on IGNITE-20373
-        this.inboundExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "MessagingService-inbound-", LOG));
+        this.inboundExecutor = taskWrapping(Executors.newSingleThreadExecutor(create(nodeName, "MessagingService-inbound-", LOG)));
     }
 
     /**
@@ -336,9 +339,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param correlationId Correlation id.
      */
     private void sendToSelf(NetworkMessage msg, @Nullable Long correlationId) {
-        for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(msg.groupType())) {
-            networkMessageHandler.onReceived(msg, topologyService.localMember().name(), correlationId);
-        }
+        span("DefaultMessagingService.sendToSelf", (span) -> {
+            for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(msg.groupType())) {
+                networkMessageHandler.onReceived(msg, topologyService.localMember().name(), correlationId);
+            }
+        });
     }
 
     /**

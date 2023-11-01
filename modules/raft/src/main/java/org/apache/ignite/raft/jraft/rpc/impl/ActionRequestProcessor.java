@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import io.opentelemetry.context.Context;
+import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;import io.opentelemetry.context.Context;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -66,7 +66,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private final Map<String, Object> groupIdsToMonitors = new ConcurrentHashMap<>();
 
     public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
-        this.executor = executor;
+        this.executor = taskWrapping(executor);
         this.factory = factory;
     }
 

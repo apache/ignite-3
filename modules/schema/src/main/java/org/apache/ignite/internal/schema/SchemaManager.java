@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import io.opentelemetry.context.Context;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -233,21 +232,22 @@ public class SchemaManager implements IgniteComponent {
      * @param schema Schema descriptor.
      * @return Future that will be completed when the schema gets saved.
      */
-    @WithSpan
     private CompletableFuture<Void> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
-        ByteArray schemaKey = schemaWithVerHistKey(tableId, schema.version());
-        ByteArray latestSchemaVersionKey = latestSchemaVersionKey(tableId);
+        return spanWithResult("SchemaManager.saveSchemaDescriptor", (span) -> {
+            ByteArray schemaKey = schemaWithVerHistKey(tableId, schema.version());
+            ByteArray latestSchemaVersionKey = latestSchemaVersionKey(tableId);
 
-        byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schema);
+            byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schema);
 
-        return metastorageMgr.invoke(
-                notExists(schemaKey),
-                List.of(
-                        put(schemaKey, serializedSchema),
-                        put(latestSchemaVersionKey, intToBytes(schema.version()))
-                ),
-                emptyList()
-        ).thenApply(unused -> null);
+            return metastorageMgr.invoke(
+                    notExists(schemaKey),
+                    List.of(
+                            put(schemaKey, serializedSchema),
+                            put(latestSchemaVersionKey, intToBytes(schema.version()))
+                    ),
+                    emptyList()
+            ).thenApply(unused -> null);
+        });
     }
 
     /**
@@ -258,25 +258,26 @@ public class SchemaManager implements IgniteComponent {
      * @param schema The schema to register.
      * @return Registries after registering this schema.
      */
-    @WithSpan
     private Map<Integer, SchemaRegistryImpl> registerSchema(
             Map<Integer, SchemaRegistryImpl> registries,
             int tableId,
             SchemaDescriptor schema
     ) {
-        SchemaRegistryImpl reg = registries.get(tableId);
+        return spanWithResult("SchemaManager.registerSchema", (span) -> {
+            SchemaRegistryImpl reg = registries.get(tableId);
 
-        if (reg == null) {
-            Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
+            if (reg == null) {
+                Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
 
-            copy.put(tableId, createSchemaRegistry(tableId, schema));
+                copy.put(tableId, createSchemaRegistry(tableId, schema));
 
-            return copy;
-        } else {
-            reg.onSchemaRegistered(schema);
+                return copy;
+            } else {
+                reg.onSchemaRegistered(schema);
 
-            return registries;
-        }
+                return registries;
+            }
+        });
     }
 
     /**
