@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
+import static org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion.askQuestionOnAuthError;
 import static org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion.askQuestionOnSslError;
+import static org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion.askQuestionToStoreCredentials;
 
 import io.micronaut.http.HttpStatus;
 import jakarta.inject.Singleton;
 import javax.net.ssl.SSLException;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -44,13 +46,21 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
 
     private final ConnectionChecker connectionChecker;
 
+    private final ConfigManagerProvider configManagerProvider;
+
     /**
      * Constructor.
      */
-    public ConnectWizardCall(ConnectCall connectCall, ConnectionChecker connectionChecker, ConnectSuccessCall connectSuccessCall) {
+    public ConnectWizardCall(
+            ConnectCall connectCall,
+            ConnectionChecker connectionChecker,
+            ConnectSuccessCall connectSuccessCall,
+            ConfigManagerProvider configManagerProvider
+    ) {
         this.connectCall = connectCall;
         this.connectionChecker = connectionChecker;
         this.connectSuccessCall = connectSuccessCall;
+        this.configManagerProvider = configManagerProvider;
     }
 
     @Override
@@ -84,6 +94,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                 SessionInfo sessionInfo = connectionChecker.checkConnection(input, result.value());
                 connectionChecker.saveSettings(input, result.value());
 
+                askQuestionToStoreCredentials(configManagerProvider.get(), input.username(), input.password());
                 return connectSuccessCall.execute(sessionInfo);
             } catch (ApiException exception) {
                 Throwable apiCause = exception.getCause();
@@ -106,16 +117,19 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
     }
 
     private CallOutput<String> configureAuth(ConnectCallInput input, CallOutput<String> output) {
-        Flowable<AuthConfig> result = ConnectToClusterQuestion.askQuestionOnAuthError().start(Flowable.empty());
+        Flowable<AuthConfig> result = askQuestionOnAuthError().start(Flowable.empty());
         if (result.hasResult()) {
+            String username = result.value().username();
+            String password = result.value().password();
             ConnectCallInput connectCallInput = ConnectCallInput.builder()
                     .url(input.url())
-                    .username(result.value().username())
-                    .password(result.value().password())
+                    .username(username)
+                    .password(password)
                     .build();
             try {
                 SessionInfo sessionInfo = connectionChecker.checkConnection(connectCallInput);
                 connectionChecker.saveSettings(connectCallInput, null);
+                askQuestionToStoreCredentials(configManagerProvider.get(), username, password);
                 return connectSuccessCall.execute(sessionInfo);
             } catch (ApiException e) {
                 return DefaultCallOutput.failure(new IgniteCliApiException(e, input.url()));
