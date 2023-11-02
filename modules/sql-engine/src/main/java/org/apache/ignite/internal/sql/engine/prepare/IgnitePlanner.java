@@ -156,7 +156,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         rexExecutor = frameworkCfg.getExecutor();
         traitDefs = frameworkCfg.getTraitDefs();
 
-        rexBuilder = new IgniteRexBuilder(typeFactory);
+        rexBuilder = IgniteRexBuilder.INSTANCE;
     }
 
     /** {@inheritDoc} */
