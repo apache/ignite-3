@@ -1462,6 +1462,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (txMeta.locksReleased()) {
                 return completedFuture(null);
             }
+
+            assert !(txMeta.txState() == COMMITED && !commit) : "Not allowed to abort an already committed transaction.";
             // If the locks were not released, we are likely to be in a recovery mode and retrying the finish request.
             // In this case we want to check the expected outcome and the actual one.
             if (commit && txMeta.txState() == ABORTED) {

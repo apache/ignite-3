@@ -47,6 +47,7 @@ public class NodeUtils {
 
     /**
      * Transfers the primary rights to another node.
+     * TODO: IGNITE-20365: Replace this method when proper primary change method is implemented.
      *
      * @param tbl Table.
      * @param preferablePrimary Primary replica name which is preferred for being primary or {@code null}.
