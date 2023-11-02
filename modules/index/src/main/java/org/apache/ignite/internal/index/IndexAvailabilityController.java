@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.table.distributed.index.IndexBuildCompletionListener;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -96,7 +98,25 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *     prefix {@link IndexManagementUtils#PARTITION_BUILD_INDEX_KEY_PREFIX} is made by the whole cluster (and only one node makes a write to
  *     the metastore) as these events are global, but only one node (a primary replica owning a partition) handles
  *     {@link IndexBuildCompletionListener#onBuildCompletion} (form {@link IndexBuilder#listen}) event.</li>
- *     <li>Restoring index availability occurs in {@link IndexAvailabilityControllerRestorer}.</li>
+ *     <li>Restoring index availability occurs in {@link #recover(long)}.</li>
+ * </ul>
+ *
+ * <p>Approximate recovery algorithm:</p>
+ * <ul>
+ *     <li>For registered indexes: <ul>
+ *         <li>If the new index did not have time to add
+ *         {@link IndexManagementUtils#putBuildIndexMetastoreKeysIfAbsent(MetaStorageManager, int, int) index building keys}, then add them
+ *         to the metastore if they are <b>absent</b>.</li>
+ *         <li>If there are no {@link IndexManagementUtils#partitionBuildIndexMetastoreKey(int, int) partition index building keys} left for
+ *         the index in the metastore, then we {@link MakeIndexAvailableCommand make the index available} in the catalog.</li>
+ *         <li>For partitions for which index building has not completed, we will not take any action, since after the node starts,
+ *         {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} will be fired that will trigger the building of indexes as during normal
+ *         operation of the node. Which will lead to the usual index availability algorithm.</li>
+ *     </ul></li>
+ *     <li>For available indexes: <ul>
+ *         <li>Delete the {@link IndexManagementUtils#inProgressBuildIndexMetastoreKey(int) “index construction from progress” key} in the
+ *         metastore if it is <b>present</b>.</li>
+ *     </ul></li>
  * </ul>
  *
  * @see CatalogIndexDescriptor#available()
@@ -128,6 +148,31 @@ public class IndexAvailabilityController implements ManuallyCloseable {
         }
 
         busyLock.block();
+    }
+
+    /**
+     * Recovers index availability on node recovery.
+     *
+     * @param recoveryRevision Metastore revision on recovery.
+     * @return Future of recovery execution.
+     */
+    public CompletableFuture<Void> recover(long recoveryRevision) {
+        return inBusyLockAsync(busyLock, () -> {
+            // It is expected that the method will only be called on recovery, when the deploy of metastore watches has not yet occurred.
+            int catalogVersion = catalogManager.latestCatalogVersion();
+
+            List<CompletableFuture<?>> futures = catalogManager.indexes(catalogVersion).stream()
+                    .map(indexDescriptor -> {
+                        if (indexDescriptor.available()) {
+                            return recoveryForAvailableIndexBusy(indexDescriptor, recoveryRevision);
+                        } else {
+                            return recoveryForRegisteredIndexBusy(indexDescriptor, recoveryRevision, catalogVersion);
+                        }
+                    })
+                    .collect(toList());
+
+            return allOf(futures.toArray(CompletableFuture[]::new));
+        });
     }
 
     private void addListeners(CatalogService catalogService, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
@@ -263,5 +308,46 @@ public class IndexAvailabilityController implements ManuallyCloseable {
                         }
                     });
         });
+    }
+
+    private CompletableFuture<?> recoveryForAvailableIndexBusy(CatalogIndexDescriptor indexDescriptor, long recoveryRevision) {
+        assert indexDescriptor.available() : indexDescriptor.id();
+
+        int indexId = indexDescriptor.id();
+
+        ByteArray inProgressBuildIndexMetastoreKey = inProgressBuildIndexMetastoreKey(indexId);
+
+        if (isMetastoreKeyAbsentLocally(metaStorageManager, inProgressBuildIndexMetastoreKey, recoveryRevision)) {
+            return completedFuture(null);
+        }
+
+        return removeMetastoreKeyIfPresent(metaStorageManager, inProgressBuildIndexMetastoreKey);
+    }
+
+    private CompletableFuture<?> recoveryForRegisteredIndexBusy(
+            CatalogIndexDescriptor indexDescriptor,
+            long recoveryRevision,
+            int catalogVersion
+    ) {
+        assert !indexDescriptor.available() : indexDescriptor.id();
+
+        int indexId = indexDescriptor.id();
+
+        if (isMetastoreKeyAbsentLocally(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId), recoveryRevision)) {
+            // After creating the index, we did not have time to create the keys for building the index in the metastore.
+            return putBuildIndexMetastoreKeysIfAbsent(
+                    metaStorageManager,
+                    indexId,
+                    getPartitionCountFromCatalog(catalogManager, indexId, catalogVersion)
+            );
+        }
+
+        if (!isAnyMetastoreKeyPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), recoveryRevision)) {
+            // Without wait, since the metastore watches deployment will be only after the start of the components is completed and this
+            // will cause a dead lock.
+            makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);
+        }
+
+        return completedFuture(null);
     }
 }
