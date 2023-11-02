@@ -157,8 +157,10 @@ public class PartitionListener implements RaftGroupListener {
                     maxObservableSafeTime = cmd.safeTimeLong();
                 } else {
                     System.out.println("!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + clo.command().getClass());
-                    clo.result(new SafeTimeReorderException(REPLICATION_SAFE_TIME_MISS, "errorMsg"));
-                    return;
+                    if (!(command instanceof TxCleanupCommand)) {
+                        clo.result(new SafeTimeReorderException(REPLICATION_SAFE_TIME_MISS, "errorMsg"));
+                        return;
+                    }
                 }
             }
 
@@ -224,7 +226,10 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                // TODO: sanpwc txcleanup command shouldn't implement SafeTimePropagatingCommand
+                if (!(command instanceof TxCleanupCommand)) {
+                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                }
             }
 
             updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
