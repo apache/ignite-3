@@ -47,8 +47,8 @@ public class DemoAutoConfigurationCustomizerProvider implements AutoConfiguratio
     public void customize(AutoConfigurationCustomizer autoConfiguration) {
         autoConfiguration
 //                .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIncludedMethods)
-                .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIgniteExecutors)
-                .addSamplerCustomizer(DemoAutoConfigurationCustomizerProvider::customizeSampler);
+                .addPropertiesCustomizer(DemoAutoConfigurationCustomizerProvider::customizeIgniteExecutors);
+//                .addSamplerCustomizer(DemoAutoConfigurationCustomizerProvider::customizeSampler);
     }
 
     private static Map<String, String> customizeIgniteExecutors(ConfigProperties configProperties) {

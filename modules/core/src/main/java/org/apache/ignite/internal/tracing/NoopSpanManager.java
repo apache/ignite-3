@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tracing;
 
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
@@ -48,6 +49,11 @@ public class NoopSpanManager implements SpanManager {
     @Override
     public Executor taskWrapping(Executor executor) {
         return executor;
+    }
+
+    @Override
+    public ExecutorService taskWrapping(ExecutorService executorService) {
+        return executorService;
     }
 
     @Override

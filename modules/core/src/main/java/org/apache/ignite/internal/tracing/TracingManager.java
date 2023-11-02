@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
@@ -118,7 +119,7 @@ public class TracingManager {
      * @param closure Closure.
      */
     public static void span(String spanName, Consumer<TraceSpan> closure) {
-        TraceSpan span = SPAN_MANAGER.createSpan(spanName, null, false, true);
+        TraceSpan span = SPAN_MANAGER.createSpan(spanName, null, false, false);
 
         try (span) {
             closure.accept(span);
@@ -126,6 +127,8 @@ public class TracingManager {
             span.recordException(ex);
 
             throw ex;
+        } finally {
+            span.end();
         }
     }
 
@@ -142,6 +145,10 @@ public class TracingManager {
 
     public static Executor taskWrapping(Executor executor) {
         return SPAN_MANAGER.taskWrapping(executor);
+    }
+
+    public static ExecutorService taskWrapping(ExecutorService executorService) {
+        return SPAN_MANAGER.taskWrapping(executorService);
     }
 
     public static @Nullable Map<String, String> serializeSpan() {

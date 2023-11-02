@@ -42,7 +42,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
-import io.opentelemetry.context.Context;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -236,10 +235,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
-
-    /** Used to propagate context. */
-    // TODO: 04.09.2023 most probably it is useless in case of multi node cluster
-    private final Map<Integer, Context> tableCreateContext = new ConcurrentHashMap<>();
 
     /**
      * Versioned store for tables by id. Only table instances are created here, local storages and RAFT groups may not be initialized yet.

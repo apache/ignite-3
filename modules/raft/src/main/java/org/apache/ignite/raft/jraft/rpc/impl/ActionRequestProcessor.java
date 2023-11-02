@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;import io.opentelemetry.context.Context;
+import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tracing.otel;
 
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import java.util.function.Supplier;
@@ -80,14 +81,15 @@ public class OtelTraceSpan implements TraceSpan {
     @Override
     public <T, R extends Throwable> void whenComplete(T val, R throwable) {
         if (throwable != null) {
-            span.recordException(throwable);
-        } else {
-            span.end();
+            recordException(throwable);
         }
+
+        span.end();
     }
 
     @Override
     public void recordException(Throwable exception) {
+        span.setStatus(StatusCode.ERROR);
         span.recordException(exception);
     }
 

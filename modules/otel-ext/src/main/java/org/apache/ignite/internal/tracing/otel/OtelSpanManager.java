@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapGetter;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.tracing.NoopSpan;
@@ -86,6 +88,7 @@ public class OtelSpanManager implements SpanManager {
             return res;
         } catch (Throwable ex) {
             span.recordException(ex);
+            span.end();
 
             throw ex;
         }
@@ -107,6 +110,11 @@ public class OtelSpanManager implements SpanManager {
     @Override
     public Executor taskWrapping(Executor executor) {
         return Context.taskWrapping(executor);
+    }
+
+    @Override
+    public ExecutorService taskWrapping(ExecutorService executorService) {
+        return Context.taskWrapping(executorService);
     }
 
     @Override

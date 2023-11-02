@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
-import io.opentelemetry.context.Context;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;

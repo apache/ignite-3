@@ -16,21 +16,17 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tracing.TracingManager.serializeSpan;import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
-import io.opentelemetry.context.Context;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;

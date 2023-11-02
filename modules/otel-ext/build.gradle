@@ -42,7 +42,7 @@ dependencies {
     annotationProcessor libs.auto.service
 
     testImplementation project(':ignite-core')
-    testImplementation libs.hamcrest.core
+    testImplementation libs.assertj.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
 

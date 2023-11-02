@@ -16,9 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import static org.apache.ignite.internal.tracing.TracingManager.restoreSpanContext;import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;import io.opentelemetry.api.GlobalOpenTelemetry;
-import io.opentelemetry.context.Context;
-import io.opentelemetry.context.propagation.TextMapGetter;
+import static org.apache.ignite.internal.tracing.TracingManager.restoreSpanContext;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import org.apache.ignite.internal.tracing.NoopSpan;import org.apache.ignite.internal.tracing.TraceSpan;import org.apache.ignite.raft.jraft.Closure;
@@ -28,8 +27,6 @@ import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 
 public class IteratorWrapper implements Iterator {
-    private static final TextMapGetter<Map<String, String>> GETTER = new TraceHeaderGetter();
-
     private final IteratorImpl impl;
 
     public IteratorWrapper(IteratorImpl iterImpl) {
@@ -84,17 +81,5 @@ public class IteratorWrapper implements Iterator {
     @Override
     public void setErrorAndRollback(final long ntail, final Status st) {
         this.impl.setErrorAndRollback(ntail, st);
-    }
-
-    private static class TraceHeaderGetter implements TextMapGetter<Map<String, String>> {
-        @Override
-        public Iterable<String> keys(Map<String, String> carrier) {
-            return carrier.keySet();
-        }
-
-        @Override
-        public String get(Map<String, String> carrier, String key) {
-            return carrier.get(key);
-        }
     }
 }

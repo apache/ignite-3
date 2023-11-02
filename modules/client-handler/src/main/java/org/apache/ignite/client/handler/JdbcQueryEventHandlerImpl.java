@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
-import io.opentelemetry.context.Context;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.sql.Statement;
 import java.util.List;
@@ -374,8 +373,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      */
     private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, JdbcQueryExecuteRequest req) {
         return spanWithResult("JdbcQueryEventHandlerImpl.createJdbcResult", (span) -> {
-            Context context = Context.current();
-            return cur.requestNextAsync(req.pageSize()).thenApply(context.wrapFunction(batch -> {
+            return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
                 boolean hasNext = batch.hasMore();
 
                 switch (cur.queryType()) {
@@ -405,7 +403,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                         return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
                                 "Query type is not supported yet [queryType=" + cur.queryType() + ']');
                 }
-            }));
+            });
         });
     }
 

@@ -29,7 +29,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
-import io.opentelemetry.context.Context;
 import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.Map;
@@ -521,7 +520,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 var reqId = requestId;
                 var op = opCode;
 
-                fut.whenComplete(Context.current().wrapConsumer((Object res, Object err) -> {
+                fut.whenComplete((Object res, Object err) -> {
                     in.close();
                     metrics.requestsActiveDecrement();
 
@@ -539,7 +538,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         LOG.trace("Client request processed [id=" + reqId + ", op=" + op
                                 + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
                     }
-                }));
+                });
             }
         } catch (Throwable t) {
             in.close();
