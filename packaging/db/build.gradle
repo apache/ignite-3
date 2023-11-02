@@ -292,6 +292,7 @@ setupBuilder {
                            "--add-opens=java.base/java.math=ALL-UNNAMED",
                            "--add-opens=java.base/java.util=ALL-UNNAMED",
                            "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+                           "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
                            "-Dio.netty.tryReflectionSetAccessible=true",
                            "-Djava.util.logging.config.file=etc\\ignite.java.util.logging.properties",
                            "-Dio.netty.tryReflectionSetAccessible=true"]
