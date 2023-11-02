@@ -205,8 +205,11 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
                 TimeUnit.SECONDS.toMillis(10)
         );
 
-        assertTrue(isRaftNodeStarted(table, loza), "Raft node is not started");
-        assertTrue(assignmentsContain(restartingNodeConsistentId, internalTable), "Assignments do not contain the node");
+        assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
+        assertTrue(
+                assignmentsContain(restartingNodeConsistentId, internalTable),
+                "Assignments do not contain node " + restartingNodeConsistentId
+        );
 
         // Check the data rebalanced correctly.
         checkTableWithData(restartingNode, TABLE_NAME);
