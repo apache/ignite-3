@@ -55,12 +55,12 @@ public interface TraceSpan extends AutoCloseable {
     <T> @Nullable T getContext();
 
     /**
-     * Future handled that ,arks the end of {@code Span} execution.
+     * Future handled that, arks the end of {@code Span} execution.
      *
      * <p>Only the timing of the first end call for a given {@code Span} will be recorded, and
      * implementations are free to ignore all further calls.
      */
-    <T, R extends Throwable> void whenComplete(T val, R throwable);
+    <R> R wrap(R val);
 
     /**
      * Records information about the {@link Throwable} to the {@link TraceSpan}.

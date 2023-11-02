@@ -21,6 +21,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.jetbrains.annotations.Nullable;
@@ -79,18 +80,31 @@ public class OtelTraceSpan implements TraceSpan {
     }
 
     @Override
-    public <T, R extends Throwable> void whenComplete(T val, R throwable) {
-        if (throwable != null) {
-            recordException(throwable);
+    public <R> R wrap(R res) {
+        if (res instanceof CompletableFuture) {
+            CompletableFuture<?> fut = (CompletableFuture<?>) res;
+
+            fut.whenComplete((val, throwable) -> {
+                if (throwable != null) {
+                    recordException(throwable);
+                } else {
+                    end();
+                }
+            });
+
+            return (R) fut;
         }
 
-        span.end();
+        end();
+
+        return res;
     }
 
     @Override
     public void recordException(Throwable exception) {
         span.setStatus(StatusCode.ERROR);
         span.recordException(exception);
+        span.end();
     }
 
     @Override

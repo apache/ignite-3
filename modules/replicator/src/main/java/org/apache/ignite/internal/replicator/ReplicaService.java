@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 
-import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -88,7 +87,7 @@ public class ReplicaService {
      * @see NodeStoppingException If either supplier or demander node is stopping.
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
-    private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, @SpanAttribute("req") ReplicaRequest req) {
+    private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
         CompletableFuture<R> res = new CompletableFuture<>();
 
         // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
@@ -198,8 +197,7 @@ public class ReplicaService {
         try (TraceSpan span = asyncSpan("ReplicaService.invoke")) {
             span.addAttribute("req", request::toString);
 
-            return this.<R>sendToReplica(node.name(), request)
-                .whenComplete(span::whenComplete);
+            return span.wrap(this.sendToReplica(node.name(), request));
         }
     }
 

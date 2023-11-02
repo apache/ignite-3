@@ -340,7 +340,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public SessionId createSession(PropertiesHolder properties) {
         properties = PropertiesHelper.merge(properties, DEFAULT_PROPERTIES);

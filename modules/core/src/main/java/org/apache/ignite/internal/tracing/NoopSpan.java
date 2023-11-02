@@ -48,8 +48,8 @@ public enum NoopSpan implements TraceSpan {
     }
 
     @Override
-    public <T, R extends Throwable> void whenComplete(T val, R throwable) {
-        // No-op.
+    public <R> R wrap(R val) {
+        return val;
     }
 
     @Override

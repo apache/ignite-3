@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.concurrent.CompletableFuture;
@@ -44,12 +45,12 @@ public class ClientTablePartitionAssignmentGetRequest {
             ClientMessagePacker out,
             IgniteTablesInternal tables
     ) throws NodeStoppingException {
-        var span= span("ClientTablePartitionAssignmentGetRequest.process");
+        var span = asyncSpan("ClientTablePartitionAssignmentGetRequest.process");
 
         try (span) {
             int tableId = in.unpackInt();
 
-            return tables.assignmentsAsync(tableId).thenAccept(assignment -> {
+            return span.wrap(tables.assignmentsAsync(tableId).thenAccept(assignment -> {
                 if (assignment == null) {
                     out.packInt(0);
                     return;
@@ -60,8 +61,7 @@ public class ClientTablePartitionAssignmentGetRequest {
                 for (String leaderNodeId : assignment) {
                     out.packString(leaderNodeId);
                 }
-            })
-                    .whenComplete(span::whenComplete);
+            }));
         } catch (Exception e) {
             span.recordException(e);
 
