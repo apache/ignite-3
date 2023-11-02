@@ -201,13 +201,13 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         // Check that it restarts.
         waitForCondition(
-                () -> isRaftNodeStarted(table, loza) && assignmentsContain(restartingNodeConsistentId, internalTable),
+                () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
                 TimeUnit.SECONDS.toMillis(10)
         );
 
         assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
         assertTrue(
-                assignmentsContain(restartingNodeConsistentId, internalTable),
+                solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
                 "Assignments do not contain node " + restartingNodeConsistentId
         );
 
@@ -215,7 +215,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         checkTableWithData(restartingNode, TABLE_NAME);
     }
 
-    private static boolean assignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
+    private static boolean solePartitionAssignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
         Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
 
         List<String> partitionAssignments = assignments.get(0);
