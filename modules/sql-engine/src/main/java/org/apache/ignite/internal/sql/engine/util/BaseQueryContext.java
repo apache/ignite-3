@@ -31,6 +31,7 @@ import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptSchema;
@@ -54,11 +55,12 @@ import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base query context.
  */
-public final class BaseQueryContext extends AbstractQueryContext {
+public final class BaseQueryContext implements Context {
     private static final CalciteConnectionConfig CALCITE_CONNECTION_CONFIG;
 
     public static final RelOptCluster CLUSTER;
@@ -128,6 +130,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
         CLUSTER = cluster;
     }
 
+    private final Context parentCtx;
+
     private final FrameworkConfig cfg;
 
     private final QueryCancel cancel;
@@ -150,7 +154,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             Object[] parameters,
             QueryPrefetchCallback prefetchCallback
     ) {
-        super(Contexts.chain(cfg.getContext()));
+        this.parentCtx = Contexts.chain(cfg.getContext());
 
         // link frameworkConfig#context() to this.
         this.cfg = Frameworks.newConfigBuilder(cfg).context(this).build();
@@ -163,6 +167,15 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /** {@inheritDoc} */
+    @Override public <C> @Nullable C unwrap(Class<C> cls) {
+        if (cls == getClass()) {
+            return cls.cast(this);
+        }
+
+        return parentCtx.unwrap(cls);
     }
 
     public UUID queryId() {

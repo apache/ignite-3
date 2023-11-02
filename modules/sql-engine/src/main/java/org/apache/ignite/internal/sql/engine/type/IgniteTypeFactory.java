@@ -61,9 +61,6 @@ import org.jetbrains.annotations.Nullable;
  * Ignite type factory.
  */
 public class IgniteTypeFactory extends JavaTypeFactoryImpl {
-    /** Contains java types internally mapped into appropriate rel types. */
-    private static final Map<Class<?>, Supplier<RelDataType>> implementedJavaTypes = new IdentityHashMap<>();
-
     /** Interval qualifier to create year-month interval types. */
     private static final SqlIntervalQualifier INTERVAL_QUALIFIER_YEAR_MONTH = new SqlIntervalQualifier(TimeUnit.YEAR,
             TimeUnit.MONTH, SqlParserPos.ZERO);
@@ -73,6 +70,9 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             TimeUnit.SECOND, SqlParserPos.ZERO);
 
     public static final IgniteTypeFactory INSTANCE = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+
+    /** Contains java types internally mapped into appropriate rel types. */
+    private final Map<Class<?>, Supplier<RelDataType>> implementedJavaTypes = new IdentityHashMap<>();
 
     /** Default charset. */
     private final Charset charset;
