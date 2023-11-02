@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -11,12 +28,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -28,20 +42,26 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.DynamicParametersValidator;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
 
-public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<List<Object>>> {
-    private static final IgniteLogger LOG = Loggers.forClass(SqlScriptQueryHandler.class);
-
+/**
+ * TODO Blah blah blah.
+ */
+class ScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<List<Object>>> {
     private final ParserService parserService;
     private final PrepareService prepareSvc;
     private final QueryTaskExecutor taskExecutor;
 
-    SqlScriptQueryHandler(SchemaSyncService schemaSyncService, SqlSchemaManager sqlSchemaManager,
-            ExecutionService executionSrvc, AtomicInteger numberOfOpenCursors, ParserService parserService, PrepareService prepareSvc, QueryTaskExecutor taskExecutor) {
+    ScriptQueryHandler(
+            SchemaSyncService schemaSyncService,
+            SqlSchemaManager sqlSchemaManager,
+            ExecutionService executionSrvc,
+            AtomicInteger numberOfOpenCursors,
+            ParserService parserService,
+            PrepareService prepareSvc,
+            QueryTaskExecutor taskExecutor
+    ) {
         super(schemaSyncService, sqlSchemaManager, executionSrvc, numberOfOpenCursors);
         this.parserService = parserService;
         this.prepareSvc = prepareSvc;
@@ -49,7 +69,7 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
     }
 
     @Override
-    public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> execQuery(
+    CompletableFuture<AsyncSqlCursorIterator<List<Object>>> executeQuery(
             Session session,
             IgniteTransactions transactions,
             InternalTransaction outerTx,
@@ -87,7 +107,7 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
 
         parseFut.whenCompleteAsync((list, err) -> {
             if (err == null) {
-                processNext(list.iterator(), session, transactions, outerTx, queryCancel, null);
+                processNext(list.iterator(), session, transactions, outerTx, queryCancel);
             }
         }, taskExecutor);
 
@@ -103,18 +123,17 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
             Session session,
             IgniteTransactions transactions,
             InternalTransaction outerTx,
-            QueryCancel queryCancel,
-            ScriptExecutionOptions options
+            QueryCancel queryCancel
     ) {
+        if (!resultItr.hasNext()) {
+            System.out.println(">xxx> finish");
+
+            return;
+        }
+
+        SingleStatementParams stmtParams = resultItr.next();
+
         try {
-            if (!resultItr.hasNext()) {
-                System.out.println(">xxx> finish");
-                return;
-            }
-
-            System.out.println(">xxx> start");
-
-            SingleStatementParams stmtParams = resultItr.next();
             ParsedResult result = stmtParams.result;
             CompletableFuture<AsyncSqlCursor<List<Object>>> resFut = stmtParams.resFut;
             Object[] params = stmtParams.dynamicParams;
@@ -123,8 +142,6 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
 
             QueryTransactionWrapper txWrapper = SqlQueryProcessor.wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
 
-            System.out.println(">xxx> wait schema " + result.parsedTree());
-
             CompletableFuture<SchemaPlus> schemaFut = waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp());
 
             QueryCancel queryCancel0 = resultItr.hasNext() ? new QueryCancel() : new QueryCancel() {
@@ -132,6 +149,7 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
                 public synchronized void cancel() {
                     super.cancel();
 
+                    // TODO rework cancel handling.
                     System.out.println(">xxx> LAST CANCEL " + result.parsedTree());
 
                     queryCancel.cancel();
@@ -141,6 +159,7 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
             schemaFut.thenComposeAsync(schema -> {
                 CompletableFuture<Void> callbackFuture = new CompletableFuture<>();
 
+                // TODO duplicated code
                 BaseQueryContext ctx = BaseQueryContext.builder()
                         .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                         .queryId(UUID.randomUUID())
@@ -156,7 +175,7 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
 
                                 callbackFuture.complete(null);
 
-                                processNext(resultItr, session, transactions, outerTx, queryCancel, options);
+                                processNext(resultItr, session, transactions, outerTx, queryCancel);
                             }
 
                         })
@@ -164,13 +183,9 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
                         .parameters(params)
                         .build();
 
-                System.out.println(">xxx> prepare " + result.parsedTree());
-
                 return fetch(result, ctx, session, txWrapper, callbackFuture);
             }).whenComplete((res, ex) -> {
                 if (ex != null) {
-                    ex.printStackTrace();
-
                     txWrapper.rollback();
 
                     resFut.completeExceptionally(ex);
@@ -183,29 +198,31 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
                 resFut.complete(res);
             });
         } catch (Exception e) {
-            e.printStackTrace();
+            stmtParams.resFut.completeExceptionally(e);
+
+            completeRemainingExceptionally(resultItr, e);
         }
     }
 
-    private CompletableFuture<AsyncSqlCursor<List<Object>>> fetch(ParsedResult result, BaseQueryContext ctx, Session session, QueryTransactionWrapper txWrapper, CompletableFuture<Void> fut) {
+    private CompletableFuture<AsyncSqlCursor<List<Object>>> fetch(
+            ParsedResult result,
+            BaseQueryContext ctx,
+            Session session,
+            QueryTransactionWrapper txWrapper,
+            CompletableFuture<Void> fut
+    ) {
+        // TODO rework this part
         if (result.queryType() == SqlQueryType.TX_CONTROL) {
-            // TODO
             fut.complete(null);
 
-            taskExecutor.execute(() -> {
-                ctx.prefetchCallback().onPrefetchComplete(null);
-            });
+            taskExecutor.execute(() -> ctx.prefetchCallback().onPrefetchComplete(null));
 
-            return CompletableFuture.completedFuture(new SingleResultCursor<>(new BatchedResult<>(List.of(), false), result.queryType()));
+            return CompletableFuture.completedFuture(null);
         }
 
         return prepareSvc.prepareAsync(result, ctx)
                 .thenApply(plan -> executePlan(session, txWrapper, ctx, plan))
                 .thenCompose(cur -> fut.thenApply(unused -> cur));
-//                .whenComplete((cursor, err) -> {
-//                    if (err != null)
-//                        err.printStackTrace();
-//                });
     }
 
     private void completeRemainingExceptionally(Iterator<SingleStatementParams> resultItr, Throwable ex) {
@@ -214,66 +231,6 @@ public class SqlScriptQueryHandler extends QueryHandler<AsyncSqlCursorIterator<L
                     new SqlException(EXECUTION_CANCELLED_ERR,
                             "The script statement execution was canceled due to an error in the previous statement.", ex)
             );
-        }
-    }
-
-    private static class SingleResultCursor<T> implements AsyncSqlCursor<T> {
-        // TODO
-        private final AtomicReference<BatchedResult<T>> res;
-
-        private final SqlQueryType type;
-
-
-        SingleResultCursor(BatchedResult<T> res, SqlQueryType type) {
-            this.res = new AtomicReference<>(res);
-            this.type = type;
-        }
-
-        @Override
-        public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-            return CompletableFuture.completedFuture(res.getAndSet(null));
-        }
-
-        @Override
-        public CompletableFuture<Void> closeAsync() {
-            res.set(null);
-
-            return CompletableFuture.completedFuture(null);
-        }
-
-        @Override
-        public SqlQueryType queryType() {
-            return type;
-        }
-
-        @Override
-        public ResultSetMetadata metadata() {
-            return null;
-        }
-    }
-
-    public static class ScriptExecutionOptions {
-        private static final boolean IGNORE_SCRIPT_ERRORS = false;
-        private static final boolean CLOSE_CURSOR_ON_ITERATION = false;
-
-        private final boolean stopOnError;
-        private final boolean closePreviousCursor;
-
-        public ScriptExecutionOptions() {
-            this(IGNORE_SCRIPT_ERRORS, CLOSE_CURSOR_ON_ITERATION);
-        }
-
-        public ScriptExecutionOptions(boolean stopOnError, boolean closePreviousCursor) {
-            this.stopOnError = stopOnError;
-            this.closePreviousCursor = closePreviousCursor;
-        }
-
-        public boolean stopOnError() {
-            return stopOnError;
-        }
-
-        public boolean closePreviousCursor() {
-            return closePreviousCursor;
         }
     }
 

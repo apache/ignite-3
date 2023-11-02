@@ -157,16 +157,16 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile QueryTaskExecutor taskExecutor;
 
-    //private volatile ExecutionService executionSrvc;
+    // private volatile ExecutionService executionSrvc;
 
-//    private volatile PrepareService prepareSvc;
+    // private volatile PrepareService prepareSvc;
 
     /** Clock. */
     private final HybridClock clock;
 
     private final SchemaSyncService schemaSyncService;
 
-    private volatile SqlScriptQueryHandler scriptProc;
+    private volatile ScriptQueryHandler scriptProc;
 
     private volatile SingleQueryHandler singleQueryHandler;
 
@@ -249,7 +249,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-//        this.prepareSvc = prepareSvc;
+        // this.prepareSvc = prepareSvc;
 
         var ddlCommandHandler = new DdlCommandHandler(catalogManager);
 
@@ -317,9 +317,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
         clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
 
-        //this.executionSrvc = executionSrvc;
+        // this.executionSrvc = executionSrvc;
 
-        this.scriptProc = new SqlScriptQueryHandler(schemaSyncService, sqlSchemaManager,
+        this.scriptProc = new ScriptQueryHandler(schemaSyncService, sqlSchemaManager,
                 executionSrvc, numberOfOpenCursors, parserService, prepareSvc, taskExecutor);
 
         this.singleQueryHandler = new SingleQueryHandler(schemaSyncService, sqlSchemaManager,
@@ -434,8 +434,15 @@ public class SqlQueryProcessor implements QueryProcessor {
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
 
         return prepareCancel(session).thenCompose(
-                queryCancel ->
-                        handler.execQuery(session, transactions, outerTx, sql, context.allowedQueryTypes(), queryCancel, params)
+                queryCancel -> handler.executeQuery(
+                        session,
+                        transactions,
+                        outerTx,
+                        sql,
+                        context.allowedQueryTypes(),
+                        queryCancel,
+                        params
+                )
         );
     }
 

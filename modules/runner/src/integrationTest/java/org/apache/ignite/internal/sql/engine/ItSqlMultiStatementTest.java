@@ -28,16 +28,16 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.SqlScriptQueryHandler.ScriptExecutionOptions;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * TODO Blah-blah-blah.
+ */
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     private static final String BASIC_MULTISTATEMENT_QUERY = "CREATE TABLE test (id INT PRIMARY KEY, val INT);"
@@ -50,12 +50,12 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     @AfterEach
-    public void dropTables() {
+    void dropTables() {
         dropAllTables();
     }
 
     @Test
-    public void queryWithIncorrectNumberOfDynamicParametersFails() {
+    void queryWithIncorrectNumberOfDynamicParametersFails() {
         String sql = "CREATE TABLE test (id INT PRIMARY KEY, val INT);"
                 + "INSERT INTO test VALUES(?, ?);"
                 + "INSERT INTO test VALUES(?, ?);";
@@ -65,21 +65,21 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 expectedMessage,
-                () -> await(runMultiStatementQuery(sql, null, 0)));
+                () -> await(runMultiStatementQuery(sql, 0)));
 
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 expectedMessage,
-                () -> await(runMultiStatementQuery(sql, null, 0, 1, 2, 3, 4, 5)));
+                () -> await(runMultiStatementQuery(sql, 0, 1, 2, 3, 4, 5)));
     }
 
     @Test
-    public void basicDynamicParameters() {
+    void basicDynamicParameters() {
         String sql = "CREATE TABLE test (id INT PRIMARY KEY, val INT);"
                 + "INSERT INTO test VALUES(?, ?);"
                 + "INSERT INTO test VALUES(?, ?);";
 
-        CompletableFuture<AsyncSqlCursorIterator<List<Object>>> futItr = runMultiStatementQuery(sql, null, 0, 1, 2, 3);
+        CompletableFuture<AsyncSqlCursorIterator<List<Object>>> futItr = runMultiStatementQuery(sql, 0, 1, 2, 3);
 
         AsyncSqlCursorIterator<List<Object>> itr = await(futItr);
 
@@ -94,7 +94,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void scriptStopsExecutionOnRuntimeError() {
+    void scriptStopsExecutionOnRuntimeError() {
         String sql = "CREATE TABLE test (id INT PRIMARY KEY, val INT); select 2/0; INSERT INTO test VALUES (0, 0)";
 
         CompletableFuture<AsyncSqlCursorIterator<List<Object>>> curItrFut = runMultiStatementQuery(sql);
@@ -109,10 +109,10 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void scriptStopsExecutionOnValidationError() {
+    void scriptStopsExecutionOnValidationError() {
         String sql = "CREATE TABLE test (id INT PRIMARY KEY, val INT); INSERT INTO test VALUES (0, ?); INSERT INTO test VALUES (1, 1)";
 
-        CompletableFuture<AsyncSqlCursorIterator<List<Object>>> curItrFut = runMultiStatementQuery(sql, null, "incorrect param");
+        CompletableFuture<AsyncSqlCursorIterator<List<Object>>> curItrFut = runMultiStatementQuery(sql, "incorrect param");
 
         AsyncSqlCursorIterator<List<Object>> itr = await(curItrFut);
 
@@ -125,7 +125,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
 
     @Test
-    public void testTxStatementsNotCreateCursors() {
+    void testTxStatementsNotCreateCursors() {
         sql("CREATE TABLE test (id INT PRIMARY KEY);");
         CompletableFuture<AsyncSqlCursorIterator<List<Object>>> curItrFut = runMultiStatementQuery("START TRANSACTION; COMMIT");
 
@@ -147,7 +147,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void testBasicMultiStatementFetchNone() throws InterruptedException {
+    void testBasicMultiStatementFetchNone() throws InterruptedException {
         await(runMultiStatementQuery(BASIC_MULTISTATEMENT_QUERY));
 
         boolean success = waitForCondition(() -> {
@@ -164,7 +164,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void testBasicMultiStatementFetchCursorsOnly() {
+    void testBasicMultiStatementFetchCursorsOnly() {
         CompletableFuture<AsyncSqlCursorIterator<List<Object>>> curItrFut = runMultiStatementQuery(BASIC_MULTISTATEMENT_QUERY);
 
         AsyncSqlCursorIterator<List<Object>> curItr = curItrFut.join();
@@ -177,37 +177,28 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void testBasicMultiStatementFetchAll() {
+    void testBasicMultiStatementFetchAll() {
         CompletableFuture<AsyncSqlCursorIterator<List<Object>>> curItrFut = runMultiStatementQuery(BASIC_MULTISTATEMENT_QUERY);
 
         AsyncSqlCursorIterator<List<Object>> curItr = curItrFut.join();
+
         while (curItr.hasNext()) {
-            CompletableFuture<AsyncSqlCursor<List<Object>>> curFut = curItr.next();
+            AsyncSqlCursor<List<Object>> cur = await(curItr.next());
 
-            AsyncSqlCursor<List<Object>> cur = curFut.join();
-
-            BatchedResult<List<Object>> res = cur.requestNextAsync(1).join();
-
-            do {
-                System.out.println(res.items());
-            } while (res.hasMore());
+            cur.requestNextAsync(1).join();
 
             cur.closeAsync();
         }
     }
 
-    private CompletableFuture<AsyncSqlCursorIterator<List<Object>>> runMultiStatementQuery(String query) {
-        return runMultiStatementQuery(query, null);
-    }
-
-    private CompletableFuture<AsyncSqlCursorIterator<List<Object>>> runMultiStatementQuery(String query, @Nullable ScriptExecutionOptions opts, Object ... params) {
+    private static CompletableFuture<AsyncSqlCursorIterator<List<Object>>> runMultiStatementQuery(String query, Object ... params) {
         IgniteImpl ignite = CLUSTER.aliveNode();
 
         QueryProcessor qryProc = ignite.queryEngine();
 
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
 
-        QueryContext context = QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES, opts);
+        QueryContext context = QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES);
 
         return qryProc.queryScriptAsync(sessionId, context, ignite.transactions(), query, params);
     }

@@ -69,7 +69,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 CaffeineCacheFactory.INSTANCE, null, plannerTimeout, new MetricManager());
         prepareService.start();
         try {
-            ParserService<ParsedResult> parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+            ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
             ParsedResult parsedResult = parserService.parse("SELECT * FROM T1 t, T1 t1, T1 t2, T1 t3");
 

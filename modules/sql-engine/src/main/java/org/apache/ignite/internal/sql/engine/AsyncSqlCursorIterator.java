@@ -20,11 +20,13 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 
-// TODO Why we need this class
+/**
+ * TODO Do we really need this class.
+ */
 public class AsyncSqlCursorIterator<T> implements Iterator<CompletableFuture<AsyncSqlCursor<T>>> {
     private final Iterator<CompletableFuture<AsyncSqlCursor<T>>> itr;
 
-    public AsyncSqlCursorIterator(Iterator<CompletableFuture<AsyncSqlCursor<T>>> itr) {
+    AsyncSqlCursorIterator(Iterator<CompletableFuture<AsyncSqlCursor<T>>> itr) {
         this.itr = itr;
     }
 

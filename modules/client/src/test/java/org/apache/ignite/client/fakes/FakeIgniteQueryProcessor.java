@@ -18,7 +18,6 @@
 package org.apache.ignite.client.fakes;
 
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -58,10 +57,14 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(SessionId sessionId, QueryContext context,
-            IgniteTransactions transactions, String qry, Object... params) {
-        // TODO
-        return null;
+    public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(
+            SessionId sessionId,
+            QueryContext context,
+            IgniteTransactions transactions,
+            String qry,
+            Object... params
+    ) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
