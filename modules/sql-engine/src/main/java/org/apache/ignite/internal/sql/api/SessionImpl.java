@@ -31,12 +31,14 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
+import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
@@ -45,7 +47,6 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
-import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -72,6 +73,8 @@ public class SessionImpl implements AbstractSession {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
+    private final ConcurrentMap<SessionId, SessionImpl> sessions;
+
     private final QueryProcessor qryProc;
 
     private final IgniteTransactions transactions;
@@ -82,26 +85,45 @@ public class SessionImpl implements AbstractSession {
 
     private final PropertiesHolder props;
 
+    private final long idleTimeoutMs;
+
+    private final IdleExpirationTracker expirationTracker;
+
     /**
      * Constructor.
      *
+     * @param sessionId Identifier of the session.
+     * @param sessions Map of created sessions.
      * @param qryProc Query processor.
      * @param transactions Transactions facade.
      * @param pageSize Query fetch page size.
+     * @param idleTimeoutMs Duration in milliseconds after which the session will be considered expired if no action have been
+     *                      performed on behalf of this session during this period.
      * @param props Session's properties.
+     * @param timeProvider The time provider used to update the timestamp on every touch of this object.
      */
     SessionImpl(
             SessionId sessionId,
+            ConcurrentMap<SessionId, SessionImpl> sessions,
             QueryProcessor qryProc,
             IgniteTransactions transactions,
             int pageSize,
-            PropertiesHolder props
+            long idleTimeoutMs,
+            PropertiesHolder props,
+            CurrentTimeProvider timeProvider
     ) {
         this.qryProc = qryProc;
         this.transactions = transactions;
         this.sessionId = sessionId;
         this.pageSize = pageSize;
         this.props = props;
+        this.idleTimeoutMs = idleTimeoutMs;
+        this.sessions = sessions;
+
+        expirationTracker = new IdleExpirationTracker(
+                idleTimeoutMs,
+                timeProvider
+        );
     }
 
     /** {@inheritDoc} */
@@ -125,7 +147,7 @@ public class SessionImpl implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public long idleTimeout(TimeUnit timeUnit) {
-        return timeUnit.convert(props.get(SessionProperty.IDLE_TIMEOUT), TimeUnit.MILLISECONDS);
+        return timeUnit.convert(idleTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
@@ -161,7 +183,7 @@ public class SessionImpl implements AbstractSession {
             propertyMap.put(entry.getKey().name, entry.getValue());
         }
 
-        return new SessionBuilderImpl(qryProc, transactions, propertyMap)
+        return new SessionBuilderImpl(sessions, qryProc, transactions, propertyMap)
                 .defaultPageSize(pageSize);
     }
 
@@ -170,7 +192,10 @@ public class SessionImpl implements AbstractSession {
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             String query,
-            @Nullable Object... arguments) {
+            @Nullable Object... arguments
+    ) {
+        touchAndCloseIfExpired();
+
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
         }
@@ -187,6 +212,7 @@ public class SessionImpl implements AbstractSession {
                                             cur,
                                             batchRes,
                                             pageSize,
+                                            expirationTracker,
                                             () -> {}
                                     )
                             )
@@ -242,6 +268,8 @@ public class SessionImpl implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+        touchAndCloseIfExpired();
+
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
         }
@@ -377,9 +405,26 @@ public class SessionImpl implements AbstractSession {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean closed() {
+        return closed.get();
+    }
+
+    boolean expired() {
+        return expirationTracker.expired();
+    }
+
+    SessionId id() {
+        return sessionId;
+    }
+
+    @SuppressWarnings("resource")
     private void closeInternal() {
         if (closed.compareAndSet(false, true)) {
             busyLock.block();
+
+            sessions.remove(sessionId);
         }
     }
 
@@ -390,6 +435,12 @@ public class SessionImpl implements AbstractSession {
                 || page.items().get(0).size() != 1
                 || page.hasMore()) {
             throw new IgniteInternalException(INTERNAL_ERR, "Invalid DML results: " + page);
+        }
+    }
+
+    private void touchAndCloseIfExpired() {
+        if (!expirationTracker.touch()) {
+            closeAsync();
         }
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -25,7 +26,6 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -40,6 +40,8 @@ public class SessionBuilderImpl implements SessionBuilder {
     public static final long DEFAULT_SESSION_TIMEOUT = TimeUnit.MINUTES.toMillis(5);
 
     private final QueryProcessor qryProc;
+
+    private final ConcurrentMap<SessionId, SessionImpl> sessions;
 
     private final Map<String, Object> props;
 
@@ -60,7 +62,13 @@ public class SessionBuilderImpl implements SessionBuilder {
      * @param transactions Transactions facade.
      * @param props Initial properties.
      */
-    SessionBuilderImpl(QueryProcessor qryProc, IgniteTransactions transactions, Map<String, Object> props) {
+    SessionBuilderImpl(
+            ConcurrentMap<SessionId, SessionImpl> sessions,
+            QueryProcessor qryProc,
+            IgniteTransactions transactions,
+            Map<String, Object> props
+    ) {
+        this.sessions = sessions;
         this.qryProc = qryProc;
         this.transactions = transactions;
         this.props = props;
@@ -161,19 +169,27 @@ public class SessionBuilderImpl implements SessionBuilder {
     @Override
     public Session build() {
         PropertiesHolder propsHolder = PropertiesHelper.newBuilder()
-                .set(SessionProperty.IDLE_TIMEOUT, sessionTimeout)
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
                 .set(QueryProperty.DEFAULT_SCHEMA, schema)
                 .build();
 
         SessionId sessionId = qryProc.createSession(propsHolder);
 
-        return new SessionImpl(
+        SessionImpl session = new SessionImpl(
                 sessionId,
+                sessions,
                 qryProc,
                 transactions,
                 pageSize,
-                propsHolder
+                sessionTimeout,
+                propsHolder,
+                System::currentTimeMillis
         );
+
+        Session old = sessions.put(sessionId, session);
+
+        assert old == null;
+
+        return session;
     }
 }

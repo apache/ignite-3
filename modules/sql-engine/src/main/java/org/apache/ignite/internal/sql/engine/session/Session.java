@@ -23,12 +23,10 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.sql.engine.AsyncCloseable;
-import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 
 /**
@@ -38,9 +36,6 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
  * with all properties set during session's creation.
  */
 public class Session implements AsyncCloseable {
-    /** Marker used to mark a session which has been expired. */
-    private static final long EXPIRED = 0L;
-
     private final Set<AsyncCloseable> resources = Collections.synchronizedSet(
             Collections.newSetFromMap(new IdentityHashMap<>())
     );
@@ -49,33 +44,24 @@ public class Session implements AsyncCloseable {
 
     private final AtomicReference<CompletableFuture<Void>> closeFutRef = new AtomicReference<>();
 
-    private final long idleTimeoutMs;
     private final SessionId sessionId;
-    private final AtomicLong lastTouched;
     private final PropertiesHolder properties;
-    private final CurrentTimeProvider currentTimeProvider;
+    private final Runnable onClose;
 
     /**
      * Constructor.
      *
      * @param sessionId A session identifier.
-     * @param currentTimeProvider The time provider used to update the timestamp on every touch of this object.
-     * @param idleTimeoutMs Duration in milliseconds after which the session will be considered expired if no action have been
-     *                      performed on behalf of this session during this period.
      * @param properties The properties to keep within.
      */
     public Session(
             SessionId sessionId,
-            CurrentTimeProvider currentTimeProvider,
-            long idleTimeoutMs,
-            PropertiesHolder properties
+            PropertiesHolder properties,
+            Runnable onClose
     ) {
         this.sessionId = sessionId;
-        this.currentTimeProvider = currentTimeProvider;
-        this.idleTimeoutMs = idleTimeoutMs;
         this.properties = properties;
-
-        lastTouched = new AtomicLong(currentTimeProvider.now());
+        this.onClose = onClose;
     }
 
     /** Returns the properties this session associated with. */
@@ -88,43 +74,6 @@ public class Session implements AsyncCloseable {
         return sessionId;
     }
 
-    /** Returns the duration in millis after which the session will be considered expired if no one touched it in the middle. */
-    public long idleTimeoutMs() {
-        return idleTimeoutMs;
-    }
-
-    /** Checks whether the given session has expired or not. */
-    public boolean expired() {
-        var last = lastTouched.get();
-
-        if (last == EXPIRED) {
-            return true;
-        }
-
-        return currentTimeProvider.now() - last > idleTimeoutMs
-                && (lastTouched.compareAndSet(last, EXPIRED) || lastTouched.get() == EXPIRED);
-    }
-
-    /**
-     * Updates the timestamp that is used to determine whether the session has expired or not.
-     *
-     * <p>Note: don't forget to touch the session every time you going to use it, otherwise it might expire in the middle of the operation.
-     *
-     * @return A {@code true} if this session has been updated, otherwise returns {@code false} means the session has expired.
-     */
-    public boolean touch() {
-        long time;
-        do {
-            time = lastTouched.get();
-
-            if (time == EXPIRED) {
-                return false;
-            }
-        } while (!lastTouched.compareAndSet(time, currentTimeProvider.now()));
-
-        return true;
-    }
-
     /**
      * Registers a resource within current session to release in case this session will be closed.
      *
@@ -135,12 +84,6 @@ public class Session implements AsyncCloseable {
      */
     public void registerResource(AsyncCloseable resource) {
         if (!lock.readLock().tryLock()) {
-            throw new IllegalStateException(format("Attempt to register resource to an expired session [{}]", sessionId));
-        }
-
-        if (expired()) {
-            lock.readLock().unlock();
-
             throw new IllegalStateException(format("Attempt to register resource to an expired session [{}]", sessionId));
         }
 
@@ -174,7 +117,7 @@ public class Session implements AsyncCloseable {
         if (closeFutRef.compareAndSet(null, new CompletableFuture<>())) {
             lock.writeLock().lock();
 
-            lastTouched.set(EXPIRED);
+            onClose.run();
 
             var futs = new CompletableFuture[resources.size()];
 
