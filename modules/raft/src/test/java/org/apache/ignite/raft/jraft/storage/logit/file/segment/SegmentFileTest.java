@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.BaseLogitStorageTest;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileHeader;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.segment.SegmentFile;
@@ -52,7 +53,7 @@ public class SegmentFileTest extends BaseLogitStorageTest {
 
     private void init() {
         final String filePath = this.path + File.separator + "IndexFileTest";
-        this.segmentFile = new SegmentFile(filePath, FILE_SIZE);
+        this.segmentFile = new SegmentFile(new RaftOptions(), filePath, FILE_SIZE);
     }
 
     @Test

@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -45,7 +47,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
@@ -105,6 +106,7 @@ import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -187,7 +189,7 @@ public final class Commons {
      * @param row2 row2.
      * @return Returns field by offset.
      */
-    public static <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
+    public static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
         return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
             hnd.get(offset - hnd.columnCount(row1), row2);
     }
@@ -446,14 +448,6 @@ public final class Commons {
     }
 
     /**
-     * Negate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> Predicate<T> negate(Predicate<T> p) {
-        return p.negate();
-    }
-
-    /**
      * Creates mapping to trim the fields.
      *
      * <p>To find a new index of element after trimming call {@code mapping.getTargetOpt(index)}.
@@ -649,8 +643,10 @@ public final class Commons {
     }
 
     /**
-     * NativeTypePrecision.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Gets the precision of this type. Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if
+     * precision is not applicable for this type.
+     *
+     * @return Precision for current type.
      */
     public static int nativeTypePrecision(NativeType type) {
         assert type != null;
@@ -681,7 +677,7 @@ public final class Commons {
             case BOOLEAN:
             case UUID:
             case DATE:
-                return -1;
+                return UNDEFINED_PRECISION;
 
             case TIME:
             case DATETIME:
@@ -701,8 +697,10 @@ public final class Commons {
     }
 
     /**
-     * NativeTypeScale.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Gets the scale of this type. Returns {@link ColumnMetadata#UNDEFINED_SCALE} if
+     * scale is not valid for this type.
+     *
+     * @return number of digits of scale
      */
     public static int nativeTypeScale(NativeType type) {
         switch (type.spec()) {
@@ -724,7 +722,7 @@ public final class Commons {
             case BYTES:
             case STRING:
             case BITMASK:
-                return Integer.MIN_VALUE;
+                return UNDEFINED_SCALE;
 
             case DECIMAL:
                 return ((DecimalNativeType) type).scale();

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.core.repl.executor;
 import io.micronaut.configuration.picocli.MicronautFactory;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jline.terminal.Terminal;
 import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 
@@ -34,12 +33,9 @@ public class ReplExecutorProviderImpl implements ReplExecutorProvider {
     @Inject
     private Terminal terminal;
 
-    @Inject
-    private NodeNameRegistry nodeNameRegistry;
-
     @Override
     public ReplExecutor get() {
-        return new ReplExecutorImpl(factory, terminal, nodeNameRegistry);
+        return new ReplExecutorImpl(factory, terminal);
     }
 
     public void injectFactory(MicronautFactory micronautFactory) {

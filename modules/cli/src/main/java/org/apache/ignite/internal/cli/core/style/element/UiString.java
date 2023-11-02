@@ -27,7 +27,7 @@ public class UiString {
             return template;
         }
 
-        Object[] elementsAsObjects = Arrays.stream(elements).map(Object.class::cast).toArray();
+        Object[] elementsAsObjects = Arrays.stream(elements).map(UiElement::represent).toArray();
 
         return String.format(template, elementsAsObjects);
     }

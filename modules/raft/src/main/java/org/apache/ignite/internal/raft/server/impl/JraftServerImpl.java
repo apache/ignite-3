@@ -43,6 +43,7 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
+import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -86,6 +88,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
+import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -99,6 +102,12 @@ import org.jetbrains.annotations.TestOnly;
  * Raft server implementation on top of forked JRaft library.
  */
 public class JraftServerImpl implements RaftServer {
+    /**
+     * Enables logit log storage. {@code true} by default.
+     * This is a temporary property, that should only be used for testing and comparing the two storages.
+     */
+    public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
+
     /** Cluster service. */
     private final ClusterService service;
 
@@ -170,7 +179,9 @@ public class JraftServerImpl implements RaftServer {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
-        this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"));
+        this.logStorageFactory = IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, true)
+                ? new LogitLogStorageFactory(dataPath.resolve("log"), getLogOptions())
+                : new DefaultLogStorageFactory(dataPath.resolve("log"));
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
@@ -205,6 +216,10 @@ public class JraftServerImpl implements RaftServer {
 
         defaultCommandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
         serviceEventInterceptor = new RaftServiceEventInterceptor();
+    }
+
+    private StoreOptions getLogOptions() {
+        return new StoreOptions();
     }
 
     /**

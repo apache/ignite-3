@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.storage.logit.BaseLogitStorageTest;
@@ -37,23 +39,28 @@ public class SegmentLogDBTest extends BaseLogitStorageTest {
     private SegmentLogDB segmentLogDB;
     private String       segmentStorePath;
 
+    private ScheduledExecutorService checkpointExecutor;
+
     @BeforeEach
     @Override
     public void setup() throws Exception {
         super.setup();
+        checkpointExecutor = Executors.newSingleThreadScheduledExecutor();
+
         this.segmentStorePath = this.path + File.separator + "segment";
         Files.createDirectories(Path.of(segmentStorePath));
         this.init();
     }
 
     public void init() {
-        this.segmentLogDB = new SegmentLogDB(this.segmentStorePath);
+        this.segmentLogDB = new SegmentLogDB(this.segmentStorePath, checkpointExecutor);
         this.segmentLogDB.init(this.logStoreFactory);
     }
 
     @AfterEach
     public void teardown() throws Exception {
         this.segmentLogDB.shutdown();
+        checkpointExecutor.shutdown();
     }
 
     @Test

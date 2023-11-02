@@ -27,6 +27,12 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
  * Service that provides an ability to await and retrieve primary replicas for replication groups.
+ *
+ * <p>Notes: If during recovery, the component needs to perform actions depending on whether the primary replica for some replication group
+ * is a local node, then it needs to use {@link #getPrimaryReplica(ReplicationGroupId, HybridTimestamp)}. Then compare the local node with
+ * {@link ReplicaMeta#getLeaseholder()} and {@link ReplicaMeta#getLeaseholderId()} and make sure that it has not yet expired by
+ * {@link ReplicaMeta#getExpirationTime()}. And only then can we consider that the local node is the primary replica for the requested
+ * replication group.</p>
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-20646 Consider using CLOCK_SKEW unaware await/getPrimaryReplica()
 public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> {

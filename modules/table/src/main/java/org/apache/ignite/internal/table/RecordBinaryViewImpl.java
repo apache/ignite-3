@@ -42,7 +42,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Table view implementation for binary objects.
@@ -90,7 +89,6 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      *
      * @param schemaVersion Schema version for which to obtain a marshaller.
      */
-    @TestOnly
     public TupleMarshaller marshaller(int schemaVersion) {
         return marshallerCache.marshaller(schemaVersion);
     }

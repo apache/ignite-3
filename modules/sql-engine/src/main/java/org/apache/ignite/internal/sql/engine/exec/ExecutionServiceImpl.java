@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -416,7 +417,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .map(mgr -> mgr.close(true))
                 .toArray(CompletableFuture[]::new)
         );
-        f.join();
+
+        try {
+            // Using get() without a timeout to exclude situations when it's not clear whether the node has actually stopped or not.
+            f.get();
+        } catch (CancellationException e) {
+            LOG.warn("The stop future was cancelled, going to proceed the stop procedure", e);
+        }
     }
 
     /** {@inheritDoc} */

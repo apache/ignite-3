@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.raft.jraft.storage.logit.BaseLogitStorageTest;
 import org.apache.ignite.raft.jraft.storage.logit.storage.db.IndexDB;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.assit.AbortFile;
@@ -37,10 +39,14 @@ public class IndexDBTest extends BaseLogitStorageTest {
     private String    indexStorePath;
     private AbortFile abortFile;
 
+    private ScheduledExecutorService checkpointExecutor;
+
+
     @BeforeEach
     @Override
     public void setup() throws Exception {
         super.setup();
+        checkpointExecutor = Executors.newSingleThreadScheduledExecutor();
         this.indexStorePath = this.path + File.separator + "index";
         this.abortFile = new AbortFile(this.indexStorePath + File.separator + "Abort");
         Files.createDirectories(Path.of(indexStorePath));
@@ -48,13 +54,14 @@ public class IndexDBTest extends BaseLogitStorageTest {
     }
 
     public void init() {
-        this.indexDB = new IndexDB(this.indexStorePath);
+        this.indexDB = new IndexDB(this.indexStorePath, checkpointExecutor);
         this.indexDB.init(this.logStoreFactory);
     }
 
     @AfterEach
     public void teardown() throws Exception {
         this.indexDB.shutdown();
+        checkpointExecutor.shutdown();
     }
 
     /**

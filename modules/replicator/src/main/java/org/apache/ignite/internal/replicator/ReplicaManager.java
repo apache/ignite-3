@@ -51,6 +51,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
@@ -293,7 +294,11 @@ public class ReplicaManager implements IgniteComponent {
                     if (ex == null) {
                         msg = prepareReplicaResponse(sendTimestamp, res.result());
                     } else {
+                        if (indicatesUnexpectedProblem(ex)) {
                         LOG.warn("Failed to process replica request [request={}]", ex, request);
+                    } else {
+                        LOG.debug("Failed to process replica request [request={}]", ex, request);
+                    }
 
                         msg = prepareReplicaErrorResponse(sendTimestamp, ex);
                     }
@@ -339,6 +344,10 @@ public class ReplicaManager implements IgniteComponent {
                 busyLock.leaveBusy();
             }
         });
+    }
+
+    private static boolean indicatesUnexpectedProblem(Throwable ex) {
+        return !(ex instanceof ExpectedReplicationException);
     }
 
     /**

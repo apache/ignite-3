@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.node;
+package org.apache.ignite.internal.security.authentication.event;
 
-import java.net.URL;
-
-/** Node URL. */
-public class NodeNameOrUrl {
-    private final URL nodeUrl;
-
-    public NodeNameOrUrl(URL nodeUrl) {
-        this.nodeUrl = nodeUrl;
-    }
-
-    public String stringUrl() {
-        return nodeUrl.toString();
-    }
+/**
+ * Represents the authentication event type.
+ */
+public enum EventType {
+    AUTHENTICATION_ENABLED,
+    AUTHENTICATION_DISABLED,
+    AUTHENTICATION_PROVIDER_REMOVED,
+    AUTHENTICATION_PROVIDER_UPDATED
 }

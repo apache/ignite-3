@@ -495,4 +495,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             leaderPeer = null;
         }
     }
+
+    @Override
+    public void updateConfiguration(PeersAndLearners configuration) {
+        this.raftClient.updateConfiguration(configuration);
+    }
 }
