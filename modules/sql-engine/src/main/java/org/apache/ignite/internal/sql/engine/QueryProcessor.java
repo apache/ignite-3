@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -72,6 +73,14 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      */
     CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+            SessionId sessionId,
+            QueryContext context,
+            IgniteTransactions transactions,
+            String qry,
+            Object... params
+    );
+
+    CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(
             SessionId sessionId,
             QueryContext context,
             IgniteTransactions transactions,

@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursorIterator;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
@@ -303,6 +304,12 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             );
 
             return CompletableFuture.completedFuture(sqlCursor);
+        }
+
+        @Override
+        public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(SessionId sessionId, QueryContext context,
+                IgniteTransactions transactions, String qry, Object... params) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

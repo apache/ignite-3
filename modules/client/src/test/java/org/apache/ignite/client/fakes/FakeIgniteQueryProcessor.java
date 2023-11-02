@@ -18,10 +18,12 @@
 package org.apache.ignite.client.fakes;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursorIterator;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
@@ -53,6 +55,13 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             SessionId sessionid, QueryContext context, IgniteTransactions transactions, String qry,
             Object... params) {
         return CompletableFuture.completedFuture(new FakeCursor());
+    }
+
+    @Override
+    public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(SessionId sessionId, QueryContext context,
+            IgniteTransactions transactions, String qry, Object... params) {
+        // TODO
+        return null;
     }
 
     @Override
