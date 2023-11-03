@@ -32,7 +32,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 /**
  * An implementation over {@link CatalogService}.
  */
-public class CatalogSchemas implements Schemas {
+public class CatalogValidationSchemasSource implements ValidationSchemasSource {
     private final CatalogService catalogService;
 
     private final SchemaManager schemaManager;
@@ -45,7 +45,7 @@ public class CatalogSchemas implements Schemas {
             = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    public CatalogSchemas(CatalogService catalogService, SchemaManager schemaManager) {
+    public CatalogValidationSchemasSource(CatalogService catalogService, SchemaManager schemaManager) {
         this.catalogService = catalogService;
         this.schemaManager = schemaManager;
     }
@@ -59,7 +59,7 @@ public class CatalogSchemas implements Schemas {
 
     private List<FullTableSchema> tableSchemaVersionsBetweenCatalogVersions(int tableId, int fromCatalogVersion, int toCatalogVersion) {
         return catalogService.tableVersionsBetween(tableId, fromCatalogVersion, toCatalogVersion)
-                .map(CatalogSchemas::fullSchemaFromTableDescriptor)
+                .map(CatalogValidationSchemasSource::fullSchemaFromTableDescriptor)
                 .collect(toList());
     }
 
@@ -91,7 +91,7 @@ public class CatalogSchemas implements Schemas {
     ) {
         return catalogService.tableVersionsBetween(tableId, fromCatalogVersion, Integer.MAX_VALUE)
                 .takeWhile(tableDescriptor -> tableDescriptor.tableVersion() <= toTableVersion)
-                .map(CatalogSchemas::fullSchemaFromTableDescriptor)
+                .map(CatalogValidationSchemasSource::fullSchemaFromTableDescriptor)
                 .collect(toList());
     }
 

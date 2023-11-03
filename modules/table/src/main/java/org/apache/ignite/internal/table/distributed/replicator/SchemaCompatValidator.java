@@ -33,7 +33,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
 import org.apache.ignite.internal.tx.TransactionIds;
 
@@ -41,7 +41,7 @@ import org.apache.ignite.internal.tx.TransactionIds;
  * Validates schema compatibility.
  */
 class SchemaCompatValidator {
-    private final Schemas schemas;
+    private final ValidationSchemasSource validationSchemasSource;
     private final CatalogService catalogService;
     private final SchemaSyncService schemaSyncService;
 
@@ -49,8 +49,8 @@ class SchemaCompatValidator {
     private final ConcurrentMap<DiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    SchemaCompatValidator(Schemas schemas, CatalogService catalogService, SchemaSyncService schemaSyncService) {
-        this.schemas = schemas;
+    SchemaCompatValidator(ValidationSchemasSource validationSchemasSource, CatalogService catalogService, SchemaSyncService schemaSyncService) {
+        this.validationSchemasSource = validationSchemasSource;
         this.catalogService = catalogService;
         this.schemaSyncService = schemaSyncService;
     }
@@ -125,7 +125,7 @@ class SchemaCompatValidator {
             HybridTimestamp commitTimestamp,
             int tableId
     ) {
-        List<FullTableSchema> tableSchemas = schemas.tableSchemaVersionsBetween(tableId, beginTimestamp, commitTimestamp);
+        List<FullTableSchema> tableSchemas = validationSchemasSource.tableSchemaVersionsBetween(tableId, beginTimestamp, commitTimestamp);
 
         assert !tableSchemas.isEmpty();
 
@@ -169,7 +169,7 @@ class SchemaCompatValidator {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
         return schemaSyncService.waitForMetadataCompleteness(beginTimestamp)
-                .thenCompose(ignored -> schemas.waitForSchemaAvailability(tableId, tupleSchemaVersion))
+                .thenCompose(ignored -> validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion))
                 .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp));
     }
 
@@ -178,7 +178,7 @@ class SchemaCompatValidator {
             int tableId,
             HybridTimestamp beginTimestamp
     ) {
-        List<FullTableSchema> tableSchemas = schemas.tableSchemaVersionsBetween(tableId, beginTimestamp, tupleSchemaVersion);
+        List<FullTableSchema> tableSchemas = validationSchemasSource.tableSchemaVersionsBetween(tableId, beginTimestamp, tupleSchemaVersion);
 
         if (tableSchemas.isEmpty()) {
             // The tuple was not written with a future schema.

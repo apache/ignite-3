@@ -140,7 +140,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
@@ -300,7 +300,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxStateStorage txStateStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
-            Schemas schemas,
+            ValidationSchemasSource validationSchemasSource,
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
@@ -328,7 +328,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
-        schemaCompatValidator = new SchemaCompatValidator(schemas, catalogService, schemaSyncService);
+        schemaCompatValidator = new SchemaCompatValidator(validationSchemasSource, catalogService, schemaSyncService);
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);

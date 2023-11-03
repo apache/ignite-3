@@ -25,7 +25,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 /**
  * Provides access to table schemas.
  */
-public interface Schemas {
+public interface ValidationSchemasSource {
     /**
      * Obtains a future that completes when the given schema version becomes available.
      *

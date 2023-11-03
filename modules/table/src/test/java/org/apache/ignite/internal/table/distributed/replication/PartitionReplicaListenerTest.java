@@ -152,7 +152,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -297,7 +297,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeClock;
 
     @Mock
-    private Schemas schemas;
+    private ValidationSchemasSource validationSchemasSource;
 
     @Spy
     private final SchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
@@ -393,7 +393,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
         when(safeTimeClock.current()).thenReturn(HybridTimestamp.MIN_VALUE);
 
-        when(schemas.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
+        when(validationSchemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
 
         lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
@@ -489,7 +489,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         indexUpdateHandler,
                         new GcUpdateHandler(partitionDataStorage, safeTimeClock, indexUpdateHandler)
                 ),
-                schemas,
+                validationSchemasSource,
                 localNode,
                 schemaSyncService,
                 catalogService,
@@ -1462,7 +1462,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void commitsOnSameSchemaSuccessfully() {
-        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
+        when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col")))
                 ));
@@ -1524,7 +1524,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     @Disabled("IGNITE-19229")
     public void commitsOnCompatibleSchemaChangeSuccessfully() {
-        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
+        when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col1"))),
                         tableSchema(FUTURE_SCHEMA_VERSION, List.of(nullableColumn("col1"), nullableColumn("col2")))
@@ -1556,12 +1556,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void simulateForwardIncompatibleSchemaChange(int fromSchemaVersion, int toSchemaVersion) {
-        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
+        when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(incompatibleSchemaVersions(fromSchemaVersion, toSchemaVersion));
     }
 
     private void simulateBackwardIncompatibleSchemaChange(int fromSchemaVersion, int toSchemaVersion) {
-        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), anyInt()))
+        when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), anyInt()))
                 .thenReturn(incompatibleSchemaVersions(fromSchemaVersion, toSchemaVersion));
     }
 
@@ -2213,7 +2213,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             Set<ReplicationGroupId> groups,
             int tableToBeDroppedId
     ) {
-        when(schemas.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
+        when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
                         tableSchema(CURRENT_SCHEMA_VERSION, List.of(nullableColumn("col")))
                 ));

@@ -31,7 +31,7 @@ import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValuePro
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -39,12 +39,12 @@ import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 
 /**
- * Dummy {@link Schemas} implementation that is not historic and always uses same {@link SchemaRegistry}.
+ * Dummy {@link ValidationSchemasSource} implementation that is not historic and always uses same {@link SchemaRegistry}.
  */
-public class DummySchemas implements Schemas {
+public class DummyValidationSchemasSource implements ValidationSchemasSource {
     private final SchemaRegistry schemaRegistry;
 
-    public DummySchemas(SchemaRegistry schemaRegistry) {
+    public DummyValidationSchemasSource(SchemaRegistry schemaRegistry) {
         this.schemaRegistry = schemaRegistry;
     }
 

@@ -55,7 +55,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class CatalogSchemasTest extends BaseIgniteAbstractTest {
+class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
     @Mock
     private CatalogService catalogService;
 
@@ -69,7 +69,7 @@ class CatalogSchemasTest extends BaseIgniteAbstractTest {
     private SchemaSyncService schemaSyncService;
 
     @InjectMocks
-    private CatalogSchemas schemas;
+    private CatalogValidationSchemasSource schemas;
 
     private final HybridClock clock = new HybridClockImpl();
 
