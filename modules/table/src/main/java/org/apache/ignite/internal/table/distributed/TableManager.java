@@ -977,6 +977,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public void stop() throws Exception {
+        assert beforeStopGuard.get() : "'stop' called before 'beforeNodeStop'";
+
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
