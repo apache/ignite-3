@@ -374,7 +374,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
-            TopologyService topologyService,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
             Path storagePath,
@@ -412,6 +411,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+
+        TopologyService topologyService = clusterService.topologyService();
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -478,6 +479,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 metaStorageMgr,
                 clusterService.messagingService(),
+                topologyService,
                 clusterNodeResolver,
                 tableId -> latestTablesById().get(tableId)
         );

@@ -698,7 +698,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 replicaMgr,
                 null,
                 null,
-                ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,

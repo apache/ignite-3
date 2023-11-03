@@ -584,7 +584,6 @@ public class IgniteImpl implements Ignite {
                 replicaMgr,
                 lockMgr,
                 replicaSvc,
-                clusterSvc.topologyService(),
                 txManager,
                 dataStorageMgr,
                 storagePath,
