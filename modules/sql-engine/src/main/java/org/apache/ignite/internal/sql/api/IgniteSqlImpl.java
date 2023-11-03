@@ -90,7 +90,9 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new SessionBuilderImpl(busyLock, sessions, qryProc, transactions, new HashMap<>());
+        return new SessionBuilderImpl(
+                busyLock, sessions, qryProc, transactions, System::currentTimeMillis, new HashMap<>()
+        );
     }
 
     /** {@inheritDoc} */

@@ -30,24 +30,28 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -95,7 +99,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         assertThat(session.expired(), is(true));
     }
 
-    @Test
+    @RepeatedTest(10)
     void sessionCleanUpsItselfFromSessionsMapOnClose() {
         SessionImpl session = newSession(3);
         assertThat(sessions.get(session.id()), sameInstance(session));
@@ -197,21 +201,20 @@ class SessionImplTest extends BaseIgniteAbstractTest {
     }
 
     private SessionImpl newSession(long idleTimeout) {
-        SessionId sessionId = new SessionId(UUID.randomUUID());
-        SessionImpl session = new SessionImpl(
-                sessionId,
-                props -> null,
+        when(queryProcessor.createSession(any()))
+                .thenAnswer(ignored -> new SessionId(UUID.randomUUID()));
+
+        SessionBuilder builder = new SessionBuilderImpl(
+                new IgniteSpinBusyLock(),
+                sessions,
                 queryProcessor,
                 mock(IgniteTransactions.class),
-                1024,
-                idleTimeout,
-                PropertiesHelper.emptyHolder(),
                 clock::get,
-                () -> {}
+                new HashMap<>()
         );
 
-        sessions.put(sessionId, session);
-
-        return session;
+        return (SessionImpl) builder
+                .idleTimeout(idleTimeout, TimeUnit.MILLISECONDS)
+                .build();
     }
 }

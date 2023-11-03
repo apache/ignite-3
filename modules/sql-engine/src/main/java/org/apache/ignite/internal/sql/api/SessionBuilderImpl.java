@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.AbstractSession;
+import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
@@ -48,6 +49,8 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     private final ConcurrentMap<SessionId, SessionImpl> sessions;
 
+    private final CurrentTimeProvider timeProvider;
+
     private final Map<String, Object> props;
 
     private IgniteTransactions transactions;
@@ -68,6 +71,7 @@ public class SessionBuilderImpl implements SessionBuilder {
      * @param sessions Active sessions. Any created by this builder session should be added to this map.
      * @param qryProc SQL query processor.
      * @param transactions Transactions facade.
+     * @param timeProvider Time provider to check is sessions has expired or not.
      * @param props Initial properties.
      */
     SessionBuilderImpl(
@@ -75,12 +79,14 @@ public class SessionBuilderImpl implements SessionBuilder {
             ConcurrentMap<SessionId, SessionImpl> sessions,
             QueryProcessor qryProc,
             IgniteTransactions transactions,
+            CurrentTimeProvider timeProvider,
             Map<String, Object> props
     ) {
         this.busyLock = busyLock;
         this.sessions = sessions;
         this.qryProc = qryProc;
         this.transactions = transactions;
+        this.timeProvider = timeProvider;
         this.props = props;
     }
 
@@ -187,13 +193,15 @@ public class SessionBuilderImpl implements SessionBuilder {
 
         SessionImpl session = new SessionImpl(
                 sessionId,
-                props -> new SessionBuilderImpl(busyLock, sessions, qryProc, transactions, props),
+                props -> new SessionBuilderImpl(
+                        busyLock, sessions, qryProc, transactions, timeProvider, props
+                ),
                 qryProc,
                 transactions,
                 pageSize,
                 sessionTimeout,
                 propsHolder,
-                System::currentTimeMillis,
+                timeProvider,
                 () -> sessions.remove(sessionId)
         );
 
