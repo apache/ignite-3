@@ -318,7 +318,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Handshake [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + clientContext);
+                LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: " +
+                        clientContext);
             }
 
             // Response.
@@ -342,7 +343,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
         } catch (Throwable t) {
-            LOG.warn("Handshake failed [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + t.getMessage(), t);
+            LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: " +
+                    t.getMessage(), t);
 
             packer.close();
 
@@ -355,7 +357,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                 write(errPacker, ctx);
             } catch (Throwable t2) {
-                LOG.warn("Handshake failed [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + t2.getMessage(), t2);
+                LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: " +
+                        t2.getMessage(), t2);
 
                 errPacker.close();
                 exceptionCaught(ctx, t2);
@@ -686,7 +689,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         boolean assignmentChanged = partitionAssignmentChanged.compareAndSet(true, false);
 
         if (assignmentChanged && LOG.isInfoEnabled()) {
-            LOG.info("Partition assignment changed, notifying client [remoteAddress=" + ctx.channel().remoteAddress() + ']');
+            LOG.info("Partition assignment changed, notifying client [connectionId=" + connectionId + ", remoteAddress=" +
+                    ctx.channel().remoteAddress() + ']');
         }
 
         var flags = ResponseFlags.getFlags(assignmentChanged);
@@ -718,8 +722,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             }
         }
 
-        LOG.warn("Exception in client connector pipeline [remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                + cause.getMessage(), cause);
+        LOG.warn("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress=" +
+                ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
 
         ctx.close();
     }
