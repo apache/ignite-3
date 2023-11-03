@@ -24,8 +24,14 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.AdditionalMatchers.geq;
+import static org.mockito.AdditionalMatchers.lt;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -128,6 +134,32 @@ class CatalogSchemasTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void tableSchemaVersionsBetweenTimestampsUsesCache() {
+        int tableId = 1;
+
+        CatalogTableDescriptor version3 = tableVersion(tableId, 3);
+        CatalogTableDescriptor version4 = tableVersion(tableId, 4);
+
+        HybridTimestamp timestamp = clock.now();
+
+        when(catalogService.activeCatalogVersion(lt(timestamp.longValue()))).thenReturn(3);
+        when(catalogService.activeCatalogVersion(geq(timestamp.longValue()))).thenReturn(4);
+        when(catalogService.tableVersionsBetween(tableId, 3, 4))
+                .then(invocation -> Stream.of(version3, version4));
+
+        List<FullTableSchema> fullSchemas1 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(2), timestamp);
+        List<FullTableSchema> fullSchemas2 = schemas.tableSchemaVersionsBetween(
+                tableId,
+                timestamp.subtractPhysicalTime(1),
+                timestamp.addPhysicalTime(10)
+        );
+
+        assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
+
+        verify(catalogService, times(1)).tableVersionsBetween(anyInt(), anyInt(), anyInt());
+    }
+
+    @Test
     void tableSchemaVersionsBetweenTimestampAndVersionWorks() {
         int tableId = 1;
 
@@ -163,5 +195,26 @@ class CatalogSchemasTest extends BaseIgniteAbstractTest {
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, 2);
 
         assertThat(fullSchemas, is(empty()));
+    }
+
+    @Test
+    void tableSchemaVersionsBetweenTimestampAndVersionUsesCache() {
+        int tableId = 1;
+
+        CatalogTableDescriptor version3 = tableVersion(tableId, 3);
+        CatalogTableDescriptor version4 = tableVersion(tableId, 4);
+
+        HybridTimestamp timestamp = clock.now();
+
+        when(catalogService.activeCatalogVersion(anyLong())).thenReturn(3);
+        when(catalogService.tableVersionsBetween(tableId, 3, Integer.MAX_VALUE))
+                .then(invocation -> Stream.of(version3, version4));
+
+        List<FullTableSchema> fullSchemas1 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(2), 4);
+        List<FullTableSchema> fullSchemas2 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(1), 4);
+
+        assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
+
+        verify(catalogService, times(1)).tableVersionsBetween(anyInt(), anyInt(), anyInt());
     }
 }

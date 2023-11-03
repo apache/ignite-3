@@ -20,7 +20,10 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -35,6 +38,11 @@ public class CatalogSchemas implements Schemas {
     private final SchemaManager schemaManager;
 
     private final SchemaSyncService schemaSyncService;
+
+    private final ConcurrentMap<CatalogVersionsSpan, List<FullTableSchema>> catalogVersionSpansCache = new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<CatalogVersionToTableVersionSpan, List<FullTableSchema>> catalogVersionToTableVersionSpansCache
+            = new ConcurrentHashMap<>();
 
     /** Constructor. */
     public CatalogSchemas(CatalogService catalogService, SchemaManager schemaManager, SchemaSyncService schemaSyncService) {
@@ -55,22 +63,40 @@ public class CatalogSchemas implements Schemas {
                 .thenApply(unused -> null);
     }
 
-    @Override
-    public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
-        int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
-        int toCatalogVersion = catalogService.activeCatalogVersion(toIncluding.longValue());
-
+    private List<FullTableSchema> tableSchemaVersionsBetweenCatalogVersions(int tableId, int fromCatalogVersion, int toCatalogVersion) {
         return catalogService.tableVersionsBetween(tableId, fromCatalogVersion, toCatalogVersion)
                 .map(CatalogSchemas::fullSchemaFromTableDescriptor)
                 .collect(toList());
     }
 
     @Override
+    public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
+        int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
+        int toCatalogVersion = catalogService.activeCatalogVersion(toIncluding.longValue());
+
+        return catalogVersionSpansCache.computeIfAbsent(
+                new CatalogVersionsSpan(tableId, fromCatalogVersion, toCatalogVersion),
+                key -> tableSchemaVersionsBetweenCatalogVersions(tableId, fromCatalogVersion, toCatalogVersion)
+        );
+    }
+
+    @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding) {
         int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
 
+        return catalogVersionToTableVersionSpansCache.computeIfAbsent(
+                new CatalogVersionToTableVersionSpan(tableId, fromCatalogVersion, toIncluding),
+                key -> tableSchemaVersionsBetweenCatalogAndTableVersions(tableId, fromCatalogVersion, toIncluding)
+        );
+    }
+
+    private List<FullTableSchema> tableSchemaVersionsBetweenCatalogAndTableVersions(
+            int tableId,
+            int fromCatalogVersion,
+            int toTableVersion
+    ) {
         return catalogService.tableVersionsBetween(tableId, fromCatalogVersion, Integer.MAX_VALUE)
-                .takeWhile(tableDescriptor -> tableDescriptor.tableVersion() <= toIncluding)
+                .takeWhile(tableDescriptor -> tableDescriptor.tableVersion() <= toTableVersion)
                 .map(CatalogSchemas::fullSchemaFromTableDescriptor)
                 .collect(toList());
     }
@@ -81,5 +107,63 @@ public class CatalogSchemas implements Schemas {
                 tableDescriptor.id(),
                 tableDescriptor.columns()
         );
+    }
+
+    private static class CatalogVersionsSpan {
+        private final int tableId;
+        private final int fromCatalogVersion;
+        private final int toCatalogVersion;
+
+        private CatalogVersionsSpan(int tableId, int fromCatalogVersion, int toCatalogVersion) {
+            this.tableId = tableId;
+            this.fromCatalogVersion = fromCatalogVersion;
+            this.toCatalogVersion = toCatalogVersion;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CatalogVersionsSpan that = (CatalogVersionsSpan) o;
+            return tableId == that.tableId && fromCatalogVersion == that.fromCatalogVersion && toCatalogVersion == that.toCatalogVersion;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tableId, fromCatalogVersion, toCatalogVersion);
+        }
+    }
+
+    private static class CatalogVersionToTableVersionSpan {
+        private final int tableId;
+        private final int fromCatalogVersion;
+        private final int toTableVersion;
+
+        private CatalogVersionToTableVersionSpan(int tableId, int fromCatalogVersion, int toTableVersion) {
+            this.tableId = tableId;
+            this.fromCatalogVersion = fromCatalogVersion;
+            this.toTableVersion = toTableVersion;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CatalogVersionToTableVersionSpan that = (CatalogVersionToTableVersionSpan) o;
+            return tableId == that.tableId && fromCatalogVersion == that.fromCatalogVersion && toTableVersion == that.toTableVersion;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tableId, fromCatalogVersion, toTableVersion);
+        }
     }
 }
