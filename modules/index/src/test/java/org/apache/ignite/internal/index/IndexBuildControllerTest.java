@@ -108,9 +108,9 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
         catalogManager.start();
 
-        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
-
         indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
+
+        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
 
     @AfterEach
@@ -152,11 +152,35 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(LOCAL_NODE),
                 anyLong()
         );
+    }
 
-        verify(indexBuilder).scheduleBuildIndex(
+    @Test
+    void testNotStartBuildPkIndexesOnPrimaryReplicaElected() {
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
+
+        verify(indexBuilder, never()).scheduleBuildIndex(
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(TABLE_NAME))),
+                any(),
+                any(),
+                eq(LOCAL_NODE),
+                anyLong()
+        );
+    }
+
+    @Test
+    void testNotStartBuildPkIndexesForNewTable() {
+        setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
+
+        String tableName = TABLE_NAME + "_new";
+
+        createTable(catalogManager, tableName, COLUMN_NAME);
+
+        verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(tableId()),
+                eq(PARTITION_ID),
+                eq(indexId(pkIndexName(tableName))),
                 any(),
                 any(),
                 eq(LOCAL_NODE),
@@ -197,16 +221,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
-                any(),
-                any(),
-                eq(LOCAL_NODE),
-                anyLong()
-        );
-
-        verify(indexBuilder).scheduleBuildIndex(
-                eq(tableId()),
-                eq(PARTITION_ID),
-                eq(indexId(pkIndexName(TABLE_NAME))),
                 any(),
                 any(),
                 eq(LOCAL_NODE),

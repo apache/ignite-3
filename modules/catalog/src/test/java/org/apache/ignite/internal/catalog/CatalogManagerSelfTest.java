@@ -1954,11 +1954,40 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             return completedFuture(false);
         });
 
-        createSomeTable(TABLE_NAME);
+        String tableName = TABLE_NAME + "_new";
+
+        createSomeTable(tableName);
 
         assertThat(fireEventFuture, willBe(notNullValue()));
 
-        assertEquals(indexId(pkIndexName(TABLE_NAME)), fireEventFuture.join());
+        assertEquals(indexId(pkIndexName(tableName)), fireEventFuture.join());
+    }
+
+    @Test
+    void testPkAvailableOnCreateIndexEvent() {
+        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+
+        manager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+            if (exception != null) {
+                fireEventFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    CreateIndexEventParameters createIndexEventParameters = (CreateIndexEventParameters) parameters;
+
+                    assertTrue(createIndexEventParameters.indexDescriptor().available());
+
+                    fireEventFuture.complete(null);
+                } catch (Throwable t) {
+                    fireEventFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        createSomeTable(TABLE_NAME);
+
+        assertThat(fireEventFuture, willCompleteSuccessfully());
     }
 
     @Test

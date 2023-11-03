@@ -149,6 +149,10 @@ public class IndexBuildController implements IgniteComponent {
 
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
+            if (parameters.indexDescriptor().available()) {
+                return completedFuture(null);
+            }
+
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {

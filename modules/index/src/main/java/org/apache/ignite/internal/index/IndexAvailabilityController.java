@@ -172,6 +172,10 @@ public class IndexAvailabilityController implements ManuallyCloseable {
 
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
+            if (parameters.indexDescriptor().available()) {
+                return completedFuture(null);
+            }
+
             int indexId = parameters.indexDescriptor().id();
 
             int partitions = getPartitionCountFromCatalog(catalogManager, indexId, parameters.catalogVersion());
