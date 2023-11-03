@@ -36,6 +36,7 @@ public class CatalogSchemas implements Schemas {
 
     private final SchemaSyncService schemaSyncService;
 
+    /** Constructor. */
     public CatalogSchemas(CatalogService catalogService, SchemaManager schemaManager, SchemaSyncService schemaSyncService) {
         this.catalogService = catalogService;
         this.schemaManager = schemaManager;
@@ -64,15 +65,6 @@ public class CatalogSchemas implements Schemas {
                 .collect(toList());
     }
 
-    private static FullTableSchema fullSchemaFromTableDescriptor(CatalogTableDescriptor tableDescriptor) {
-        return new FullTableSchema(
-                tableDescriptor.tableVersion(),
-                tableDescriptor.id(),
-                tableDescriptor.columns(),
-                List.of()
-        );
-    }
-
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding) {
         int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
@@ -81,5 +73,14 @@ public class CatalogSchemas implements Schemas {
                 .takeWhile(tableDescriptor -> tableDescriptor.tableVersion() <= toIncluding)
                 .map(CatalogSchemas::fullSchemaFromTableDescriptor)
                 .collect(toList());
+    }
+
+    private static FullTableSchema fullSchemaFromTableDescriptor(CatalogTableDescriptor tableDescriptor) {
+        return new FullTableSchema(
+                tableDescriptor.tableVersion(),
+                tableDescriptor.id(),
+                tableDescriptor.columns(),
+                List.of()
+        );
     }
 }
