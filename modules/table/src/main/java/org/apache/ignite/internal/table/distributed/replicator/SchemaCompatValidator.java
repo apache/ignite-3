@@ -138,11 +138,8 @@ class SchemaCompatValidator {
     }
 
     private boolean isForwardCompatible(FullTableSchema prevSchema, FullTableSchema nextSchema) {
-        assert prevSchema.schemaVersion() + 1 == nextSchema.schemaVersion()
-                : "Prev schema version is " + prevSchema.schemaVersion() + ", next schema version is " + nextSchema.schemaVersion();
-
         TableDefinitionDiff diff = diffCache.computeIfAbsent(
-                new DiffKey(prevSchema.tableId(), prevSchema.schemaVersion()),
+                new DiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
                 key -> nextSchema.diffFrom(prevSchema)
         );
 
@@ -256,10 +253,12 @@ class SchemaCompatValidator {
     private static class DiffKey {
         private final int tableId;
         private final int fromSchemaVersion;
+        private final int toSchemaVersion;
 
-        private DiffKey(int tableId, int fromSchemaVersion) {
+        private DiffKey(int tableId, int fromSchemaVersion, int toSchemaVersion) {
             this.tableId = tableId;
             this.fromSchemaVersion = fromSchemaVersion;
+            this.toSchemaVersion = toSchemaVersion;
         }
 
         @Override
@@ -271,12 +270,13 @@ class SchemaCompatValidator {
                 return false;
             }
             DiffKey diffKey = (DiffKey) o;
-            return tableId == diffKey.tableId && fromSchemaVersion == diffKey.fromSchemaVersion;
+            return tableId == diffKey.tableId && fromSchemaVersion == diffKey.fromSchemaVersion
+                    && toSchemaVersion == diffKey.toSchemaVersion;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(tableId, fromSchemaVersion);
+            return Objects.hash(tableId, fromSchemaVersion, toSchemaVersion);
         }
     }
 }
