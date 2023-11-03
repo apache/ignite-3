@@ -106,7 +106,7 @@ class CatalogSchemasTest extends BaseIgniteAbstractTest {
 
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
         when(catalogService.activeCatalogVersion(to.longValue())).thenReturn(4);
-        when(catalogService.tableBetween(tableId, 3, 4))
+        when(catalogService.tableVersionsBetween(tableId, 3, 4))
                 .thenReturn(Stream.of(version3, version4));
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, to);
@@ -138,7 +138,7 @@ class CatalogSchemasTest extends BaseIgniteAbstractTest {
         HybridTimestamp from = clock.now();
 
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
-        when(catalogService.tableBetween(tableId, 3, Integer.MAX_VALUE))
+        when(catalogService.tableVersionsBetween(tableId, 3, Integer.MAX_VALUE))
                 .thenReturn(Stream.of(version3, version4, version5));
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, 4);
@@ -157,7 +157,7 @@ class CatalogSchemasTest extends BaseIgniteAbstractTest {
         HybridTimestamp from = clock.now();
 
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
-        when(catalogService.tableBetween(tableId, 3, Integer.MAX_VALUE))
+        when(catalogService.tableVersionsBetween(tableId, 3, Integer.MAX_VALUE))
                 .thenReturn(Stream.of(version3));
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, 2);

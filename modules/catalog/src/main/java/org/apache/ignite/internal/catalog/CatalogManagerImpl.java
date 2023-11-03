@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -207,9 +208,29 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public Stream<CatalogTableDescriptor> tableBetween(int tableId, int fromCatalogVersionIncluding, int toCatalogVersionIncluding) {
+    public Stream<CatalogTableDescriptor> tableVersionsBetween(
+            int tableId,
+            int fromCatalogVersionIncluding,
+            int toCatalogVersionIncluding
+    ) {
         return catalogByVer.subMap(fromCatalogVersionIncluding, true, toCatalogVersionIncluding, true).values().stream()
-                .map(catalog -> catalog.table(tableId));
+                .map(catalog -> catalog.table(tableId))
+                .filter(new Predicate<>() {
+                    int prevVersion = Integer.MIN_VALUE;
+
+                    @Override
+                    public boolean test(CatalogTableDescriptor tableDescriptor) {
+                        if (tableDescriptor.tableVersion() == prevVersion) {
+                            return false;
+                        }
+
+                        assert prevVersion == Integer.MIN_VALUE || tableDescriptor.tableVersion() == prevVersion + 1;
+
+                        prevVersion = tableDescriptor.tableVersion();
+
+                        return true;
+                    }
+                });
     }
 
     @Override

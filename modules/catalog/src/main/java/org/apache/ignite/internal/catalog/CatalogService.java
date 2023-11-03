@@ -58,7 +58,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
 
-    Stream<CatalogTableDescriptor> tableBetween(int tableId, int fromCatalogVersionIncluding, int toCatalogVersionIncluding);
+    Stream<CatalogTableDescriptor> tableVersionsBetween(int tableId, int fromCatalogVersionIncluding, int toCatalogVersionIncluding);
 
     Collection<CatalogTableDescriptor> tables(int catalogVersion);
 

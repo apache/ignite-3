@@ -60,7 +60,7 @@ public class CatalogSchemas implements Schemas {
         int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
         int toCatalogVersion = catalogService.activeCatalogVersion(toIncluding.longValue());
 
-        return catalogService.tableBetween(tableId, fromCatalogVersion, toCatalogVersion)
+        return catalogService.tableVersionsBetween(tableId, fromCatalogVersion, toCatalogVersion)
                 .map(CatalogSchemas::fullSchemaFromTableDescriptor)
                 .collect(toList());
     }
@@ -69,7 +69,7 @@ public class CatalogSchemas implements Schemas {
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding) {
         int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
 
-        return catalogService.tableBetween(tableId, fromCatalogVersion, Integer.MAX_VALUE)
+        return catalogService.tableVersionsBetween(tableId, fromCatalogVersion, Integer.MAX_VALUE)
                 .takeWhile(tableDescriptor -> tableDescriptor.tableVersion() <= toIncluding)
                 .map(CatalogSchemas::fullSchemaFromTableDescriptor)
                 .collect(toList());

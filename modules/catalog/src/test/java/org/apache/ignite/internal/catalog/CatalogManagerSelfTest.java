@@ -1969,7 +1969,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void tableVersionsReturnsEmptyResultWhenTableDoesNotExist() {
-        assertThat(manager.tableBetween(1000, 1, Integer.MAX_VALUE).collect(toList()), is(empty()));
+        assertThat(manager.tableVersionsBetween(1000, 1, Integer.MAX_VALUE).collect(toList()), is(empty()));
     }
 
     @Test
@@ -1978,7 +1978,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
-        List<CatalogTableDescriptor> tableDescriptors = manager.tableBetween(
+        List<CatalogTableDescriptor> tableDescriptors = manager.tableVersionsBetween(
                 table.id(),
                 ddlsResult.version1,
                 ddlsResult.version2
@@ -1995,7 +1995,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
-        List<CatalogTableDescriptor> tableDescriptors = manager.tableBetween(
+        List<CatalogTableDescriptor> tableDescriptors = manager.tableVersionsBetween(
                 table.id(),
                 ddlsResult.version2,
                 ddlsResult.version2
@@ -2011,7 +2011,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
-        List<CatalogTableDescriptor> tableDescriptors = manager.tableBetween(
+        List<CatalogTableDescriptor> tableDescriptors = manager.tableVersionsBetween(
                 table.id(),
                 ddlsResult.version1,
                 ddlsResult.version1
@@ -2029,6 +2029,30 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         int catalogVersionForTableVersion2 = manager.latestCatalogVersion();
 
         return new TwoCatalogVersions(catalogVersionForTableVersion1, catalogVersionForTableVersion2);
+    }
+
+    @Test
+    void tableVersionsOnlyReturnsRequestedTableChanges() {
+        createSomeTable(TABLE_NAME);
+        int catalogVersionForTableVersion1 = manager.latestCatalogVersion();
+
+        // Add change not related to our table of interest.
+        createSomeTable(TABLE_NAME_2);
+
+        addSomeColumn();
+        int catalogVersionForTableVersion2 = manager.latestCatalogVersion();
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        List<CatalogTableDescriptor> tableDescriptors = manager.tableVersionsBetween(
+                table.id(),
+                catalogVersionForTableVersion1,
+                catalogVersionForTableVersion2
+        ).collect(toList());
+
+        assertThat(tableDescriptors, hasSize(2));
+        assertThat(tableDescriptors.get(0), is(manager.table(table.id(), catalogVersionForTableVersion1)));
+        assertThat(tableDescriptors.get(1), is(manager.table(table.id(), catalogVersionForTableVersion2)));
     }
 
     private CompletableFuture<Void> changeColumn(
