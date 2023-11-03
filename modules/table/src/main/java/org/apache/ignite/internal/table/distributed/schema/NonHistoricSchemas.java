@@ -60,12 +60,12 @@ public class NonHistoricSchemas implements Schemas {
     }
 
     @Override
-    public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
+    public CompletableFuture<Void> waitForSchemasAvailability(HybridTimestamp ts) {
         return schemaSyncService.waitForMetadataCompleteness(ts);
     }
 
     @Override
-    public CompletableFuture<?> waitForSchemaAvailability(int tableId, int schemaVersion) {
+    public CompletableFuture<Void> waitForSchemaAvailability(int tableId, int schemaVersion) {
         return completedFuture(null);
     }
 

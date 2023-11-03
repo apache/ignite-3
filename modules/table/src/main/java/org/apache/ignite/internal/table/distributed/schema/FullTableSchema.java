@@ -32,8 +32,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
- * Represents a full table schema: that is, the definition of the table and all objects (indexes, constraints, etc)
- * that belong to the table.
+ * Represents a full table schema: that is, the definition of the table and all objects (constraints, etc)
+ * that belong to the table *that might affect schema compatibility* (so, indices are not included as they
+ * don't affect such compatibility).
  */
 public class FullTableSchema {
     private final int schemaVersion;
@@ -54,8 +55,8 @@ public class FullTableSchema {
     ) {
         this.schemaVersion = schemaVersion;
         this.tableId = tableId;
-        this.columns = columns;
-        this.indexes = indexes;
+        this.columns = List.copyOf(columns);
+        this.indexes = List.copyOf(indexes);
     }
 
     /**

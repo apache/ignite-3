@@ -42,12 +42,12 @@ public class DummySchemas implements Schemas {
     }
 
     @Override
-    public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
+    public CompletableFuture<Void> waitForSchemasAvailability(HybridTimestamp ts) {
         return completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<?> waitForSchemaAvailability(int tableId, int schemaVersion) {
+    public CompletableFuture<Void> waitForSchemaAvailability(int tableId, int schemaVersion) {
         return completedFuture(null);
     }
 

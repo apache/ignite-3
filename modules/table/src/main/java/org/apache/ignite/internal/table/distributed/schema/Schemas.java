@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.schema;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.SchemaManager;
 
 /**
  * Provides access to table schemas.
@@ -33,16 +34,18 @@ public interface Schemas {
      *     <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-98:+Schema+Synchronization">IEP-98</a>
      * @return Future that completes when all schemas activating not later than the given timestamp are available.
      */
-    CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts);
+    CompletableFuture<Void> waitForSchemasAvailability(HybridTimestamp ts);
 
     /**
      * Obtains a future that completes when the given schema version becomes available.
+     *
+     * <p>Must only be called when it's guaranteed that the table exists from the point of view of {@link SchemaManager}.
      *
      * @param tableId ID of the table of interest.
      * @param schemaVersion ID of the schema version.
      * @return Future that completes when the given schema version becomes available.
      */
-    CompletableFuture<?> waitForSchemaAvailability(int tableId, int schemaVersion);
+    CompletableFuture<Void> waitForSchemaAvailability(int tableId, int schemaVersion);
 
     /**
      * Returns all schema versions between (including) the two that were effective at the given timestamps.

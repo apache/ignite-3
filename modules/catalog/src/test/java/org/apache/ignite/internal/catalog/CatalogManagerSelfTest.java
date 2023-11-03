@@ -61,6 +61,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -1585,11 +1586,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void addColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("val2", INT32))), willCompleteSuccessfully());
+        addSomeColumn();
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
         assertThat(table.tableVersion(), is(2));
+    }
+
+    private void addSomeColumn() {
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("val2", INT32))), willCompleteSuccessfully());
     }
 
     @Test
@@ -1962,6 +1967,70 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(currentTsVer, equalTo(latestVer));
     }
 
+    @Test
+    void tableVersionsReturnsEmptyResultWhenTableDoesNotExist() {
+        assertThat(manager.tableBetween(1000, 1, Integer.MAX_VALUE).collect(toList()), is(empty()));
+    }
+
+    @Test
+    void tableVersionsReturnsVersionsBetweenCatalogVersions() {
+        TwoCatalogVersions ddlsResult = createTableAndAlterIt();
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        List<CatalogTableDescriptor> tableDescriptors = manager.tableBetween(
+                table.id(),
+                ddlsResult.version1,
+                ddlsResult.version2
+        ).collect(toList());
+
+        assertThat(tableDescriptors, hasSize(2));
+        assertThat(tableDescriptors.get(0), is(manager.table(table.id(), ddlsResult.version1)));
+        assertThat(tableDescriptors.get(1), is(manager.table(table.id(), ddlsResult.version2)));
+    }
+
+    @Test
+    void tableVersionsDoesNotReturnVersionsBeforeLowerLimit() {
+        TwoCatalogVersions ddlsResult = createTableAndAlterIt();
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        List<CatalogTableDescriptor> tableDescriptors = manager.tableBetween(
+                table.id(),
+                ddlsResult.version2,
+                ddlsResult.version2
+        ).collect(toList());
+
+        assertThat(tableDescriptors, hasSize(1));
+        assertThat(tableDescriptors.get(0), is(manager.table(table.id(), ddlsResult.version2)));
+    }
+
+    @Test
+    void tableVersionsDoesNotReturnVersionsAfterUpperLimit() {
+        TwoCatalogVersions ddlsResult = createTableAndAlterIt();
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        List<CatalogTableDescriptor> tableDescriptors = manager.tableBetween(
+                table.id(),
+                ddlsResult.version1,
+                ddlsResult.version1
+        ).collect(toList());
+
+        assertThat(tableDescriptors, hasSize(1));
+        assertThat(tableDescriptors.get(0), is(manager.table(table.id(), ddlsResult.version1)));
+    }
+
+    private TwoCatalogVersions createTableAndAlterIt() {
+        createSomeTable(TABLE_NAME);
+        int catalogVersionForTableVersion1 = manager.latestCatalogVersion();
+
+        addSomeColumn();
+        int catalogVersionForTableVersion2 = manager.latestCatalogVersion();
+
+        return new TwoCatalogVersions(catalogVersionForTableVersion1, catalogVersionForTableVersion2);
+    }
+
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,
@@ -2037,5 +2106,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(index, indexName);
 
         return index.id();
+    }
+
+    private static class TwoCatalogVersions {
+        private final int version1;
+        private final int version2;
+
+        private TwoCatalogVersions(int version1, int version2) {
+            this.version1 = version1;
+            this.version2 = version2;
+        }
     }
 }

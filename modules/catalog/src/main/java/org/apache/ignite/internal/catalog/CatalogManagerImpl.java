@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
@@ -203,6 +204,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion) {
         return catalog(catalogVersion).table(tableId);
+    }
+
+    @Override
+    public Stream<CatalogTableDescriptor> tableBetween(int tableId, int fromCatalogVersionIncluding, int toCatalogVersionIncluding) {
+        return catalogByVer.subMap(fromCatalogVersionIncluding, true, toCatalogVersionIncluding, true).values().stream()
+                .map(catalog -> catalog.table(tableId));
     }
 
     @Override
