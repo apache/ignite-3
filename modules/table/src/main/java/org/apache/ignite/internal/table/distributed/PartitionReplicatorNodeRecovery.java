@@ -19,12 +19,18 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toSet;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -43,19 +49,25 @@ import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.network.TopologyService;
 
 /**
  * Code specific to recovering a partition replicator group node. This includes a case when we lost metadata
  * that is required for the replication protocol (for instance, for RAFT it's about group metadata).
  */
 class PartitionReplicatorNodeRecovery {
-    private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
+    private static final long QUERY_DATA_NODES_COUNT_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
+
+    private static final long PEERS_IN_TOPOLOGY_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
     private final MetaStorageManager metaStorageManager;
 
     private final MessagingService messagingService;
+
+    private final TopologyService topologyService;
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
@@ -66,10 +78,13 @@ class PartitionReplicatorNodeRecovery {
     PartitionReplicatorNodeRecovery(
             MetaStorageManager metaStorageManager,
             MessagingService messagingService,
+            TopologyService topologyService,
             Function<String, ClusterNode> clusterNodeResolver,
-            IntFunction<TableImpl> tableById) {
+            IntFunction<TableImpl> tableById
+    ) {
         this.metaStorageManager = metaStorageManager;
         this.messagingService = messagingService;
+        this.topologyService = topologyService;
         this.clusterNodeResolver = clusterNodeResolver;
         this.tableById = tableById;
     }
@@ -152,7 +167,7 @@ class PartitionReplicatorNodeRecovery {
 
         // No majority and not a full partition restart - need to 'remove, then add' nodes
         // with current partition.
-        return queryDataNodesCount(tableId, partId, newConfiguration.peers())
+        return waitForPeersAndQueryDataNodesCount(tableId, partId, newConfiguration.peers())
                 .thenApply(dataNodesCount -> {
                     boolean fullPartitionRestart = dataNodesCount == 0;
 
@@ -184,16 +199,93 @@ class PartitionReplicatorNodeRecovery {
      * @param peers Raft peers.
      * @return A future that will hold the quantity of data nodes.
      */
-    private CompletableFuture<Long> queryDataNodesCount(int tblId, int partId, Collection<Peer> peers) {
+    private CompletableFuture<Long> waitForPeersAndQueryDataNodesCount(int tblId, int partId, Collection<Peer> peers) {
         HasDataRequest request = TABLE_MESSAGES_FACTORY.hasDataRequest().tableId(tblId).partitionId(partId).build();
 
+        return allPeersAreInTopology(peers)
+                .thenCompose(unused -> queryDataNodesCount(peers, request));
+    }
+
+    private CompletableFuture<?> allPeersAreInTopology(Collection<Peer> peers) {
+        Set<String> peerConsistentIds = peers.stream()
+                .map(Peer::consistentId)
+                .collect(toSet());
+
+        Map<String, ClusterNode> peerNodesByConsistentIds = new ConcurrentHashMap<>();
+
+        for (Peer peer : peers) {
+            ClusterNode node = clusterNodeResolver.apply(peer.consistentId());
+
+            if (node != null) {
+                peerNodesByConsistentIds.put(peer.consistentId(), node);
+            }
+        }
+
+        if (peerNodesByConsistentIds.size() >= peers.size()) {
+            return completedFuture(null);
+        }
+
+        CompletableFuture<Void> allPeersAreSeenInTopology = new CompletableFuture<>();
+
+        TopologyEventHandler eventHandler = new TopologyEventHandler() {
+            @Override
+            public void onAppeared(ClusterNode member) {
+                if (peerConsistentIds.contains(member.name())) {
+                    peerNodesByConsistentIds.put(member.name(), member);
+                }
+
+                if (peerNodesByConsistentIds.size() >= peers.size()) {
+                    allPeersAreSeenInTopology.complete(null);
+                }
+            }
+        };
+
+        topologyService.addEventHandler(eventHandler);
+
+        // Check again for peers that could appear in the topology since last check, but before we installed the handler.
+        for (Peer peer : peers) {
+            if (!peerNodesByConsistentIds.containsKey(peer.consistentId())) {
+                ClusterNode node = clusterNodeResolver.apply(peer.consistentId());
+
+                if (node != null) {
+                    peerNodesByConsistentIds.put(peer.consistentId(), node);
+                }
+            }
+        }
+
+        if (peerNodesByConsistentIds.size() >= peers.size()) {
+            return completedFuture(null);
+        }
+
+        // TODO: remove the handler after https://issues.apache.org/jira/browse/IGNITE-14519 is implemented.
+
+        return withTimeout(allPeersAreSeenInTopology);
+    }
+
+    private static CompletableFuture<Void> withTimeout(CompletableFuture<Void> future) {
+        return future.orTimeout(PEERS_IN_TOPOLOGY_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .handle((res, ex) -> {
+                    if (ex instanceof TimeoutException) {
+                        return completedFuture(res);
+                    }
+
+                    if (ex != null) {
+                        return CompletableFuture.<Void>failedFuture(ex);
+                    }
+
+                    return completedFuture(res);
+                })
+                .thenCompose(identity());
+    }
+
+    private CompletableFuture<Long> queryDataNodesCount(Collection<Peer> peers, HasDataRequest request) {
         //noinspection unchecked
         CompletableFuture<Boolean>[] requestFutures = peers.stream()
                 .map(Peer::consistentId)
                 .map(clusterNodeResolver)
                 .filter(Objects::nonNull)
                 .map(node -> messagingService
-                        .invoke(node, request, QUERY_DATA_NODES_COUNT_TIMEOUT)
+                        .invoke(node, request, QUERY_DATA_NODES_COUNT_TIMEOUT_MILLIS)
                         .thenApply(response -> {
                             assert response instanceof HasDataResponse : response;
 

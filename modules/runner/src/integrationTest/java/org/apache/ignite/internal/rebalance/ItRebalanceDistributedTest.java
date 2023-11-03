@@ -1012,7 +1012,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     replicaManager,
                     Mockito.mock(LockManager.class),
                     replicaSvc,
-                    clusterService.topologyService(),
                     txManager,
                     dataStorageMgr,
                     storagePath,

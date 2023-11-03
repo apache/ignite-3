@@ -396,7 +396,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaMgr,
                 lockManager,
                 replicaService,
-                clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
                 storagePath,
