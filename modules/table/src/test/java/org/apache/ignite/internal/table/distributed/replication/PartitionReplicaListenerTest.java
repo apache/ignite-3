@@ -393,7 +393,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
         when(safeTimeClock.current()).thenReturn(HybridTimestamp.MIN_VALUE);
 
-        when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));
         when(schemas.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(completedFuture(null));
 
         lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);

@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -42,14 +43,16 @@ import org.apache.ignite.internal.tx.TransactionIds;
 class SchemaCompatValidator {
     private final Schemas schemas;
     private final CatalogService catalogService;
+    private final SchemaSyncService schemaSyncService;
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
     private final ConcurrentMap<DiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    SchemaCompatValidator(Schemas schemas, CatalogService catalogService) {
+    SchemaCompatValidator(Schemas schemas, CatalogService catalogService, SchemaSyncService schemaSyncService) {
         this.schemas = schemas;
         this.catalogService = catalogService;
+        this.schemaSyncService = schemaSyncService;
     }
 
     /**
@@ -78,7 +81,7 @@ class SchemaCompatValidator {
         // so we don't need to account for clock skew.
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
-        return schemas.waitForSchemasAvailability(commitTimestamp)
+        return schemaSyncService.waitForMetadataCompleteness(commitTimestamp)
                 .thenApply(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp));
     }
 
@@ -165,7 +168,7 @@ class SchemaCompatValidator {
     CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
-        return schemas.waitForSchemasAvailability(beginTimestamp)
+        return schemaSyncService.waitForMetadataCompleteness(beginTimestamp)
                 .thenCompose(ignored -> schemas.waitForSchemaAvailability(tableId, tupleSchemaVersion))
                 .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp));
     }

@@ -37,8 +37,6 @@ public class CatalogSchemas implements Schemas {
 
     private final SchemaManager schemaManager;
 
-    private final SchemaSyncService schemaSyncService;
-
     private final ConcurrentMap<CatalogVersionsSpan, List<FullTableSchema>> catalogVersionSpansCache = new ConcurrentHashMap<>();
 
     // TODO: Remove entries from cache when compacting Catalog https://issues.apache.org/jira/browse/IGNITE-20790
@@ -47,15 +45,9 @@ public class CatalogSchemas implements Schemas {
             = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    public CatalogSchemas(CatalogService catalogService, SchemaManager schemaManager, SchemaSyncService schemaSyncService) {
+    public CatalogSchemas(CatalogService catalogService, SchemaManager schemaManager) {
         this.catalogService = catalogService;
         this.schemaManager = schemaManager;
-        this.schemaSyncService = schemaSyncService;
-    }
-
-    @Override
-    public CompletableFuture<Void> waitForSchemasAvailability(HybridTimestamp ts) {
-        return schemaSyncService.waitForMetadataCompleteness(ts);
     }
 
     @Override

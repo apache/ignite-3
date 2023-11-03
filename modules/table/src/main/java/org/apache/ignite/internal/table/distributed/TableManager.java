@@ -889,7 +889,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txStatePartitionStorage,
                 transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
-                new CatalogSchemas(catalogService, schemaManager, schemaSyncService),
+                new CatalogSchemas(catalogService, schemaManager),
                 localNode(),
                 schemaSyncService,
                 catalogService,

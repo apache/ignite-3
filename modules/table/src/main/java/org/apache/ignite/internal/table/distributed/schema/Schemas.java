@@ -27,16 +27,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
  */
 public interface Schemas {
     /**
-     * Obtains a future that completes when all schemas activating not later than the given timestamp are available.
-     *
-     * @param ts Timestamp we are interested in. This is the timestamp transaction processing logic is interested in (like beginTs or
-     *     commitTs), not the timestamp after subtraction described in section 'Waiting for safe time in the past' of
-     *     <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-98:+Schema+Synchronization">IEP-98</a>
-     * @return Future that completes when all schemas activating not later than the given timestamp are available.
-     */
-    CompletableFuture<Void> waitForSchemasAvailability(HybridTimestamp ts);
-
-    /**
      * Obtains a future that completes when the given schema version becomes available.
      *
      * <p>Must only be called when it's guaranteed that the table exists from the point of view of {@link SchemaManager}.

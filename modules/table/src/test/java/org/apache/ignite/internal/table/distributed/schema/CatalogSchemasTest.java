@@ -74,16 +74,6 @@ class CatalogSchemasTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     @Test
-    void waitingForSchemasAvailabilityAtTimestampDelegatesToSchemaSyncService() {
-        HybridTimestamp ts = clock.now();
-        CompletableFuture<Void> underlyingFuture = new CompletableFuture<>();
-
-        when(schemaSyncService.waitForMetadataCompleteness(ts)).thenReturn(underlyingFuture);
-
-        assertThat(schemas.waitForSchemasAvailability(ts), is(underlyingFuture));
-    }
-
-    @Test
     void waitingForSchemaAvailabilityAtVersionWorks() {
         int tableId = 1;
         int version = 3;
