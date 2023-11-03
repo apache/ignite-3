@@ -43,6 +43,7 @@ class SchemaCompatValidator {
     private final Schemas schemas;
     private final CatalogService catalogService;
 
+    // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
     private final ConcurrentMap<DiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
     /** Constructor. */
