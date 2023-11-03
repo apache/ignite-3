@@ -75,12 +75,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
     /** {@inheritDoc} */
     @Override
-    public void set(int field, RowWrapper row, @Nullable Object val) {
-        row.set(field, val);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public RowWrapper concat(RowWrapper left, RowWrapper right) {
         int leftLen = left.columnsCount();
         int rightLen = right.columnsCount();
@@ -152,6 +146,38 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                 return SqlRowHandler.this;
             }
 
+            @Override
+            public RowBuilder<RowWrapper> rowBuilder() {
+                return new RowBuilder<>() {
+
+                    Object[] data;
+
+                    int column = 0;
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public void newRow() {
+                        data = new Object[schemaLen];
+                        column = 0;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public RowBuilder<RowWrapper> addField(Object value) {
+                        data[column++] = value;
+                        return this;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public RowWrapper build() {
+                        Object[] row = data;
+                        data = null;
+                        return new ObjectsArrayRowWrapper(rowSchema, row);
+                    }
+                };
+            }
+
             /** {@inheritDoc} */
             @Override
             public RowWrapper create() {
@@ -186,8 +212,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         abstract @Nullable Object get(int field);
 
-        abstract void set(int field, @Nullable Object value);
-
         abstract BinaryTuple toBinaryTuple();
     }
 
@@ -211,11 +235,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         @Override
         @Nullable Object get(int field) {
             return row[field];
-        }
-
-        @Override
-        void set(int field, @Nullable Object value) {
-            row[field] = value;
         }
 
         @Override
@@ -395,12 +414,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             }
 
             return TypeUtils.toInternal(value, Commons.nativeTypeToClass(nativeType));
-        }
-
-        @Override
-        void set(int field, @Nullable Object value) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-20356
-            throw new UnsupportedOperationException();
         }
 
         @Override

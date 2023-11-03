@@ -34,14 +34,6 @@ public interface RowHandler<RowT> {
      */
     @Nullable Object get(int field, RowT row);
 
-    /** Set incoming row field.
-     *
-     * @param field Field position to be processed.
-     * @param row Row which field need to be changed.
-     * @param val Value which should be set.
-     */
-    void set(int field, RowT row, @Nullable Object val);
-
     /** Concatenate two rows. */
     RowT concat(RowT left, RowT right);
 
@@ -85,6 +77,9 @@ public interface RowHandler<RowT> {
         /** Return row accessor and mutator implementation. */
         RowHandler<RowT> handler();
 
+        /** Creates a {@link RowBuilder row builder}. */
+        RowBuilder<RowT> rowBuilder();
+
         /** Create empty row. */
         RowT create();
 
@@ -103,5 +98,20 @@ public interface RowHandler<RowT> {
          * @return Instantiation defined representation.
          */
         RowT create(InternalTuple tuple);
+    }
+
+    /** A builder to create rows it uses the schema provided by an instance of row factory that created it. */
+    interface RowBuilder<RowT> {
+
+        /**
+         * Initialises construction of a new row. This method should be called prior to the first call to {@link #addField(Object)}.
+         */
+        void newRow();
+
+        /** Add a field to the current row. */
+        RowBuilder<RowT> addField(Object value);
+
+        /** Creates a new row from a previously add fields. */
+        RowT build();
     }
 }

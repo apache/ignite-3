@@ -53,6 +53,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -177,12 +178,19 @@ public class TypeUtils {
             RowHandler.RowFactory<RowT> factory = handler.factory(rowSchema);
             List<Function<Object, Object>> converters = transform(types, t -> fieldConverter(ectx, t));
             return r -> {
-                RowT newRow = factory.create();
-                assert handler.columnCount(newRow) == converters.size();
                 assert handler.columnCount(r) == converters.size();
+
+                RowBuilder<RowT> rowBuilder = factory.rowBuilder();
+                rowBuilder.newRow();
+
                 for (int i = 0; i < converters.size(); i++) {
-                    handler.set(i, newRow, converters.get(i).apply(handler.get(i, r)));
+                    Object converted = converters.get(i).apply(handler.get(i, r));
+                    rowBuilder.addField(converted);
                 }
+
+                RowT newRow = rowBuilder.build();
+                assert handler.columnCount(newRow) == converters.size();
+
                 return newRow;
             };
         }
