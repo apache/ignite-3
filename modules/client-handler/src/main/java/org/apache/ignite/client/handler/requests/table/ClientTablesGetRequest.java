@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.table;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -41,7 +41,7 @@ public class ClientTablesGetRequest {
             out.packInt(tables.size());
 
             for (var table : tables) {
-                var tableImpl = (TableImpl) table;
+                var tableImpl = (TableViewInternal) table;
 
                 out.packInt(tableImpl.tableId());
                 out.packString(table.name());

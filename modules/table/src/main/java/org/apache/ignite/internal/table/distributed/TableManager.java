@@ -132,6 +132,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -374,7 +375,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
-            TopologyService topologyService,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
             Path storagePath,
@@ -412,6 +412,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+
+        TopologyService topologyService = clusterService.topologyService();
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -478,6 +480,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 metaStorageMgr,
                 clusterService.messagingService(),
+                topologyService,
                 clusterNodeResolver,
                 tableId -> latestTablesById().get(tableId)
         );
@@ -1449,7 +1452,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public TableImpl table(int id) throws NodeStoppingException {
+    public TableViewInternal table(int id) throws NodeStoppingException {
         return join(tableAsync(id));
     }
 
@@ -1466,7 +1469,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param id Table id.
      * @return Future.
      */
-    public CompletableFuture<TableImpl> tableAsync(long causalityToken, int id) {
+    public CompletableFuture<TableViewInternal> tableAsync(long causalityToken, int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1478,7 +1481,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<TableImpl> tableAsync(int tableId) {
+    public CompletableFuture<TableViewInternal> tableAsync(int tableId) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
@@ -1515,12 +1518,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public TableImpl tableImpl(String name) {
-        return join(tableImplAsync(name));
+    public TableViewInternal tableView(String name) {
+        return join(tableViewAsync(name));
     }
 
     @Override
-    public CompletableFuture<TableImpl> tableImplAsync(String name) {
+    public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
     }
 
@@ -1530,7 +1533,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    private CompletableFuture<TableImpl> tableAsyncInternal(String name) {
+    private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
@@ -1548,14 +1551,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<TableImpl> tableAsyncInternalBusy(int tableId) {
+    private CompletableFuture<TableViewInternal> tableAsyncInternalBusy(int tableId) {
         TableImpl tableImpl = latestTablesById().get(tableId);
 
         if (tableImpl != null) {
             return completedFuture(tableImpl);
         }
 
-        CompletableFuture<TableImpl> getLatestTableFuture = new CompletableFuture<>();
+        CompletableFuture<TableViewInternal> getLatestTableFuture = new CompletableFuture<>();
 
         CompletionListener<Void> tablesListener = (token, v, th) -> {
             if (th == null) {
@@ -2211,7 +2214,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param tableId Table id.
      */
-    public @Nullable TableImpl getTable(int tableId) {
+    public @Nullable TableViewInternal getTable(int tableId) {
         return startedTables.get(tableId);
     }
 
@@ -2221,7 +2224,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      */
     @TestOnly
-    public @Nullable TableImpl getTable(String name) {
+    public @Nullable TableViewInternal getTable(String name) {
         return findTableImplByName(startedTables.values(), name);
     }
 

@@ -33,7 +33,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -150,7 +150,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
         // We use this api because there is no waiting for schemas to sync.
-        TableImpl table = ((TableManager) node.tables()).getTable(TABLE_NAME);
+        TableViewInternal table = ((TableManager) node.tables()).getTable(TABLE_NAME);
 
         assertNotNull(table);
 

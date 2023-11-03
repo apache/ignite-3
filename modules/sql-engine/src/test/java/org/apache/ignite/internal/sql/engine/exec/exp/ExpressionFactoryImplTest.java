@@ -93,7 +93,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 .executor(Mockito.mock(QueryTaskExecutor.class))
                 .build();
 
-        expFactory = new ExpressionFactoryImpl<>(ctx, typeFactory, SqlConformanceEnum.DEFAULT);
+        expFactory = new ExpressionFactoryImpl<>(ctx, SqlConformanceEnum.DEFAULT);
     }
 
     @Test
