@@ -9,8 +9,8 @@ Fragment#0 root
 
 Fragment#1
   targetNodes: [N1]
-  tables: [T1_N1]
   executionNodes: [N1]
+  tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
@@ -27,8 +27,8 @@ Fragment#0 root
 
 Fragment#1
   targetNodes: [N2]
-  tables: [T1_N1]
   executionNodes: [N1]
+  tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
@@ -45,8 +45,8 @@ Fragment#0 root
 
 Fragment#1
   targetNodes: [N1]
-  tables: [T1_N1]
   executionNodes: [N1]
+  tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])

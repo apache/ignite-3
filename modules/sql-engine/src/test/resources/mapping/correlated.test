@@ -9,17 +9,17 @@ Fragment#4 root
 
 Fragment#1
   targetNodes: [N1]
-  tables: [T_N1]
   executionNodes: [N1]
+  tables: [T_N1]
   tree:
     IgniteSender(targetFragment=5, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T_N1, source=3, distribution=random)
 
 Fragment#5
   targetNodes: [N0]
-  tables: [CT_N1]
   executionNodes: [N1]
   remoteFragments: [1]
+  tables: [CT_N1]
   tree:
     IgniteSender(targetFragment=4, exchange=5, distribution=single)
       IgniteProject
@@ -33,9 +33,9 @@ N1
 SELECT (SELECT count(*) FROM ct_n1) FROM t_n1
 ---
 Fragment#0 root
-  tables: [CT_N1]
   executionNodes: [N1]
   remoteFragments: [1]
+  tables: [CT_N1]
   tree:
     IgniteProject
       IgniteNestedLoopJoin
@@ -45,8 +45,8 @@ Fragment#0 root
 
 Fragment#1
   targetNodes: [N1]
-  tables: [T_N1]
   executionNodes: [N1]
+  tables: [T_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T_N1, source=3, distribution=random)
@@ -63,17 +63,17 @@ Fragment#4 root
 
 Fragment#1
   targetNodes: [N1]
-  tables: [T_N2]
   executionNodes: [N2]
+  tables: [T_N2]
   tree:
     IgniteSender(targetFragment=5, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T_N2, source=3, distribution=random)
 
 Fragment#5
   targetNodes: [N0]
-  tables: [CT_N1]
   executionNodes: [N1]
   remoteFragments: [1]
+  tables: [CT_N1]
   tree:
     IgniteSender(targetFragment=4, exchange=5, distribution=single)
       IgniteProject
@@ -87,9 +87,9 @@ N1
 SELECT (SELECT count(*) FROM ct_n1) FROM t_n2
 ---
 Fragment#0 root
-  tables: [CT_N1]
   executionNodes: [N1]
   remoteFragments: [1]
+  tables: [CT_N1]
   tree:
     IgniteProject
       IgniteNestedLoopJoin
@@ -99,8 +99,8 @@ Fragment#0 root
 
 Fragment#1
   targetNodes: [N1]
-  tables: [T_N2]
   executionNodes: [N2]
+  tables: [T_N2]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T_N2, source=3, distribution=random)
@@ -122,8 +122,8 @@ Fragment#0 root
 
 Fragment#1
   targetNodes: [N0]
-  tables: [T_N1]
   executionNodes: [N1]
+  tables: [T_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteSort
@@ -142,8 +142,8 @@ Fragment#2 root
 
 Fragment#3
   targetNodes: [N0]
-  tables: [CT_N1]
   executionNodes: [N1]
+  tables: [CT_N1]
   tree:
     IgniteSender(targetFragment=2, exchange=3, distribution=single)
       IgniteProject
@@ -175,8 +175,8 @@ Fragment#0 root
 
 Fragment#1
   targetNodes: [N0]
-  tables: [T_N1]
   executionNodes: [N1]
+  tables: [T_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T_N1, source=2, distribution=affinity[table: T_N1, columns: [ID]])

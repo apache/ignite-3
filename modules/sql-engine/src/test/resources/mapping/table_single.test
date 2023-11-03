@@ -9,8 +9,8 @@ Fragment#3 root
 
 Fragment#4
   targetNodes: [N0]
-  tables: [CT1_N1, CT2_N1]
   executionNodes: [N1]
+  tables: [CT1_N1, CT2_N1]
   tree:
     IgniteSender(targetFragment=3, exchange=4, distribution=single)
       IgniteNestedLoopJoin
@@ -22,8 +22,8 @@ N1
 SELECT * FROM ct1_n1, ct2_n1
 ---
 Fragment#0 root
-  tables: [CT1_N1, CT2_N1]
   executionNodes: [N1]
+  tables: [CT1_N1, CT2_N1]
   tree:
     IgniteNestedLoopJoin
       IgniteTableScan(name=PUBLIC.CT1_N1, source=1, distribution=single)
@@ -41,17 +41,17 @@ Fragment#5 root
 
 Fragment#4
   targetNodes: [N2]
-  tables: [CT1_N1]
   executionNodes: [N1]
+  tables: [CT1_N1]
   tree:
     IgniteSender(targetFragment=6, exchange=4, distribution=single)
       IgniteTableScan(name=PUBLIC.CT1_N1, source=1, distribution=single)
 
 Fragment#6
   targetNodes: [N0]
-  tables: [CT2_N2]
   executionNodes: [N2]
   remoteFragments: [4]
+  tables: [CT2_N2]
   tree:
     IgniteSender(targetFragment=5, exchange=6, distribution=single)
       IgniteNestedLoopJoin
@@ -70,17 +70,17 @@ Fragment#5 root
 
 Fragment#4
   targetNodes: [N2]
-  tables: [CT1_N1]
   executionNodes: [N1]
+  tables: [CT1_N1]
   tree:
     IgniteSender(targetFragment=6, exchange=4, distribution=single)
       IgniteTableScan(name=PUBLIC.CT1_N1, source=1, distribution=single)
 
 Fragment#6
   targetNodes: [N1]
-  tables: [CT2_N2]
   executionNodes: [N2]
   remoteFragments: [4]
+  tables: [CT2_N2]
   tree:
     IgniteSender(targetFragment=5, exchange=6, distribution=single)
       IgniteNestedLoopJoin

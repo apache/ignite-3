@@ -11,16 +11,16 @@ Fragment#0 root
 
 Fragment#2
   targetNodes: [N1]
-  tables: [T2_N2]
   executionNodes: [N2]
+  tables: [T2_N2]
   tree:
     IgniteSender(targetFragment=0, exchange=2, distribution=single)
       IgniteTableScan(name=PUBLIC.T2_N2, source=3, distribution=random)
 
 Fragment#1
   targetNodes: [N1]
-  tables: [T1_N1]
   executionNodes: [N1]
+  tables: [T1_N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T1_N1, source=4, distribution=random)
@@ -38,8 +38,8 @@ Fragment#0 root
 
 Fragment#1
   targetNodes: [N1]
-  tables: [T1_N1, T2_N2]
   executionNodes: [N1, N2]
+  tables: [T1_N1, T2_N2]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteMapMinus
