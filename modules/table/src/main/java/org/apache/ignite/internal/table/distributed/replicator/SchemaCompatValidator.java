@@ -21,9 +21,12 @@ import static java.util.stream.Collectors.toSet;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -39,6 +42,8 @@ import org.apache.ignite.internal.tx.TransactionIds;
 class SchemaCompatValidator {
     private final Schemas schemas;
     private final CatalogService catalogService;
+
+    private final ConcurrentMap<DiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
     /** Constructor. */
     SchemaCompatValidator(Schemas schemas, CatalogService catalogService) {
@@ -132,7 +137,13 @@ class SchemaCompatValidator {
     }
 
     private boolean isForwardCompatible(FullTableSchema prevSchema, FullTableSchema nextSchema) {
-        TableDefinitionDiff diff = nextSchema.diffFrom(prevSchema);
+        assert prevSchema.schemaVersion() + 1 == nextSchema.schemaVersion()
+                : "Prev schema version is " + prevSchema.schemaVersion() + ", next schema version is " + nextSchema.schemaVersion();
+
+        TableDefinitionDiff diff = diffCache.computeIfAbsent(
+                new DiffKey(prevSchema.tableId(), prevSchema.schemaVersion()),
+                key -> nextSchema.diffFrom(prevSchema)
+        );
 
         // TODO: IGNITE-19229 - more sophisticated logic.
         return diff.isEmpty();
@@ -238,6 +249,33 @@ class SchemaCompatValidator {
 
         if (table.tableVersion() != requestSchemaVersion) {
             throw new InternalSchemaVersionMismatchException();
+        }
+    }
+
+    private static class DiffKey {
+        private final int tableId;
+        private final int fromSchemaVersion;
+
+        private DiffKey(int tableId, int fromSchemaVersion) {
+            this.tableId = tableId;
+            this.fromSchemaVersion = fromSchemaVersion;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            DiffKey diffKey = (DiffKey) o;
+            return tableId == diffKey.tableId && fromSchemaVersion == diffKey.fromSchemaVersion;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tableId, fromSchemaVersion);
         }
     }
 }
