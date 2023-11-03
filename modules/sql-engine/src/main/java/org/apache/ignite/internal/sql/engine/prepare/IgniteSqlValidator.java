@@ -495,7 +495,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 }
             }
 
-            literalCanFitType(expr, returnType);
+            if (castOp) {
+                literalCanFitType(expr, returnType);
+            }
         }
     }
 
