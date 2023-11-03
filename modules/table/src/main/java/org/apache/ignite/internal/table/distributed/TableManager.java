@@ -66,6 +66,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -88,6 +89,7 @@ import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -268,6 +270,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
+    private final AtomicBoolean beforeStopGuard = new AtomicBoolean();
+
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Schema manager. */
@@ -951,8 +955,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public void stop() {
-        if (!stopGuard.compareAndSet(false, true)) {
+    public void beforeNodeStop() {
+        if (!beforeStopGuard.compareAndSet(false, true)) {
             return;
         }
 
@@ -964,23 +968,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        Map<Integer, TableImpl> tablesToStop = Stream.concat(latestTablesById().entrySet().stream(), pendingTables.entrySet().stream())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
+        var tablesToStop = new HashMap<Integer, TableImpl>();
+
+        tablesToStop.putAll(latestTablesById());
+        tablesToStop.putAll(pendingTables);
 
         cleanUpTablesResources(tablesToStop);
+    }
 
-        try {
-            IgniteUtils.closeAllManually(lowWatermark, mvGc);
-        } catch (Throwable t) {
-            LOG.error("Failed to close internal components", t);
+    @Override
+    public void stop() throws Exception {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
         }
 
-        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.closeAllManually(
+                lowWatermark,
+                mvGc,
+                () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS)
+        );
     }
 
     /**
@@ -989,73 +1000,46 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tables Tables to stop.
      */
     private void cleanUpTablesResources(Map<Integer, TableImpl> tables) {
+        var futures = new ArrayList<CompletableFuture<Void>>();
+
         for (TableImpl table : tables.values()) {
-            table.beforeClose();
+            futures.add(runAsync(() -> {
+                Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
 
-            List<Runnable> stopping = new ArrayList<>();
+                stopping.add(table::beforeClose);
 
-            AtomicReference<Throwable> throwable = new AtomicReference<>();
+                InternalTable internalTable = table.internalTable();
 
-            AtomicBoolean nodeStoppingEx = new AtomicBoolean();
+                for (int p = 0; p < internalTable.partitions(); p++) {
+                    TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-            InternalTable internalTable = table.internalTable();
+                    stopping.add(() -> raftMgr.stopRaftNodes(replicationGroupId));
 
-            for (int p = 0; p < internalTable.partitions(); p++) {
-                int partitionId = p;
+                    stopping.add(() -> replicaMgr.stopReplica(replicationGroupId).get(10, TimeUnit.SECONDS));
 
-                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+                    CompletableFuture<Void> removeFromGcFuture = mvGc.removeStorage(replicationGroupId);
 
-                stopping.add(() -> {
-                    try {
-                        raftMgr.stopRaftNodes(replicationGroupId);
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
-                });
+                    stopping.add(() -> closePartitionTrackers(internalTable, replicationGroupId.partitionId()));
 
-                stopping.add(() -> {
-                    try {
-                        replicaMgr.stopReplica(replicationGroupId).join();
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
-                });
+                    stopping.add(() -> removeFromGcFuture.get(10, TimeUnit.SECONDS));
+                }
 
-                CompletableFuture<Void> removeFromGcFuture = mvGc.removeStorage(replicationGroupId);
+                stopping.add(internalTable.storage());
+                stopping.add(internalTable.txStateStorage());
+                stopping.add(internalTable);
 
-                stopping.add(() -> {
-                    try {
-                        closePartitionTrackers(internalTable, partitionId);
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
-                });
+                try {
+                    IgniteUtils.closeAllManually(stopping.build());
+                } catch (Throwable t) {
+                    LOG.error("Unable to stop table [name={}, tableId={}]", t, table.name(), table.tableId());
+                }
+            }, ioExecutor));
+        }
 
-                stopping.add(() -> {
-                    try {
-                        // Should be done fairly quickly.
-                        removeFromGcFuture.join();
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
-                });
-            }
-
-            stopping.forEach(Runnable::run);
-
-            try {
-                IgniteUtils.closeAllManually(
-                        internalTable.storage(),
-                        internalTable.txStateStorage(),
-                        internalTable
-                );
-            } catch (Throwable t) {
-                handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-            }
-
-            if (throwable.get() != null) {
-                LOG.error("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
-            }
+        try {
+            allOf(futures.toArray(CompletableFuture[]::new)).get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            LOG.error("Unable to clean table resources", e);
         }
     }
 
