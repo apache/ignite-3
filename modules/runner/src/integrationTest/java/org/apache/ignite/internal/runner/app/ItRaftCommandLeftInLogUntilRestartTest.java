@@ -45,7 +45,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.ClusterNode;
@@ -170,7 +170,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         var appliedIndexNode0 = partitionUpdateInhibitor(node0, leaderAndGroupRef);
         var appliedIndexNode1 = partitionUpdateInhibitor(node1, leaderAndGroupRef);
 
-        TableView table = (TableView) createTable(DEFAULT_TABLE_NAME, 2, 1);
+        TableViewInternal table = (TableViewInternal) createTable(DEFAULT_TABLE_NAME, 2, 1);
 
         ClusterNode leader = table.internalTable().leaderAssignment(0);
 
@@ -219,7 +219,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         clearData(ignite.tables().table(DEFAULT_TABLE_NAME));
     }
 
-    private static Row marshalKey(TableView table, Tuple tuple) throws TupleMarshallerException {
+    private static Row marshalKey(TableViewInternal table, Tuple tuple) throws TupleMarshallerException {
         SchemaRegistry schemaReg = table.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 
@@ -288,7 +288,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     }
 
     private void checkData(IgniteImpl ignite, Object[][] dataSet) {
-        TableView table = (TableView) ignite.tables().table(DEFAULT_TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
         assertNotNull(table);
 
@@ -338,7 +338,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      * @param ignite Ignite instance.
      */
     private void transferLeadershipToLocalNode(IgniteImpl ignite) {
-        TableView table = (TableView) ignite.tables().table(DEFAULT_TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
 

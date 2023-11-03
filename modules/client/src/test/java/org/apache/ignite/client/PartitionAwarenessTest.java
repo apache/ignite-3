@@ -36,7 +36,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -614,7 +614,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private void createTable(Ignite ignite, int id, String name) {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
-        TableView tableView = tables.createTable(name, id);
+        TableViewInternal tableView = tables.createTable(name, id);
 
         ((FakeInternalTable) tableView.internalTable()).setDataAccessListener((op, data) -> {
             lastOp = op;

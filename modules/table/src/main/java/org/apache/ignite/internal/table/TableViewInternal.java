@@ -28,7 +28,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
 /** Internal table view interface. */
-public interface TableView extends Table {
+public interface TableViewInternal extends Table {
     /**
      * Gets a table id.
      *
@@ -43,10 +43,18 @@ public interface TableView extends Table {
      */
     void pkId(int pkId);
 
-    /** Returns an identifier of a primary index. */
+    /**
+     *  Gets an identifier of a primary index.
+     *
+     * @return Primary index identifier.
+     */
     int pkId();
 
-    /** Returns an internal table instance this view represents. */
+    /**
+     * Gets an internal table instance this view represents.
+     *
+     * @return Internal table instance.
+     */
     InternalTable internalTable();
 
     /**
@@ -84,13 +92,13 @@ public interface TableView extends Table {
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
      * it cannot be found.
      *
-     * @param partition partition number
-     * @return leader node of the partition group corresponding to the partition
+     * @param partition Partition number.
+     * @return Leader node of the partition group corresponding to the partition.
      */
     ClusterNode leaderAssignment(int partition);
 
     /**
-     * Register the index with given id in a table.
+     * Registers the index with given id in a table.
      *
      * @param indexDescriptor Index descriptor.
      * @param unique A flag indicating whether the given index unique or not.
@@ -104,7 +112,7 @@ public interface TableView extends Table {
     );
 
     /**
-     * Register the index with given id in a table.
+     * Registers the index with given id in a table.
      *
      * @param indexDescriptor Index descriptor.
      * @param searchRowResolver Function which converts given table row to an index key.
@@ -116,7 +124,7 @@ public interface TableView extends Table {
     );
 
     /**
-     * Unregister given index from table.
+     * Unregisters given index from table.
      *
      * @param indexId An index id to unregister.
      */

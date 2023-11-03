@@ -108,10 +108,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     );
 
     /** Accounts table id -> balance. */
-    protected TableView accounts;
+    protected TableViewInternal accounts;
 
     /** Customers table id -> name. */
-    protected TableView customers;
+    protected TableViewInternal customers;
 
     protected static final double BALANCE_1 = 500;
 
@@ -1740,7 +1740,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param t The table.
      * @return TX manager.
      */
-    protected abstract TxManager txManager(TableView t);
+    protected abstract TxManager txManager(TableViewInternal t);
 
     /**
      * Get a lock manager on a partition leader.
@@ -1748,7 +1748,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param t The table.
      * @return Lock manager.
      */
-    protected LockManager lockManager(TableView t) {
+    protected LockManager lockManager(TableViewInternal t) {
         return txManager(t).lockManager();
     }
 
@@ -1759,7 +1759,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param partId Partition id.
      * @return {@code True} if a replicas are the same.
      */
-    protected abstract boolean assertPartitionsSame(TableView table, int partId);
+    protected abstract boolean assertPartitionsSame(TableViewInternal table, int partId);
 
     /**
      * Validates balances.
@@ -2127,7 +2127,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         }
     }
 
-    protected abstract void injectFailureOnNextOperation(TableView accounts);
+    protected abstract void injectFailureOnNextOperation(TableViewInternal accounts);
 
     /**
      * Returns server nodes' tx managers.

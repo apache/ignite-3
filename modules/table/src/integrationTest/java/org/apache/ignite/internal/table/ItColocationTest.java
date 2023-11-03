@@ -131,7 +131,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private SchemaRegistry schemaRegistry;
 
-    private TableView tbl;
+    private TableViewInternal tbl;
 
     private TupleMarshallerImpl marshaller;
 

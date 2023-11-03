@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -61,7 +61,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private IgniteComputeImpl compute;
 
     @Mock
-    private TableView table;
+    private TableViewInternal table;
 
     private final ClusterNode localNode = new ClusterNodeImpl("local", "local", new NetworkAddress("local-host", 1));
 

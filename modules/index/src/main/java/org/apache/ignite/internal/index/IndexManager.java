@@ -61,7 +61,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -185,7 +185,7 @@ public class IndexManager implements IgniteComponent {
 
         long causalityToken = parameters.causalityToken();
 
-        CompletableFuture<TableView> tableFuture = tableManager.tableAsync(causalityToken, tableId);
+        CompletableFuture<TableViewInternal> tableFuture = tableManager.tableAsync(causalityToken, tableId);
 
         return inBusyLockAsync(busyLock, () -> mvTableStoragesByIdVv.update(
                 causalityToken,
@@ -372,7 +372,7 @@ public class IndexManager implements IgniteComponent {
             PartitionSet partitionSet,
             SchemaRegistry schemaRegistry
     ) {
-        TableView tableView = getTableViewStrict(table.id());
+        TableViewInternal tableView = getTableViewStrict(table.id());
 
         var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
 
@@ -435,8 +435,8 @@ public class IndexManager implements IgniteComponent {
         return newMap;
     }
 
-    private TableView getTableViewStrict(int tableId) {
-        TableView table = tableManager.getTable(tableId);
+    private TableViewInternal getTableViewStrict(int tableId) {
+        TableViewInternal table = tableManager.getTable(tableId);
 
         assert table != null : tableId;
 

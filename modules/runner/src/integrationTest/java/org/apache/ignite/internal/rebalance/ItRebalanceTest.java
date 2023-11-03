@@ -43,7 +43,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -87,7 +87,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         //Creates table with 1 partition and 3 replicas.
         createTestTable();
 
-        TableView table = (TableView) cluster.node(0).tables().table("TEST");
+        TableViewInternal table = (TableViewInternal) cluster.node(0).tables().table("TEST");
 
         waitForStableAssignmentsInMetastore(Set.of(
                 nodeName(0),
@@ -143,7 +143,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         );
     }
 
-    private static Row marshalTuple(TableView table, Tuple tuple) throws TupleMarshallerException {
+    private static Row marshalTuple(TableViewInternal table, Tuple tuple) throws TupleMarshallerException {
         SchemaRegistry schemaReg = table.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 

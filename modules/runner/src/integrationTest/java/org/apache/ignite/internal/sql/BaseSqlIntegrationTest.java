@@ -51,7 +51,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
@@ -261,7 +261,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
 
         CLUSTER.runningNodes().forEach(clusterNode -> {
             try {
-                TableView table = getTableView(clusterNode, tableName);
+                TableViewInternal table = getTableView(clusterNode, tableName);
 
                 assertNotNull(table, clusterNode.name() + " : " + tableName);
 
@@ -320,12 +320,12 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @param node Node.
      * @param tableName Table name.
      */
-    protected static @Nullable TableView getTableView(Ignite node, String tableName) {
+    protected static @Nullable TableViewInternal getTableView(Ignite node, String tableName) {
         CompletableFuture<Table> tableFuture = node.tables().tableAsync(tableName);
 
         assertThat(tableFuture, willSucceedFast());
 
-        return (TableView) tableFuture.join();
+        return (TableViewInternal) tableFuture.join();
     }
 
     /**

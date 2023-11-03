@@ -39,7 +39,7 @@ import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -269,7 +269,7 @@ public class ClientTableCommon {
      * @param keyOnly Whether only key fields are expected.
      * @return Future that will be completed with a tuple.
      */
-    public static CompletableFuture<Tuple> readTuple(ClientMessageUnpacker unpacker, TableView table, boolean keyOnly) {
+    public static CompletableFuture<Tuple> readTuple(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
         return readSchema(unpacker, table).thenApply(schema -> readTuple(unpacker, keyOnly, schema));
     }
 
@@ -306,7 +306,7 @@ public class ClientTableCommon {
      * @param keyOnly Whether only key fields are expected.
      * @return Future that will be completed with tuples.
      */
-    public static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableView table, boolean keyOnly) {
+    public static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
         return readSchema(unpacker, table).thenApply(schema -> {
             var rowCnt = unpacker.unpackInt();
             var res = new ArrayList<Tuple>(rowCnt);
@@ -326,7 +326,7 @@ public class ClientTableCommon {
      * @param table Table.
      * @return Schema descriptor future.
      */
-    public static CompletableFuture<SchemaDescriptor> readSchema(ClientMessageUnpacker unpacker, TableView table) {
+    public static CompletableFuture<SchemaDescriptor> readSchema(ClientMessageUnpacker unpacker, TableViewInternal table) {
         var schemaId = unpacker.unpackInt();
 
         // Use schemaAsync() as the schema version is coming from outside and we have no guarantees that this version is ready.
@@ -344,7 +344,7 @@ public class ClientTableCommon {
      *                             <li>the node is stopping.</li>
      *                         </ul>
      */
-    public static CompletableFuture<TableView> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
+    public static CompletableFuture<TableViewInternal> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
         int tableId = unpacker.unpackInt();
 
         try {

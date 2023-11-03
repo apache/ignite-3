@@ -154,7 +154,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -377,7 +377,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        TableView nonLeaderTable = (TableView) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_NAME);
+        TableViewInternal nonLeaderTable = (TableViewInternal) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_NAME);
 
         var countDownLatch = new CountDownLatch(1);
 
@@ -1223,7 +1223,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertNotNull(table, tableName);
 
-        return ((TableView) table).internalTable();
+        return ((TableViewInternal) table).internalTable();
     }
 
     private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {

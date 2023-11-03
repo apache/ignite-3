@@ -47,7 +47,7 @@ abstract class TableKvOperationsTestBase extends BaseIgniteAbstractTest {
 
     protected final SchemaVersions schemaVersions = new ConstantSchemaVersions(SCHEMA_VERSION);
 
-    protected final TableView createTable(SchemaDescriptor schema) {
+    protected final TableViewInternal createTable(SchemaDescriptor schema) {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);

@@ -57,7 +57,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Table view implementation for binary objects.
  */
-public class TableImpl implements TableView {
+public class TableImpl implements TableViewInternal {
     /** Internal table. */
     private final InternalTable tbl;
 

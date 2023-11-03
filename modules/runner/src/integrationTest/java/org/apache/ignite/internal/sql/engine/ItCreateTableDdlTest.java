@@ -36,7 +36,7 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -150,7 +150,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void implicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
 
-        Column[] colocationColumns = ((TableView) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        Column[] colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(2, colocationColumns.length);
         assertEquals("ID1", colocationColumns[0].name());
@@ -276,7 +276,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void explicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
-        Column[] colocationColumns = ((TableView) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        Column[] colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("ID0", colocationColumns[0].name());
@@ -289,7 +289,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void explicitColocationColumnsCaseSensitive() {
         sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
 
-        Column[] colocationColumns = ((TableView) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        Column[] colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("Id0", colocationColumns[0].name());

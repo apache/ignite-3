@@ -132,7 +132,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableView;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -1452,7 +1452,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public TableView table(int id) throws NodeStoppingException {
+    public TableViewInternal table(int id) throws NodeStoppingException {
         return join(tableAsync(id));
     }
 
@@ -1469,7 +1469,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param id Table id.
      * @return Future.
      */
-    public CompletableFuture<TableView> tableAsync(long causalityToken, int id) {
+    public CompletableFuture<TableViewInternal> tableAsync(long causalityToken, int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1481,7 +1481,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<TableView> tableAsync(int tableId) {
+    public CompletableFuture<TableViewInternal> tableAsync(int tableId) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
@@ -1518,12 +1518,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public TableView tableView(String name) {
+    public TableViewInternal tableView(String name) {
         return join(tableViewAsync(name));
     }
 
     @Override
-    public CompletableFuture<TableView> tableViewAsync(String name) {
+    public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
     }
 
@@ -1533,7 +1533,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    private CompletableFuture<TableView> tableAsyncInternal(String name) {
+    private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
@@ -1551,14 +1551,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<TableView> tableAsyncInternalBusy(int tableId) {
+    private CompletableFuture<TableViewInternal> tableAsyncInternalBusy(int tableId) {
         TableImpl tableImpl = latestTablesById().get(tableId);
 
         if (tableImpl != null) {
             return completedFuture(tableImpl);
         }
 
-        CompletableFuture<TableView> getLatestTableFuture = new CompletableFuture<>();
+        CompletableFuture<TableViewInternal> getLatestTableFuture = new CompletableFuture<>();
 
         CompletionListener<Void> tablesListener = (token, v, th) -> {
             if (th == null) {
@@ -2214,7 +2214,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param tableId Table id.
      */
-    public @Nullable TableView getTable(int tableId) {
+    public @Nullable TableViewInternal getTable(int tableId) {
         return startedTables.get(tableId);
     }
 
@@ -2224,7 +2224,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      */
     @TestOnly
-    public @Nullable TableView getTable(String name) {
+    public @Nullable TableViewInternal getTable(String name) {
         return findTableImplByName(startedTables.values(), name);
     }
 
