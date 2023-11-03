@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -130,6 +131,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
+    /** Connection id generator. */
+    private static final AtomicLong CONNECTION_ID_GEN = new AtomicLong();
+
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
@@ -182,6 +186,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final AuthenticationManager authenticationManager;
 
     private final SchemaVersions schemaVersions;
+
+    private final long connectionId = CONNECTION_ID_GEN.incrementAndGet();
 
     /**
      * Constructor.
@@ -256,6 +262,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
         channelHandlerContext = ctx;
         super.channelRegistered(ctx);
+
+        LOG.debug("Connection registered [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
     }
 
     /** {@inheritDoc} */
@@ -285,6 +293,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         igniteTables.removeAssignmentsChangeListener(partitionAssignmentsChangeListener);
 
         super.channelInactive(ctx);
+
+        LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
