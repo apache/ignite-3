@@ -18,23 +18,27 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Embedded implementation of the Ignite SQL query facade.
@@ -44,6 +48,10 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** Session expiration check period in milliseconds. */
     private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private final QueryProcessor qryProc;
 
@@ -82,7 +90,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new SessionBuilderImpl(sessions, qryProc, transactions, new HashMap<>());
+        return new SessionBuilderImpl(busyLock, sessions, qryProc, transactions, new HashMap<>());
     }
 
     /** {@inheritDoc} */
@@ -115,6 +123,20 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     @Override
     public void stop() throws Exception {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         executor.shutdownNow();
+
+        sessions.values().forEach(SessionImpl::closeAsync);
+        sessions.clear();
+    }
+
+    @TestOnly
+    public List<Session> sessions() {
+        return List.copyOf(sessions.values());
     }
 }

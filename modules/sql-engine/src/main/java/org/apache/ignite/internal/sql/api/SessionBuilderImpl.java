@@ -26,6 +26,9 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -36,10 +39,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SessionBuilderImpl implements SessionBuilder {
 
-    public static final long DEFAULT_QUERY_TIMEOUT = 0;
-    public static final long DEFAULT_SESSION_TIMEOUT = TimeUnit.MINUTES.toMillis(5);
+    private static final long DEFAULT_QUERY_TIMEOUT = 0;
+    private static final long DEFAULT_SESSION_TIMEOUT = TimeUnit.MINUTES.toMillis(5);
 
     private final QueryProcessor qryProc;
+
+    private final IgniteSpinBusyLock busyLock;
 
     private final ConcurrentMap<SessionId, SessionImpl> sessions;
 
@@ -58,16 +63,21 @@ public class SessionBuilderImpl implements SessionBuilder {
     /**
      * Session builder constructor.
      *
+     * @param busyLock Lock that will be used to synchronise write to {@code sessions}
+     *      map to prevent races on cleaning the map on node stop and adding newly created session.
+     * @param sessions Active sessions. Any created by this builder session should be added to this map.
      * @param qryProc SQL query processor.
      * @param transactions Transactions facade.
      * @param props Initial properties.
      */
     SessionBuilderImpl(
+            IgniteSpinBusyLock busyLock,
             ConcurrentMap<SessionId, SessionImpl> sessions,
             QueryProcessor qryProc,
             IgniteTransactions transactions,
             Map<String, Object> props
     ) {
+        this.busyLock = busyLock;
         this.sessions = sessions;
         this.qryProc = qryProc;
         this.transactions = transactions;
@@ -177,18 +187,27 @@ public class SessionBuilderImpl implements SessionBuilder {
 
         SessionImpl session = new SessionImpl(
                 sessionId,
-                sessions,
+                props -> new SessionBuilderImpl(busyLock, sessions, qryProc, transactions, props),
                 qryProc,
                 transactions,
                 pageSize,
                 sessionTimeout,
                 propsHolder,
-                System::currentTimeMillis
+                System::currentTimeMillis,
+                () -> sessions.remove(sessionId)
         );
 
-        Session old = sessions.put(sessionId, session);
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(Common.NODE_STOPPING_ERR, "Node is stopping.");
+        }
 
-        assert old == null;
+        try {
+            Session old = sessions.put(sessionId, session);
+
+            assert old == null;
+        } finally {
+            busyLock.leaveBusy();
+        }
 
         return session;
     }

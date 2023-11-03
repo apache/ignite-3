@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
@@ -73,7 +72,7 @@ public class SessionImpl implements AbstractSession {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final ConcurrentMap<SessionId, SessionImpl> sessions;
+    private final SessionBuilderFactory sessionBuilderFactory;
 
     private final QueryProcessor qryProc;
 
@@ -89,11 +88,13 @@ public class SessionImpl implements AbstractSession {
 
     private final IdleExpirationTracker expirationTracker;
 
+    private final Runnable onClose;
+
     /**
      * Constructor.
      *
      * @param sessionId Identifier of the session.
-     * @param sessions Map of created sessions.
+     * @param sessionBuilderFactory Map of created sessions.
      * @param qryProc Query processor.
      * @param transactions Transactions facade.
      * @param pageSize Query fetch page size.
@@ -104,13 +105,14 @@ public class SessionImpl implements AbstractSession {
      */
     SessionImpl(
             SessionId sessionId,
-            ConcurrentMap<SessionId, SessionImpl> sessions,
+            SessionBuilderFactory sessionBuilderFactory,
             QueryProcessor qryProc,
             IgniteTransactions transactions,
             int pageSize,
             long idleTimeoutMs,
             PropertiesHolder props,
-            CurrentTimeProvider timeProvider
+            CurrentTimeProvider timeProvider,
+            Runnable onClose
     ) {
         this.qryProc = qryProc;
         this.transactions = transactions;
@@ -118,7 +120,8 @@ public class SessionImpl implements AbstractSession {
         this.pageSize = pageSize;
         this.props = props;
         this.idleTimeoutMs = idleTimeoutMs;
-        this.sessions = sessions;
+        this.sessionBuilderFactory = sessionBuilderFactory;
+        this.onClose = onClose;
 
         expirationTracker = new IdleExpirationTracker(
                 idleTimeoutMs,
@@ -183,7 +186,7 @@ public class SessionImpl implements AbstractSession {
             propertyMap.put(entry.getKey().name, entry.getValue());
         }
 
-        return new SessionBuilderImpl(sessions, qryProc, transactions, propertyMap)
+        return sessionBuilderFactory.fromProperties(propertyMap)
                 .defaultPageSize(pageSize);
     }
 
@@ -424,7 +427,7 @@ public class SessionImpl implements AbstractSession {
         if (closed.compareAndSet(false, true)) {
             busyLock.block();
 
-            sessions.remove(sessionId);
+            onClose.run();
         }
     }
 
@@ -442,5 +445,10 @@ public class SessionImpl implements AbstractSession {
         if (!expirationTracker.touch()) {
             closeAsync();
         }
+    }
+
+    @FunctionalInterface
+    interface SessionBuilderFactory {
+        SessionBuilder fromProperties(Map<String, Object> properties);
     }
 }

@@ -200,13 +200,14 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         SessionId sessionId = new SessionId(UUID.randomUUID());
         SessionImpl session = new SessionImpl(
                 sessionId,
-                sessions,
+                props -> null,
                 queryProcessor,
                 mock(IgniteTransactions.class),
                 1024,
                 idleTimeout,
                 PropertiesHelper.emptyHolder(),
-                clock::get
+                clock::get,
+                () -> {}
         );
 
         sessions.put(sessionId, session);
