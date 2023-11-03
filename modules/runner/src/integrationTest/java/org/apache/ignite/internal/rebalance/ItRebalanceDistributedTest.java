@@ -377,7 +377,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        TableViewInternal nonLeaderTable = (TableViewInternal) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_NAME);
+        TableViewInternal nonLeaderTable =
+                (TableViewInternal) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_NAME);
 
         var countDownLatch = new CountDownLatch(1);
 
