@@ -2,7 +2,7 @@ N1
 SELECT 1
 ---
 Fragment#0 root
-  nodes: [N1]
+  executionNodes: [N1]
   tree:
     IgniteValues
 ---
@@ -11,7 +11,7 @@ N2
 SELECT 1
 ---
 Fragment#0 root
-  nodes: [N2]
+  executionNodes: [N2]
   tree:
     IgniteValues
 ---

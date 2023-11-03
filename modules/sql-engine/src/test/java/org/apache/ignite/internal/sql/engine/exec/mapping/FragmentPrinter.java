@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 
@@ -49,34 +50,29 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
     private final Output output;
 
-    private final ObjectIdCollector collector;
-
-    private FragmentPrinter(Output output, ObjectIdCollector collector) {
+    private FragmentPrinter(Output output) {
         this.output = output;
-        this.collector = collector;
     }
 
     static String fragmentsToString(List<MappedFragment> mappedFragments) {
-        ObjectIdCollector collector = new ObjectIdCollector();
+        TableDescriptorCollector collector = new TableDescriptorCollector();
 
         for (MappedFragment mappedFragment : mappedFragments) {
             Fragment fragment = mappedFragment.fragment();
-            collector.enumerateIds(fragment);
+            collector.collect(fragment);
         }
 
         Output output = new Output(val -> {
-            if (val instanceof ObjectId) {
-                ObjectId objectId = (ObjectId) val;
-                return objectId.format();
-            } else if (val instanceof IgniteDistribution) {
+            if (val instanceof IgniteDistribution) {
                 IgniteDistribution distribution = (IgniteDistribution) val;
                 return formatDistribution(distribution, collector);
+            } else {
+                return String.valueOf(val);
             }
-            return String.valueOf(val);
         });
 
         for (MappedFragment mappedFragment : mappedFragments) {
-            FragmentPrinter printer = new FragmentPrinter(output, collector);
+            FragmentPrinter printer = new FragmentPrinter(output);
             printer.print(mappedFragment);
 
             output.writeNewline();
@@ -87,10 +83,9 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
     void print(MappedFragment mappedFragment) {
         Fragment fragment = mappedFragment.fragment();
-        ObjectId fragmentId = collector.objectIndices.get(fragment.fragmentId());
 
         output.setNewLinePadding(0);
-        output.writeFormattedString(FRAGMENT_PREFIX + "{}", fragmentId);
+        output.writeFormattedString(FRAGMENT_PREFIX + "{}", fragment.fragmentId());
 
         if (fragment.rootFragment()) {
             output.writeString(" root");
@@ -107,58 +102,31 @@ final class FragmentPrinter extends IgniteRelShuttle {
         ColocationGroup target = mappedFragment.target();
         if (target != null) {
             output.appendPadding();
-            output.writeString("target:");
-
-            output.setNewLinePadding(4);
-            output.writeNewline();
-
             List<String> sortedNodeNames = target.nodeNames()
                     .stream()
                     .sorted(Comparator.naturalOrder())
                     .collect(Collectors.toList());
 
-            output.appendPadding();
-            output.writeKeyValue("nodes", sortedNodeNames.toString());
+            output.writeKeyValue("targetNodes", sortedNodeNames.toString());
             output.writeNewline();
-
-            List<ObjectId> sortedTargetIds = target.sourceIds().stream()
-                    .map(sourceId -> {
-                        ObjectId v = collector.objectIndices.get(sourceId);
-                        // TODO  https://issues.apache.org/jira/browse/IGNITE-20495
-                        //  This whole branch sourceId = -1 should not be necessary after this issue is fixed.
-                        if (sourceId == -1) {
-                            if (v != null) {
-                                throw new IllegalStateException();
-                            }
-                            return new ObjectId(-1, -1);
-                        } else {
-                            if (v == null) {
-                                throw new IllegalStateException(
-                                        "No id for target source id=" + sourceId + ". Existing: " + collector.objectIndices);
-                            }
-                            return v;
-                        }
-                    })
-                    .sorted(Comparator.comparing(a -> a.format()))
-                    .collect(Collectors.toList());
-
-            output.appendPadding();
-            output.writeKeyValues("sources", sortedTargetIds);
-            output.writeNewline();
-
-            if (!target.assignments().isEmpty()) {
-                List<String> sortedAssignments = target.assignments().stream()
-                        .map(a -> a.name() + ":" + a.term())
-                        .sorted(Comparator.naturalOrder())
-                        .collect(Collectors.toList());
-
-                output.appendPadding();
-                output.writeKeyValue("assignments", sortedAssignments.toString());
-                output.writeNewline();
-            }
         }
 
         output.setNewLinePadding(2);
+
+        output.appendPadding();
+        output.writeKeyValue("executionNodes", mappedFragment.nodes().toString());
+        output.writeNewline();
+
+        List<IgniteReceiver> remotes = mappedFragment.fragment().remotes();
+        if (!remotes.isEmpty()) {
+            List<Long> remotesVals = remotes.stream()
+                    .map(IgniteReceiver::sourceFragmentId)
+                    .collect(Collectors.toList());
+
+            output.appendPadding();
+            output.writeKeyValues("remoteFragments", remotesVals);
+            output.writeNewline();
+        }
 
         if (!fragment.tables().isEmpty()) {
             List<String> tables = fragment.tables().stream()
@@ -179,26 +147,6 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
             output.appendPadding();
             output.writeKeyValue("systemViews", tables.toString());
-            output.writeNewline();
-        }
-
-        output.appendPadding();
-        output.writeKeyValue("nodes", mappedFragment.nodes().toString());
-        output.writeNewline();
-
-        List<IgniteReceiver> remotes = mappedFragment.fragment().remotes();
-        if (!remotes.isEmpty()) {
-            List<ObjectId> remotesVals = remotes.stream()
-                    .map(r -> {
-                        long id = r.sourceFragmentId();
-                        ObjectId objectId = collector.objectIndices.get(id);
-                        assert objectId != null : "Unknown object id " + id;
-                        return objectId;
-                    })
-                    .collect(Collectors.toList());
-
-            output.appendPadding();
-            output.writeKeyValues("remoteFragments", remotesVals);
             output.writeNewline();
         }
 
@@ -246,8 +194,8 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
     @Override
     public IgniteRel visit(IgniteSender rel) {
-        ObjectId targetId = collector.objectIndices.get(rel.targetFragmentId());
-        ObjectId exchangeId = collector.objectIndices.get(rel.exchangeId());
+        long targetId = rel.targetFragmentId();
+        long exchangeId = rel.exchangeId();
 
         output.writeFormattedString("(targetFragment={}, exchange={}, distribution={})", targetId, exchangeId, rel.distribution());
         return super.visit(rel);
@@ -255,16 +203,16 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
     @Override
     public IgniteRel visit(IgniteReceiver rel) {
-        ObjectId srcId = collector.objectIndices.get(rel.sourceFragmentId());
-        ObjectId exchangeId = collector.objectIndices.get(rel.exchangeId());
+        long sourceFragmentId = rel.sourceFragmentId();
+        long exchangeId = rel.exchangeId();
 
-        output.writeFormattedString("(sourceFragment={}, exchange={}, distribution={})", srcId, exchangeId, rel.distribution());
+        output.writeFormattedString("(sourceFragment={}, exchange={}, distribution={})", sourceFragmentId, exchangeId, rel.distribution());
         return super.visit(rel);
     }
 
     @Override
     public IgniteRel visit(IgniteIndexScan rel) {
-        ObjectId sourceId = collector.objectIndices.get(rel.sourceId());
+        long sourceId = rel.sourceId();
         String tableName = String.join(".", rel.getTable().getQualifiedName());
 
         output.writeFormattedString("(name={}, source={}, distribution={})", tableName, sourceId, rel.distribution());
@@ -273,7 +221,7 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
     @Override
     public IgniteRel visit(IgniteTableScan rel) {
-        ObjectId sourceId = collector.objectIndices.get(rel.sourceId());
+        long sourceId = rel.sourceId();
         String tableName = String.join(".", rel.getTable().getQualifiedName());
 
         output.writeFormattedString("(name={}, source={}, distribution={})", tableName, sourceId, rel.distribution());
@@ -295,104 +243,55 @@ final class FragmentPrinter extends IgniteRelShuttle {
         return super.visit(rel);
     }
 
-    private static String formatDistribution(IgniteDistribution distribution, ObjectIdCollector collector) {
+    private static String formatDistribution(IgniteDistribution distribution, TableDescriptorCollector collector) {
         if (distribution.function() instanceof AffinityDistribution) {
             AffinityDistribution f = (AffinityDistribution) distribution.function();
-            int tableId = f.tableId();
-            String tableName = collector.tableIdTableName.get(tableId);
-            if (tableName == null) {
-                throw new IllegalStateException("Unknown tableId: " + tableId + ". Existing: " + collector.tableIdTableName);
+            IgniteTable igniteTable = collector.tables.get(f.tableId());
+
+            if (igniteTable == null) {
+                String error = format("Unknown tableId: {}. Existing: {}", collector.tables.keySet());
+                throw new IllegalStateException(error);
             }
-            return format("affinity[table: {}]", tableName);
+
+            TableDescriptor tableDescriptor = igniteTable.descriptor();
+            String colocationColumns = igniteTable.distribution().getKeys().stream()
+                    .map(k -> tableDescriptor.columnDescriptor(k).name())
+                    .collect(Collectors.joining(",", "[", "]"));
+
+            return format("affinity[table: {}, columns: {}]", igniteTable.name(), colocationColumns);
         } else {
             return distribution.toString();
         }
     }
 
-    /**
-     * Object identifier + object index assigned during tree traversal by {@link ObjectIdCollector}.
-     */
-    private static final class ObjectId {
+    /** Collects table descriptors to use them table names, column names in text output. */
+    private static class TableDescriptorCollector extends IgniteRelShuttle {
 
-        private final long id;
+        private final Map<Integer, IgniteTable> tables = new HashMap<>();
 
-        private final int idx;
-
-        ObjectId(long id, int idx) {
-            this.id = id;
-            this.idx = idx;
-        }
-
-        String format() {
-            // TODO  https://issues.apache.org/jira/browse/IGNITE-20495 Should be removed after te issue is fixed.
-            if (id == -1) {
-                return "-1";
-            }
-            return String.valueOf(idx);
-        }
-
-        @Override
-        public String toString() {
-            return format() + "::" + id;
-        }
-    }
-
-    /** Assigns object ids to various components of fragments mapping, so they can be consistent across test runs. */
-    private static class ObjectIdCollector extends IgniteRelShuttle {
-
-        // We are using the same index counter for both fragments and objects (see QuerySplitter::visit(IgniteExchange).
-        private final Map<Long, ObjectId> objectIndices = new HashMap<>();
-
-        private final Map<Integer, String> tableIdTableName = new HashMap<>();
-
-        void enumerateIds(Fragment fragment) {
-            addObjectId(fragment.fragmentId(), objectIndices);
-
+        void collect(Fragment fragment) {
             fragment.root().accept(this);
         }
 
         @Override
         public IgniteRel visit(IgniteIndexScan rel) {
-            addObjectId(rel.sourceId(), objectIndices);
-
             IgniteTable igniteTable = rel.getTable().unwrap(IgniteTable.class);
-            tableIdTableName.put(igniteTable.id(), igniteTable.name());
+            tables.put(igniteTable.id(), igniteTable);
             return super.visit(rel);
         }
 
         @Override
         public IgniteRel visit(IgniteTableScan rel) {
-            addObjectId(rel.sourceId(), objectIndices);
-
             IgniteTable igniteTable = rel.getTable().unwrap(IgniteTable.class);
-            tableIdTableName.put(igniteTable.id(), igniteTable.name());
+            tables.put(igniteTable.id(), igniteTable);
             return super.visit(rel);
         }
 
         @Override
         public IgniteRel visit(IgniteTableModify rel) {
-            // TODO  https://issues.apache.org/jira/browse/IGNITE-20495 there is no sourceId on TableModifyNode
-            //addObjectId(rel.getClass(), rel.sourceId(), objectIndices);
-
             IgniteTable igniteTable = rel.getTable().unwrap(IgniteTable.class);
-            tableIdTableName.put(igniteTable.id(), igniteTable.name());
+            tables.put(igniteTable.id(), igniteTable);
             return super.visit(rel);
-        }
-
-        @Override
-        public IgniteRel visit(IgniteSender rel) {
-            addObjectId(rel.exchangeId(), objectIndices);
-            return super.visit(rel);
-        }
-
-        @Override
-        public IgniteRel visit(IgniteReceiver rel) {
-            addObjectId(rel.exchangeId(), objectIndices);
-            return super.visit(rel);
-        }
-
-        private static void addObjectId(long id, Map<Long, ObjectId> map) {
-            map.computeIfAbsent(id, (k) -> new ObjectId(k, map.size()));
         }
     }
 

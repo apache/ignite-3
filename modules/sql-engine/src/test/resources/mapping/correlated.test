@@ -1,37 +1,32 @@
 N0
 SELECT (SELECT count(*) FROM ct_n1) FROM t_n1
 ---
-Fragment#0 root
-  nodes: [N0]
-  remoteFragments: [1]
+Fragment#4 root
+  executionNodes: [N0]
+  remoteFragments: [5]
   tree:
-    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
-
-Fragment#2
-  target:
-    nodes: [N1]
-    sources: [-1, 2, 4]
-    assignments: [N1:1]
-  tables: [T_N1]
-  nodes: [N1]
-  tree:
-    IgniteSender(targetFragment=1, exchange=2, distribution=single)
-      IgniteTableScan(name=PUBLIC.T_N1, source=3, distribution=random)
+    IgniteReceiver(sourceFragment=5, exchange=5, distribution=single)
 
 Fragment#1
-  target:
-    nodes: [N0]
-    sources: [-1, 1]
-  tables: [CT_N1]
-  nodes: [N1]
-  remoteFragments: [2]
+  targetNodes: [N1]
+  tables: [T_N1]
+  executionNodes: [N1]
   tree:
-    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+    IgniteSender(targetFragment=5, exchange=1, distribution=single)
+      IgniteTableScan(name=PUBLIC.T_N1, source=3, distribution=random)
+
+Fragment#5
+  targetNodes: [N0]
+  tables: [CT_N1]
+  executionNodes: [N1]
+  remoteFragments: [1]
+  tree:
+    IgniteSender(targetFragment=4, exchange=5, distribution=single)
       IgniteProject
         IgniteNestedLoopJoin
-          IgniteReceiver(sourceFragment=2, exchange=2, distribution=single)
+          IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
           IgniteColocatedHashAggregate
-            IgniteTableScan(name=PUBLIC.CT_N1, source=4, distribution=single)
+            IgniteTableScan(name=PUBLIC.CT_N1, source=2, distribution=single)
 ---
 
 N1
@@ -39,7 +34,7 @@ SELECT (SELECT count(*) FROM ct_n1) FROM t_n1
 ---
 Fragment#0 root
   tables: [CT_N1]
-  nodes: [N1]
+  executionNodes: [N1]
   remoteFragments: [1]
   tree:
     IgniteProject
@@ -49,12 +44,9 @@ Fragment#0 root
           IgniteTableScan(name=PUBLIC.CT_N1, source=2, distribution=single)
 
 Fragment#1
-  target:
-    nodes: [N1]
-    sources: [-1, 1, 2]
-    assignments: [N1:1]
+  targetNodes: [N1]
   tables: [T_N1]
-  nodes: [N1]
+  executionNodes: [N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T_N1, source=3, distribution=random)
@@ -63,37 +55,32 @@ Fragment#1
 N0
 SELECT (SELECT count(*) FROM ct_n1) FROM t_n2
 ---
-Fragment#0 root
-  nodes: [N0]
-  remoteFragments: [1]
+Fragment#4 root
+  executionNodes: [N0]
+  remoteFragments: [5]
   tree:
-    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
-
-Fragment#2
-  target:
-    nodes: [N1]
-    sources: [-1, 2, 4]
-    assignments: [N1:1]
-  tables: [T_N2]
-  nodes: [N2]
-  tree:
-    IgniteSender(targetFragment=1, exchange=2, distribution=single)
-      IgniteTableScan(name=PUBLIC.T_N2, source=3, distribution=random)
+    IgniteReceiver(sourceFragment=5, exchange=5, distribution=single)
 
 Fragment#1
-  target:
-    nodes: [N0]
-    sources: [-1, 1]
-  tables: [CT_N1]
-  nodes: [N1]
-  remoteFragments: [2]
+  targetNodes: [N1]
+  tables: [T_N2]
+  executionNodes: [N2]
   tree:
-    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+    IgniteSender(targetFragment=5, exchange=1, distribution=single)
+      IgniteTableScan(name=PUBLIC.T_N2, source=3, distribution=random)
+
+Fragment#5
+  targetNodes: [N0]
+  tables: [CT_N1]
+  executionNodes: [N1]
+  remoteFragments: [1]
+  tree:
+    IgniteSender(targetFragment=4, exchange=5, distribution=single)
       IgniteProject
         IgniteNestedLoopJoin
-          IgniteReceiver(sourceFragment=2, exchange=2, distribution=single)
+          IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
           IgniteColocatedHashAggregate
-            IgniteTableScan(name=PUBLIC.CT_N1, source=4, distribution=single)
+            IgniteTableScan(name=PUBLIC.CT_N1, source=2, distribution=single)
 ---
 
 N1
@@ -101,7 +88,7 @@ SELECT (SELECT count(*) FROM ct_n1) FROM t_n2
 ---
 Fragment#0 root
   tables: [CT_N1]
-  nodes: [N1]
+  executionNodes: [N1]
   remoteFragments: [1]
   tree:
     IgniteProject
@@ -111,12 +98,9 @@ Fragment#0 root
           IgniteTableScan(name=PUBLIC.CT_N1, source=2, distribution=single)
 
 Fragment#1
-  target:
-    nodes: [N1]
-    sources: [-1, 1, 2]
-    assignments: [N1:1]
+  targetNodes: [N1]
   tables: [T_N2]
-  nodes: [N2]
+  executionNodes: [N2]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteTableScan(name=PUBLIC.T_N2, source=3, distribution=random)
@@ -126,7 +110,7 @@ N0
 SELECT t.c1 FROM t_n1 t JOIN table(system_range(1, 50)) as r ON t.id = r.x WHERE mod(r.x, 10) = 0
 ---
 Fragment#0 root
-  nodes: [N0]
+  executionNodes: [N0]
   remoteFragments: [1]
   tree:
     IgniteProject
@@ -137,11 +121,9 @@ Fragment#0 root
             IgniteTableFunctionScan(source=-1, distribution=single)
 
 Fragment#1
-  target:
-    nodes: [N0]
-    sources: [-1, 1]
+  targetNodes: [N0]
   tables: [T_N1]
-  nodes: [N1]
+  executionNodes: [N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
       IgniteSort
@@ -152,24 +134,22 @@ N0
 SELECT t.c1 FROM ct_n1 t WHERE t.c1 < 5 AND
 EXISTS (SELECT x FROM table(system_range(t.c1, t.c2)) WHERE mod(x, 2) = 0)
 ---
-Fragment#0 root
-  nodes: [N0]
-  remoteFragments: [1]
+Fragment#2 root
+  executionNodes: [N0]
+  remoteFragments: [3]
   tree:
-    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+    IgniteReceiver(sourceFragment=3, exchange=3, distribution=single)
 
-Fragment#1
-  target:
-    nodes: [N0]
-    sources: [-1, 1]
+Fragment#3
+  targetNodes: [N0]
   tables: [CT_N1]
-  nodes: [N1]
+  executionNodes: [N1]
   tree:
-    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+    IgniteSender(targetFragment=2, exchange=3, distribution=single)
       IgniteProject
         IgniteFilter
           IgniteCorrelatedNestedLoopJoin
-            IgniteTableScan(name=PUBLIC.CT_N1, source=2, distribution=single)
+            IgniteTableScan(name=PUBLIC.CT_N1, source=1, distribution=single)
             IgniteColocatedHashAggregate
               IgniteProject
                 IgniteFilter
@@ -181,7 +161,7 @@ SELECT t.c1 FROM t_n1 t WHERE t.c1 < 5 AND
 EXISTS (SELECT x FROM table(system_range(t.c1, t.c2)) WHERE mod(x, 2) = 0)
 ---
 Fragment#0 root
-  nodes: [N0]
+  executionNodes: [N0]
   remoteFragments: [1]
   tree:
     IgniteProject
@@ -194,12 +174,10 @@ Fragment#0 root
                 IgniteTableFunctionScan(source=-1, distribution=single)
 
 Fragment#1
-  target:
-    nodes: [N0]
-    sources: [-1, 1]
+  targetNodes: [N0]
   tables: [T_N1]
-  nodes: [N1]
+  executionNodes: [N1]
   tree:
     IgniteSender(targetFragment=0, exchange=1, distribution=single)
-      IgniteTableScan(name=PUBLIC.T_N1, source=2, distribution=affinity[table: T_N1])
+      IgniteTableScan(name=PUBLIC.T_N1, source=2, distribution=affinity[table: T_N1, columns: [ID]])
 ---
