@@ -225,7 +225,6 @@ public class TestServer implements AutoCloseable {
                         mock(MetricManager.class),
                         metrics,
                         authenticationManager(securityConfigurationOnInit),
-                        securityConfigurationOnInit,
                         clock,
                         new AlwaysSyncedSchemaSyncService(),
                         mockCatalogService()

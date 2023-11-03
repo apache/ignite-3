@@ -66,14 +66,21 @@ public class SessionBuilderImpl implements SessionBuilder {
         this.props = props;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Gets an Ignite transactions facade.
+     *
+     * @return Ignite transactions.
+     */
     public IgniteTransactions igniteTransactions() {
         return transactions;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Sets an Ignite transactions facade.
+     *
+     * @param transactions Ignite transactions.
+     * @return {@code this} for chaining.
+     */
     public SessionBuilder igniteTransactions(IgniteTransactions transactions) {
         this.transactions = transactions;
 

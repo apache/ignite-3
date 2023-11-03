@@ -698,7 +698,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 replicaMgr,
                 null,
                 null,
-                ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,
@@ -713,7 +712,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(NODE_NAME)
+                new TestPlacementDriver(node)
         ) {
 
             @Override

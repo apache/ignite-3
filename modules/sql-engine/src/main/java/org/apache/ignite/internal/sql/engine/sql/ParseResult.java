@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import java.util.List;
-import org.apache.calcite.sql.SqlNode;
-
 /**
  * Result of parsing SQL string.
  */
@@ -43,7 +40,4 @@ public abstract class ParseResult {
     public int dynamicParamsCount() {
         return dynamicParamsCount;
     }
-
-    /** Returns a list of parsed statements. */
-    public abstract List<SqlNode> statements();
 }

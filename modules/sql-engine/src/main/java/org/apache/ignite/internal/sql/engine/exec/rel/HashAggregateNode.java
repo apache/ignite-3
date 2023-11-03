@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static java.util.stream.Collectors.toCollection;
-import static org.apache.ignite.internal.sql.engine.util.Commons.negate;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
@@ -212,7 +211,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     private ArrayDeque<Grouping> groupingsQueue() {
         return groupings.stream()
-                .filter(negate(Grouping::isEmpty))
+                .filter(g -> !g.isEmpty())
                 .collect(toCollection(ArrayDeque::new));
     }
 

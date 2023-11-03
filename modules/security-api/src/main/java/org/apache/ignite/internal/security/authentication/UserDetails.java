@@ -23,11 +23,18 @@ package org.apache.ignite.internal.security.authentication;
 public class UserDetails {
     private final String username;
 
-    public UserDetails(String username) {
+    private final String providerName;
+
+    public UserDetails(String username, String providerName) {
         this.username = username;
+        this.providerName = providerName;
     }
 
     public String username() {
         return username;
+    }
+
+    public String providerName() {
+        return providerName;
     }
 }

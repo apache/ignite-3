@@ -90,6 +90,7 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
@@ -615,12 +616,17 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
      * Inserts all rows.
      */
     private void insertAll() {
-        Map<UUID, BinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
+        Map<UUID, TimedBinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
         UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            rows.put(TestTransactionIds.newTransactionId(), getTestRow(i, i));
+            rows.put(
+                    TestTransactionIds.newTransactionId(),
+                    msgFactory.timedBinaryRowMessage()
+                            .binaryRowMessage(getTestRow(i, i))
+                            .build()
+            );
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -631,7 +637,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
-                .rowsToUpdate(rows)
+                .messageRowsToUpdate(rows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
                 .txCoordinatorId(UUID.randomUUID().toString())
@@ -654,12 +660,16 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
         UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
-        Map<UUID, BinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
+        Map<UUID, TimedBinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             ReadResult readResult = readRow(getTestKey(i));
 
-            rows.put(readResult.rowId().uuid(), getTestRow(i, keyValueMapper.apply(i)));
+            rows.put(readResult.rowId().uuid(),
+                    msgFactory.timedBinaryRowMessage()
+                            .binaryRowMessage(getTestRow(i, keyValueMapper.apply(i)))
+                            .build()
+            );
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -670,7 +680,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
-                .rowsToUpdate(rows)
+                .messageRowsToUpdate(rows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
                 .txCoordinatorId(UUID.randomUUID().toString())
@@ -691,12 +701,13 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private void deleteAll() {
         UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(TABLE_ID, PARTITION_ID);
-        Map<UUID, BinaryRowMessage> keyRows = new HashMap<>(KEY_COUNT);
+        Map<UUID, TimedBinaryRowMessage> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
             ReadResult readResult = readRow(getTestKey(i));
 
-            keyRows.put(readResult.rowId().uuid(), null);
+            keyRows.put(readResult.rowId().uuid(), msgFactory.timedBinaryRowMessage()
+                    .build());
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -707,7 +718,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                                 .tableId(commitPartId.tableId())
                                 .partitionId(commitPartId.partitionId())
                                 .build())
-                .rowsToUpdate(keyRows)
+                .messageRowsToUpdate(keyRows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
                 .txCoordinatorId(UUID.randomUUID().toString())
@@ -745,7 +756,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(readResult.rowId().uuid())
-                            .rowMessage(row)
+                            .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                    .binaryRowMessage(row)
+                                    .build())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
                             .txCoordinatorId(UUID.randomUUID().toString())
@@ -862,7 +875,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(UUID.randomUUID())
-                            .rowMessage(getTestRow(i, i))
+                            .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                    .binaryRowMessage(getTestRow(i, i))
+                                    .build())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
                             .txCoordinatorId(UUID.randomUUID().toString())

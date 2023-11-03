@@ -160,10 +160,5 @@ public class ConnectionChecker {
                 manager.setProperty(REST_KEY_STORE_PASSWORD.value(), sslConfig.keyStorePassword());
             }
         }
-
-        if (!nullOrBlank(callInput.username()) && !nullOrBlank(callInput.password())) {
-            manager.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), callInput.username());
-            manager.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), callInput.password());
-        }
     }
 }

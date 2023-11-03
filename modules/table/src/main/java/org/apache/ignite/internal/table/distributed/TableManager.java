@@ -46,7 +46,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -93,7 +92,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -126,7 +124,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -138,8 +135,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
-import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
@@ -176,7 +171,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.util.Marshaller;
@@ -188,7 +182,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager implements IgniteTablesInternal, IgniteComponent {
-    private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
@@ -323,8 +316,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Runtime.getRuntime().availableProcessors() * 3, 20);
 
-    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
-
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
 
@@ -346,6 +337,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final PlacementDriver placementDriver;
 
     private final SchemaVersions schemaVersions;
+
+    private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
@@ -381,7 +374,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
-            TopologyService topologyService,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
             Path storagePath,
@@ -419,6 +411,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+
+        TopologyService topologyService = clusterService.topologyService();
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -482,6 +476,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 
+        partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
+                metaStorageMgr,
+                clusterService.messagingService(),
+                topologyService,
+                clusterNodeResolver,
+                tableId -> latestTablesById().get(tableId)
+        );
+
         startVv = new IncrementalVersionedValue<>(registry);
     }
 
@@ -520,7 +522,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
             });
 
-            addMessageHandler(clusterService.messagingService());
+            partitionReplicatorNodeRecovery.start();
         });
     }
 
@@ -557,43 +559,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         startVv.update(recoveryRevision, (v, e) -> pendingAssignmentsRecoveryFuture);
-    }
-
-    /**
-     * Adds a table manager message handler.
-     *
-     * @param messagingService Messaging service.
-     */
-    private void addMessageHandler(MessagingService messagingService) {
-        messagingService.addMessageHandler(TableMessageGroup.class, (message, sender, correlationId) -> {
-            if (message instanceof HasDataRequest) {
-                // This message queries if a node has any data for a specific partition of a table
-                assert correlationId != null;
-
-                HasDataRequest msg = (HasDataRequest) message;
-
-                int tableId = msg.tableId();
-                int partitionId = msg.partitionId();
-
-                boolean contains = false;
-
-                TableImpl table = latestTablesById().get(tableId);
-
-                if (table != null) {
-                    MvTableStorage storage = table.internalTable().storage();
-
-                    MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
-
-                    // If node's recovery process is incomplete (no partition storage), then we consider this node's
-                    // partition storage empty.
-                    if (mvPartition != null) {
-                        contains = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null;
-                    }
-                }
-
-                messagingService.respond(sender, TABLE_MESSAGES_FACTORY.hasDataResponse().result(contains).build(), correlationId);
-            }
-        });
     }
 
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
@@ -726,38 +691,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (localMemberAssignment != null) {
-                    CompletableFuture<Boolean> shouldStartGroupFut;
-
-                    // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
-                    // from the Raft group in order to avoid the double vote problem.
-                    // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
-                    if (internalTbl.storage().isVolatile()) {
-                        shouldStartGroupFut = queryDataNodesCount(tableId, partId, newConfiguration.peers())
-                                .thenApply(dataNodesCount -> {
-                                    boolean fullPartitionRestart = dataNodesCount == 0;
-
-                                    if (fullPartitionRestart) {
-                                        return true;
-                                    }
-
-                                    boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
-
-                                    if (majorityAvailable) {
-                                        RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
-
-                                        return false;
-                                    } else {
-                                        // No majority and not a full partition restart - need to restart nodes
-                                        // with current partition.
-                                        String msg = "Unable to start partition " + partId + ". Majority not available.";
-
-                                        throw new IgniteInternalException(msg);
-                                    }
-                                });
-                    } else {
-                        shouldStartGroupFut = completedFuture(true);
-                    }
+                    CompletableFuture<Boolean> shouldStartGroupFut = partitionReplicatorNodeRecovery.shouldStartGroup(
+                            replicaGrpId,
+                            internalTbl,
+                            newConfiguration,
+                            localMemberAssignment
+                    );
 
                     startGroupFut = shouldStartGroupFut.thenApplyAsync(startGroup -> inBusyLock(busyLock, () -> {
                         if (!startGroup) {
@@ -972,36 +911,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private static PartitionKey partitionKey(InternalTable internalTbl, int partId) {
         return new PartitionKey(internalTbl.tableId(), partId);
-    }
-
-    /**
-     * Calculates the quantity of the data nodes for the partition of the table.
-     *
-     * @param tblId Table id.
-     * @param partId Partition id.
-     * @param peers Raft peers.
-     * @return A future that will hold the quantity of data nodes.
-     */
-    private CompletableFuture<Long> queryDataNodesCount(int tblId, int partId, Collection<Peer> peers) {
-        HasDataRequest request = TABLE_MESSAGES_FACTORY.hasDataRequest().tableId(tblId).partitionId(partId).build();
-
-        //noinspection unchecked
-        CompletableFuture<Boolean>[] requestFutures = peers.stream()
-                .map(Peer::consistentId)
-                .map(clusterNodeResolver)
-                .filter(Objects::nonNull)
-                .map(node -> clusterService.messagingService()
-                        .invoke(node, request, QUERY_DATA_NODES_COUNT_TIMEOUT)
-                        .thenApply(response -> {
-                            assert response instanceof HasDataResponse : response;
-
-                            return ((HasDataResponse) response).result();
-                        })
-                        .exceptionally(unused -> false))
-                .toArray(CompletableFuture[]::new);
-
-        return allOf(requestFutures)
-                .thenApply(unused -> Arrays.stream(requestFutures).filter(CompletableFuture::join).count());
     }
 
     private RaftGroupOptions groupOptionsForPartition(
@@ -1623,7 +1532,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
+    private CompletableFuture<TableImpl> tableAsyncInternal(String name) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
@@ -2157,6 +2066,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId), stableAssignmentsWatchEvent.revision())
                 .thenComposeAsync(pendingAssignmentsEntry -> {
+                    // Update raft client peers and learners according to the actual assignments.
+                    CompletableFuture<Void> raftClientUpdateFuture = tablesById(evt.revision()).thenAccept(t -> {
+                        t.get(tableId).internalTable()
+                                .partitionRaftGroupService(tablePartitionId.partitionId())
+                                .updateConfiguration(configurationFromAssignments(stableAssignments));
+                    });
+
                     byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
 
                     Set<Assignment> pendingAssignments = pendingAssignmentsFromMetaStorage == null
@@ -2169,9 +2085,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
 
                     if (shouldStopLocalServices) {
-                        return stopAndDestroyPartition(tablePartitionId, evt.revision());
+                        return allOf(
+                                raftClientUpdateFuture,
+                                stopAndDestroyPartition(tablePartitionId, evt.revision()));
                     } else {
-                        return completedFuture(null);
+                        return raftClientUpdateFuture;
                     }
                 }, ioExecutor);
     }

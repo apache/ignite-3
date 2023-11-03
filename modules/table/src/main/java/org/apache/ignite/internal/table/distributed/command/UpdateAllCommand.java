@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command for updating a batch of entries.
@@ -35,23 +34,23 @@ import org.jetbrains.annotations.Nullable;
 public interface UpdateAllCommand extends PartitionCommand {
     TablePartitionIdMessage tablePartitionId();
 
-    Map<UUID, BinaryRowMessage> rowsToUpdate();
+    Map<UUID, TimedBinaryRowMessage> messageRowsToUpdate();
 
     String txCoordinatorId();
-
-    // TODO: IGNITE-20609 row id in this map duplicates row id in rowsToUpdate.
-    @Nullable Map<UUID, Long> lastCommitTimestampsLong();
 
     /**
      * Returns the timestamps of the last committed entries for each row.
      */
-    default Map<UUID, HybridTimestamp> lastCommitTimestamps() {
-        Map<UUID, HybridTimestamp> map = new HashMap<>();
+    default Map<UUID, TimedBinaryRow> rowsToUpdate() {
+        Map<UUID, TimedBinaryRow> map = new HashMap<>();
 
-        Map<UUID, Long> uuidLongMap = lastCommitTimestampsLong();
-        if (uuidLongMap != null) {
-            uuidLongMap.forEach((uuid, ts) -> map.put(uuid, hybridTimestamp(ts)));
+        Map<UUID, TimedBinaryRowMessage> timedRowMap = messageRowsToUpdate();
+
+        if (!CollectionUtils.nullOrEmpty(timedRowMap)) {
+            timedRowMap.forEach(
+                    (uuid, trMsg) -> map.put(uuid, new TimedBinaryRow(trMsg.binaryRow(), nullableHybridTimestamp(trMsg.timestamp()))));
         }
+
         return map;
     }
 }

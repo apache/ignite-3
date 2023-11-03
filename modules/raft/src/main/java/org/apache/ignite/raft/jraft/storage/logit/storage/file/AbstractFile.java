@@ -31,7 +31,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.LibC;
 import org.apache.ignite.raft.jraft.storage.logit.util.concurrent.ReferenceResource;
 import org.apache.ignite.raft.jraft.util.Platform;
@@ -51,6 +53,8 @@ public abstract class AbstractFile extends ReferenceResource {
     protected static final int    BLANK_HOLE_SIZE = 64;
 
     protected static final byte   FILE_END_BYTE   = 'x';
+
+    private final RaftOptions raftOptions;
 
     protected String              filePath;
 
@@ -75,7 +79,8 @@ public abstract class AbstractFile extends ReferenceResource {
     private volatile boolean      isMapped        = false;
     private final ReentrantLock   mapLock         = new ReentrantLock();
 
-    public AbstractFile(final String filePath, final int fileSize, final boolean isMapped) {
+    public AbstractFile(RaftOptions raftOptions, final String filePath, final int fileSize, final boolean isMapped) {
+        this.raftOptions = raftOptions;
         initAndMap(filePath, fileSize, isMapped);
         this.header = new FileHeader();
     }
@@ -224,18 +229,13 @@ public abstract class AbstractFile extends ReferenceResource {
         return RecoverResult.newInstance(true, isRecoverTotal, recoverPosition);
     }
 
-    public enum CheckDataResult {
-        CHECK_SUCCESS(1), // If check success, return dataSize
-        CHECK_FAIL(-1), // If check failed, return -1
-        FILE_END(0); // If come to file end, return 0
+    public static class CheckDataResult {
+        public static final CheckDataResult CHECK_FAIL = new CheckDataResult(-1); // If check failed, return -1
+        public static final CheckDataResult FILE_END = new CheckDataResult(0); // If come to file end, return 0
 
         private int size;
 
-        CheckDataResult(final int pos) {
-            this.size = pos;
-        }
-
-        public void setSize(final int pos) {
+        public CheckDataResult(final int pos) {
             this.size = pos;
         }
     }
@@ -294,7 +294,9 @@ public abstract class AbstractFile extends ReferenceResource {
         if (hold()) {
             final int value = getWrotePosition();
             try {
-                this.mappedByteBuffer.force();
+                if (raftOptions.isSync()) {
+                    this.mappedByteBuffer.force();
+                }
             } catch (final Throwable e) {
                 LOG.error("Error occurred when force data to disk.", e);
                 throw new RuntimeException(e);
@@ -395,9 +397,7 @@ public abstract class AbstractFile extends ReferenceResource {
     }
 
     public void put(final ByteBuffer buffer, final int index, final byte[] data) {
-        for (int i = 0; i < data.length; i++) {
-            buffer.put(index + i, data[i]);
-        }
+        GridUnsafe.copyHeapOffheap(data, GridUnsafe.BYTE_ARR_OFF, GridUnsafe.bufferAddress(buffer) + index, data.length);
     }
 
     public long getFirstLogIndex() {

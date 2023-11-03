@@ -269,13 +269,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         return BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .frameworkConfig(
                         newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(dfltSchema)
                                 .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
-                .logger(log)
                 .parameters(params)
                 .build();
     }

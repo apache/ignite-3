@@ -69,6 +69,14 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void testOctetLength() {
+        assertQuery("SELECT OCTET_LENGTH('TEST')").returns(4).check();
+        assertQuery("SELECT OCTET_LENGTH('我愛Java')").returns(10).check();
+        assertQuery("SELECT OCTET_LENGTH(x'012F')").returns(2).check();
+        assertQuery("SELECT OCTET_LENGTH(NULL)").returns(NULL_RESULT).check();
+    }
+
+    @Test
     public void testCurrentDateTimeTimeStamp() {
         checkDateTimeQuery("SELECT CURRENT_DATE", Clock.DATE_CLOCK, LocalDate.class);
         checkDateTimeQuery("SELECT CURRENT_TIME", Clock.TIME_CLOCK, LocalTime.class);

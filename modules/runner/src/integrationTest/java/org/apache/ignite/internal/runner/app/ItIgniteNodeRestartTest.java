@@ -260,7 +260,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var placementDriver = new TestPlacementDriver(name);
+        var placementDriver = new TestPlacementDriver(() -> clusterSvc.topologyService().localMember());
 
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,
@@ -396,7 +396,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaMgr,
                 lockManager,
                 replicaService,
-                clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
                 storagePath,
@@ -767,6 +766,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20709")
     public void nodeWithDataTest() {
         IgniteImpl ignite = startNode(0);
 

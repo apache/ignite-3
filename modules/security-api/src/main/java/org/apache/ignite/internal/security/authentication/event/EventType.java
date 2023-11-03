@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
-
-import org.apache.calcite.plan.Context;
+package org.apache.ignite.internal.security.authentication.event;
 
 /**
- * Abstract query context.
+ * Represents the authentication event type.
  */
-public class AbstractQueryContext implements Context {
-    private final Context parentCtx;
-
-    public AbstractQueryContext(Context parentCtx) {
-        this.parentCtx = parentCtx;
-    }
-
-    /** {@inheritDoc} */
-    @Override public <C> C unwrap(Class<C> cls) {
-        if (cls == getClass()) {
-            return cls.cast(this);
-        }
-
-        return parentCtx.unwrap(cls);
-    }
+public enum EventType {
+    AUTHENTICATION_ENABLED,
+    AUTHENTICATION_DISABLED,
+    AUTHENTICATION_PROVIDER_REMOVED,
+    AUTHENTICATION_PROVIDER_UPDATED
 }

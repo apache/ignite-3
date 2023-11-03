@@ -65,6 +65,7 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,7 +79,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTest {
-    private static final String LOCAL_NODE_NAME = "node1";
+    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("node1", "node1", NetworkAddress.from("127.0.0.1:127"));
 
     private static final int PART_ID = 0;
 
@@ -87,7 +88,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
     /** Hybrid clock. */
     private final HybridClock clock = new HybridClockImpl();
 
-    private final TestPlacementDriver placementDriver = new TestPlacementDriver(LOCAL_NODE_NAME);
+    private final TestPlacementDriver placementDriver = new TestPlacementDriver(LOCAL_NODE);
 
     /** The storage stores transaction states. */
     private final TestTxStateStorage txStateStorage = new TestTxStateStorage();
@@ -136,7 +137,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 mock(TransactionStateResolver.class),
                 mock(StorageUpdateHandler.class),
                 mock(Schemas.class),
-                new ClusterNodeImpl("node1", LOCAL_NODE_NAME, NetworkAddress.from("127.0.0.1:127")),
+                LOCAL_NODE,
                 mock(SchemaSyncService.class),
                 mock(CatalogService.class),
                 placementDriver
@@ -162,7 +163,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             return completedFuture(null);
         };
 
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE_NAME);
+        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name());
 
         assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
 
@@ -192,7 +193,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
             return completedFuture(null);
         };
 
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE_NAME);
+        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name());
 
         assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
 
@@ -212,7 +213,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = new CompletableFuture<>();
         placementDriver.setAwaitPrimaryReplicaFunction((groupId, timestamp) -> primaryReplicaFuture);
 
-        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE_NAME);
+        PrimaryReplicaEventParameters parameters = new PrimaryReplicaEventParameters(0, part0, LOCAL_NODE.name());
         assertThat(placementDriver.fireEvent(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters), willSucceedIn(1, SECONDS));
 
         assertFalse(txStateStorage.get(tx0).locksReleased());

@@ -41,7 +41,9 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_E
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
 import static org.rocksdb.util.SizeUnit.MB;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -246,7 +248,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             destroyRocksDb();
 
             createDb();
-        } catch (RocksDBException e) {
+        } catch (IOException | RocksDBException e) {
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         }
     }
@@ -331,16 +333,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Clear the RocksDB instance. The major difference with directly deleting the DB directory manually is that destroyDB() will take care
-     * of the case where the RocksDB database is stored in multiple directories. For instance, a single DB can be configured to store its
-     * data in multiple directories by specifying different paths to DBOptions::db_paths, DBOptions::db_log_dir, and DBOptions::wal_dir.
+     * Clear the RocksDB instance.
      *
-     * @throws RocksDBException If failed.
+     * @throws IOException If failed.
      */
-    protected void destroyRocksDb() throws RocksDBException {
-        try (Options opt = new Options()) {
-            RocksDB.destroyDB(dbPath.toString(), opt);
-        }
+    protected void destroyRocksDb() throws IOException {
+        // For unknown reasons, RocksDB#destroyDB(String, Options) throws RocksDBException with ".../LOCK: No such file or directory".
+        IgniteUtils.deleteIfExists(dbPath);
+
+        Files.createDirectories(dbPath);
     }
 
     @Override

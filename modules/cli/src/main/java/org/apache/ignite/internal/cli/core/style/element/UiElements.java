@@ -57,4 +57,9 @@ public class UiElements {
     public static UiElement yesNo() {
         return new MarkedUiElement("[Y/n]", fg(Color.GRAY));
     }
+
+    /** Username UI element. */
+    public static UiElement username(String content) {
+        return () -> content;
+    }
 }
