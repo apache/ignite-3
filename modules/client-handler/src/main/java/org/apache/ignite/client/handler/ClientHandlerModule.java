@@ -31,6 +31,7 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -63,6 +64,9 @@ import org.jetbrains.annotations.Nullable;
 public class ClientHandlerModule implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
+
+    /** Connection id generator. */
+    private static final AtomicLong CONNECTION_ID_GEN = new AtomicLong();
 
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
@@ -241,8 +245,11 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
+                        long connectionId = CONNECTION_ID_GEN.incrementAndGet();
+
                         if (LOG.isDebugEnabled()) {
-                            LOG.debug("New client connection [remoteAddress=" + ch.remoteAddress() + ']');
+                            LOG.debug("New client connection [connectionId=" + connectionId +
+                                    ", remoteAddress=" + ch.remoteAddress() + ']');
                         }
 
                         if (configuration.idleTimeout() > 0) {
@@ -250,14 +257,14 @@ public class ClientHandlerModule implements IgniteComponent {
                                     configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
 
                             ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics));
+                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
                         }
 
                         if (sslContext != null) {
                             ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                         }
 
-                        ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, clusterId);
+                        ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, clusterId, connectionId);
                         authenticationManager.listen(messageHandler);
 
                         ch.pipeline().addLast(
@@ -265,9 +272,7 @@ public class ClientHandlerModule implements IgniteComponent {
                                 messageHandler
                         );
 
-                        ch.closeFuture().addListener(future -> {
-                            authenticationManager.stopListen(messageHandler);
-                        });
+                        ch.closeFuture().addListener(future -> authenticationManager.stopListen(messageHandler));
 
                         metrics.connectionsInitiatedIncrement();
                     }
@@ -303,7 +308,10 @@ public class ClientHandlerModule implements IgniteComponent {
         return ch.closeFuture();
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, CompletableFuture<UUID> clusterId) {
+    private ClientInboundMessageHandler createInboundMessageHandler(
+            ClientConnectorView configuration,
+            CompletableFuture<UUID> clusterId,
+            long connectionId) {
         return new ClientInboundMessageHandler(
                 igniteTables,
                 igniteTransactions,
@@ -317,7 +325,8 @@ public class ClientHandlerModule implements IgniteComponent {
                 authenticationManager,
                 clock,
                 schemaSyncService,
-                catalogService
+                catalogService,
+                connectionId
         );
     }
 

@@ -131,9 +131,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
-    /** Connection id generator. */
-    private static final AtomicLong CONNECTION_ID_GEN = new AtomicLong();
-
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
@@ -187,7 +184,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final SchemaVersions schemaVersions;
 
-    private final long connectionId = CONNECTION_ID_GEN.incrementAndGet();
+    private final long connectionId;
 
     /**
      * Constructor.
@@ -217,7 +214,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             AuthenticationManager authenticationManager,
             HybridClock clock,
             SchemaSyncService schemaSyncService,
-            CatalogService catalogService
+            CatalogService catalogService,
+            long connectionId
     ) {
         assert igniteTables != null;
         assert igniteTransactions != null;
@@ -256,6 +254,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
+        this.connectionId = connectionId;
     }
 
     @Override
@@ -263,6 +262,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         channelHandlerContext = ctx;
         super.channelRegistered(ctx);
 
+        // TODO: Check if debug enabled here and below
         LOG.debug("Connection registered [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
     }
 
