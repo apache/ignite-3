@@ -117,6 +117,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** Dynamic parameters SQL AST nodes for invariant checks - see {@link #validateInferredDynamicParameters()}. */
     private final SqlDynamicParam[] dynamicParamNodes;
 
+    /** Literal processing. */
+    private LiteralExtractor litExtractor;
+
     /**
      * Creates a validator.
      *
@@ -493,11 +496,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** Check literal can fit to declared exact numeric type, work only for single literal. */
-    private static void literalCanFitType(SqlNode expr, RelDataType toType) {
+    private void literalCanFitType(SqlNode expr, RelDataType toType) {
         if (INT_TYPES.contains(toType.getSqlTypeName())) {
-            LiteralExtractor litExtractor = new LiteralExtractor();
-
-            SqlLiteral literal = litExtractor.getLiteral(expr);
+            SqlLiteral literal = Objects.requireNonNullElseGet(litExtractor, LiteralExtractor::new).getLiteral(expr);
 
             if (literal == null || literal.toValue() == null) {
                 return;
@@ -513,7 +514,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     throw new SqlException(STMT_PARSE_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
                 }
             } catch (NumberFormatException e) {
-                throw new SqlException(STMT_PARSE_ERR, NUMERIC_FIELD_OVERFLOW_ERROR, e);
+                throw new SqlException(STMT_PARSE_ERR, e);
             }
         }
     }

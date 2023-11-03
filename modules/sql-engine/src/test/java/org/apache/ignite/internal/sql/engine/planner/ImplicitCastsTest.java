@@ -297,11 +297,6 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                         .project("$t0", "10:BIGINT"),
 
                 checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET c1 = 'abc'")
-                        .project("$t0", "CAST(_UTF-8'abc'):INTEGER NOT NULL"),
-
-                checkStatement()
                         .table("t1", "c1", NativeTypes.INT64, "c2", NativeTypes.INT64)
                         .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
                         .sql("INSERT INTO t1 (c1, c2) SELECT c1, c2 FROM t2")
@@ -346,18 +341,14 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET c1 = 'abc'")
-                        .project("$t0", "CAST(_UTF-8'abc'):INTEGER NOT NULL"),
+                        .sql("UPDATE t1 SET c1 = '1'::INTEGER + 1")
+                        .project("$t0", "+(1, 1)"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.stringOf(4))
                         .sql("UPDATE t1 SET c1 = 1")
                         .project("$t0", "_UTF-8'1':VARCHAR(4) CHARACTER SET \"UTF-8\""),
 
-                // If int_col is accessed too early, we get:
-                // java.lang.UnsupportedOperationException:
-                //  at org.apache.calcite.util.Util.needToImplement(Util.java:1111)
-                //  at org.apache.calcite.sql.validate.SqlValidatorImpl.getValidatedNodeType(SqlValidatorImpl.java:1795)
                 checkStatement()
                         .table("t1", "id", NativeTypes.INT32, "int_col", NativeTypes.INT32, "str_col", NativeTypes.STRING)
                         .sql("UPDATE t1 SET str_col = 1, int_col = id + 1")
@@ -407,15 +398,15 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     public Stream<DynamicTest> testInExpression() {
         return Stream.of(
                 // literals
-                sql("SELECT '1'::int IN ('a')").project("=(1, CAST(_UTF-8'a'):INTEGER NOT NULL)"),
+                sql("SELECT '1'::int IN ('1'::INTEGER)").project("true"),
                 sql("SELECT 1 IN ('1', 2)").project("true"),
                 sql("SELECT '1' IN (1, 2)").project("true"),
-                sql("SELECT 2 IN ('c', 1)").project("=(2, CAST(_UTF-8'c'):INTEGER NOT NULL)"),
+                sql("SELECT 2 IN ('2'::REAL, 1)").project("true"),
 
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
-                        .sql("SELECT int_col IN ('c', 1) FROM t")
-                        .project("OR(=($t0, CAST(_UTF-8'c'):INTEGER NOT NULL), =($t0, 1))"),
+                        .sql("SELECT int_col IN ('c'::REAL, 1) FROM t")
+                        .project("OR(=(CAST($t0):REAL, CAST(_UTF-8'c'):REAL NOT NULL), =(CAST($t0):REAL, 1))"),
 
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
