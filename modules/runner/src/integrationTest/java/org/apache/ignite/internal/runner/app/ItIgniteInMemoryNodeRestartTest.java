@@ -160,7 +160,6 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
     @Test
-    @Disabled("IGNITE-20301")
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite = startNode(testInfo, 0);
@@ -177,15 +176,21 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         LeaderWithTerm leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
         String leaderId = leaderWithTerm.leader().consistentId();
 
+        log.info("Leader is {}", leaderId);
+
         // Find the index of any node that is not a leader of the partition group.
         int idxToStop = IntStream.range(1, 3)
                 .filter(idx -> !leaderId.equals(ignite(idx).node().name()))
                 .findFirst().getAsInt();
 
+        log.info("Stopping node {}", idxToStop);
+
         // Restart the node.
         stopNode(idxToStop);
 
         IgniteImpl restartingNode = startNode(testInfo, idxToStop);
+
+        log.info("Restarted node {}", restartingNode.name());
 
         Loza loza = restartingNode.raftManager();
 
@@ -195,31 +200,32 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
-        assertTrue(waitForCondition(
-                () -> {
-                    boolean raftNodeStarted = loza.localNodes().stream().anyMatch(nodeId -> {
-                        if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
-                        }
-
-                        return false;
-                    });
-
-                    if (!raftNodeStarted) {
-                        return false;
-                    }
-
-                    Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
-
-                    List<String> partitionAssignments = assignments.get(0);
-
-                    return partitionAssignments.contains(restartingNodeConsistentId);
-                },
+        waitForCondition(
+                () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
                 TimeUnit.SECONDS.toMillis(10)
-        ));
+        );
+
+        assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
+        assertTrue(
+                solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
+                "Assignments do not contain node " + restartingNodeConsistentId
+        );
 
         // Check the data rebalanced correctly.
         checkTableWithData(restartingNode, TABLE_NAME);
+    }
+
+    private static boolean solePartitionAssignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
+        Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
+
+        List<String> partitionAssignments = assignments.get(0);
+
+        return partitionAssignments.contains(restartingNodeConsistentId);
+    }
+
+    private static boolean isRaftNodeStarted(TableImpl table, Loza loza) {
+        return loza.localNodes().stream().anyMatch(nodeId ->
+                nodeId.groupId() instanceof TablePartitionId && ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId());
     }
 
     /**
@@ -266,7 +272,6 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts all the nodes with the partition.
      */
     @Test
-    @Disabled("IGNITE-20301")
     public void inMemoryNodeFullPartitionRestart(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite0 = startNode(testInfo, 0);

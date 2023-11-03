@@ -98,15 +98,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             .<String, Scalar>build()
             .asMap();
 
-    private final IgniteTypeFactory typeFactory;
+    private static final IgniteTypeFactory TYPE_FACTORY = IgniteTypeFactory.INSTANCE;
+    private static final RexBuilder REX_BUILDER = IgniteRexBuilder.INSTANCE;
+    private static final RelDataType NULL_TYPE = TYPE_FACTORY.createSqlType(SqlTypeName.NULL);
+    private static final RelDataType EMPTY_TYPE = new RelDataTypeFactory.Builder(TYPE_FACTORY).build();
 
     private final SqlConformance conformance;
-
-    private final RexBuilder rexBuilder;
-
-    private final RelDataType emptyType;
-
-    private final RelDataType nullType;
 
     private final ExecutionContext<RowT> ctx;
 
@@ -114,14 +111,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExpressionFactoryImpl(ExecutionContext<RowT> ctx, IgniteTypeFactory typeFactory, SqlConformance conformance) {
+    public ExpressionFactoryImpl(
+            ExecutionContext<RowT> ctx,
+            SqlConformance conformance
+    ) {
         this.ctx = ctx;
-        this.typeFactory = typeFactory;
         this.conformance = conformance;
-
-        rexBuilder = new IgniteRexBuilder(this.typeFactory);
-        emptyType = new RelDataTypeFactory.Builder(this.typeFactory).build();
-        nullType = typeFactory.createSqlType(SqlTypeName.NULL);
     }
 
     /** {@inheritDoc} */
@@ -254,7 +249,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public Supplier<RowT> rowSource(List<RexNode> values) {
-        List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : nullType);
+        List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : NULL_TYPE);
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
 
         return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
@@ -292,7 +287,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         List<Class<?>> types = new ArrayList<>(columns);
         for (RelDataType type : RelOptUtil.getFieldTypeList(rowType)) {
-            types.add(Primitives.wrap((Class<?>) typeFactory.getJavaClass(type)));
+            types.add(Primitives.wrap((Class<?>) TYPE_FACTORY.getJavaClass(type)));
         }
 
         List<RowT> rows = new ArrayList<>(values.size() / columns);
@@ -517,10 +512,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private Scalar compile(List<RexNode> nodes, RelDataType type, boolean biInParams) {
         if (type == null) {
-            type = emptyType;
+            type = EMPTY_TYPE;
         }
 
-        RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
+        RexProgramBuilder programBuilder = new RexProgramBuilder(type, REX_BUILDER);
 
         for (RexNode node : nodes) {
             assert node != null : "unexpected nullable node";
@@ -556,7 +551,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, hnd).build(nodes);
 
-        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
+        List<Expression> projects = RexToLixTranslator.translateProjects(program, TYPE_FACTORY, conformance,
                 builder, null, null, ctx, inputGetter, correlates);
 
         for (int i = 0; i < projects.size(); i++) {
@@ -655,8 +650,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             this.scalar = scalar;
             hnd = ctx.rowHandler();
 
-            RelDataType booleanType = typeFactory.createSqlType(SqlTypeName.BOOLEAN);
-            RelDataType nullableType = typeFactory.createTypeWithNullability(booleanType, true);
+            RelDataType booleanType = TYPE_FACTORY.createSqlType(SqlTypeName.BOOLEAN);
+            RelDataType nullableType = TYPE_FACTORY.createTypeWithNullability(booleanType, true);
             RowSchema schema = TypeUtils.rowSchemaFromRelTypes(List.of(nullableType));
 
             out = hnd.factory(schema).create();
@@ -992,7 +987,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         public Expression field(BlockBuilder list, int index, Type desiredType) {
             Expression fldExpression = fillExpressions(list, index);
 
-            Type fieldType = typeFactory.getJavaClass(rowType.getFieldList().get(index).getType());
+            Type fieldType = TYPE_FACTORY.getJavaClass(rowType.getFieldList().get(index).getType());
 
             if (desiredType == null) {
                 desiredType = fieldType;

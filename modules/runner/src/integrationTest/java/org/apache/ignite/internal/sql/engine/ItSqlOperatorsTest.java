@@ -279,6 +279,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("GREATEST('a', 'b')").returns("b").check();
         assertExpression("COMPRESS('')").returns(new byte[]{}).check();
         assertExpression("OCTET_LENGTH(x'01')").returns(1).check();
+        assertExpression("OCTET_LENGTH('text')").returns(4).check();
         assertExpression("CAST(INTERVAL 1 SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
         assertExpression("CAST(INTERVAL 1 DAY AS INT)").returns(1).check(); // Converted to REINTERPRED.
     }

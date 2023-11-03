@@ -31,3 +31,9 @@ SELECT length(s) FROM emojis ORDER BY id
 1
 3
 
+query I
+SELECT octet_length(s) FROM emojis ORDER BY id
+----
+4
+12
+

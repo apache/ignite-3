@@ -82,6 +82,6 @@ public final class Loggers {
      * @return Void logger.
      */
     public static IgniteLogger voidLogger() {
-        return new VoidLogger();
+        return VoidLogger.INSTANCE;
     }
 }

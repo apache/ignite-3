@@ -151,14 +151,16 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 if (!closed) {
                     Throwable th = ex.get();
 
-                    if (th == null) {
-                        th = new QueryCancelledException();
+                    if (!pendingRequests.isEmpty()) {
+                        if (th == null) {
+                            th = new QueryCancelledException();
+                        }
+
+                        Throwable th0 = th;
+
+                        pendingRequests.forEach(req -> req.fut.completeExceptionally(th0));
+                        pendingRequests.clear();
                     }
-
-                    Throwable th0 = th;
-
-                    pendingRequests.forEach(req -> req.fut.completeExceptionally(th0));
-                    pendingRequests.clear();
 
                     source.context().execute(() -> {
                         try {
