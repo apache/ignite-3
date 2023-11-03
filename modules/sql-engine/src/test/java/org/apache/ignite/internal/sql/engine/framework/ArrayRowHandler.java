@@ -58,12 +58,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
     /** {@inheritDoc} */
     @Override
-    public void set(int field, Object[] row, Object val) {
-        row[field] = val;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Object[] concat(Object[] left, Object[] right) {
         return ArrayUtils.concat(left, right);
     }
@@ -113,6 +107,41 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
             @Override
             public RowHandler<Object[]> handler() {
                 return ArrayRowHandler.this;
+            }
+
+            @Override
+            public RowBuilder<Object[]> rowBuilder() {
+                return new RowBuilder<>() {
+
+                    Object[] data;
+
+                    int fieldIdx = 0;
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public RowBuilder<Object[]> newRow() {
+                        data = new Object[rowLen];
+                        fieldIdx = 0;
+                        return this;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public RowBuilder<Object[]> addField(Object value) {
+                        data[fieldIdx++] = value;
+                        return this;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public Object[] build() {
+                        assert data != null : "Row has not been initialised";
+
+                        Object[] row = data;
+                        data = null;
+                        return row;
+                    }
+                };
             }
 
             /** {@inheritDoc} */

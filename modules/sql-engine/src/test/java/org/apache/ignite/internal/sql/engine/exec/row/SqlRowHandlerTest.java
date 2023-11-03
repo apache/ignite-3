@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec.row;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.toInternal;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,19 +28,23 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
@@ -66,14 +69,14 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
     @Test
     public void testBytebufferSerialization() {
-        List<ColumnType> columnTypes = columnTypes();
+        List<ColumnType> columnTypes = shuffledColumnTypes();
         Object[] sourceData = values(columnTypes);
         RowSchema schema = rowSchema(columnTypes, sourceData);
 
         int elementsCount = schema.fields().size();
 
         RowFactory<RowWrapper> factory = handler.factory(schema);
-        RowWrapper src = factory.create(wrap(sourceData));
+        RowWrapper src = factory.create(wrap(sourceData, schema));
 
         // Serialization to binary tuple representation.
         BinaryTuple tuple = handler.toBinaryTuple(src);
@@ -81,8 +84,8 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
         for (int i = 0; i < elementsCount; i++) {
             String msg = schema.fields().get(i).toString();
-
-            Object expected = toInternal(sourceData[i]);
+            TypeSpec typeSpec = schema.fields().get(i);
+            Object expected = convertToInternal(typeSpec, sourceData[i]);
 
             assertThat(msg, handler.get(i, src), equalTo(expected));
             assertThat(msg, handler.get(i, dest), equalTo(expected));
@@ -116,13 +119,18 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowWrapper result = handler.factory(concatenatedSchema).create(tuple);
 
         for (int i = 0; i < leftLen; i++) {
-            assertThat(handler.get(i, result), equalTo(TypeUtils.toInternal(params.leftData[i])));
+            TypeSpec typeSpec = params.leftSchema.fields().get(i);
+
+            assertThat(handler.get(i, result), equalTo(convertToInternal(typeSpec, params.leftData[i])));
         }
 
         for (int i = 0; i < rightLen; i++) {
-            assertThat(handler.get(leftLen + i, result), equalTo(TypeUtils.toInternal(params.rightData[i])));
+            TypeSpec typeSpec = params.rightSchema.fields().get(i);
+
+            assertThat(handler.get(leftLen + i, result), equalTo(convertToInternal(typeSpec, params.rightData[i])));
         }
     }
+
 
     @Test
     public void testMap() {
@@ -172,6 +180,23 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("columnTypes")
+    public void testRowBuilder(ColumnType type) {
+        Object value1 = generateValueByType(0, type);
+
+        RowSchema rowSchema = rowSchema(List.of(type), new Object[]{value1});
+        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+        RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
+
+        RowWrapper row1 = builder.newRow().addField(value1).build();
+        assertEquals(value1, handler.get(0, row1));
+
+        Object value2 = generateValueByType(0, type);
+        RowWrapper row2 = builder.newRow().addField(value2).build();
+        assertEquals(value2, handler.get(0, row2));
+    }
+
     private RowSchema rowSchema(List<ColumnType> columnTypes, Object[] values) {
         Builder schemaBuilder = RowSchema.builder();
 
@@ -185,7 +210,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             }
 
             NativeType nativeType = values[i] == null
-                    ? columnType2NativeType(type, 9, 3, 20)
+                    ? TypeUtils.columnType2NativeType(type, 9, 3, 20)
                     : NativeTypes.fromObject(values[i]);
 
             schemaBuilder.addField(nativeType, values[i] == null || rnd.nextBoolean());
@@ -207,21 +232,24 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         return values;
     }
 
-    private static Object[] wrap(Object[] values) {
+    private static Object[] wrap(Object[] values, RowSchema rowSchema) {
         Object[] newValues = new Object[values.length];
 
         for (int i = 0; i < values.length; i++) {
-            newValues[i] = toInternal(values[i]);
+            TypeSpec typeSpec = rowSchema.fields().get(i);
+            newValues[i] = convertToInternal(typeSpec, values[i]);
         }
 
         return newValues;
     }
 
-    private List<ColumnType> columnTypes() {
-        List<ColumnType> columnTypes = new ArrayList<>(
-                // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
-                EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION))
-        );
+    private static Set<ColumnType> columnTypes() {
+        // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
+        return EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION));
+    }
+
+    private List<ColumnType> shuffledColumnTypes() {
+        List<ColumnType> columnTypes = new ArrayList<>(columnTypes());
 
         Collections.shuffle(columnTypes, rnd);
 
@@ -237,8 +265,8 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         final RowWrapper right;
 
         ConcatTestParameters(boolean leftTupleRequired, boolean rightTupleRequired) {
-            List<ColumnType> columnTypes1 = columnTypes();
-            List<ColumnType> columnTypes2 = columnTypes();
+            List<ColumnType> columnTypes1 = shuffledColumnTypes();
+            List<ColumnType> columnTypes2 = shuffledColumnTypes();
 
             leftData = values(columnTypes1);
             rightData = values(columnTypes2);
@@ -248,11 +276,26 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             RowFactory<RowWrapper> factory1 = handler.factory(leftSchema);
             RowFactory<RowWrapper> factory2 = handler.factory(rightSchema);
 
-            RowWrapper left = factory1.create(wrap(leftData));
-            RowWrapper right = factory2.create(wrap(rightData));
+            RowWrapper left = factory1.create(wrap(leftData, leftSchema));
+            RowWrapper right = factory2.create(wrap(rightData, rightSchema));
 
             this.left = leftTupleRequired ? factory1.create(handler.toBinaryTuple(left)) : left;
             this.right = rightTupleRequired ? factory2.create(handler.toBinaryTuple(right)) : right;
+        }
+    }
+
+    private static @Nullable Object convertToInternal(NativeType nativeType, Object value) {
+        return convertToInternal(RowSchemaTypes.nativeType(nativeType), value);
+    }
+
+    private static @Nullable Object convertToInternal(TypeSpec typeSpec, Object value) {
+        if (typeSpec instanceof NullTypeSpec) {
+            return null;
+        } else {
+            BaseTypeSpec baseTypeSpec = (BaseTypeSpec) typeSpec;
+            NativeType nativeType = baseTypeSpec.nativeType();
+            Class<?> type = Commons.nativeTypeToClass(nativeType);
+            return TypeUtils.toInternal(value, type);
         }
     }
 }
