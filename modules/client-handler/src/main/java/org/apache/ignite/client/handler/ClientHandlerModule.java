@@ -249,8 +249,8 @@ public class ClientHandlerModule implements IgniteComponent {
                         long connectionId = CONNECTION_ID_GEN.incrementAndGet();
 
                         if (LOG.isDebugEnabled()) {
-                            LOG.debug("New client connection [connectionId=" + connectionId +
-                                    ", remoteAddress=" + ch.remoteAddress() + ']');
+                            LOG.debug("New client connection [connectionId=" + connectionId
+                                    + ", remoteAddress=" + ch.remoteAddress() + ']');
                         }
 
                         if (configuration.idleTimeout() > 0) {
