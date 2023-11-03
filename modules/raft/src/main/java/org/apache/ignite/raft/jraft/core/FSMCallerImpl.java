@@ -208,6 +208,10 @@ public class FSMCallerImpl implements FSMCaller {
                 task.nodeId = this.nodeId;
                 task.type = TaskType.SHUTDOWN;
                 task.shutdownLatch = latch;
+
+                if (this.node != null) {
+                    this.node = null;
+                }
             }));
         }
         doShutdown();
@@ -455,9 +459,6 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     private void doShutdown() {
-        if (this.node != null) {
-            this.node = null;
-        }
         if (this.fsm != null) {
             this.fsm.onShutdown();
         }
