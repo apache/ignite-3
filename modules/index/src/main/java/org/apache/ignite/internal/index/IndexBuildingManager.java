@@ -22,14 +22,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -42,8 +37,6 @@ import org.apache.ignite.network.ClusterService;
  * cluster and when a node is being restored.
  */
 public class IndexBuildingManager implements IgniteComponent {
-    private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingManager.class);
-
     private final MetaStorageManager metaStorageManager;
 
     private final IndexBuilder indexBuilder;
@@ -51,11 +44,6 @@ public class IndexBuildingManager implements IgniteComponent {
     private final IndexAvailabilityController indexAvailabilityController;
 
     private final IndexBuildController indexBuildController;
-
-    private final IndexAvailabilityControllerRestorer indexAvailabilityControllerRestorer;
-
-    /** Versioned value used only at the start of the manager. */
-    private final IncrementalVersionedValue<Void> startVv;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -70,8 +58,7 @@ public class IndexBuildingManager implements IgniteComponent {
             IndexManager indexManager,
             PlacementDriver placementDriver,
             ClusterService clusterService,
-            HybridClock clock,
-            Consumer<LongFunction<CompletableFuture<?>>> registry
+            HybridClock clock
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -80,17 +67,6 @@ public class IndexBuildingManager implements IgniteComponent {
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
 
         indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
-
-        indexAvailabilityControllerRestorer = new IndexAvailabilityControllerRestorer(
-                catalogManager,
-                metaStorageManager,
-                indexManager,
-                placementDriver,
-                clusterService,
-                clock
-        );
-
-        startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
@@ -102,19 +78,7 @@ public class IndexBuildingManager implements IgniteComponent {
 
             long recoveryRevision = recoveryFinishedFuture.join();
 
-            CompletableFuture<Void> recoveryIndexAvailabilityFuture = indexAvailabilityControllerRestorer.recover(recoveryRevision);
-
-            // TODO: IGNITE-20638 может что-то еще понадобиться
-
-            // Forces to wait until recovery is complete before the metastore watches are deployed to avoid races with other components.
-            startVv.update(recoveryRevision, (unused, throwable) -> recoveryIndexAvailabilityFuture)
-                    .whenComplete((unused, throwable) -> {
-                        if (throwable != null) {
-                            LOG.error("Index build recovery error", throwable);
-                        } else {
-                            LOG.debug("Index build recovery completed successfully");
-                        }
-                    });
+            indexAvailabilityController.recover(recoveryRevision);
         });
     }
 
@@ -129,8 +93,7 @@ public class IndexBuildingManager implements IgniteComponent {
         closeAllManually(
                 indexBuilder,
                 indexAvailabilityController,
-                indexBuildController,
-                indexAvailabilityControllerRestorer
+                indexBuildController
         );
     }
 }
