@@ -41,7 +41,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableView;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -180,7 +180,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     /** {@inheritDoc} */
     @Override
-    protected TxManager txManager(TableImpl t) {
+    protected TxManager txManager(TableView t) {
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver.getPrimaryReplica(
                 new TablePartitionId(t.tableId(), 0),
                 txTestCluster.clocks.get(txTestCluster.localNodeName).now());
@@ -204,7 +204,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      * @return True if {@link MvPartitionStorage#lastAppliedIndex()} is equivalent across all nodes, false otherwise.
      */
     @Override
-    protected boolean assertPartitionsSame(TableImpl table, int partId) {
+    protected boolean assertPartitionsSame(TableView table, int partId) {
         long storageIdx = 0;
 
         for (Map.Entry<String, Loza> entry : txTestCluster.raftServers.entrySet()) {
@@ -235,7 +235,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     }
 
     @Override
-    protected void injectFailureOnNextOperation(TableImpl accounts) {
+    protected void injectFailureOnNextOperation(TableView accounts) {
         InternalTable internalTable = accounts.internalTable();
         ReplicaService replicaService = IgniteTestUtils.getFieldValue(internalTable, "replicaSvc");
         Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((ClusterNode) any(), any());

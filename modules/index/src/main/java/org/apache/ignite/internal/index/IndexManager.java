@@ -61,7 +61,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableView;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -185,7 +185,7 @@ public class IndexManager implements IgniteComponent {
 
         long causalityToken = parameters.causalityToken();
 
-        CompletableFuture<TableImpl> tableFuture = tableManager.tableAsync(causalityToken, tableId);
+        CompletableFuture<TableView> tableFuture = tableManager.tableAsync(causalityToken, tableId);
 
         return inBusyLockAsync(busyLock, () -> mvTableStoragesByIdVv.update(
                 causalityToken,
@@ -361,7 +361,7 @@ public class IndexManager implements IgniteComponent {
                         (partitionSet, schemaRegistry) -> inBusyLock(busyLock, () -> {
                             registerIndex(table, index, partitionSet, schemaRegistry);
 
-                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableImplStrict(tableId).internalTable().storage());
+                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableViewStrict(tableId).internalTable().storage());
                         })))
         );
     }
@@ -372,7 +372,7 @@ public class IndexManager implements IgniteComponent {
             PartitionSet partitionSet,
             SchemaRegistry schemaRegistry
     ) {
-        TableImpl tableImpl = getTableImplStrict(table.id());
+        TableView tableView = getTableViewStrict(table.id());
 
         var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
 
@@ -382,7 +382,7 @@ public class IndexManager implements IgniteComponent {
         );
 
         if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
-            tableImpl.registerSortedIndex(
+            tableView.registerSortedIndex(
                     (StorageSortedIndexDescriptor) storageIndexDescriptor,
                     tableRowConverter,
                     partitionSet
@@ -390,7 +390,7 @@ public class IndexManager implements IgniteComponent {
         } else {
             boolean unique = index.unique();
 
-            tableImpl.registerHashIndex(
+            tableView.registerHashIndex(
                     (StorageHashIndexDescriptor) storageIndexDescriptor,
                     unique,
                     tableRowConverter,
@@ -398,7 +398,7 @@ public class IndexManager implements IgniteComponent {
             );
 
             if (unique) {
-                tableImpl.pkId(index.id());
+                tableView.pkId(index.id());
             }
         }
     }
@@ -435,8 +435,8 @@ public class IndexManager implements IgniteComponent {
         return newMap;
     }
 
-    private TableImpl getTableImplStrict(int tableId) {
-        TableImpl table = tableManager.getTable(tableId);
+    private TableView getTableViewStrict(int tableId) {
+        TableView table = tableManager.getTable(tableId);
 
         assert table != null : tableId;
 

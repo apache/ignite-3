@@ -94,6 +94,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableView;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
@@ -410,7 +411,7 @@ public class ItTxTestCluster {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    public TableImpl startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
+    public TableView startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
         CatalogService catalogService = mock(CatalogService.class);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);

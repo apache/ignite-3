@@ -36,7 +36,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableView;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -70,7 +70,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
     private ItTxTestCluster testCluster;
 
-    private TableImpl table;
+    private TableView table;
 
     /**
      * The constructor.

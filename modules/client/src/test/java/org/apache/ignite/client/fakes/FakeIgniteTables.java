@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableView;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -62,9 +63,9 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     public static final String BAD_TABLE_ERR = "Err!";
 
-    private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, TableView> tables = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<Integer, TableImpl> tablesById = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, TableView> tablesById = new ConcurrentHashMap<>();
 
     private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
@@ -89,7 +90,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @param id Table id.
      * @return Table.
      */
-    public TableImpl createTable(String name, int id) {
+    public TableView createTable(String name, int id) {
         var newTable = getNewTable(name, id);
 
         var oldTable = tables.putIfAbsent(name, newTable);
@@ -135,12 +136,12 @@ public class FakeIgniteTables implements IgniteTablesInternal {
             throw new RuntimeException(BAD_TABLE_ERR);
         }
 
-        return tableImpl(name);
+        return tableView(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl table(int id) {
+    public TableView table(int id) {
         return tablesById.get(id);
     }
 
@@ -152,20 +153,20 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(int id) {
+    public CompletableFuture<TableView> tableAsync(int id) {
         return completedFuture(tablesById.get(id));
     }
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl tableImpl(String name) {
+    public TableView tableView(String name) {
         return tables.get(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableImplAsync(String name) {
-        return completedFuture(tableImpl(name));
+    public CompletableFuture<TableView> tableViewAsync(String name) {
+        return completedFuture(tableView(name));
     }
 
     /** {@inheritDoc} */
@@ -203,7 +204,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         }
     }
 
-    private TableImpl getNewTable(String name, int id) {
+    private TableView getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 
         switch (name) {

@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -61,7 +61,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private IgniteComputeImpl compute;
 
     @Mock
-    private TableImpl table;
+    private TableView table;
 
     private final ClusterNode localNode = new ClusterNodeImpl("local", "local", new NetworkAddress("local-host", 1));
 
@@ -106,7 +106,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() throws Exception {
         respondWhenExecutingSimpleJobRemotely();
 
-        when(igniteTables.tableImplAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
+        when(igniteTables.tableViewAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
         doReturn(42).when(table).partition(any());
         doReturn(remoteNode).when(table).leaderAssignment(42);
 
@@ -125,7 +125,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() throws Exception {
         respondWhenExecutingSimpleJobRemotely();
 
-        when(igniteTables.tableImplAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
+        when(igniteTables.tableViewAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
         doReturn(42).when(table).partition(any(), any());
         doReturn(remoteNode).when(table).leaderAssignment(42);
 

@@ -26,7 +26,7 @@ import java.util.Comparator;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.table.ClientTable;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableView;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Disabled;
@@ -82,7 +82,7 @@ public class ClientTablesTest extends AbstractClientTest {
 
         var serverTable = serverTables.get(0);
         assertEquals("t1", serverTable.name());
-        assertEquals(((TableImpl) serverTable).tableId(), ((ClientTable) clientTable).tableId());
+        assertEquals(((TableView) serverTable).tableId(), ((ClientTable) clientTable).tableId());
     }
 
     @Test

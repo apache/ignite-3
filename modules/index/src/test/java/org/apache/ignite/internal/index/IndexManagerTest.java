@@ -60,6 +60,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableView;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -189,7 +190,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(getMvTableStorageInCatalogListenerFuture, willBe(notNullValue()));
     }
 
-    private TableImpl mockTable(int tableId) {
+    private TableView mockTable(int tableId) {
         CatalogZoneDescriptor zone = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
 
         assertNotNull(zone);

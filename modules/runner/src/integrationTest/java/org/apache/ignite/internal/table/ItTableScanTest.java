@@ -106,7 +106,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             }
     );
 
-    private TableImpl table;
+    private TableView table;
 
     private InternalTable internalTable;
 
@@ -713,7 +713,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      *
      * @param table Ignite table.
      */
-    private static void loadData(TableImpl table) {
+    private static void loadData(TableView table) {
         ROW_IDS.forEach(id -> insertRow(id));
 
         for (Integer rowId : ROW_IDS) {
@@ -730,7 +730,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      *
      * @param table Ignite table.
      */
-    private static void clearData(TableImpl table) {
+    private static void clearData(TableView table) {
         ArrayList<Tuple> keysToRemove = new ArrayList<>(100);
 
         IntStream.range(0, 100).forEach(rowId -> keysToRemove.add(Tuple.create().set("key", rowId)));
@@ -797,7 +797,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      *
      * @return Ignite table.
      */
-    private static TableImpl getOrCreateTable() {
+    private static TableView getOrCreateTable() {
         sql("CREATE ZONE IF NOT EXISTS ZONE1 WITH REPLICAS=1, PARTITIONS=1;");
 
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
@@ -805,7 +805,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 
-        return (TableImpl) CLUSTER.aliveNode().tables().table(TABLE_NAME);
+        return (TableView) CLUSTER.aliveNode().tables().table(TABLE_NAME);
     }
 
     /**
@@ -876,7 +876,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
-        InternalTable table = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
+        InternalTable table = ((TableView) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
         PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
