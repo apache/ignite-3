@@ -65,7 +65,8 @@ public class ClientHandlerModule implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
-    /** Connection id generator. */
+    /** Connection id generator.
+     * The resulting connection id is local to the current node and is intended for logging, diagnostics, and management purposes. */
     private static final AtomicLong CONNECTION_ID_GEN = new AtomicLong();
 
     /** Configuration registry. */
