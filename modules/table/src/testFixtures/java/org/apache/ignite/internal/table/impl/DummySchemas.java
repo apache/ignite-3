@@ -75,8 +75,7 @@ public class DummySchemas implements Schemas {
         var fullSchema = new FullTableSchema(
                 1,
                 1,
-                columns,
-                List.of()
+                columns
         );
 
         return List.of(fullSchema);

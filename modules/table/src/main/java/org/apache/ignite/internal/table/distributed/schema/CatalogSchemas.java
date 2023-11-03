@@ -79,8 +79,7 @@ public class CatalogSchemas implements Schemas {
         return new FullTableSchema(
                 tableDescriptor.tableVersion(),
                 tableDescriptor.id(),
-                tableDescriptor.columns(),
-                List.of()
+                tableDescriptor.columns()
         );
     }
 }

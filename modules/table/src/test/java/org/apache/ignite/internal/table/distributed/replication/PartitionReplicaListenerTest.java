@@ -1486,7 +1486,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(schemaVersion, 1, columns, List.of());
+        return new FullTableSchema(schemaVersion, 1, columns);
     }
 
     private AtomicReference<Boolean> interceptFinishTxCommand() {

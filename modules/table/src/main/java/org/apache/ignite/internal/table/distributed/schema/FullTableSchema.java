@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
@@ -42,21 +41,13 @@ public class FullTableSchema {
 
     private final List<CatalogTableColumnDescriptor> columns;
 
-    private final List<CatalogIndexDescriptor> indexes;
-
     /**
      * Constructor.
      */
-    public FullTableSchema(
-            int schemaVersion,
-            int tableId,
-            List<CatalogTableColumnDescriptor> columns,
-            List<CatalogIndexDescriptor> indexes
-    ) {
+    public FullTableSchema(int schemaVersion, int tableId, List<CatalogTableColumnDescriptor> columns) {
         this.schemaVersion = schemaVersion;
         this.tableId = tableId;
         this.columns = List.copyOf(columns);
-        this.indexes = List.copyOf(indexes);
     }
 
     /**
@@ -87,15 +78,6 @@ public class FullTableSchema {
     }
 
     /**
-     * Returns definitions of indexes belonging to the table.
-     *
-     * @return Definitions of indexes belonging to the table.
-     */
-    public List<CatalogIndexDescriptor> indexes() {
-        return indexes;
-    }
-
-    /**
      * Computes a diff between this and a previous schema.
      *
      * @param prevSchema Previous table schema.
@@ -119,13 +101,7 @@ public class FullTableSchema {
             }
         }
 
-        Map<String, CatalogIndexDescriptor> prevIndexesByName = toMapByName(prevSchema.indexes, CatalogIndexDescriptor::name);
-        Map<String, CatalogIndexDescriptor> thisIndexesByName = toMapByName(this.indexes, CatalogIndexDescriptor::name);
-
-        List<CatalogIndexDescriptor> addedIndexes = subtractKeyed(thisIndexesByName, prevIndexesByName);
-        List<CatalogIndexDescriptor> removedIndexes = subtractKeyed(prevIndexesByName, thisIndexesByName);
-
-        return new TableDefinitionDiff(addedColumns, removedColumns, changedColumns, addedIndexes, removedIndexes);
+        return new TableDefinitionDiff(addedColumns, removedColumns, changedColumns);
     }
 
     private static <T> Map<String, T> toMapByName(List<T> elements, Function<T, String> nameExtractor) {
