@@ -262,8 +262,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         channelHandlerContext = ctx;
         super.channelRegistered(ctx);
 
-        // TODO: Check if debug enabled here and below
-        LOG.debug("Connection registered [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Connection registered [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+        }
     }
 
     /** {@inheritDoc} */
@@ -294,7 +295,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
         super.channelInactive(ctx);
 
-        LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+        }
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
@@ -533,8 +536,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                         metrics.requestsProcessedIncrement();
 
-                        LOG.trace("Client request processed [id=" + reqId + ", op=" + op
-                                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+                        if (LOG.isTraceEnabled()) {
+                            LOG.trace("Client request processed [id=" + reqId + ", op=" + op
+                                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+                        }
                     }
                 });
             }
