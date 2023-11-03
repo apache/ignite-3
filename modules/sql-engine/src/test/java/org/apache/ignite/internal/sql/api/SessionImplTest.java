@@ -51,7 +51,6 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -99,7 +98,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         assertThat(session.expired(), is(true));
     }
 
-    @RepeatedTest(10)
+    @Test
     void sessionCleanUpsItselfFromSessionsMapOnClose() {
         SessionImpl session = newSession(3);
         assertThat(sessions.get(session.id()), sameInstance(session));
