@@ -1014,9 +1014,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 for (int p = 0; p < internalTable.partitions(); p++) {
                     TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-                    stopping.add(() -> raftMgr.stopRaftNodes(replicationGroupId));
-
                     stopping.add(() -> replicaMgr.stopReplica(replicationGroupId).get(10, TimeUnit.SECONDS));
+
+                    stopping.add(() -> raftMgr.stopRaftNodes(replicationGroupId));
 
                     CompletableFuture<Void> removeFromGcFuture = mvGc.removeStorage(replicationGroupId);
 
