@@ -43,7 +43,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.utils.RebalanceUtil;
@@ -73,14 +73,14 @@ class PartitionReplicatorNodeRecovery {
     private final Function<String, ClusterNode> clusterNodeResolver;
 
     /** Obtains a TableImpl instance by a table ID. */
-    private final IntFunction<TableImpl> tableById;
+    private final IntFunction<TableViewInternal> tableById;
 
     PartitionReplicatorNodeRecovery(
             MetaStorageManager metaStorageManager,
             MessagingService messagingService,
             TopologyService topologyService,
             Function<String, ClusterNode> clusterNodeResolver,
-            IntFunction<TableImpl> tableById
+            IntFunction<TableViewInternal> tableById
     ) {
         this.metaStorageManager = metaStorageManager;
         this.messagingService = messagingService;
@@ -109,7 +109,7 @@ class PartitionReplicatorNodeRecovery {
 
                 boolean storageHasData = false;
 
-                TableImpl table = tableById.apply(tableId);
+                TableViewInternal table = tableById.apply(tableId);
 
                 if (table != null) {
                     MvTableStorage storage = table.internalTable().storage();

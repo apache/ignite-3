@@ -45,7 +45,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -169,7 +169,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replica on every node.
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
 
         // Find the leader of the table's partition group.
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
@@ -196,7 +196,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         String restartingNodeConsistentId = restartingNode.name();
 
-        TableImpl restartingTable = (TableImpl) restartingNode.tables().table(TABLE_NAME);
+        TableViewInternal restartingTable = (TableViewInternal) restartingNode.tables().table(TABLE_NAME);
         InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
@@ -223,7 +223,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         return partitionAssignments.contains(restartingNodeConsistentId);
     }
 
-    private static boolean isRaftNodeStarted(TableImpl table, Loza loza) {
+    private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
         return loza.localNodes().stream().anyMatch(nodeId ->
                 nodeId.groupId() instanceof TablePartitionId && ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId());
     }
@@ -242,7 +242,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replica on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite0.tables().table(TABLE_NAME);
 
         // Lose the majority.
         stopNode(1);
@@ -281,7 +281,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replicas on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite0.tables().table(TABLE_NAME);
 
         stopNode(0);
         stopNode(1);
@@ -348,7 +348,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
             }
         }
 
-        var table = (TableImpl) ignite.tables().table(name);
+        var table = (TableViewInternal) ignite.tables().table(name);
 
         assertThat(table.internalTable().storage().isVolatile(), is(true));
 
@@ -364,10 +364,10 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
     private static boolean tableHasDataOnAllIgnites(String name, int partitions) {
         return CLUSTER_NODES.stream()
-                .allMatch(igniteNode -> tableHasAnyData((TableImpl) igniteNode.tables().table(name), partitions));
+                .allMatch(igniteNode -> tableHasAnyData((TableViewInternal) igniteNode.tables().table(name), partitions));
     }
 
-    private static boolean tableHasAnyData(TableImpl nodeTable, int partitions) {
+    private static boolean tableHasAnyData(TableViewInternal nodeTable, int partitions) {
         return IntStream.range(0, partitions)
                 .mapToObj(partition -> new IgniteBiTuple<>(
                         partition, nodeTable.internalTable().storage().getMvPartition(partition)
