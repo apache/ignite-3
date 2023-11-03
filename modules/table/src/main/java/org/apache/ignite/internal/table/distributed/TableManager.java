@@ -68,7 +68,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -2123,26 +2122,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     );
                 })
                 .thenCompose(Function.identity());
-    }
-
-    private static void handleExceptionOnCleanUpTablesResources(
-            Throwable t,
-            AtomicReference<Throwable> throwable,
-            AtomicBoolean nodeStoppingEx
-    ) {
-        if (t instanceof CompletionException || t instanceof ExecutionException) {
-            t = t.getCause();
-        }
-
-        if (!throwable.compareAndSet(null, t)) {
-            if (!(t instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
-                throwable.get().addSuppressed(t);
-            }
-        }
-
-        if (t instanceof NodeStoppingException) {
-            nodeStoppingEx.set(true);
-        }
     }
 
     private int[] collectTableIndexIds(int tableId, int catalogVersion) {
