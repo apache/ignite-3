@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -94,6 +95,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
     public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
+
+    //approximate and exact numeric types
+    private static final Pattern numeric = Pattern.compile("^\\s*\\d+(\\.{1}\\d*)\\s*$");
 
     static {
         EnumSet<SqlKind> kinds = EnumSet.noneOf(SqlKind.class);
@@ -514,7 +518,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     throw new SqlException(STMT_PARSE_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
                 }
             } catch (NumberFormatException e) {
-                throw new SqlException(STMT_PARSE_ERR, e);
+                if (!numeric.matcher(litValue).matches()) {
+                    throw new SqlException(STMT_PARSE_ERR, e);
+                }
             }
         }
     }
