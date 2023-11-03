@@ -182,7 +182,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     private void restartComponentsAndPerformRecovery() throws Exception {
         stopAndRestartComponentsNoDeployWatches();
 
-        assertThat(recoveryRestorer(), willCompleteSuccessfully());
+        recoveryRestorer();
 
         deployWatches();
     }
@@ -210,7 +210,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
     }
 
-    private CompletableFuture<Void> recoveryRestorer() {
+    private void recoveryRestorer() {
         if (controller != null) {
             controller.close();
         }
@@ -221,7 +221,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         assertThat(metastoreRecoveryFuture, willBe(greaterThan(0L)));
 
-        return controller.recover(metastoreRecoveryFuture.join());
+        controller.recover(metastoreRecoveryFuture.join());
     }
 
     private void setLocalNodeToClusterService(ClusterNode clusterNode) {

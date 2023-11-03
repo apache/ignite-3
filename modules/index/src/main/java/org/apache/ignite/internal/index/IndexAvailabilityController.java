@@ -154,10 +154,9 @@ public class IndexAvailabilityController implements ManuallyCloseable {
      * Recovers index availability on node recovery.
      *
      * @param recoveryRevision Metastore revision on recovery.
-     * @return Future of recovery execution.
      */
-    public CompletableFuture<Void> recover(long recoveryRevision) {
-        return inBusyLockAsync(busyLock, () -> {
+    public void recover(long recoveryRevision) {
+        inBusyLock(busyLock, () -> {
             // It is expected that the method will only be called on recovery, when the deploy of metastore watches has not yet occurred.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
@@ -171,7 +170,13 @@ public class IndexAvailabilityController implements ManuallyCloseable {
                     })
                     .collect(toList());
 
-            return allOf(futures.toArray(CompletableFuture[]::new));
+            allOf(futures.toArray(CompletableFuture[]::new)).whenComplete((unused, throwable) -> {
+                if (throwable != null && !(unwrapCause(throwable) instanceof NodeStoppingException)) {
+                    LOG.error("Error when trying to recover index availability", throwable);
+                } else if (!futures.isEmpty()) {
+                    LOG.debug("Successful recovery of index availability");
+                }
+            });
         });
     }
 
