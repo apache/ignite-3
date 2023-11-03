@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.calcite.sql.type.SqlTypeName.INT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.calcite.plan.RelOptTable;
@@ -58,6 +61,7 @@ import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.calcite.sql.util.SqlBasicVisitor;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -65,6 +69,7 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -76,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -86,6 +92,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public static final int MAX_LENGTH_OF_ALIASES = 256;
 
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
+
+    public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
 
     static {
         EnumSet<SqlKind> kinds = EnumSet.noneOf(SqlKind.class);
@@ -479,6 +487,61 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     throw SqlUtil.newContextException(expr.getParserPosition(), ex);
                 }
             }
+
+            literalCanFitType(expr, returnType);
+        }
+    }
+
+    /** Check literal can fit to declared exact numeric type, work only for single literal. */
+    private static void literalCanFitType(SqlNode expr, RelDataType toType) {
+        if (INT_TYPES.contains(toType.getSqlTypeName())) {
+            LiteralExtractor litExtractor = new LiteralExtractor();
+
+            SqlLiteral literal = litExtractor.getLiteral(expr);
+
+            if (literal == null || literal.toValue() == null) {
+                return;
+            }
+
+            long max = Commons.getMaxValue(toType);
+            long min = Commons.getMinValue(toType);
+
+            String litValue = Objects.requireNonNull(literal.toValue());
+
+            try {
+                if (Long.valueOf(litValue).compareTo(max) > 0 || Long.valueOf(litValue).compareTo(min) < 0) {
+                    throw new SqlException(STMT_PARSE_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+                }
+            } catch (NumberFormatException e) {
+                throw new SqlException(STMT_PARSE_ERR, NUMERIC_FIELD_OVERFLOW_ERROR, e);
+            }
+        }
+    }
+
+    private static class LiteralExtractor extends SqlBasicVisitor<SqlNode> {
+        private @Nullable SqlLiteral extracted = null;
+
+        private @Nullable SqlLiteral getLiteral(SqlNode expr) {
+            try {
+                expr.accept(this);
+            } catch (Util.FoundOne e) {
+                Util.swallow(e, null);
+            }
+            return extracted;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlNode visit(SqlLiteral literal) {
+            extracted = extracted != null ? null : literal;
+            return literal;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlNode visit(SqlDynamicParam param) {
+            extracted = null;
+            throw new Util.FoundOne(param);
         }
     }
 

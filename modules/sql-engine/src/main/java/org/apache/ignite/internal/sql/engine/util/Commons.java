@@ -63,16 +63,19 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.NumberUtil;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
@@ -859,6 +862,48 @@ public final class Commons {
 
             default:
                 return null;
+        }
+    }
+
+    /** Returns the minimum unscaled value of a numeric type.
+     *
+     * @param type a numeric type
+     */
+    public static long getMinValue(RelDataType type) {
+        SqlTypeName typeName = type.getSqlTypeName();
+        switch (typeName) {
+            case TINYINT:
+                return Byte.MIN_VALUE;
+            case SMALLINT:
+                return Short.MIN_VALUE;
+            case INTEGER:
+                return Integer.MIN_VALUE;
+            case BIGINT:
+            case DECIMAL:
+                return NumberUtil.getMinUnscaled(type.getPrecision()).longValue();
+            default:
+                throw new AssertionError("getMinValue(" + typeName + ")");
+        }
+    }
+
+    /** Returns the maximum unscaled value of a numeric type.
+     *
+     * @param type a numeric type
+     */
+    public static long getMaxValue(RelDataType type) {
+        SqlTypeName typeName = type.getSqlTypeName();
+        switch (typeName) {
+            case TINYINT:
+                return Byte.MAX_VALUE;
+            case SMALLINT:
+                return Short.MAX_VALUE;
+            case INTEGER:
+                return Integer.MAX_VALUE;
+            case BIGINT:
+            case DECIMAL:
+                return NumberUtil.getMaxUnscaled(type.getPrecision()).longValue();
+            default:
+                throw new AssertionError("getMaxValue(" + typeName + ")");
         }
     }
 }

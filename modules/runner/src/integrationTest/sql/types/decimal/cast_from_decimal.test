@@ -11,23 +11,50 @@ SELECT 127::DECIMAL(3,0)::TINYINT, -127::DECIMAL(3,0)::TINYINT, -7::DECIMAL(9,1)
 ----
 127	-127	-7	27	33
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT 128::DECIMAL(3,0)::TINYINT
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT -128::DECIMAL(9,0)::TINYINT
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT 128::DECIMAL(18,0)::TINYINT
 
+statement error
+SELECT (SELECT 128::DECIMAL(18,0)::TINYINT)
+
 skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
+# https://issues.apache.org/jira/browse/IGNITE-20784
+statement error
+SELECT (SELECT (127 + 1)::DECIMAL(18,0)::TINYINT)
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-20784
+query I
+SELECT 2147483647 + 1
+----
+2147483648
+
+query I
+SELECT 2147483648
+----
+2147483648
+
+query I
+SELECT (null)::INTEGER
+----
+null
+
+query I
+SELECT (1 + null)::INTEGER
+----
+null
+
+query I
+SELECT (SELECT 127::DECIMAL(18,0)::TINYINT)
+----
+127
+
 statement error
 SELECT 14751947891758972421513::DECIMAL(38,0)::TINYINT
 
@@ -37,18 +64,12 @@ SELECT 127::DECIMAL(3,0)::SMALLINT, -32767::DECIMAL(5,0)::SMALLINT, -7::DECIMAL(
 ----
 127	-32767	-7	27	33
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT -32768::DECIMAL(9,0)::SMALLINT
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT 32768::DECIMAL(18,0)::SMALLINT
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT 14751947891758972421513::DECIMAL(38,0)::SMALLINT
 
@@ -58,13 +79,9 @@ SELECT 127::DECIMAL(3,0)::INTEGER, -2147483647::DECIMAL(10,0)::INTEGER, -7::DECI
 ----
 127	-2147483647	-7	27	33
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT 2147483648::DECIMAL(18,0)::INTEGER
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT 14751947891758972421513::DECIMAL(38,0)::INTEGER
 
@@ -74,8 +91,6 @@ SELECT 127::DECIMAL(3,0)::BIGINT, -9223372036854775807::DECIMAL(19,0)::BIGINT, -
 ----
 127	-9223372036854775807	-7	27	33
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18662
 statement error
 SELECT 14751947891758972421513::DECIMAL(38,0)::BIGINT
 
