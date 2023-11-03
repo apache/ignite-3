@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tracing;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -101,7 +102,6 @@ public class TracingManager {
         return SPAN_MANAGER.createSpan(spanName, null, true, closure);
     }
 
-
     /**
      * Creates span given name.
      *
@@ -119,17 +119,7 @@ public class TracingManager {
      * @param closure Closure.
      */
     public static void span(String spanName, Consumer<TraceSpan> closure) {
-        TraceSpan span = SPAN_MANAGER.createSpan(spanName, null, false, false);
-
-        try (span) {
-            closure.accept(span);
-        } catch (Throwable ex) {
-            span.recordException(ex);
-
-            throw ex;
-        } finally {
-            span.end();
-        }
+        SPAN_MANAGER.createSpan(spanName, null, false, closure);
     }
 
     /**
@@ -149,6 +139,20 @@ public class TracingManager {
 
     public static ExecutorService taskWrapping(ExecutorService executorService) {
         return SPAN_MANAGER.taskWrapping(executorService);
+    }
+
+    /**
+     * Returns a {@link Callable} that preserve current trace context and then invokes the input {@link Callable}.
+     */
+    public static <T> Callable<T> wrap(Callable<T> callable) {
+        return SPAN_MANAGER.wrap(callable);
+    }
+
+    /**
+     * Returns a {@link Runnable} that preserve current trace context and then invokes the input {@link Runnable}.
+     */
+    public static Runnable wrap(Runnable runnable) {
+        return SPAN_MANAGER.wrap(runnable);
     }
 
     public static @Nullable Map<String, String> serializeSpan() {

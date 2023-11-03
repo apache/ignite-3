@@ -212,48 +212,49 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridTimestampTracker timestampTracker,
             boolean readOnly
     ) {
-        try (var opSpan = asyncSpan("tx operation");
-                var span = span("TxManagerImpl.begin")) {
-            span.addAttribute("timestampTracker", timestampTracker::toString);
-            span.addAttribute("readOnly", () -> String.valueOf(readOnly));
+        try (var txSpan = asyncSpan("tx operation")) {
+            return spanWithResult("TxManagerImpl.begin", (span) -> {
+                span.addAttribute("timestampTracker", timestampTracker::toString);
+                span.addAttribute("readOnly", () -> String.valueOf(readOnly));
 
-            HybridTimestamp beginTimestamp = clock.now();
-            UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-            updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
+                HybridTimestamp beginTimestamp = clock.now();
+                UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
+                updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
-            if (!readOnly) {
-                return new ReadWriteTransactionImpl(this, timestampTracker, txId, opSpan);
-            }
+                if (!readOnly) {
+                    return new ReadWriteTransactionImpl(this, timestampTracker, txId, txSpan);
+                }
 
-            HybridTimestamp observableTimestamp = timestampTracker.get();
+                HybridTimestamp observableTimestamp = timestampTracker.get();
 
-            HybridTimestamp readTimestamp = observableTimestamp != null
-                    ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
-                    : currentReadTimestamp();
+                HybridTimestamp readTimestamp = observableTimestamp != null
+                        ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
+                        : currentReadTimestamp();
 
-            lowWatermarkReadWriteLock.readLock().lock();
+                lowWatermarkReadWriteLock.readLock().lock();
 
-            try {
-                HybridTimestamp lowWatermark1 = this.lowWatermark.get();
+                try {
+                    HybridTimestamp lowWatermark1 = this.lowWatermark.get();
 
-                readOnlyTxFutureById.compute(new TxIdAndTimestamp(readTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
-                    assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
+                    readOnlyTxFutureById.compute(new TxIdAndTimestamp(readTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
+                        assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-                    if (lowWatermark1 != null && readTimestamp.compareTo(lowWatermark1) <= 0) {
-                        throw new IgniteInternalException(
-                                TX_READ_ONLY_TOO_OLD_ERR,
-                                "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
-                                readTimestamp, lowWatermark1
-                        );
-                    }
+                        if (lowWatermark1 != null && readTimestamp.compareTo(lowWatermark1) <= 0) {
+                            throw new IgniteInternalException(
+                                    TX_READ_ONLY_TOO_OLD_ERR,
+                                    "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                                    readTimestamp, lowWatermark1
+                            );
+                        }
 
-                    return new CompletableFuture<>();
-                });
+                        return new CompletableFuture<>();
+                    });
 
-                return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp, opSpan);
-            } finally {
-                lowWatermarkReadWriteLock.readLock().unlock();
-            }
+                    return new ReadOnlyTransactionImpl(this, timestampTracker, txId, readTimestamp, txSpan);
+                } finally {
+                    lowWatermarkReadWriteLock.readLock().unlock();
+                }
+            });
         }
     }
 

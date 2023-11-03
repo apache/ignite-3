@@ -197,7 +197,7 @@ public class ReplicaService {
         try (TraceSpan span = asyncSpan("ReplicaService.invoke")) {
             span.addAttribute("req", request::toString);
 
-            return span.wrap(this.sendToReplica(node.name(), request));
+            return span.endWhenComplete(this.sendToReplica(node.name(), request));
         }
     }
 

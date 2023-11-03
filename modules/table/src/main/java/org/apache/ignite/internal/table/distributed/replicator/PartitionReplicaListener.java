@@ -1699,7 +1699,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private void releaseTxLocks(UUID txId) {
-        span("PartitionReplicaListener.releaseTxLocks", (span) -> lockManager.locks(txId).forEachRemaining(lockManager::release));
+        span("PartitionReplicaListener.releaseTxLocks", (span) -> {
+            lockManager.locks(txId).forEachRemaining(lockManager::release);
+        });
     }
 
     /**

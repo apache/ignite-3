@@ -16,7 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
-import static org.apache.ignite.internal.tracing.TracingManager.span;import java.util.ArrayList;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -57,7 +58,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
 
     @Override
     public Message processRequest(final GetLeaderRequest request, final RpcRequestClosure done) {
-        try (var ignored = span("GetLeaderRequestProcessor.processRequest")) {
+        return spanWithResult("GetLeaderRequestProcessor.processRequest", (span) -> {
             List<Node> nodes = new ArrayList<>();
             final String groupId = getGroupId(request);
             if (request.peerId() != null) {
@@ -94,7 +95,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
             }
             return RaftRpcFactory.DEFAULT //
                 .newResponse(msgFactory(), RaftError.EAGAIN, "Unknown leader");
-        }
+        });
     }
 
     @Override

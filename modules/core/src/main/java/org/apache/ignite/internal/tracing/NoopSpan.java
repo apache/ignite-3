@@ -48,7 +48,7 @@ public enum NoopSpan implements TraceSpan {
     }
 
     @Override
-    public <R> R wrap(R val) {
+    public <R> R endWhenComplete(R val) {
         return val;
     }
 

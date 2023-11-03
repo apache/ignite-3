@@ -80,7 +80,7 @@ public class OtelTraceSpan implements TraceSpan {
     }
 
     @Override
-    public <R> R wrap(R res) {
+    public <R> R endWhenComplete(R res) {
         if (res instanceof CompletableFuture) {
             CompletableFuture<?> fut = (CompletableFuture<?>) res;
 

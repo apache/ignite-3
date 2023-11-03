@@ -5,7 +5,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.tracing.otel.OtelSpanManager.wrap;
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tracing.TraceSpan;

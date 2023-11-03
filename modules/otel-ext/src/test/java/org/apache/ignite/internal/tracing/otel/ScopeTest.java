@@ -17,12 +17,18 @@
 
 package org.apache.ignite.internal.tracing.otel;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
 import static org.apache.ignite.internal.tracing.TracingManager.rootSpan;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.tracing.TracingManager.spanWithResult;
+import static org.apache.ignite.internal.tracing.TracingManager.wrap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.opentelemetry.context.Context;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.junit.jupiter.api.Test;
 
@@ -49,5 +55,25 @@ public class ScopeTest {
         });
 
         assertEquals(Context.root(), Context.current());
+    }
+
+    @Test
+    public void shouldPassContextToChild() throws Exception {
+        var f = new CompletableFuture<Integer>();
+        AtomicReference<TraceSpan> processSpan = new AtomicReference<>();
+
+        try (var rootSpan = rootSpan("main")) {
+            var t1 = new Thread(() -> f.thenCompose((s) -> spanWithResult("process", (span) -> {
+                processSpan.set(span);
+
+                return completedFuture(2);
+            })));
+            t1.start();
+
+            new Thread(wrap(() -> span("complete", (span) -> f.complete(1)))).start();
+        }
+
+        assertEquals(1, f.get());
+        assertTrue(processSpan.get().isValid());
     }
 }

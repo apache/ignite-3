@@ -62,11 +62,11 @@ public class IndexUpdateHandler {
             return;
         }
 
-        try (TraceSpan ignored = span("IndexUpdateHandler.addToIndexes")) {
+        span("IndexUpdateHandler.addToIndexes", (ignored) -> {
             for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
                 index.put(binaryRow, rowId);
             }
-        }
+        });
     }
 
     /**

@@ -521,7 +521,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             Peer peer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, CompletableFuture<R> fut
     ) {
         try (TraceSpan span = asyncSpan("RaftGroupServiceImpl.sendWithRetry")) {
-            var fut0 = span.wrap(fut);
+            var fut0 = span.endWhenComplete(fut);
 
             if (!busyLock.enterBusy()) {
                 fut0.cancel(true);

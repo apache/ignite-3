@@ -60,7 +60,7 @@ public interface TraceSpan extends AutoCloseable {
      * <p>Only the timing of the first end call for a given {@code Span} will be recorded, and
      * implementations are free to ignore all further calls.
      */
-    <R> R wrap(R val);
+    <R> R endWhenComplete(R val);
 
     /**
      * Records information about the {@link Throwable} to the {@link TraceSpan}.

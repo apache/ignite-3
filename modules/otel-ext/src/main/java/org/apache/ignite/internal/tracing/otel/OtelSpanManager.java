@@ -24,11 +24,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 import com.google.auto.service.AutoService;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Context;
-import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -75,11 +75,13 @@ public class OtelSpanManager implements SpanManager {
         TraceSpan span = createSpan(spanName, parent, rootSpan, false);
 
         try (span) {
-            return span.wrap(closure.apply(span));
+            return span.endWhenComplete(closure.apply(span));
         } catch (Throwable ex) {
             span.recordException(ex);
 
             throw ex;
+        } finally {
+            span.end();
         }
     }
 
@@ -130,16 +132,14 @@ public class OtelSpanManager implements SpanManager {
         return new OtelTraceSpan(ctx, scope, span, true);
     }
 
-    /**
-     * Returns a {@link Runnable} that makes this the {@linkplain Context#current() current context}
-     * and then invokes the input {@link Runnable}.
-     */
-    public static Runnable wrap(Runnable runnable) {
-        return () -> {
-            try (Scope ignored = Context.current().makeCurrent()) {
-                runnable.run();
-            }
-        };
+    @Override
+    public Runnable wrap(Runnable runnable) {
+        return Context.current().wrap(runnable);
+    }
+
+    @Override
+    public <T> Callable<T> wrap(Callable<T> callable) {
+        return Context.current().wrap(callable);
     }
 
     private static class MapGetter implements TextMapGetter<Map<String, String>> {

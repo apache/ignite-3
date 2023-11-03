@@ -104,7 +104,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
     protected CompletableFuture<Void> finish(boolean commit) {
-        return traceSpan.wrap(finish(commit, readTimestamp));
+        return traceSpan.endWhenComplete(finish(commit, readTimestamp));
     }
 
     @Override

@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.tracing;
 
+import io.opentelemetry.context.Context;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -68,6 +70,18 @@ public interface SpanManager {
      * Returns a {@link Runnable} that restore trace context and then invokes the input {@link Runnable}.
      */
     ExecutorService taskWrapping(ExecutorService executorService);
+
+    /**
+     * Returns a {@link Callable} that makes this the {@linkplain Context#current() current context}
+     * and then invokes the input {@link Callable}.
+     */
+    <T> Callable<T> wrap(Callable<T> callable);
+
+    /**
+     * Returns a {@link Runnable} that makes this the {@linkplain Context#current() current context}
+     * and then invokes the input {@link Runnable}.
+     */
+    Runnable wrap(Runnable runnable);
 
     @Nullable Map<String, String> serializeSpan();
 

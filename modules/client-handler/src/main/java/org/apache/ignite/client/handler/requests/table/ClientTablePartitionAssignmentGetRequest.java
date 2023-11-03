@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.internal.tracing.TracingManager.asyncSpan;
-import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -50,7 +49,7 @@ public class ClientTablePartitionAssignmentGetRequest {
         try (span) {
             int tableId = in.unpackInt();
 
-            return span.wrap(tables.assignmentsAsync(tableId).thenAccept(assignment -> {
+            return span.endWhenComplete(tables.assignmentsAsync(tableId).thenAccept(assignment -> {
                 if (assignment == null) {
                     out.packInt(0);
                     return;

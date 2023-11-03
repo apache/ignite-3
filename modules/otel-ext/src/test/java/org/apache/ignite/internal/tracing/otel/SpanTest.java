@@ -100,7 +100,7 @@ public class SpanTest {
             try (span) {
                 otelSpan.set((ReadableSpan) Span.current());
 
-                span.wrap(closure.apply(span));
+                span.endWhenComplete(closure.apply(span));
             }
             catch (Exception e) {
                 span.recordException(e);
