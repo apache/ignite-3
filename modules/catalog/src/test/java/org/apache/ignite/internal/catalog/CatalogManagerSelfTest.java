@@ -247,6 +247,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(table.id(), pkIndex.tableId());
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
+        assertTrue(pkIndex.available());
 
         CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
         assertNotNull(desc);
@@ -1933,6 +1934,31 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testPkAvailableIndexEvent() {
+        CompletableFuture<Integer> fireEventFuture = new CompletableFuture<>();
+
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
+            if (exception != null) {
+                fireEventFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    fireEventFuture.complete(((MakeIndexAvailableEventParameters) parameters).indexId());
+                } catch (Throwable t) {
+                    fireEventFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        createSomeTable(TABLE_NAME);
+
+        assertThat(fireEventFuture, willBe(notNullValue()));
+
+        assertEquals(indexId(pkIndexName(TABLE_NAME)), fireEventFuture.join());
     }
 
     @Test

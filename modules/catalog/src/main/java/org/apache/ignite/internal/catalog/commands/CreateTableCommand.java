@@ -39,6 +39,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -132,6 +133,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         return List.of(
                 new NewTableEntry(table, schemaName),
                 new NewIndexEntry(pkIndex, schemaName),
+                new MakeIndexAvailableEntry(pkIndexId),
                 new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
         );
     }
