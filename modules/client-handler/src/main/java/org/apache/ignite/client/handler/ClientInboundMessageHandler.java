@@ -410,7 +410,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx) {
-        LOG.warn("Error processing client request [id=" + requestId + ", op=" + opCode
+        LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
                 + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
 
         var packer = getPacker(ctx.alloc());
