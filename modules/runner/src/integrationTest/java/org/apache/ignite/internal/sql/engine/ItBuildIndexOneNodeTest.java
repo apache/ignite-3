@@ -33,7 +33,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -96,7 +96,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         CatalogIndexDescriptor indexDescriptor = getIndexStrict(catalogManager, indexName, clock.nowLong());
         CatalogTableDescriptor tableDescriptor = getTableStrict(catalogManager, indexDescriptor.tableId(), clock.nowLong());
 
-        TableImpl tableImpl = getTableImpl(ignite, tableDescriptor.name());
+        TableViewInternal tableImpl = getTableView(ignite, tableDescriptor.name());
 
         assertNotNull(tableImpl, tableDescriptor.name());
 
