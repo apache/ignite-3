@@ -17,24 +17,32 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.property.PropertiesHelper.newBuilder;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.intellij.lang.annotations.Language;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -43,14 +51,16 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
 /**
- * Base benchmark class for {@link SelectBenchmark} and {@link InsertBenchmark}. Starts an Ignite node with a single table
- * {@link #TABLE_NAME}, that has single PK column and 10 value columns.
+ * Base benchmark class for {@link SelectBenchmark} and {@link InsertBenchmark}.
+ *
+ * <p>Starts an Ignite cluster with a single table {@link #TABLE_NAME}, that has
+ * single PK column and 10 value columns.
  */
 @State(Scope.Benchmark)
-public class AbstractOneNodeBenchmark {
-    private static final int PORT = NetworkConfigurationSchema.DEFAULT_PORT;
-
-    private static final String NODE_NAME = "node" + PORT;
+public class AbstractMultiNodeBenchmark {
+    private static final int BASE_PORT = 3344;
+    private static final int BASE_CLIENT_PORT = 10800;
+    private static final int BASE_REST_PORT = 10300;
 
     protected static final String FIELD_VAL = "a".repeat(100);
 
@@ -66,27 +76,7 @@ public class AbstractOneNodeBenchmark {
      */
     @Setup
     public final void nodeSetUp() throws IOException {
-        Path workDir = Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
-
-        @Language("HOCON")
-        String config = "network: {\n"
-                        + "  nodeFinder:{\n"
-                        + "    netClusterNodes: [ \"localhost:" + PORT + "\"] \n"
-                        + "  }\n"
-                        + "},"
-                        + "raft.fsync = " + fsync;
-
-        var fut =  TestIgnitionManager.start(NODE_NAME, config, workDir.resolve(NODE_NAME));
-
-        TestIgnitionManager.init(new InitParametersBuilder()
-                .clusterName("cluster")
-                .destinationNodeName(NODE_NAME)
-                .cmgNodeNames(List.of(NODE_NAME))
-                .metaStorageNodeNames(List.of(NODE_NAME))
-                .build()
-        );
-
-        clusterNode = (IgniteImpl) fut.join();
+        startCluster();
 
         var queryEngine = clusterNode.queryEngine();
 
@@ -111,7 +101,7 @@ public class AbstractOneNodeBenchmark {
                 + ");";
 
         try {
-            var context = QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES);
+            var context = QueryContext.create(SqlQueryType.ALL);
 
             getAllFromCursor(
                     await(queryEngine.querySingleAsync(sessionId, context, clusterNode.transactions(), sql))
@@ -121,8 +111,77 @@ public class AbstractOneNodeBenchmark {
         }
     }
 
+    /**
+     * Stops the cluster.
+     *
+     * @throws Exception In case of any error.
+     */
     @TearDown
-    public final void nodeTearDown() {
-        IgnitionManager.stop(NODE_NAME);
+    public final void nodeTearDown() throws Exception {
+        List<AutoCloseable> closeables = IntStream.range(0, nodes())
+                .mapToObj(i -> nodeName(BASE_PORT + i))
+                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
+                .collect(toList());
+
+        IgniteUtils.closeAll(closeables);
+    }
+
+    private void startCluster() throws IOException {
+        Path workDir = Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
+
+        String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
+
+        List<CompletableFuture<Ignite>> futures = new ArrayList<>();
+
+        @Language("HOCON")
+        String configTemplate = "{\n"
+                + "  \"network\": {\n"
+                + "    \"port\":{},\n"
+                + "    \"nodeFinder\":{\n"
+                + "      \"netClusterNodes\": [ {} ]\n"
+                + "    }\n"
+                + "  },\n"
+                + "  clientConnector: { port:{} },\n"
+                + "  rest.port: {},\n"
+                + "  raft.fsync = " + fsync
+                + "}";
+
+        for (int i = 0; i < nodes(); i++) {
+            int port = BASE_PORT + i;
+            String nodeName = nodeName(port);
+
+            String config = IgniteStringFormatter.format(configTemplate, port, connectNodeAddr,
+                    BASE_CLIENT_PORT + i, BASE_REST_PORT + i);
+
+            futures.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
+        }
+
+        String metaStorageNodeName = nodeName(BASE_PORT);
+
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
+                .build();
+
+        TestIgnitionManager.init(initParameters);
+
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            if (clusterNode == null) {
+                clusterNode = (IgniteImpl) await(future);
+            } else {
+                await(future);
+            }
+        }
+    }
+
+    private static String nodeName(int port) {
+        return "node_" + port;
+    }
+
+    protected int nodes() {
+        return 3;
     }
 }

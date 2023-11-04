@@ -39,6 +39,7 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -60,7 +61,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-public class InsertBenchmark extends AbstractOneNodeBenchmark {
+public class InsertBenchmark extends AbstractMultiNodeBenchmark {
+    @Param({"1", "2", "3"})
+    private int clusterSize;
+
     /**
      * Benchmark for SQL insert via embedded client.
      */
@@ -308,5 +312,11 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
         return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+    }
+
+
+    @Override
+    protected int nodes() {
+        return clusterSize;
     }
 }

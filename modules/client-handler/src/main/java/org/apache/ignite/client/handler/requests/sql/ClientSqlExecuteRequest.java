@@ -92,11 +92,7 @@ public class ClientSqlExecuteRequest {
         return session
                 .executeAsync(tx, statement, arguments)
                 .thenCompose(asyncResultSet -> {
-                    //noinspection StatementWithEmptyBody
-                    if (tx == null) {
-                        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
-                        // out.meta(asyncResultSet.tx().readTimestamp());
-                    }
+                    out.meta(transactions.observableTimestamp());
 
                     return writeResultSetAsync(out, resources, asyncResultSet, session, metrics);
                 });
