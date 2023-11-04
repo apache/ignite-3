@@ -50,8 +50,17 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      *
      * @param ts Timestamp.
      */
-    public void updateObservableTimestamp(HybridTimestamp ts) {
+    public void updateObservableTimestamp(@Nullable HybridTimestamp ts) {
         observableTimestampTracker.update(ts);
+    }
+
+    /**
+     * Gets current value of observable timestamp.
+     *
+     * @return Timestamp or {@code null} if the tracker has never updated.
+     */
+    public @Nullable HybridTimestamp observableTimestamp() {
+        return observableTimestampTracker.get();
     }
 
     /**

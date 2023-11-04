@@ -62,6 +62,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @SuppressWarnings("resource")
     public void testClientPropagatesLatestKnownHybridTimestamp() {
         assertNull(lastObservableTimestamp());
 
@@ -88,6 +89,12 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         client.transactions().begin(new TransactionOptions().readOnly(true));
         client.transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals(11, lastObservableTimestamp());
+
+        // Execution of a SQL query should propagate observable time, not the current time of the clock.
+        currentServerTimestamp.set(20);
+        ignite.timestampTracker().update(HybridTimestamp.hybridTimestamp(14 << LOGICAL_TIME_BITS_SIZE));
+        client.sql().createSession().execute(null, "SELECT 1");
+        assertEquals(14, lastObservableTimestamp());
     }
 
     private static @Nullable Long lastObservableTimestamp() {
