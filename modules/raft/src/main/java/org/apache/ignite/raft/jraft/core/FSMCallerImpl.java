@@ -487,9 +487,15 @@ public class FSMCallerImpl implements FSMCaller {
             // Calls TaskClosure#onCommitted if necessary
             onTaskCommitted(taskClosures);
 
+            NodeImpl node0 = this.node;
+
+            if (node0 == null) {
+                return;
+            }
+
             Requires.requireTrue(firstClosureIndex >= 0, "Invalid firstClosureIndex");
             final IteratorImpl iterImpl = new IteratorImpl(this.fsm, this.logManager, closures, firstClosureIndex,
-                lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions());
+                lastAppliedIndex, committedIndex, this.applyingIndex, node0.getOptions());
 
             while (iterImpl.isGood()) {
                 final LogEntry logEntry = iterImpl.entry();
