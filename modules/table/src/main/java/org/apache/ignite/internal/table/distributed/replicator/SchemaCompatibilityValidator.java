@@ -24,26 +24,38 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.TransactionIds;
 
 /**
  * Validates schema compatibility.
  */
-class SchemaCompatValidator {
-    private final Schemas schemas;
+class SchemaCompatibilityValidator {
+    private final ValidationSchemasSource validationSchemasSource;
     private final CatalogService catalogService;
+    private final SchemaSyncService schemaSyncService;
+
+    // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
+    private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    SchemaCompatValidator(Schemas schemas, CatalogService catalogService) {
-        this.schemas = schemas;
+    SchemaCompatibilityValidator(
+            ValidationSchemasSource validationSchemasSource,
+            CatalogService catalogService,
+            SchemaSyncService schemaSyncService
+    ) {
+        this.validationSchemasSource = validationSchemasSource;
         this.catalogService = catalogService;
+        this.schemaSyncService = schemaSyncService;
     }
 
     /**
@@ -72,7 +84,7 @@ class SchemaCompatValidator {
         // so we don't need to account for clock skew.
         assert commitTimestamp.compareTo(beginTimestamp) > 0;
 
-        return schemas.waitForSchemasAvailability(commitTimestamp)
+        return schemaSyncService.waitForMetadataCompleteness(commitTimestamp)
                 .thenApply(ignored -> validateCommit(tableIds, commitTimestamp, beginTimestamp));
     }
 
@@ -116,7 +128,7 @@ class SchemaCompatValidator {
             HybridTimestamp commitTimestamp,
             int tableId
     ) {
-        List<FullTableSchema> tableSchemas = schemas.tableSchemaVersionsBetween(tableId, beginTimestamp, commitTimestamp);
+        List<FullTableSchema> tableSchemas = validationSchemasSource.tableSchemaVersionsBetween(tableId, beginTimestamp, commitTimestamp);
 
         assert !tableSchemas.isEmpty();
 
@@ -132,7 +144,10 @@ class SchemaCompatValidator {
     }
 
     private boolean isForwardCompatible(FullTableSchema prevSchema, FullTableSchema nextSchema) {
-        TableDefinitionDiff diff = nextSchema.diffFrom(prevSchema);
+        TableDefinitionDiff diff = diffCache.computeIfAbsent(
+                new TableDefinitionDiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
+                key -> nextSchema.diffFrom(prevSchema)
+        );
 
         // TODO: IGNITE-19229 - more sophisticated logic.
         return diff.isEmpty();
@@ -156,8 +171,8 @@ class SchemaCompatValidator {
     CompletableFuture<CompatValidationResult> validateBackwards(int tupleSchemaVersion, int tableId, UUID txId) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
-        return schemas.waitForSchemasAvailability(beginTimestamp)
-                .thenCompose(ignored -> schemas.waitForSchemaAvailability(tableId, tupleSchemaVersion))
+        return schemaSyncService.waitForMetadataCompleteness(beginTimestamp)
+                .thenCompose(ignored -> validationSchemasSource.waitForSchemaAvailability(tableId, tupleSchemaVersion))
                 .thenApply(ignored -> validateBackwardSchemaCompatibility(tupleSchemaVersion, tableId, beginTimestamp));
     }
 
@@ -166,7 +181,11 @@ class SchemaCompatValidator {
             int tableId,
             HybridTimestamp beginTimestamp
     ) {
-        List<FullTableSchema> tableSchemas = schemas.tableSchemaVersionsBetween(tableId, beginTimestamp, tupleSchemaVersion);
+        List<FullTableSchema> tableSchemas = validationSchemasSource.tableSchemaVersionsBetween(
+                tableId,
+                beginTimestamp,
+                tupleSchemaVersion
+        );
 
         if (tableSchemas.isEmpty()) {
             // The tuple was not written with a future schema.

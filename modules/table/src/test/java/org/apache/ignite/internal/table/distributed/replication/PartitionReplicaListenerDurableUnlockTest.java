@@ -55,7 +55,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -136,7 +136,7 @@ public class PartitionReplicaListenerDurableUnlockTest extends IgniteAbstractTes
                 txStateStorage,
                 mock(TransactionStateResolver.class),
                 mock(StorageUpdateHandler.class),
-                mock(Schemas.class),
+                mock(ValidationSchemasSource.class),
                 LOCAL_NODE,
                 mock(SchemaSyncService.class),
                 mock(CatalogService.class),
