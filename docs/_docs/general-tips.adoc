@@ -1,0 +1,28 @@
+= General Configuration Tips
+
+== Configuring Client Logging
+
+By default, Apache Ignite 3 uses the `java.util.logging` (JUL) logging framework. Ignite uses the `etc/ignite.java.util.logging.properties` configuration, and outputs logs to the folder configured in the `LOG_DIR` variable that can be configured in the `etc/vars.env` file. By default, logs are stored in the `{IGNITE_HOME}/log` folder. You can provide a custom configuration file by using the `java.util.logging.config.file` property.
+
+Some modules use libraries that rely on SLF4J logging. To gather logs from these libraries, add `org.slf4j:slf4j-jdk14:2.0.x` class to the classpath.
+
+For more information on configuring JUL logging, see the link:https://docs.oracle.com/en/java/javase/11/core/java-logging-overview.html[Java Logging Overview] in Oracle documentation.
+
+Ignite 3 also supports other logging frameworks if you need to customize the logger.
+
+=== LOG4J 2
+
+To use log4j logging, include the required classes to the classpath:
+
+- `org.apache.logging.log4j:log4j-slf4j2-impl:2.x.x`
+- `org.apache.logging.log4j:log4j-api:2.x.x`
+- `org.apache.logging.log4j:log4j-core:2.x.x`
+- `org.apache.logging.log4j:log4j-jpl:2.x.x`
+
+NOTE: We recommend using the latest version of log4j.
+
+You can use custom configuration by using the Log4j configuration file. For more information on configuring Log4j logging, see the link:https://logging.apache.org/log4j/2.x/manual/configuration.html[Log4j Configuration] in Apache Log4j documentation.
+
+
+
+
