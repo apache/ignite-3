@@ -71,7 +71,7 @@ public class IteratorTest extends BaseIgniteAbstractTest {
             log.setData(ByteBuffer.allocate(i));
             Mockito.when(this.logManager.getEntry(i)).thenReturn(log);
         }
-        this.iterImpl = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, new NodeOptions());
+        this.iterImpl = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, new NodeOptions().getCommonExecutor());
         this.iter = new IteratorWrapper(iterImpl);
     }
 

@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -39,16 +40,16 @@ public class IteratorImpl {
     private final LogManager logManager;
     private final List<Closure> closures;
     private final long firstClosureIndex;
-    private final NodeOptions options;
     private long currentIndex;
     private final long committedIndex;
     private LogEntry currEntry = new LogEntry(); // blank entry
     private final AtomicLong applyingIndex;
+    private final ExecutorService commonExecutor;
     private RaftException error;
 
     public IteratorImpl(final StateMachine fsm, final LogManager logManager, final List<Closure> closures,
         final long firstClosureIndex, final long lastAppliedIndex, final long committedIndex,
-        final AtomicLong applyingIndex, NodeOptions options) {
+        final AtomicLong applyingIndex, ExecutorService commonExecutor) {
         super();
         this.fsm = fsm;
         this.logManager = logManager;
@@ -57,7 +58,7 @@ public class IteratorImpl {
         this.currentIndex = lastAppliedIndex;
         this.committedIndex = committedIndex;
         this.applyingIndex = applyingIndex;
-        this.options = options;
+        this.commonExecutor = commonExecutor;
         next();
     }
 
@@ -130,7 +131,7 @@ public class IteratorImpl {
                 Requires.requireNonNull(this.error, "error");
                 Requires.requireNonNull(this.error.getStatus(), "error.status");
                 final Status status = this.error.getStatus();
-                Utils.runClosureInThread(options.getCommonExecutor(), done, status);
+                Utils.runClosureInThread(commonExecutor, done, status);
             }
         }
     }

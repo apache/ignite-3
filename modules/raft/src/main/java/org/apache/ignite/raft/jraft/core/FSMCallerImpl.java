@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -154,6 +155,7 @@ public class FSMCallerImpl implements FSMCaller {
     private RingBuffer<ApplyTask> taskQueue;
     private volatile CountDownLatch shutdownLatch;
     private NodeMetrics nodeMetrics;
+    private ExecutorService commonExecutor;
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
     private RaftMessagesFactory msgFactory;
 
@@ -174,6 +176,7 @@ public class FSMCallerImpl implements FSMCaller {
         this.afterShutdown = opts.getAfterShutdown();
         this.node = opts.getNode();
         this.nodeMetrics = this.node.getNodeMetrics();
+        this.commonExecutor = this.node.getOptions().getCommonExecutor();
         this.lastAppliedIndex.set(opts.getBootstrapId().getIndex());
         notifyLastAppliedIndexUpdated(this.lastAppliedIndex.get());
         this.lastAppliedTerm = opts.getBootstrapId().getTerm();
@@ -487,15 +490,9 @@ public class FSMCallerImpl implements FSMCaller {
             // Calls TaskClosure#onCommitted if necessary
             onTaskCommitted(taskClosures);
 
-            NodeImpl node0 = this.node;
-
-            if (node0 == null) {
-                return;
-            }
-
             Requires.requireTrue(firstClosureIndex >= 0, "Invalid firstClosureIndex");
             final IteratorImpl iterImpl = new IteratorImpl(this.fsm, this.logManager, closures, firstClosureIndex,
-                lastAppliedIndex, committedIndex, this.applyingIndex, node0.getOptions());
+                lastAppliedIndex, committedIndex, this.applyingIndex, commonExecutor);
 
             while (iterImpl.isGood()) {
                 final LogEntry logEntry = iterImpl.entry();
