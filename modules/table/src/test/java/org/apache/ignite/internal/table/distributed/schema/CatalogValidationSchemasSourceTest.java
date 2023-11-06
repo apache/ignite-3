@@ -26,17 +26,13 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.AdditionalMatchers.geq;
 import static org.mockito.AdditionalMatchers.lt;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -55,7 +51,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
+class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
     @Mock
     private CatalogService catalogService;
 
@@ -64,9 +60,6 @@ class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
 
     @Mock
     private SchemaRegistry schemaRegistry;
-
-    @Mock
-    private SchemaSyncService schemaSyncService;
 
     @InjectMocks
     private CatalogValidationSchemasSource schemas;
