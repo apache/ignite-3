@@ -338,7 +338,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Tests a work of the public API for Table manager {@see org.apache.ignite.table.manager.IgniteTables} when the manager is stopping.
      */
     @Test
-    public void testApiTableManagerOnStop() {
+    public void testApiTableManagerOnStop() throws Exception {
         createTableManager(tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -358,7 +358,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * stopping.
      */
     @Test
-    public void testInternalApiTableManagerOnStop() {
+    public void testInternalApiTableManagerOnStop() throws Exception {
         createTableManager(tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
@@ -385,7 +385,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
                     try {
-                        doThrow(new NodeStoppingException()).when(rm).stopRaftNodes(any());
+                        when(rm.stopRaftNodes(any())).thenThrow(NodeStoppingException.class);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -405,7 +405,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
                     try {
-                        doThrow(new NodeStoppingException()).when(replicaMgr).stopReplica(any());
+                        when(replicaMgr.stopReplica(any())).thenThrow(NodeStoppingException.class);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -459,6 +459,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void endTableManagerStopTest(TableViewInternal table, TableManager tableManager, Runnable mockDoThrow) throws Exception {
         mockDoThrow.run();
 
+        tableManager.beforeNodeStop();
         tableManager.stop();
 
         verify(rm, times(PARTITIONS)).stopRaftNodes(any());
