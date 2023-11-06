@@ -15,16 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+package org.apache.ignite.internal.index;
 
-import org.apache.ignite.internal.sql.engine.property.Property;
-
-/**
- * Enumerates the properties related to session management domain.
- */
-public final class SessionProperty {
-    /**
-     * Duration of inactivity in milliseconds after which the session will be killed.
-     */
-    public static final Property<Long> IDLE_TIMEOUT = new Property<>("session_idle_timeout", Long.class);
+/** Index build completion listener, will be called when a distributed build of an index for a specific partition completes. */
+@FunctionalInterface
+interface IndexBuildCompletionListener {
+    /** Handles the index build completion event. */
+    void onBuildCompletion(int indexId, int tableId, int partitionId);
 }

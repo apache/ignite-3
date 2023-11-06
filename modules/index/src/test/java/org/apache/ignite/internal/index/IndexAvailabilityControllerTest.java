@@ -20,6 +20,7 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -133,6 +133,23 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             assertPartitionBuildIndexKeyExists(indexId, partitionId);
+        }
+    }
+
+    @Test
+    void testMetastoreKeysAfterTableCreate() throws Exception {
+        String tableName = TABLE_NAME + "_new";
+
+        createTable(catalogManager, tableName, COLUMN_NAME);
+
+        int indexId = indexId(pkIndexName(tableName));
+
+        awaitTillGlobalMetastoreRevisionIsApplied();
+
+        assertInProgressBuildIndexKeyAbsent(indexId);
+
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            assertPartitionBuildIndexKeyAbsent(indexId, partitionId);
         }
     }
 

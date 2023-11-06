@@ -105,7 +105,7 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
 
         assertTrue(waitForCondition(() -> queryProcessor().liveSessions().isEmpty(), 10_000));
 
-        assertInternalSqlException("Session not found", () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
+        assertInternalSqlException("Session is closed", () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
 
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
         rs1.close();

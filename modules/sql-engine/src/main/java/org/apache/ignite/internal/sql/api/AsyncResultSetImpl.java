@@ -44,10 +44,12 @@ import org.jetbrains.annotations.Nullable;
  * Asynchronous result set implementation.
  */
 public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
-    private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
+    private static final CompletableFuture<? extends AsyncResultSet<?>> HAS_NO_MORE_PAGE_FUTURE =
             CompletableFuture.failedFuture(new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
 
-    private final AsyncSqlCursor<List<Object>> cur;
+    private final IdleExpirationTracker expirationTracker;
+
+    private final AsyncSqlCursor<List<Object>> cursor;
 
     private volatile BatchedResult<List<Object>> curPage;
 
@@ -58,31 +60,43 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /**
      * Constructor.
      *
-     * @param cur Asynchronous query cursor.
+     * @param cursor Query cursor representing the result of execution.
+     * @param page Current page.
+     * @param pageSize Size of the page to fetch.
+     * @param expirationTracker A tracker to register any interaction with given result set.
+     *      Used to prevent session from expiration.
+     * @param closeRun Callback to be invoked after result is closed.
      */
-    public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun) {
-        this.cur = cur;
+    AsyncResultSetImpl(
+            AsyncSqlCursor<List<Object>> cursor,
+            BatchedResult<List<Object>> page,
+            int pageSize,
+            IdleExpirationTracker expirationTracker,
+            Runnable closeRun
+    ) {
+        this.cursor = cursor;
         this.curPage = page;
         this.pageSize = pageSize;
+        this.expirationTracker = expirationTracker;
         this.closeRun = closeRun;
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable ResultSetMetadata metadata() {
-        return hasRowSet() ? cur.metadata() : null;
+        return hasRowSet() ? cursor.metadata() : null;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasRowSet() {
-        return cur.queryType() == SqlQueryType.QUERY || cur.queryType() == SqlQueryType.EXPLAIN;
+        return cursor.queryType() == SqlQueryType.QUERY || cursor.queryType() == SqlQueryType.EXPLAIN;
     }
 
     /** {@inheritDoc} */
     @Override
     public long affectedRows() {
-        if (cur.queryType() != SqlQueryType.DML) {
+        if (cursor.queryType() != SqlQueryType.DML) {
             return -1;
         }
 
@@ -94,7 +108,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean wasApplied() {
-        if (cur.queryType() != SqlQueryType.DDL) {
+        if (cursor.queryType() != SqlQueryType.DDL) {
             return false;
         }
 
@@ -108,8 +122,10 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     public Iterable<T> currentPage() {
         requireResultSet();
 
+        expirationTracker.touch();
+
         final Iterator<List<Object>> it0 = curPage.items().iterator();
-        final ResultSetMetadata meta0 = cur.metadata();
+        final ResultSetMetadata meta0 = cursor.metadata();
 
         // TODO: IGNITE-18695 map rows to objects when mapper is provided.
         return () -> new TransformingIterator<>(it0, (item) -> (T) new SqlRowImpl(item, meta0));
@@ -128,10 +144,12 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
+        expirationTracker.touch();
+
         if (!hasMorePages()) {
             return (CompletableFuture<? extends AsyncResultSet<T>>) HAS_NO_MORE_PAGE_FUTURE;
         } else {
-            return cur.requestNextAsync(pageSize)
+            return cursor.requestNextAsync(pageSize)
                     .thenApply(page -> {
                         curPage = page;
 
@@ -149,7 +167,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        return cur.closeAsync().thenRun(closeRun);
+        return cursor.closeAsync().thenRun(closeRun);
     }
 
     private void requireResultSet() {
