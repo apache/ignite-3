@@ -58,8 +58,8 @@ public interface ValidationSchemasSource {
      *
      * @param tableId ID of the table which schemas need to be considered.
      * @param fromIncluding Start timestamp.
-     * @param toIncluding End schema version ID.
+     * @param toTableVersionIncluding End schema version ID.
      * @return All schema versions between (including) the given timestamp and schema version.
      */
-    List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding);
+    List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toTableVersionIncluding);
 }

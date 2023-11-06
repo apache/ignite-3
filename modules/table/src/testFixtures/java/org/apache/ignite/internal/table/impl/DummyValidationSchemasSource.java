@@ -77,7 +77,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
     }
 
     @Override
-    public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding) {
+    public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toTableVersionIncluding) {
         // Returning an empty list makes sure that backward validation never fails, which is what we want.
         return List.of();
     }
