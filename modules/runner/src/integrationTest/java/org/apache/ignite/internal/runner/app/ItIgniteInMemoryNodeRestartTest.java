@@ -45,7 +45,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -160,7 +160,6 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
     @Test
-    @Disabled("IGNITE-20301")
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite = startNode(testInfo, 0);
@@ -170,56 +169,63 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replica on every node.
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
 
         // Find the leader of the table's partition group.
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
         LeaderWithTerm leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
         String leaderId = leaderWithTerm.leader().consistentId();
 
+        log.info("Leader is {}", leaderId);
+
         // Find the index of any node that is not a leader of the partition group.
         int idxToStop = IntStream.range(1, 3)
                 .filter(idx -> !leaderId.equals(ignite(idx).node().name()))
                 .findFirst().getAsInt();
+
+        log.info("Stopping node {}", idxToStop);
 
         // Restart the node.
         stopNode(idxToStop);
 
         IgniteImpl restartingNode = startNode(testInfo, idxToStop);
 
+        log.info("Restarted node {}", restartingNode.name());
+
         Loza loza = restartingNode.raftManager();
 
         String restartingNodeConsistentId = restartingNode.name();
 
-        TableImpl restartingTable = (TableImpl) restartingNode.tables().table(TABLE_NAME);
+        TableViewInternal restartingTable = (TableViewInternal) restartingNode.tables().table(TABLE_NAME);
         InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
-        assertTrue(waitForCondition(
-                () -> {
-                    boolean raftNodeStarted = loza.localNodes().stream().anyMatch(nodeId -> {
-                        if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
-                        }
-
-                        return false;
-                    });
-
-                    if (!raftNodeStarted) {
-                        return false;
-                    }
-
-                    Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
-
-                    List<String> partitionAssignments = assignments.get(0);
-
-                    return partitionAssignments.contains(restartingNodeConsistentId);
-                },
+        waitForCondition(
+                () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
                 TimeUnit.SECONDS.toMillis(10)
-        ));
+        );
+
+        assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
+        assertTrue(
+                solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
+                "Assignments do not contain node " + restartingNodeConsistentId
+        );
 
         // Check the data rebalanced correctly.
         checkTableWithData(restartingNode, TABLE_NAME);
+    }
+
+    private static boolean solePartitionAssignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
+        Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
+
+        List<String> partitionAssignments = assignments.get(0);
+
+        return partitionAssignments.contains(restartingNodeConsistentId);
+    }
+
+    private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
+        return loza.localNodes().stream().anyMatch(nodeId ->
+                nodeId.groupId() instanceof TablePartitionId && ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId());
     }
 
     /**
@@ -236,7 +242,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replica on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite0.tables().table(TABLE_NAME);
 
         // Lose the majority.
         stopNode(1);
@@ -266,7 +272,6 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts all the nodes with the partition.
      */
     @Test
-    @Disabled("IGNITE-20301")
     public void inMemoryNodeFullPartitionRestart(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite0 = startNode(testInfo, 0);
@@ -276,7 +281,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replicas on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite0.tables().table(TABLE_NAME);
 
         stopNode(0);
         stopNode(1);
@@ -343,7 +348,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
             }
         }
 
-        var table = (TableImpl) ignite.tables().table(name);
+        var table = (TableViewInternal) ignite.tables().table(name);
 
         assertThat(table.internalTable().storage().isVolatile(), is(true));
 
@@ -359,10 +364,10 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
     private static boolean tableHasDataOnAllIgnites(String name, int partitions) {
         return CLUSTER_NODES.stream()
-                .allMatch(igniteNode -> tableHasAnyData((TableImpl) igniteNode.tables().table(name), partitions));
+                .allMatch(igniteNode -> tableHasAnyData((TableViewInternal) igniteNode.tables().table(name), partitions));
     }
 
-    private static boolean tableHasAnyData(TableImpl nodeTable, int partitions) {
+    private static boolean tableHasAnyData(TableViewInternal nodeTable, int partitions) {
         return IntStream.range(0, partitions)
                 .mapToObj(partition -> new IgniteBiTuple<>(
                         partition, nodeTable.internalTable().storage().getMvPartition(partition)

@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -44,9 +48,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         builder.schemaName(name);
 
-        assertThrowsWithCause(
-                builder::build,
+        assertThrows(
                 CatalogValidationException.class,
+                builder::build,
                 "Name of the schema can't be null or blank"
         );
     }
@@ -60,9 +64,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         builder.tableName(name);
 
-        assertThrowsWithCause(
-                builder::build,
+        assertThrows(
                 CatalogValidationException.class,
+                builder::build,
                 "Name of the table can't be null or blank"
         );
     }
@@ -76,9 +80,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         builder.columns(columns);
 
-        assertThrowsWithCause(
-                builder::build,
+        assertThrows(
                 CatalogValidationException.class,
+                builder::build,
                 "Columns not specified"
         );
     }
@@ -95,9 +99,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         builder.columns(columnNames);
 
-        assertThrowsWithCause(
-                builder::build,
+        assertThrows(
                 CatalogValidationException.class,
+                builder::build,
                 "Name of the column can't be null or blank"
         );
     }
@@ -117,9 +121,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
-        assertThrowsWithCause(
-                () -> command.get(catalog),
+        assertThrows(
                 CatalogValidationException.class,
+                () -> command.get(catalog),
                 "Schema with name 'PUBLIC_UNK' not found"
         );
     }
@@ -132,9 +136,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
-        assertThrowsWithCause(
-                () -> command.get(catalog),
+        assertThrows(
                 CatalogValidationException.class,
+                () -> command.get(catalog),
                 "Table with name 'PUBLIC.TEST' not found"
         );
     }
@@ -155,9 +159,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 .tableName(tableName)
                 .columns(Set.of(columnName + "_UNK"));
 
-        assertThrowsWithCause(
-                () -> builder.build().get(catalog),
+        assertThrows(
                 CatalogValidationException.class,
+                () -> builder.build().get(catalog),
                 "Column with name 'TEST_UNK' not found in table 'PUBLIC.TEST'"
         );
     }
@@ -182,9 +186,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 .tableName(tableName)
                 .columns(Set.of(columnName2));
 
-        assertThrowsWithCause(
-                () -> builder.build().get(catalog),
+        assertThrows(
                 CatalogValidationException.class,
+                () -> builder.build().get(catalog),
                 "Deleting column `C2` belonging to primary key is not allowed"
         );
     }
@@ -198,9 +202,38 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 .tableName(TABLE_NAME)
                 .columns(Set.of("VAL"));
 
-        assertThrowsWithCause(
-                () -> builder.build().get(catalog),
+        assertThrows(
                 CatalogValidationException.class,
+                () -> builder.build().get(catalog),
+                "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
+        );
+    }
+
+    @Test
+    void rightExceptionIsThrownIfSameColumnNameBelongsToIndexesForDifferentTables() {
+        Catalog catalog =  catalog(List.of(
+                createTableCommand(TABLE_NAME),
+                createIndexCommand(TABLE_NAME, "TEST_IDX"),
+                createTableCommand(TABLE_NAME + "_1"),
+                createIndexCommand(TABLE_NAME + "_1", "TEST_IDX" + "_1")
+        ));
+
+
+        Set<String> indexes = catalog.indexes().stream()
+                .filter(index -> ((CatalogHashIndexDescriptor) index).columns().contains("VAL"))
+                .map(CatalogObjectDescriptor::name)
+                .collect(Collectors.toSet());
+
+        assertEquals(2, indexes.size(), "should be 2 indexes with column `VAL`");
+
+        AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL"));
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> builder.build().get(catalog),
                 "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
         );
     }

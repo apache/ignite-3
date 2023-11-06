@@ -31,12 +31,12 @@ import picocli.CommandLine.Option;
  */
 public class ConnectOptions {
 
-    @Option(names = {USERNAME_OPTION,
-            USERNAME_OPTION_SHORT}, description = USERNAME_OPTION_DESC, required = true)
+    @Option(names = {USERNAME_OPTION, USERNAME_OPTION_SHORT}, description = USERNAME_OPTION_DESC,
+            required = true, defaultValue = Option.NULL_VALUE)
     private String username;
 
-    @Option(names = {PASSWORD_OPTION,
-            PASSWORD_OPTION_SHORT}, description = PASSWORD_OPTION_DESC, required = true)
+    @Option(names = {PASSWORD_OPTION, PASSWORD_OPTION_SHORT}, description = PASSWORD_OPTION_DESC,
+            required = true, defaultValue = Option.NULL_VALUE)
     private String password;
 
     public String username() {

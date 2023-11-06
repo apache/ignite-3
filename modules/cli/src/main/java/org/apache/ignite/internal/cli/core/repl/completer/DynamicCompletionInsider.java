@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.core.repl.completer;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import picocli.CommandLine;
 import picocli.CommandLine.MissingParameterException;
 import picocli.CommandLine.Model.ArgSpec;
@@ -33,7 +32,6 @@ public class DynamicCompletionInsider {
 
     public DynamicCompletionInsider() {
         commandLine = new CommandLine(TopLevelCliReplCommand.class);
-        commandLine.registerConverter(NodeNameOrUrl.class, value -> null);
     }
 
     private static String[] trim(String[] typedWords) {

@@ -408,7 +408,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(RemoteFragmentExecutionException.class, ex.getCause());
+            assertInstanceOf(QueryCancelledException.class, ex.getCause());
             assertNull(ex.getCause().getCause());
 
             return null;
@@ -604,6 +604,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ExecutionService execService = executionServices.get(0);
 
         Function<QueryPrefetchCallback, BaseQueryContext> createCtx = (callback) -> BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .prefetchCallback(callback)
                 .frameworkConfig(
@@ -611,7 +612,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .logger(log)
                 .build();
 
         QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
@@ -663,6 +663,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         IgniteInternalException expectedException = new IgniteInternalException(Common.INTERNAL_ERR, "Expected exception");
 
         BaseQueryContext ctx = BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .prefetchCallback(prefetchFut::completeExceptionally)
                 .frameworkConfig(
@@ -670,7 +671,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .logger(log)
                 .build();
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
@@ -784,13 +784,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private BaseQueryContext createContext() {
         return BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .logger(log)
                 .build();
     }
 

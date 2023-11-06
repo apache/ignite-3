@@ -15,16 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+apply from: "$rootDir/buildscripts/java-core.gradle"
 
-import org.apache.ignite.internal.sql.engine.property.Property;
+description = 'ignite-dev-utilities'
 
-/**
- * Enumerates the properties related to session management domain.
- */
-public final class SessionProperty {
-    /**
-     * Duration of inactivity in milliseconds after which the session will be killed.
-     */
-    public static final Property<Long> IDLE_TIMEOUT = new Property<>("session_idle_timeout", Long.class);
+dependencies {
 }

@@ -20,10 +20,12 @@ package org.apache.ignite.internal.raft.storage.logit;
 import java.nio.file.Path;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.FeatureChecker;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
@@ -31,6 +33,7 @@ import org.apache.ignite.raft.jraft.storage.logit.storage.LogitLogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
+import sun.nio.ch.DirectBuffer;
 
 /**
  * Log storage factory for {@link LogitLogStorage} instances.
@@ -59,6 +62,16 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
                 new NamedThreadFactory("logit-checkpoint-executor", LOG)
         );
+
+        checkVmOptions();
+    }
+
+    private static void checkVmOptions() {
+        try {
+            Class.forName(DirectBuffer.class.getName());
+        } catch (Throwable e) {
+            throw new IgniteInternalException("sun.nio.ch.DirectBuffer is unavailable." + FeatureChecker.JAVA_VER_SPECIFIC_WARN, e);
+        }
     }
 
     @Override

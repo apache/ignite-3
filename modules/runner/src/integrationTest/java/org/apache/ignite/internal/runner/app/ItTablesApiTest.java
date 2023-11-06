@@ -45,7 +45,7 @@ import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -367,7 +367,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         Table table = createTable(clusterNodes.get(0), TABLE_NAME);
 
-        int tblId = ((TableImpl) table).tableId();
+        int tblId = ((TableViewInternal) table).tableId();
 
         CompletableFuture<Table> tableByNameFut = supplyAsync(() -> ignite1.tables().table(TABLE_NAME));
 

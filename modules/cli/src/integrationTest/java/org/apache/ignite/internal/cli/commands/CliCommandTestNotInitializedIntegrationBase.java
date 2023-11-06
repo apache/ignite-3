@@ -27,9 +27,7 @@ import java.io.StringWriter;
 import org.apache.ignite.internal.cli.CliIntegrationTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
-import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
@@ -83,8 +81,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     @BeforeEach
     public void setUp() {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
-        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
-                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
         eventListeningActivationPoint.subscribe();
         resetOutput();

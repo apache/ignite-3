@@ -24,10 +24,12 @@ import org.jetbrains.annotations.Nullable;
  * Logger which does not output anything.
  */
 class VoidLogger extends IgniteLogger {
+    static final VoidLogger INSTANCE = new VoidLogger();
+
     /**
      * Creates null logger.
      */
-    VoidLogger() {
+    private VoidLogger() {
         super(System.getLogger(VoidLogger.class.getName()));
     }
 

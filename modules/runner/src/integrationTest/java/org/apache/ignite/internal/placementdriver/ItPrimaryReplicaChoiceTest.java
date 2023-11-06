@@ -34,7 +34,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.table.Tuple;
@@ -69,7 +69,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testPrimaryChangeSubscription() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
@@ -101,7 +101,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testPrimaryChangeLongHandling() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
@@ -141,7 +141,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testLockReleaseWhenPrimaryChange() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 
@@ -176,7 +176,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @param primary Current primary replica name.
      * @throws InterruptedException If fail.
      */
-    private static void waitingForLeaderCache(TableImpl tbl, String primary) throws InterruptedException {
+    private static void waitingForLeaderCache(TableViewInternal tbl, String primary) throws InterruptedException {
         RaftGroupService raftSrvc = tbl.internalTable().partitionRaftGroupService(0);
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> {

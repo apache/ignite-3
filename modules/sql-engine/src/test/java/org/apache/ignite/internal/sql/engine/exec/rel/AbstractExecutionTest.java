@@ -49,7 +49,6 @@ import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
@@ -112,9 +111,6 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         FragmentDescription fragmentDesc = new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null);
 
         return new ExecutionContext<>(
-                BaseQueryContext.builder()
-                        .logger(log)
-                        .build(),
                 taskExecutor,
                 UUID.randomUUID(),
                 new ClusterNodeImpl("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),

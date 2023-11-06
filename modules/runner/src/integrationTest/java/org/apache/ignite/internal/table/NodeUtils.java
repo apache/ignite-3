@@ -54,7 +54,7 @@ public class NodeUtils {
      * @throws InterruptedException If failed.
      */
     // TODO: IGNITE-20365: Replace this method when proper primary change method is implemented.
-    public static String transferPrimary(TableImpl tbl, @Nullable String preferablePrimary, IntFunction<IgniteImpl> nodes)
+    public static String transferPrimary(TableViewInternal tbl, @Nullable String preferablePrimary, IntFunction<IgniteImpl> nodes)
             throws InterruptedException {
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
 

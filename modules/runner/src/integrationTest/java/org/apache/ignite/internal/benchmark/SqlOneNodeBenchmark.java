@@ -45,12 +45,12 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark that runs sql queries via embedded client on single node cluster.
  */
 @State(Scope.Benchmark)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@BenchmarkMode(Mode.AverageTime)
-@Warmup(iterations = 3, time = 5)
-@Measurement(iterations = 5, time = 5)
-@Threads(1)
 @Fork(1)
+@Threads(1)
+@Warmup(iterations = 10, time = 2)
+@Measurement(iterations = 20, time = 2)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class SqlOneNodeBenchmark extends AbstractOneNodeBenchmark {
     private static final int TABLE_SIZE = 30_000;
@@ -122,10 +122,21 @@ public class SqlOneNodeBenchmark extends AbstractOneNodeBenchmark {
 
     /** Benchmark that measures performance of `SELECT *` query over entire table. */
     @Benchmark
-    @Warmup(iterations = 3, time = 5)
-    @Measurement(iterations = 5, time = 5)
     public void selectAll(Blackhole bh) {
         try (var rs = session.execute(null, "SELECT * FROM usertable")) {
+            while (rs.hasNext()) {
+                bh.consume(rs.next());
+            }
+        }
+    }
+
+    /**
+     * Benchmark to measure overhead of query initialisation.
+     */
+    @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    public void selectAllFromSystemRange(Blackhole bh) {
+        try (var rs = session.execute(null, "SELECT * FROM TABLE(system_range(0, 1))")) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -224,6 +225,7 @@ public class TestNode implements LifecycleAware {
 
     private BaseQueryContext createContext() {
         return BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)

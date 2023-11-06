@@ -15,26 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.index;
 
-import org.apache.calcite.plan.Context;
-
-/**
- * Abstract query context.
- */
-public class AbstractQueryContext implements Context {
-    private final Context parentCtx;
-
-    public AbstractQueryContext(Context parentCtx) {
-        this.parentCtx = parentCtx;
-    }
-
-    /** {@inheritDoc} */
-    @Override public <C> C unwrap(Class<C> cls) {
-        if (cls == getClass()) {
-            return cls.cast(this);
-        }
-
-        return parentCtx.unwrap(cls);
-    }
+/** Index build completion listener, will be called when a distributed build of an index for a specific partition completes. */
+@FunctionalInterface
+interface IndexBuildCompletionListener {
+    /** Handles the index build completion event. */
+    void onBuildCompletion(int indexId, int tableId, int partitionId);
 }
