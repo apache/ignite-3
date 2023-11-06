@@ -210,7 +210,6 @@ public class FSMCallerImpl implements FSMCaller {
                 task.shutdownLatch = latch;
             }));
         }
-        doShutdown();
     }
 
     @Override
@@ -426,7 +425,7 @@ public class FSMCallerImpl implements FSMCaller {
                     case SHUTDOWN:
                         this.currTask = TaskType.SHUTDOWN;
                         shutdown = task.shutdownLatch;
-                        this.node = null;
+                        doShutdown();
                         break;
                     case FLUSH:
                         this.currTask = TaskType.FLUSH;
@@ -456,6 +455,9 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     private void doShutdown() {
+        if (this.node != null) {
+            this.node = null;
+        }
         if (this.fsm != null) {
             this.fsm.onShutdown();
         }
