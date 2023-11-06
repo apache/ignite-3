@@ -440,7 +440,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .parameters(params)
                                 .build();
 
-                        return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(session, txWrapper, ctx, plan));
+                        return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(txWrapper, ctx, plan));
                     }).whenComplete((res, ex) -> {
                         if (ex != null) {
                             txWrapper.rollback();
@@ -477,7 +477,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private AsyncSqlCursor<List<Object>> executePlan(
-            Session session,
             QueryTransactionWrapper txWrapper,
             BaseQueryContext ctx,
             QueryPlan plan
