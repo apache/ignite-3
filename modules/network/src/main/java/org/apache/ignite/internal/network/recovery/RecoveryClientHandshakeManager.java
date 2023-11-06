@@ -247,9 +247,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
                 holderChannel.close().awaitUninterruptibly();
             } else {
-                String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holderDescription();
-
-                LOG.info(err);
+                if (LOG.isInfoEnabled()) {
+                    LOG.info("Failed to acquire recovery descriptor during handshake, it is held by: {}", descriptor.holderDescription());
+                }
 
                 handshakeCompleteFuture.completeExceptionally(new ChannelAlreadyExistsException(remoteConsistentId));
 

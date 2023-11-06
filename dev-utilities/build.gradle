@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-/**
- * This is a temporary package to host code needed until CatalogService is ready
- * TODO: IGNITE-19447 - remove/rework when switched to full-blown usage of CatalogService.
- */
-package org.apache.ignite.internal.table.distributed.schema;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+
+description = 'ignite-dev-utilities'
+
+dependencies {
+}

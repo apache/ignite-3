@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -80,7 +79,6 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
-import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
@@ -123,21 +121,11 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Number of the schemas in cache. */
     private static final int SCHEMA_CACHE_SIZE = 128;
 
-    /** Session expiration check period in milliseconds. */
-    private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
-
-    /**
-     * Duration in milliseconds after which the session will be considered expired if no action have been performed
-     * on behalf of this session during this period.
-     */
-    private static final long DEFAULT_SESSION_IDLE_TIMEOUT = TimeUnit.MINUTES.toMillis(15);
-
     /** Name of the default schema. */
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private static final PropertiesHolder DEFAULT_PROPERTIES = PropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
-            .set(SessionProperty.IDLE_TIMEOUT, DEFAULT_SESSION_IDLE_TIMEOUT)
             .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
@@ -169,7 +157,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final SystemViewManager systemViewManager;
 
-    private volatile SessionManager sessionManager;
+    private final SessionManager sessionManager = new SessionManager();
 
     private volatile QueryTaskExecutor taskExecutor;
 
@@ -231,8 +219,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override
     public synchronized void start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
-
-        sessionManager = registerService(new SessionManager(nodeName, SESSION_EXPIRE_CHECK_PERIOD, System::currentTimeMillis));
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
@@ -340,7 +326,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         properties = PropertiesHelper.merge(properties, DEFAULT_PROPERTIES);
 
         return sessionManager.createSession(
-                properties.get(SessionProperty.IDLE_TIMEOUT),
                 properties
         );
     }
@@ -455,7 +440,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .parameters(params)
                                 .build();
 
-                        return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(session, txWrapper, ctx, plan));
+                        return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(txWrapper, ctx, plan));
                     }).whenComplete((res, ex) -> {
                         if (ex != null) {
                             txWrapper.rollback();
@@ -492,7 +477,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private AsyncSqlCursor<List<Object>> executePlan(
-            Session session,
             QueryTransactionWrapper txWrapper,
             BaseQueryContext ctx,
             QueryPlan plan
@@ -512,15 +496,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     @Override
                     public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
-                        session.touch();
-
                         return dataCursor.requestNextAsync(rows);
                     }
 
                     @Override
                     public CompletableFuture<Void> closeAsync() {
-                        session.touch();
-
                         if (finished.compareAndSet(false, true)) {
                             numberOfOpenCursors.decrementAndGet();
 

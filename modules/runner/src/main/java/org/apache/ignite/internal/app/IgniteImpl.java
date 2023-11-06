@@ -210,7 +210,7 @@ public class IgniteImpl implements Ignite {
     private final SqlQueryProcessor qryEngine;
 
     /** Sql API facade. */
-    private final IgniteSql sql;
+    private final IgniteSqlImpl sql;
 
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
@@ -629,7 +629,7 @@ public class IgniteImpl implements Ignite {
                 systemViewManager
         );
 
-        sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
+        sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -826,7 +826,8 @@ public class IgniteImpl implements Ignite {
                                     indexBuildingManager,
                                     qryEngine,
                                     clientHandlerModule,
-                                    deploymentManager
+                                    deploymentManager,
+                                    sql
                             );
 
                             // The system view manager comes last because other components

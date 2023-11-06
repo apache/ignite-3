@@ -24,18 +24,15 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -43,7 +40,6 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
@@ -69,12 +65,12 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
         ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
         ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
 
-        waitForCondition(() -> queryProcessor().liveSessions().size() == 1, 10_000);
+        assertTrue(waitForCondition(ses1::closed, 10_000));
 
         // first session should no longer exist for the moment
         ExecutionException err = assertThrows(ExecutionException.class, () -> ses1.executeAsync(null, "SELECT 1 + 1").get());
         assertThat(err.getCause(), instanceOf(IgniteException.class));
-        assertThat(err.getCause().getMessage(), containsString("Session not found"));
+        assertThat(err.getCause().getMessage(), containsString("Session is closed"));
 
         // already started query should fail due to session has been expired
         assertThrowsWithCause(() -> {
@@ -141,33 +137,6 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
             res = ses.execute(null, query);
 
             assertEquals(expDateTimeStr, res.next().datetimeValue(1).toString());
-        }
-    }
-
-    private static class ErroneousSchemaManager implements SqlSchemaManager {
-
-        /** {@inheritDoc} */
-        @Override
-        public @Nullable SchemaPlus schema(int version) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public @Nullable SchemaPlus schema(long timestamp) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Void> schemaReadyFuture(int version) {
-            throw new UnsupportedOperationException();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public @Nullable IgniteTable table(int schemaVersion, int tableId) {
-            return null;
         }
     }
 }
