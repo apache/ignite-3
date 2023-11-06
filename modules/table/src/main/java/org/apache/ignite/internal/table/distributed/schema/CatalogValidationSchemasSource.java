@@ -106,7 +106,9 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
                             return false;
                         }
 
-                        assert prevVersion == Integer.MIN_VALUE || tableDescriptor.tableVersion() == prevVersion + 1;
+                        assert prevVersion == Integer.MIN_VALUE || tableDescriptor.tableVersion() == prevVersion + 1
+                                : String.format("Table version is expected to be prevVersion+1, but version is %d and prevVersion is %d",
+                                        tableDescriptor.tableVersion(), prevVersion);
 
                         prevVersion = tableDescriptor.tableVersion();
 
