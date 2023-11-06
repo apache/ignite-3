@@ -230,6 +230,12 @@ public class FakeSession implements AbstractSession {
 
     /** {@inheritDoc} */
     @Override
+    public boolean closed() {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public SessionBuilder toBuilder() {
         return null;
     }
