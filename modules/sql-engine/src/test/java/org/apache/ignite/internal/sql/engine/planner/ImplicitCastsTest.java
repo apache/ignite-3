@@ -336,11 +336,6 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         return Stream.of(
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET c1 = '1'")
-                        .project("$t0", "1"),
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32)
                         .sql("UPDATE t1 SET c1 = '1'::INTEGER + 1")
                         .project("$t0", "+(1, 1)"),
 

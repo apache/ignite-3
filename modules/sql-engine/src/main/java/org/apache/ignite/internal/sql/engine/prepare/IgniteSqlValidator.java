@@ -550,7 +550,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         @Override
         public SqlNode visit(SqlDynamicParam param) {
             extracted = null;
-            throw new Util.FoundOne(param);
+            throw Util.FoundOne.NULL;
         }
     }
 
