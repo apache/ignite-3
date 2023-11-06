@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.IS;
 import static org.apache.ignite.internal.tx.LockMode.IX;
@@ -45,6 +47,8 @@ import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.event.LockEvent;
+import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +66,70 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     protected abstract LockManager newInstance();
+
+    @Test
+    public void testConflictEventResolutionFailTx() {
+        CompletableFuture<LockEventParameters> conflictFut = new CompletableFuture<>();
+
+        lockManager.listen(LockEvent.CONFLICT_FOUND, (parameters, exception) -> {
+            conflictFut.complete(parameters);
+
+            return CompletableFuture.completedFuture(true);
+        });
+
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
+
+        LockKey key = new LockKey("test");
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, X);
+
+        assertThat(fut1, willCompleteSuccessfully());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, X);
+
+        assertWillThrowFast(fut2, LockException.class);
+
+        assertThat(conflictFut, willCompleteSuccessfully());
+
+        assertEquals(txId1, conflictFut.join().getLockHolderTx());
+        assertEquals(txId2, conflictFut.join().getLockAcquirerTx());
+        assertEquals(key, conflictFut.join().getLockKey());
+    }
+
+    @Test
+    public void testConflictEventResolutionWaitTx() {
+        CompletableFuture<LockEventParameters> conflictFut = new CompletableFuture<>();
+
+        lockManager.listen(LockEvent.CONFLICT_FOUND, (parameters, exception) -> {
+            conflictFut.complete(parameters);
+
+            return CompletableFuture.completedFuture(true);
+        });
+
+        UUID txId1 = TestTransactionIds.newTransactionId();
+        UUID txId2 = TestTransactionIds.newTransactionId();
+
+        LockKey key = new LockKey("test");
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, X);
+
+        assertThat(fut2, willCompleteSuccessfully());
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, X);
+
+        assertFalse(fut1.isDone());
+
+        assertThat(conflictFut, willCompleteSuccessfully());
+
+        assertEquals(txId2, conflictFut.join().getLockHolderTx());
+        assertEquals(txId1, conflictFut.join().getLockAcquirerTx());
+        assertEquals(key, conflictFut.join().getLockKey());
+
+        lockManager.release(fut2.join());
+
+        assertThat(fut1, willCompleteSuccessfully());
+    }
 
     @Test
     public void testSingleKeyWrite() {
