@@ -47,13 +47,13 @@ public class NodeUtils {
 
     /**
      * Transfers the primary rights to another node.
-     * TODO: IGNITE-20365: Replace this method when proper primary change method is implemented.
      *
      * @param tbl Table.
      * @param preferablePrimary Primary replica name which is preferred for being primary or {@code null}.
      * @return Future which points to a new primary replica name.
      * @throws InterruptedException If failed.
      */
+    // TODO: IGNITE-20365: Replace this method when proper primary change method is implemented.
     public static String transferPrimary(TableImpl tbl, @Nullable String preferablePrimary, IntFunction<IgniteImpl> nodes)
             throws InterruptedException {
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);

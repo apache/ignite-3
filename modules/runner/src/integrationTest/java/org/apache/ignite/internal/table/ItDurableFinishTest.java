@@ -165,7 +165,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                transferPrimary(tbl, null);
+                NodeUtils.transferPrimary(tbl, null, this::node);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -261,7 +261,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                transferPrimary(tbl, null);
+                NodeUtils.transferPrimary(tbl, null, this::node);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -294,18 +294,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 null
         );
         storage.put(tx.id(), txMetaToSet);
-    }
-
-    /**
-     * Transfers the primary rights to another node.
-     *
-     * @param tbl Table.
-     * @param preferablePrimary Primary replica name which is preferred for being primary or {@code null}.
-     * @return Future which points to a new primary replica name.
-     * @throws InterruptedException If failed.
-     */
-    private String transferPrimary(TableImpl tbl, @Nullable String preferablePrimary) throws InterruptedException {
-        return NodeUtils.transferPrimary(tbl, preferablePrimary, this::node);
     }
 
     /**

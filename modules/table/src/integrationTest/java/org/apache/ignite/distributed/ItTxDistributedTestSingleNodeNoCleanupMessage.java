@@ -50,9 +50,7 @@ import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.FailHandler;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.SimpleFailHandler;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
@@ -101,8 +99,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     HybridClock clock,
                     TransactionIdGenerator generator,
                     ClusterNode node,
-                    PlacementDriver placementDriver,
-                    FailHandler failHandler
+                    PlacementDriver placementDriver
             ) {
                 return new TxManagerImpl(
                         replicaSvc,
@@ -110,8 +107,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         clock,
                         generator,
                         node::id,
-                        placementDriver,
-                        new SimpleFailHandler()
+                        placementDriver
                 ) {
                     @Override
                     public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {

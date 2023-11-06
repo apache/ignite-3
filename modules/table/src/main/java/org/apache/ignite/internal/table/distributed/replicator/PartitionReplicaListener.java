@@ -234,8 +234,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
-    private final ConcurrentMap<UUID, CompletableFuture<Void>> txDurableFinishFutures = new ConcurrentHashMap<>();
-
     private final ConcurrentMap<UUID, TxCleanupReadyFutureList> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
     /** Cleanup futures. */
@@ -412,14 +410,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         TxMeta newTxMeta = new TxMeta(txState, enlistedPartitions, commitTimestamp, true);
 
         txStateStorage.put(txId, newTxMeta);
-
-        txDurableFinishFutures.compute(txId, (uuid, future) -> {
-            if (future != null) {
-                future.complete(null);
-            }
-
-            return null;
-        });
     }
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters evt, @Nullable Throwable exception) {
@@ -1450,22 +1440,46 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             String txCoordinatorId
     ) {
+        // Read TX state from the storage, we will need this state to check if the locks are released.
+        // Since this state is written only on the transaction finish (see PartitionListener.handleFinishTxCommand),
+        // the value of txMeta can be either null or COMMITTED/ABORTED. No other values is expected.
         TxMeta txMeta = txStateStorage.get(txId);
 
-        // Check that a transaction has already been finished.
+        // Check whether a transaction has already been finished.
         boolean transactionAlreadyFinished = txMeta != null && isFinalState(txMeta.txState());
 
-        // Check locksReleased flag. If it is already set, do nothing and return a successful result.
-        // Even if the outcome is different (the transaction was aborted, but we want to commit it),
-        // we return 'success' to be in alignment with common transaction handling.
         if (transactionAlreadyFinished) {
+            // Check locksReleased flag. If it is already set, do nothing and return a successful result.
+            // Even if the outcome is different (the transaction was aborted, but we want to commit it),
+            // we return 'success' to be in alignment with common transaction handling.
             if (txMeta.locksReleased()) {
                 return completedFuture(null);
             }
 
+            // The transaction is finished, but the locks are not released.
+            // If we got here, it means we are retrying the finish request.
+            // Let's make sure the desired state is valid.
+            // Tx logic does not allow to send a rollback over a finished transaction:
+            // - The Coordinator calls use same tx state over retries, both abort and commit are possible.
+            // - Server side recovery (which is not implemented yet) may only change tx state to aborted.
+            // - The Coordinator itself should prevent user calls with different proposed state to the one,
+            //   that was already triggered (e.g. the client side -> txCoordinator.commitAsync(); txCoordinator.rollbackAsync())
+            //
+            // To sum it up, the possible states that a 'commit' is allowed to see:
+            // - null (if it's the first change state attempt)
+            // - committed (if it was already updated in the previous attempt)
+            // - aborted (if it was aborted by the initiate recovery logic,
+            //   though this is a very unlikely case because initiate recovery will only roll back the tx if coordinator is dead).
+            //
+            // Within 'roll back' it's allowed to see:
+            // - null
+            // - aborted
+            // Other combinations of states are not possible.
+
+            // First, throw an exception if we are trying to abort an already committed tx.
             assert !(txMeta.txState() == COMMITED && !commit) : "Not allowed to abort an already committed transaction.";
-            // If the locks were not released, we are likely to be in a recovery mode and retrying the finish request.
-            // In this case we want to check the expected outcome and the actual one.
+
+            // If a 'commit' sees a tx in the ABORTED state (valid as per the explanation above), let the client know with an exception.
             if (commit && txMeta.txState() == ABORTED) {
                 LOG.error("Failed to commit a transaction that is already aborted [txId={}].", txId);
 
@@ -1473,26 +1487,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         "Failed to change the outcome of a finished transaction"
                                 + " [txId=" + txId + ", txState=" + txMeta.txState() + "].");
             }
-            // The transaction has already been finished, but the locks are not released.
-            // Waiting for the cleanup to do this.
-            // TODO: There is a risk that nobody is cleaning up this transaction.
-
-            //            CompletableFuture<Void> cleanupAwaitFuture = txDurableFinishFutures.computeIfAbsent(txId, uuid -> {
-            //                // Check the storage again to avoid a race.
-            //                TxMeta storedMeta = txStateStorage.get(txId);
-            //
-            //                if (storedMeta != null && storedMeta.locksReleased()) {
-            //                    return null;
-            //                }
-            //
-            //                return new CompletableFuture<>();
-            //            });
-            //
-            //            return cleanupAwaitFuture != null ? cleanupAwaitFuture : completedFuture(null);
         }
 
-        // If the transaction is finished - no need to send finish again, just move on to the cleanup phase.
-        // In this case the locks are still not released.
         CompletableFuture<?> changeStateFuture = finishTransaction(enlistedPartitions, txId, commit, commitTimestamp, txCoordinatorId);
 
         return cleanup(changeStateFuture, enlistedPartitions, commit, commitTimestamp, txId, ATTEMPTS_TO_CLEANUP_REPLICA)

@@ -146,17 +146,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @return The future of transaction completion.
      */
     private CompletableFuture<Void> finishInternal(boolean commit) {
-        if (!enlisted.isEmpty()) {
-            Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
-                    .collect(Collectors.toMap(
-                            Entry::getKey,
-                            entry -> entry.getValue().get2()
-                    ));
+        Map<TablePartitionId, Long> enlistedGroups = enlisted.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Entry::getKey,
+                        entry -> entry.getValue().get2()
+                ));
 
-            return txManager.finish(observableTsTracker, commitPart, commit, enlistedGroups, id());
-        } else {
-            return txManager.finishEmpty(commit, id());
-        }
+        return txManager.finish(observableTsTracker, commitPart, commit, enlistedGroups, id());
     }
 
     /** {@inheritDoc} */

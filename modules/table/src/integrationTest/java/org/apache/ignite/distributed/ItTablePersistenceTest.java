@@ -97,7 +97,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.SimpleFailHandler;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -213,8 +212,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         hybridClock,
                         new TransactionIdGenerator(i),
                         () -> NODE_ID,
-                        TEST_PLACEMENT_DRIVER,
-                        new SimpleFailHandler()
+                        TEST_PLACEMENT_DRIVER
                 );
 
                 txManager.start();
@@ -230,8 +228,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 hybridClock,
                 new TransactionIdGenerator(-1),
                 () -> NODE_ID,
-                TEST_PLACEMENT_DRIVER,
-                new SimpleFailHandler()
+                TEST_PLACEMENT_DRIVER
         );
 
         txManager.start();
@@ -486,8 +483,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                                 hybridClock,
                                 new TransactionIdGenerator(index),
                                 () -> NODE_ID,
-                                TEST_PLACEMENT_DRIVER,
-                                new SimpleFailHandler()
+                                TEST_PLACEMENT_DRIVER
                         );
                         txMgr.start();
                         closeables.add(txMgr::stop);

@@ -94,7 +94,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             return CompletableFuture.completedFuture(false);
         });
 
-        transferPrimary(tbl, null);
+        NodeUtils.transferPrimary(tbl, null, this::node);
 
         assertTrue(primaryChanged.get());
     }
@@ -124,9 +124,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         log.info("Primary replica is: " + primary);
 
-        transferPrimary(tbl, null);
+        NodeUtils.transferPrimary(tbl, null, this::node);
 
-        CompletableFuture<String> primaryChangeTask = IgniteTestUtils.runAsync(() -> transferPrimary(tbl, primary));
+        CompletableFuture<String> primaryChangeTask = IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(tbl, primary, this::node));
 
         waitingForLeaderCache(tbl, primary);
 
@@ -164,7 +164,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
 
-        transferPrimary(tbl, null);
+        NodeUtils.transferPrimary(tbl, null, this::node);
 
         assertFalse(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
     }
@@ -186,18 +186,6 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             return leader != null && !leader.consistentId().equals(primary);
         }, 10_000));
-    }
-
-    /**
-     * Transfers the primary rights to another node.
-     *
-     * @param tbl Table.
-     * @param preferablePrimary Primary replica name which is preferred for being primary or {@code null}.
-     * @return Future which points to a new primary replica name.
-     * @throws InterruptedException If failed.
-     */
-    private String transferPrimary(TableImpl tbl, @Nullable String preferablePrimary) throws InterruptedException {
-        return NodeUtils.transferPrimary(tbl, preferablePrimary, this::node);
     }
 
     /**

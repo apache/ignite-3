@@ -127,15 +127,6 @@ public interface TxManager extends IgniteComponent {
             UUID txId
     );
 
-
-    /**
-     * Make sure the state of the provided transaction is updated correctly.
-     *
-     * @param commit {@code true} if a commit requested.
-     * @param txId Transaction id.
-     */
-    CompletableFuture<Void> finishEmpty(boolean commit, UUID txId);
-
     /**
      * Sends cleanup request to the specified primary replica.
      *

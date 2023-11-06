@@ -36,11 +36,13 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_WAS_ABORTED_ERR;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,6 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -68,6 +71,8 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
@@ -153,8 +158,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    private final FailHandler failHandler;
-
     /**
      * The constructor.
      *
@@ -169,8 +172,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             HybridClock clock,
             TransactionIdGenerator transactionIdGenerator,
             Supplier<String> localNodeIdSupplier,
-            PlacementDriver placementDriver,
-            FailHandler failHandler
+            PlacementDriver placementDriver
     ) {
         this(
                 replicaService,
@@ -179,8 +181,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 transactionIdGenerator,
                 localNodeIdSupplier,
                 placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                failHandler
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
     }
 
@@ -200,8 +201,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TransactionIdGenerator transactionIdGenerator,
             Supplier<String> localNodeIdSupplier,
             PlacementDriver placementDriver,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            FailHandler failHandler
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
@@ -210,7 +210,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
-        this.failHandler = failHandler;
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -319,20 +318,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitTimestamp()));
     }
 
-    private @Nullable HybridTimestamp getCommitTimestamp(boolean commit) {
+    private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
         return commit ? clock.now() : null;
     }
 
     private String coordinatorId() {
         return localNodeId.get();
-    }
-
-    @Override
-    public CompletableFuture<Void> finishEmpty(boolean commit, UUID txId) {
-        // If there are no enlisted groups, just update local state - we already marked the tx as finished.
-        updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, getCommitTimestamp(commit)));
-
-        return completedFuture(null);
     }
 
     @Override
@@ -344,7 +335,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             UUID txId
     ) {
         assert enlistedGroups != null;
-        assert !enlistedGroups.isEmpty() : "No enlisted partitions found";
+
+        if (enlistedGroups.isEmpty()) {
+            // If there are no enlisted groups, just update local state - we already marked the tx as finished.
+            updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitTimestamp(commit)));
+
+            return completedFuture(null);
+        }
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
         // with using read timestamp could see that this transaction is finishing, see #transactionMetaReadTimestampAware(txId, timestamp).
@@ -373,40 +370,23 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         // This is a finishing thread.
         if (performingFinish.get()) {
-            Function<Void, CompletableFuture<Void>> finishAction = ignored ->
-                    makeFinishRequest(
+            // Wait for commit acks first, then proceed with the finish request.
+            return tuple.performFinish(commit, ignored ->
+                    prepareFinish(
                             observableTimestampTracker,
                             commitPartition,
                             commit,
                             enlistedGroups,
                             txId,
                             finishingStateMeta.txFinishFuture()
-                    );
-
-            runFinish(commit, tuple, finishAction);
+                    ));
         }
-
-        // The method `runFinish` has a side effect on `finishInProgressFuture` future, it kicks off another future that will complete it.
+        // The method `performFinish` above has a side effect on `finishInProgressFuture` future,
+        // it kicks off another future that will complete it.
         return tuple.finishInProgressFuture;
     }
 
-    private static void runFinish(boolean commit, TxContext tuple, Function<Void, CompletableFuture<Void>> finishAction) {
-        // Wait for commit acks first, then proceed with the finish request.
-        CompletableFuture<Void> finisher = commit ? tuple.waitNoInflights() : completedFuture(null);
-
-        finisher
-                .thenCompose(finishAction)
-                .handle((ignored, err) -> {
-                    if (err == null) {
-                        tuple.finishInProgressFuture.complete(null);
-                    } else {
-                        tuple.finishInProgressFuture.completeExceptionally(err);
-                    }
-                    return null;
-                });
-    }
-
-    private CompletableFuture<Void> makeFinishRequest(
+    private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
@@ -414,7 +394,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        HybridTimestamp commitTimestamp = getCommitTimestamp(commit);
+        HybridTimestamp commitTimestamp = commitTimestamp(commit);
         // In case of commit it's required to check whether current primaries are still the same that were enlisted and whether
         // given primaries are not expired or, in other words, whether commitTimestamp is less or equal to the enlisted primaries
         // expiration timestamps.
@@ -427,7 +407,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                             Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>(enlistedGroups.keySet());
 
-                            return makeDurableFinishRequest(
+                            return durableFinish(
                                     observableTimestampTracker,
                                     commitPartition,
                                     verifiedCommit,
@@ -444,7 +424,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * Durable finish request.
      */
-    private CompletableFuture<Void> makeDurableFinishRequest(
+    private CompletableFuture<Void> durableFinish(
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
@@ -455,7 +435,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     ) {
         return inBusyLockAsync(busyLock, () -> findPrimaryReplica(commitPartition, clock.now())
                 .thenCompose(meta ->
-                        finishOnPrimary(
+                        makeFinishRequest(
                                 observableTimestampTracker,
                                 commitPartition,
                                 meta.getLeaseholder(),
@@ -474,17 +454,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             TransactionException transactionException = (TransactionException) cause;
 
                             if (transactionException.code() == TX_WAS_ABORTED_ERR) {
-                                updateTxMeta(txId, old -> new TxStateMeta(ABORTED, old.txCoordinatorId(), null));
+                                updateTxMeta(txId, old -> {
+                                    TxStateMeta txStateMeta = new TxStateMeta(ABORTED, old.txCoordinatorId(), null);
+
+                                    txFinishFuture.complete(txStateMeta);
+
+                                    return txStateMeta;
+                                });
 
                                 return CompletableFuture.<Void>failedFuture(cause);
                             }
                         }
 
-
-                        if (failHandler.checkRecoverable(cause)) {
+                        if (TransactionFailureHandler.isRecoverable(cause)) {
                             LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
 
-                            return makeDurableFinishRequest(
+                            return durableFinish(
                                     observableTimestampTracker,
                                     commitPartition,
                                     commit,
@@ -494,6 +479,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txFinishFuture
                             );
                         } else {
+                            LOG.warn("Failed to finish Tx [txId={}].", ex, txId);
+
                             return CompletableFuture.<Void>failedFuture(cause);
                         }
                     }
@@ -503,7 +490,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 .thenCompose(Function.identity()));
     }
 
-    private CompletableFuture<Void> finishOnPrimary(
+    private CompletableFuture<Void> makeFinishRequest(
             HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             String primaryConsistentId,
@@ -784,10 +771,26 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
         volatile CompletableFuture<Void> finishInProgressFuture = null;
 
-        /**
-         * All inflights have been completed before the finish.
-         */
-        CompletableFuture<Void> waitNoInflights() {
+        CompletableFuture<Void> performFinish(boolean commit, Function<Void, CompletableFuture<Void>> finishAction) {
+            waitReadyToFinish(commit)
+                    .thenCompose(finishAction)
+                    .handle((ignored, err) -> {
+                        if (err == null) {
+                            finishInProgressFuture.complete(null);
+                        } else {
+                            finishInProgressFuture.completeExceptionally(err);
+                        }
+                        return null;
+                    });
+
+            return finishInProgressFuture;
+        }
+
+        private CompletableFuture<Void> waitReadyToFinish(boolean commit) {
+            return commit ? waitNoInflights() : completedFuture(null);
+        }
+
+        private CompletableFuture<Void> waitNoInflights() {
             if (inflights == 0) {
                 waitRepFut.complete(null);
             }
@@ -811,6 +814,38 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         @Override
         public String toString() {
             return "TxContext [inflights=" + inflights + ", waitRepFut=" + waitRepFut + ", finishFut=" + finishInProgressFuture + ']';
+        }
+    }
+
+    private static class TransactionFailureHandler {
+        private static final Set<Class<? extends Throwable>> RECOVERABLE = Set.of(
+                TimeoutException.class,
+                IOException.class,
+                ReplicationTimeoutException.class,
+                PrimaryReplicaMissException.class
+        );
+
+        /**
+         * Check if the provided exception is recoverable.
+         * A recoverable transaction is the one that we can send a 'retry' request for.
+         *
+         * @param throwable Exception to test.
+         * @return {@code true} if recoverable, {@code false} otherwise.
+         */
+        static boolean isRecoverable(Throwable throwable) {
+            if (throwable == null) {
+                return false;
+            }
+
+            Throwable candidate = ExceptionUtils.unwrapCause(throwable);
+
+            for (Class<? extends Throwable> recoverableClass : RECOVERABLE) {
+                if (recoverableClass.isAssignableFrom(candidate.getClass())) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

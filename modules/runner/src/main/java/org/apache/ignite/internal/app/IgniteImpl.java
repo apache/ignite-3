@@ -146,7 +146,6 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.internal.tx.impl.SimpleFailHandler;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -573,8 +572,7 @@ public class IgniteImpl implements Ignite {
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 () -> clusterSvc.topologyService().localMember().id(),
                 placementDriverMgr.placementDriver(),
-                partitionIdleSafeTimePropagationPeriodMsSupplier,
-                new SimpleFailHandler()
+                partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
         distributedTblMgr = new TableManager(
