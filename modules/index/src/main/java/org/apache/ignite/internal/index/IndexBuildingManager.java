@@ -34,7 +34,7 @@ import org.apache.ignite.network.ClusterService;
 
 /**
  * Component is responsible for building indexes and making them {@link CatalogIndexDescriptor#available() available}. Both in a running
- * cluster and when a node is being restored.
+ * cluster and when a node is being recovered.
  */
 public class IndexBuildingManager implements IgniteComponent {
     private final MetaStorageManager metaStorageManager;
