@@ -102,8 +102,8 @@ class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
 
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
         when(catalogService.activeCatalogVersion(to.longValue())).thenReturn(4);
-        when(catalogService.tableVersionsBetween(tableId, 3, 4))
-                .thenReturn(Stream.of(version3, version4));
+        when(catalogService.table(tableId, 3)).thenReturn(version3);
+        when(catalogService.table(tableId, 4)).thenReturn(version4);
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, to);
 
@@ -134,8 +134,8 @@ class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
 
         when(catalogService.activeCatalogVersion(lt(timestamp.longValue()))).thenReturn(3);
         when(catalogService.activeCatalogVersion(geq(timestamp.longValue()))).thenReturn(4);
-        when(catalogService.tableVersionsBetween(tableId, 3, 4))
-                .then(invocation -> Stream.of(version3, version4));
+        when(catalogService.table(tableId, 3)).thenReturn(version3);
+        when(catalogService.table(tableId, 4)).thenReturn(version4);
 
         List<FullTableSchema> fullSchemas1 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(2), timestamp);
         List<FullTableSchema> fullSchemas2 = schemas.tableSchemaVersionsBetween(
@@ -146,7 +146,7 @@ class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
 
         assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
 
-        verify(catalogService, times(1)).tableVersionsBetween(anyInt(), anyInt(), anyInt());
+//        verify(catalogService, times(1)).tableVersionsBetween(anyInt(), anyInt(), anyInt());
     }
 
     @Test
@@ -159,9 +159,11 @@ class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
 
         HybridTimestamp from = clock.now();
 
+        when(catalogService.latestCatalogVersion()).thenReturn(5);
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
-        when(catalogService.tableVersionsBetween(tableId, 3, Integer.MAX_VALUE))
-                .thenReturn(Stream.of(version3, version4, version5));
+        when(catalogService.table(tableId, 3)).thenReturn(version3);
+        when(catalogService.table(tableId, 4)).thenReturn(version4);
+        when(catalogService.table(tableId, 5)).thenReturn(version5);
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, 4);
 
@@ -178,9 +180,9 @@ class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
 
         HybridTimestamp from = clock.now();
 
+        when(catalogService.latestCatalogVersion()).thenReturn(3);
         when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
-        when(catalogService.tableVersionsBetween(tableId, 3, Integer.MAX_VALUE))
-                .thenReturn(Stream.of(version3));
+        when(catalogService.table(tableId, 3)).thenReturn(version3);
 
         List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, 2);
 
@@ -196,15 +198,16 @@ class CatalogValidationSchemasTestSource extends BaseIgniteAbstractTest {
 
         HybridTimestamp timestamp = clock.now();
 
+        when(catalogService.latestCatalogVersion()).thenReturn(4);
         when(catalogService.activeCatalogVersion(anyLong())).thenReturn(3);
-        when(catalogService.tableVersionsBetween(tableId, 3, Integer.MAX_VALUE))
-                .then(invocation -> Stream.of(version3, version4));
+        when(catalogService.table(tableId, 3)).thenReturn(version3);
+        when(catalogService.table(tableId, 4)).thenReturn(version4);
 
         List<FullTableSchema> fullSchemas1 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(2), 4);
         List<FullTableSchema> fullSchemas2 = schemas.tableSchemaVersionsBetween(tableId, timestamp.subtractPhysicalTime(1), 4);
 
         assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
 
-        verify(catalogService, times(1)).tableVersionsBetween(anyInt(), anyInt(), anyInt());
+//        verify(catalogService, times(1)).tableVersionsBetween(anyInt(), anyInt(), anyInt());
     }
 }

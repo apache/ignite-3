@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -57,8 +56,6 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
 
     @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
-
-    Stream<CatalogTableDescriptor> tableVersionsBetween(int tableId, int fromCatalogVersionIncluding, int toCatalogVersionIncluding);
 
     Collection<CatalogTableDescriptor> tables(int catalogVersion);
 

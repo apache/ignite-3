@@ -40,6 +40,8 @@ public interface ValidationSchemasSource {
     /**
      * Returns all schema versions between (including) the two that were effective at the given timestamps.
      *
+     * <p>For both timestamps, schemas-related metadata must be complete, see {@link SchemaSyncService}.
+     *
      * @param tableId ID of the table which schemas need to be considered.
      * @param fromIncluding Start timestamp.
      * @param toIncluding End timestamp.
@@ -51,6 +53,8 @@ public interface ValidationSchemasSource {
      * Returns all schema versions between (including) the one that was effective at the given timestamp and
      * the one identified by a schema version ID. If the starting schema (the one effective at fromIncluding)
      * is actually a later schema than the one identified by toIncluding, then an empty list is returned.
+     *
+     * <p>For both fromIncluding and toIncluding, schemas-related metadata must be complete.
      *
      * @param tableId ID of the table which schemas need to be considered.
      * @param fromIncluding Start timestamp.

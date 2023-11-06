@@ -24,6 +24,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Predicate;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -57,12 +60,6 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
                 .thenApply(unused -> null);
     }
 
-    private List<FullTableSchema> tableSchemaVersionsBetweenCatalogVersions(int tableId, int fromCatalogVersion, int toCatalogVersion) {
-        return catalogService.tableVersionsBetween(tableId, fromCatalogVersion, toCatalogVersion)
-                .map(CatalogValidationSchemasSource::fullSchemaFromTableDescriptor)
-                .collect(toList());
-    }
-
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
         int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
@@ -84,12 +81,44 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
         );
     }
 
+    private List<FullTableSchema> tableSchemaVersionsBetweenCatalogVersions(int tableId, int fromCatalogVersion, int toCatalogVersion) {
+        return tableVersionsBetween(tableId, fromCatalogVersion, toCatalogVersion)
+                .map(CatalogValidationSchemasSource::fullSchemaFromTableDescriptor)
+                .collect(toList());
+    }
+
+    // It's ok to use Stream as the results of the methods that call this are cached.
+    private Stream<CatalogTableDescriptor> tableVersionsBetween(
+            int tableId,
+            int fromCatalogVersionIncluding,
+            int toCatalogVersionIncluding
+    ) {
+        return IntStream.rangeClosed(fromCatalogVersionIncluding, toCatalogVersionIncluding)
+                .mapToObj(catalogVersion -> catalogService.table(tableId, catalogVersion))
+                .filter(new Predicate<>() {
+                    int prevVersion = Integer.MIN_VALUE;
+
+                    @Override
+                    public boolean test(CatalogTableDescriptor tableDescriptor) {
+                        if (tableDescriptor.tableVersion() == prevVersion) {
+                            return false;
+                        }
+
+                        assert prevVersion == Integer.MIN_VALUE || tableDescriptor.tableVersion() == prevVersion + 1;
+
+                        prevVersion = tableDescriptor.tableVersion();
+
+                        return true;
+                    }
+                });
+    }
+
     private List<FullTableSchema> tableSchemaVersionsBetweenCatalogAndTableVersions(
             int tableId,
             int fromCatalogVersion,
             int toTableVersion
     ) {
-        return catalogService.tableVersionsBetween(tableId, fromCatalogVersion, Integer.MAX_VALUE)
+        return tableVersionsBetween(tableId, fromCatalogVersion, catalogService.latestCatalogVersion())
                 .takeWhile(tableDescriptor -> tableDescriptor.tableVersion() <= toTableVersion)
                 .map(CatalogValidationSchemasSource::fullSchemaFromTableDescriptor)
                 .collect(toList());
