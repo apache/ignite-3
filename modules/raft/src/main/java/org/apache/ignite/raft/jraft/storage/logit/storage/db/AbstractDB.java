@@ -21,13 +21,12 @@ import java.io.IOException;
 import java.nio.file.Path;import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
@@ -61,10 +60,13 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
     protected StoreOptions           storeOptions;
     protected AbortFile              abortFile;
     protected FlushStatusCheckpoint  flushStatusCheckpoint;
-    private ScheduledExecutorService checkpointExecutor;
 
-    protected AbstractDB(final String storePath) {
+    private final ScheduledExecutorService checkpointExecutor;
+    private ScheduledFuture<?> checkpointScheduledFuture;
+
+    protected AbstractDB(String storePath, ScheduledExecutorService checkpointExecutor) {
         this.storePath = storePath;
+        this.checkpointExecutor = checkpointExecutor;
     }
 
     @Override
@@ -81,15 +83,18 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
         }
         this.fileManager = logStoreFactory.newFileManager(getDBFileType(), this.storePath,
             this.serviceManager.getAllocateService());
-        this.checkpointExecutor = Executors
-                .newSingleThreadScheduledExecutor(new NamedThreadFactory(getDBName() + "-Checkpoint-Thread-", LOG));
         final int interval = this.storeOptions.getCheckpointFlushStatusInterval();
-        this.checkpointExecutor.scheduleAtFixedRate(this::doCheckpoint, interval, interval, TimeUnit.MILLISECONDS);
+
+        checkpointScheduledFuture =
+                this.checkpointExecutor.scheduleAtFixedRate(this::doCheckpoint, interval, interval, TimeUnit.MILLISECONDS);
+
         return true;
     }
 
     @Override
     public void shutdown() {
+        checkpointScheduledFuture.cancel(false);
+
         doCheckpoint();
         if (this.serviceManager != null) {
             this.serviceManager.shutdown();
@@ -100,7 +105,6 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
         if (this.abortFile != null) {
             this.abortFile.destroy();
         }
-        this.checkpointExecutor.shutdown();
     }
 
     /**
@@ -310,7 +314,7 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
                 this.flushStatusCheckpoint.save();
             }
         } catch (final IOException e) {
-            LOG.error("Error when do checkpoint in db:{}", getDBName());
+            LOG.error("Error when do checkpoint in db:{}", e, getDBName());
         }
     }
 
@@ -382,6 +386,8 @@ public abstract class AbstractDB implements Lifecycle<LogStoreFactory> {
     public boolean truncateSuffix(final long lastIndexKept, final int pos) {
         if (this.fileManager.truncateSuffix(lastIndexKept, pos)) {
             doCheckpoint();
+
+            return true; // This fix is missing in "jraft".
         }
         return false;
     }

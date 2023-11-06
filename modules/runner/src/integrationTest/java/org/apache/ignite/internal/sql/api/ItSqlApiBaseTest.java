@@ -36,8 +36,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
@@ -62,7 +62,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -73,12 +72,12 @@ import org.junit.jupiter.params.provider.ValueSource;
  * By default, any SQL API test should be added to the base class and use special provided methods to interact
  * with the API in a API-type-independent manner. For any API-specific test, should be used the appropriate subclass.
  */
-public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
+public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected static final int ROW_COUNT = 16;
 
     @AfterEach
     public void dropTables() {
-        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
+        for (Table t : CLUSTER.aliveNode().tables().tables()) {
             sql("DROP TABLE " + t.name());
         }
     }
@@ -360,17 +359,25 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) {
-        Transaction outerTx = explicit ? (readOnly ? igniteTx().begin(new TransactionOptions().readOnly(true)) : igniteTx().begin()) : null;
+        Transaction outerTx = explicit ? igniteTx().begin(new TransactionOptions().readOnly(readOnly)) : null;
 
-        String query = "SELECT VAL0 FROM TEST ORDER BY VAL0";
+        String queryRo = "SELECT VAL0 FROM TEST ORDER BY VAL0";
 
-        assertQuery(outerTx, query).matches(planMatcher).check();
+        assertQuery(outerTx, queryRo).matches(planMatcher).check();
 
-        ResultSet<SqlRow> rs = executeForRead(ses, outerTx, query);
+        ResultSet<SqlRow> rs = executeForRead(ses, outerTx, queryRo);
 
         assertEquals(ROW_COUNT, asStream(rs).count());
 
         rs.close();
+
+        String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
+        if (explicit && readOnly) {
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML query cannot be started by using read only transactions.",
+                    () -> execute(outerTx, ses, queryRw));
+        } else {
+            checkDml(ROW_COUNT, outerTx, ses, queryRw);
+        }
 
         if (outerTx != null) {
             if (commit) {
@@ -592,7 +599,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
     public void batch() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = CLUSTER.aliveNode().sql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         BatchedArguments args = BatchedArguments.of(0, 0);
@@ -629,7 +636,7 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = CLUSTER.aliveNode().sql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         BatchedArguments args = BatchedArguments.of(0, 0);
@@ -716,7 +723,6 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20534")
     @Test
     public void testLockIsNotReleasedAfterTxRollback() {
         IgniteSql sql = igniteSql();
@@ -729,8 +735,14 @@ public abstract class ItSqlApiBaseTest extends ClusterPerClassIntegrationTest {
             Transaction tx = igniteTx().begin();
 
             assertThrows(RuntimeException.class, () -> execute(tx, session, "SELECT 1/0"));
+
             tx.rollback();
-            session.execute(tx, "INSERT INTO tst VALUES (1, 1)");
+
+            assertThrowsSqlException(
+                    Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR,
+                    "Transaction is already finished",
+                    () -> session.execute(tx, "INSERT INTO tst VALUES (1, 1)")
+            );
         }
 
         try (Session session = sql.createSession()) {

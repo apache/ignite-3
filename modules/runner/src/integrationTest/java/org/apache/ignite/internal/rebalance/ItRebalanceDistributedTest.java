@@ -94,6 +94,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -140,7 +141,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -152,8 +153,8 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStora
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -220,6 +221,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -373,7 +377,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        TableImpl nonLeaderTable = (TableImpl) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_NAME);
+        TableViewInternal nonLeaderTable =
+                (TableViewInternal) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_NAME);
 
         var countDownLatch = new CountDownLatch(1);
 
@@ -583,6 +588,61 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         verifyThatRaftNodesAndReplicasWereStartedOnlyOnce();
     }
 
+    @Test
+    void testRaftClientsUpdatesAfterRebalance() throws Exception {
+        Node node = getNode(0);
+
+        createZone(node, ZONE_NAME, 1, 1);
+
+        createTable(node, ZONE_NAME, TABLE_NAME);
+
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        Set<Assignment> assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
+
+        String newNodeNameForAssignment = nodes.stream()
+                .map(n -> Assignment.forPeer(n.clusterService.nodeName()))
+                .filter(assignment -> !assignmentsBeforeRebalance.contains(assignment))
+                .findFirst()
+                .orElseThrow()
+                .consistentId();
+
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
+
+        // Write the new assignments to metastore as a pending assignments.
+        {
+            TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
+
+            ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+
+            byte[] bytesPendingAssignments = ByteUtils.toBytes(newAssignment);
+
+            node.metaStorageManager
+                    .put(partAssignmentsPendingKey, bytesPendingAssignments)
+                    .get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
+        }
+
+        // Wait for rebalance to complete.
+        assertTrue(waitForCondition(
+                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
+
+        // Check that raft clients on all nodes were updated with the new list of peers.
+        assertTrue(waitForCondition(
+                () -> nodes.stream().allMatch(n ->
+                        n.tableManager
+                                .latestTables()
+                                .get(getTableId(node, TABLE_NAME))
+                                .internalTable()
+                                .partitionRaftGroupService(0)
+                                .peers()
+                                .equals(List.of(new Peer(newNodeNameForAssignment)))),
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
+        ));
+
+    }
+
     private void clearSpyInvocations() {
         for (int i = 0; i < NODE_COUNT; i++) {
             clearInvocations(getNode(i).raftManager);
@@ -735,7 +795,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
-        private final CatalogSchemaManager schemaManager;
+        private final SchemaManager schemaManager;
 
         private final CatalogManager catalogManager;
 
@@ -810,7 +870,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
-            var placementDriver = new TestPlacementDriver(name);
+            var placementDriver = new TestPlacementDriver(() -> clusterService.topologyService().localMember());
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
@@ -826,7 +886,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes)
+                    new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
             );
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
@@ -931,7 +991,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
-            schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageManager);
+            schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);
 
             var schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
@@ -953,7 +1013,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     replicaManager,
                     Mockito.mock(LockManager.class),
                     replicaSvc,
-                    clusterService.topologyService(),
                     txManager,
                     dataStorageMgr,
                     storagePath,
@@ -1165,7 +1224,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertNotNull(table, tableName);
 
-        return ((TableImpl) table).internalTable();
+        return ((TableViewInternal) table).internalTable();
     }
 
     private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {

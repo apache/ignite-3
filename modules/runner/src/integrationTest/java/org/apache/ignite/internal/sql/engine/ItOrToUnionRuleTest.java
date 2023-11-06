@@ -24,6 +24,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 
 import java.util.List;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.Test;
  * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
  * 'Photo');
  */
-public class ItOrToUnionRuleTest extends ClusterPerClassIntegrationTest {
+public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
     public static final String IDX_SUBCAT_ID = "IDX_SUBCAT_ID";
 
     public static final String IDX_SUBCATEGORY = "IDX_SUBCATEGORY";

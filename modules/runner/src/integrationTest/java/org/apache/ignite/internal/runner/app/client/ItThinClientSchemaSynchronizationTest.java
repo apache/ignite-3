@@ -38,25 +38,26 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientTest {
-    @Test
-    void testClientUsesLatestSchemaOnWrite() {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 8, 9, 13}) // Test different nodes - sendServerExceptionStackTraceToClient affects exception propagation.
+    void testClientUsesLatestSchemaOnWrite(int id) {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
         // Create table, insert data.
-        String tableName = "testClientUsesLatestSchemaOnWrite";
+        String tableName = "testClientUsesLatestSchemaOnWrite" + id;
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
 
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
-        Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
+        Tuple rec = Tuple.create().set("ID", -id).set("NAME", "name");
         recordView.insert(null, rec);
 
         // Modify table, insert data - client will use old schema, receive error, retry with new schema, fail due to an extra column.
         // The process is transparent for the user: updated schema is in effect immediately.
         ses.execute(null, "ALTER TABLE " + tableName + " DROP COLUMN NAME");
 
-        Tuple rec2 = Tuple.create().set("ID", 2).set("NAME", "name2");
+        Tuple rec2 = Tuple.create().set("ID", id).set("NAME", "name2");
         Throwable ex = assertThrowsWithCause(() -> recordView.upsert(null, rec2), IllegalArgumentException.class);
         assertEquals("Tuple doesn't match schema: schemaVersion=2, extraColumns=[NAME]", ex.getMessage());
     }

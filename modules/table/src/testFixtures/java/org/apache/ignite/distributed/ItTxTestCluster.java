@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -93,6 +94,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
@@ -142,6 +144,8 @@ import org.junit.jupiter.api.TestInfo;
  * Class that allows to mock a cluster for transaction tests' purposes.
  */
 public class ItTxTestCluster {
+    private static final int SCHEMA_VERSION = 1;
+
     private final List<NetworkAddress> localAddresses;
 
     private final NodeFinder nodeFinder;
@@ -279,7 +283,9 @@ public class ItTxTestCluster {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
 
-        placementDriver = new TestPlacementDriver(cluster.get(0).nodeName());
+        ClusterNode firstNode = first(cluster).topologyService().localMember();
+
+        placementDriver = new TestPlacementDriver(firstNode);
 
         LOG.info("The cluster has been started");
 
@@ -405,9 +411,13 @@ public class ItTxTestCluster {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    public TableImpl startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
+    public TableViewInternal startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
         CatalogService catalogService = mock(CatalogService.class);
-        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+
+        CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
+        when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
+
+        lenient().when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
 
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
@@ -613,7 +623,7 @@ public class ItTxTestCluster {
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
-                new ConstantSchemaVersions(1)
+                new ConstantSchemaVersions(SCHEMA_VERSION)
         );
     }
 

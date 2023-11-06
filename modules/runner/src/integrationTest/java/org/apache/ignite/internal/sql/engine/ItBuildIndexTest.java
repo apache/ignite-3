@@ -22,12 +22,10 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,14 +39,17 @@ import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -57,7 +58,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Integration test of index building. */
-public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
+public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static final String ZONE_NAME = "ZONE_TABLE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -69,9 +70,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
 
-        CLUSTER_NODES.stream()
-                .map(IgniteImpl.class::cast)
-                .forEach(IgniteImpl::stopDroppingMessages);
+        CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
     }
 
     @ParameterizedTest(name = "replicas : {0}")
@@ -120,19 +119,19 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         assertThat(sendBuildIndexCommandFuture, willSucceedFast());
 
         // Let's make sure that the indexes are eventually built.
-        checkIndexBuild(1, nodes(), INDEX_NAME);
+        checkIndexBuild(1, initialNodes(), INDEX_NAME);
     }
 
     /**
      * Prepares an index build for a primary replica change.
      * <ul>
-     *     <li>Creates a table (replicas = {@link #nodes()}, partitions = 1) and populates it;</li>
+     *     <li>Creates a table (replicas = {@link #initialNodes()}, partitions = 1) and populates it;</li>
      *     <li>Creates an index;</li>
      *     <li>Drop send {@link BuildIndexCommand} from the primary replica.</li>
      * </ul>
      */
     private void prepareBuildIndexToChangePrimaryReplica() throws Exception {
-        int nodes = nodes();
+        int nodes = initialNodes();
         assertThat(nodes, greaterThanOrEqualTo(2));
 
         createAndPopulateTable(nodes, 1);
@@ -193,15 +192,14 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
      * @param indexName Name of an index to wait for.
      */
     private static void waitForIndex(String indexName) throws InterruptedException {
-        assertFalse(nullOrEmpty(CLUSTER_NODES));
         assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
+                () -> CLUSTER.runningNodes().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
     }
 
     private static RaftGroupService getRaftClient(Ignite node, int partitionId) {
-        TableImpl table = getTableImpl(node, TABLE_NAME);
+        TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
         return table.internalTable().partitionRaftGroupService(partitionId);
@@ -213,7 +211,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
      * @param partitionId Partition ID.
      */
     private static List<Peer> collectPeers(int partitionId) {
-        RaftGroupService raftGroupService = getRaftClient(CLUSTER_NODES.get(0), partitionId);
+        RaftGroupService raftGroupService = getRaftClient(CLUSTER.aliveNode(), partitionId);
 
         List<Peer> peers = raftGroupService.peers();
         assertNotNull(peers);
@@ -271,5 +269,17 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
                     IgniteStringFormatter.format("p={}, nodes={}", entry.getKey(), entry.getValue())
             );
         }
+    }
+
+    /**
+     * Returns the index ID from the catalog, {@code null} if there is no index.
+     *
+     * @param node Node.
+     * @param indexName Index name.
+     */
+    private static @Nullable Integer indexId(Ignite node, String indexName) {
+        CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(node, indexName);
+
+        return indexDescriptor == null ? null : indexDescriptor.id();
     }
 }

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -41,7 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Group of tests to verify aggregation functions.
  */
-public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
+public class ItAggregatesTest extends BaseSqlIntegrationTest {
     private static final String[] DISABLED_RULES = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
             "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
 

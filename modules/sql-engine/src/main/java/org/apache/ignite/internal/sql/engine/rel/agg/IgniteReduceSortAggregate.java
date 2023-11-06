@@ -133,4 +133,10 @@ public class IgniteReduceSortAggregate extends IgniteReduceAggregateBase impleme
                 0
         );
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelCollation collation() {
+        return collation;
+    }
 }

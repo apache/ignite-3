@@ -128,7 +128,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     /** {@inheritDoc} */
     @Override
     public Tuple getOrDefault(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
-        return getOrDefaultAsync(tx, key, defaultValue).join();
+        return sync(getOrDefaultAsync(tx, key, defaultValue));
     }
 
     /** {@inheritDoc} */

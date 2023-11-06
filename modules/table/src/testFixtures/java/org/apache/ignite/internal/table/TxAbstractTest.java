@@ -108,10 +108,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     );
 
     /** Accounts table id -> balance. */
-    protected TableImpl accounts;
+    protected TableViewInternal accounts;
 
     /** Customers table id -> name. */
-    protected TableImpl customers;
+    protected TableViewInternal customers;
 
     protected static final double BALANCE_1 = 500;
 
@@ -1740,7 +1740,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param t The table.
      * @return TX manager.
      */
-    protected abstract TxManager txManager(TableImpl t);
+    protected abstract TxManager txManager(TableViewInternal t);
 
     /**
      * Get a lock manager on a partition leader.
@@ -1748,7 +1748,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param t The table.
      * @return Lock manager.
      */
-    protected LockManager lockManager(TableImpl t) {
+    protected LockManager lockManager(TableViewInternal t) {
         return txManager(t).lockManager();
     }
 
@@ -1759,7 +1759,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param partId Partition id.
      * @return {@code True} if a replicas are the same.
      */
-    protected abstract boolean assertPartitionsSame(TableImpl table, int partId);
+    protected abstract boolean assertPartitionsSame(TableViewInternal table, int partId);
 
     /**
      * Validates balances.
@@ -1968,7 +1968,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFinished(true, (transaction, uuid) -> {
+        testTransactionAlreadyFinished(true, true, (transaction, uuid) -> {
             transaction.commit();
 
             log.info("Committed transaction {}", uuid);
@@ -1977,7 +1977,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFinished(false, (transaction, uuid) -> {
+        testTransactionAlreadyFinished(false, true, (transaction, uuid) -> {
             transaction.rollback();
 
             log.info("Rolled back transaction {}", uuid);
@@ -2082,7 +2082,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      *
      * @param commit True when transaction is committed, false the transaction is rolled back.
      */
-    protected void testTransactionAlreadyFinished(boolean commit, BiConsumer<Transaction, UUID> finisher) {
+    protected void testTransactionAlreadyFinished(boolean commit, boolean checkLocks, BiConsumer<Transaction, UUID> finisher) {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
@@ -2112,7 +2112,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         ex = assertThrows(TransactionException.class, () -> accountsRv.upsert(tx, makeValue(2, 300.)));
         assertTrue(ex.getMessage().contains("Failed to enlist"));
 
-        assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
+        if (checkLocks) {
+            assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
+        }
 
         if (commit) {
             res = accountsRv.getAll(null, List.of(makeKey(1), makeKey(2)));
@@ -2125,7 +2127,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         }
     }
 
-    protected abstract void injectFailureOnNextOperation(TableImpl accounts);
+    protected abstract void injectFailureOnNextOperation(TableViewInternal accounts);
 
     /**
      * Returns server nodes' tx managers.

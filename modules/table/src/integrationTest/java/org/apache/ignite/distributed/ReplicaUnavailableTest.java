@@ -61,7 +61,6 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -83,6 +82,8 @@ import org.junit.jupiter.api.TestInfo;
  * Tests handling requests from {@link ReplicaService} to {@link ReplicaManager} when the {@link Replica} is not started.
  */
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
+    private static final String NODE_NAME = "client";
+
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -103,17 +104,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private ClusterService clusterService;
 
-    private NetworkAddress networkAddress;
-
-    private String name = "client";
-
     @BeforeEach
     public void setup() {
-        networkAddress = new NetworkAddress(getLocalAddress(), NODE_PORT_BASE + 1);
+        var networkAddress = new NetworkAddress(getLocalAddress(), NODE_PORT_BASE + 1);
 
         var nodeFinder = new StaticNodeFinder(List.of(networkAddress));
 
-        clusterService = startNode(testInfo, name, NODE_PORT_BASE + 1, nodeFinder);
+        clusterService = startNode(testInfo, NODE_NAME, NODE_PORT_BASE + 1, nodeFinder);
 
         replicaService = new ReplicaService(clusterService.messagingService(), clock);
 
@@ -123,12 +120,12 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
 
         replicaManager = new ReplicaManager(
-                name,
+                NODE_NAME,
                 clusterService,
                 cmgManager,
                 clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                new TestPlacementDriver(name)
+                new TestPlacementDriver(clusterService.topologyService().localMember())
         );
 
         replicaManager.start();
@@ -149,14 +146,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
-                .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
-                .binaryRowMessage(createKeyValueRow(1L, 1L))
-                .requestType(RequestType.RW_GET)
-                .build();
+        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
@@ -167,7 +157,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                                 tablePartitionId,
                                 completedFuture(null),
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                        .result(Integer.valueOf(5))
+                                        .result(5)
                                         .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
                                 new PendingComparableValuesTracker<>(0L)
@@ -185,20 +175,27 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         assertEquals(5, respFur.get().result());
     }
 
+    private ReadWriteSingleRowReplicaRequest getRequest(TablePartitionId tablePartitionId) {
+        BinaryRow binaryRow = createKeyValueRow(1L, 1L);
+
+        return tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                .groupId(tablePartitionId)
+                .transactionId(TestTransactionIds.newTransactionId())
+                .commitPartitionId(tablePartitionId())
+                .timestampLong(clock.nowLong())
+                .schemaVersion(binaryRow.schemaVersion())
+                .binaryTuple(binaryRow.tupleSlice())
+                .requestType(RequestType.RW_GET)
+                .build();
+    }
+
     @Test
     public void testStopReplicaException() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
-                .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
-                .binaryRowMessage(createKeyValueRow(1L, 1L))
-                .requestType(RequestType.RW_GET)
-                .build();
+        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
@@ -223,14 +220,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
-        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
-                .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
-                .binaryRowMessage(createKeyValueRow(1L, 1L))
-                .requestType(RequestType.RW_GET)
-                .build();
+        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
         Exception e0 = null;
         Exception e1 = null;
@@ -269,7 +259,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                                 tablePartitionId,
                                 new CompletableFuture<>(),
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                        .result(Integer.valueOf(5))
+                                        .result(5)
                                         .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
                                 new PendingComparableValuesTracker<>(0L)
@@ -280,14 +270,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 }
         );
 
-        ReadWriteSingleRowReplicaRequest request = tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
-                .transactionId(TestTransactionIds.newTransactionId())
-                .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
-                .binaryRowMessage(createKeyValueRow(1L, 1L))
-                .requestType(RequestType.RW_GET)
-                .build();
+        ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
         Exception e0 = null;
 
@@ -302,18 +285,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         assertEquals(REPLICA_TIMEOUT_ERR, ((ReplicationTimeoutException) unwrapCause(e0)).code());
     }
 
-    private BinaryRowMessage createKeyValueRow(long id, long value) {
+    private static BinaryRow createKeyValueRow(long id, long value) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        BinaryRow row = rowBuilder.build();
-
-        return tableMessagesFactory.binaryRowMessage()
-                .binaryTuple(row.tupleSlice())
-                .schemaVersion(row.schemaVersion())
-                .build();
+        return rowBuilder.build();
     }
 
     private TablePartitionIdMessage tablePartitionId() {

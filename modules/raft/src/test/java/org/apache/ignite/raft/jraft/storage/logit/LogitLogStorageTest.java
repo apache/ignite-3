@@ -21,6 +21,8 @@ import static org.apache.ignite.raft.jraft.entity.PeerId.emptyPeer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -35,14 +37,17 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(WorkDirectoryExtension.class)
 public class LogitLogStorageTest extends BaseLogStorageTest {
     private LogitLogStorageFactory logStorageFactory;
+
 
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory(testStoreOptions());
+        logStorageFactory = new LogitLogStorageFactory(path, testStoreOptions());
         logStorageFactory.start();
 
         super.setup();

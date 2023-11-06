@@ -85,7 +85,15 @@ public class SchemaUtils {
                         mapper = ColumnMapping.createMapper(newDesc);
                     }
 
-                    mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+                    if (newCol.name().equals(oldCol.name())) {
+                        mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+                    } else {
+                        Column oldIdx = oldDesc.column(newCol.name());
+
+                        assert oldIdx != null : newCol.name();
+
+                        mapper.add(newCol.schemaIndex(), oldIdx.schemaIndex());
+                    }
                 }
             } else {
                 if (mapper == null) {

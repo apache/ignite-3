@@ -69,9 +69,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.InternalTable;
@@ -491,7 +488,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(tx.clusterNode()),
                     eq(indexId),
                     any(BinaryTuple.class),
-                    eq(tester.requiredFields)
+                    eq(null)
             );
         } else {
             PrimaryReplica primaryReplica = new PrimaryReplica(ctx.localNode(), term);
@@ -502,7 +499,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
-                    eq(tester.requiredFields)
+                    eq(null)
             );
         }
 
@@ -549,8 +546,6 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
     private class Tester {
 
-        final TableDescriptor tableDescriptor;
-
         final ScannableTable scannableTable;
 
         final TestInput input;
@@ -562,8 +557,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         Tester(TestInput input) {
             this.input = input;
             rowConverter = new RowCollectingTableRwoConverter(input);
-            tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, input.rowType);
-            scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter, tableDescriptor);
+            scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
         }
 
         ResultCollector tableScan(int partitionId, long term, NoOpTransaction tx) {

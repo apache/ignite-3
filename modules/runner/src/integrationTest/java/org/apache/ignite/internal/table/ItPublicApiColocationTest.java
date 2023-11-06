@@ -39,9 +39,9 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.table.Table;
@@ -73,7 +73,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
     @AfterEach
     public void dropTables() {
-        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
+        for (Table t : CLUSTER.aliveNode().tables().tables()) {
             sql("DROP TABLE " + t.name());
         }
     }
@@ -94,9 +94,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test1");
+        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
+        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
+        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
 
         for (int i = 0; i < parts; ++i) {
             List<Tuple> r0 = getAll(tbl0, i);
@@ -138,9 +138,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test1");
+        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
+        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
+        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
 
         Function<Tuple, Tuple> tupleColocationExtract = (t) -> {
             Tuple ret = Tuple.create();
@@ -188,7 +188,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         return args.stream();
     }
 
-    private static List<Tuple> getAll(TableImpl tbl, int part) throws ExecutionException, InterruptedException {
+    private static List<Tuple> getAll(TableViewInternal tbl, int part) throws ExecutionException, InterruptedException {
         List<Tuple> res = new ArrayList<>();
         CompletableFuture<Void> f = new CompletableFuture<>();
 

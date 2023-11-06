@@ -100,7 +100,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Lease updater for tests. */
     private LeaseUpdater leaseUpdater;
     /** Closure to get a lease that is passed in Meta storage. */
-    private Consumer<Lease> renewLeaseConsumer = null;
+    private volatile Consumer<Lease> renewLeaseConsumer = null;
 
     @BeforeEach
     void setUp() {
@@ -114,20 +114,22 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
         when(mcEntriesCursor.iterator()).thenReturn(List.of(entry).iterator());
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         lenient().when(leaseTracker.leasesCurrent()).thenReturn(leases);
-        lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).thenReturn(Lease.EMPTY_LEASE);
+        lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
         when(metaStorageManager.getLocally(any(ByteArray.class), any(ByteArray.class), anyLong())).thenReturn(mcEntriesCursor);
         when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, List.of(node))));
 
         lenient().when(metaStorageManager.invoke(any(Condition.class), any(Operation.class), any(Operation.class)))
                 .thenAnswer(invocation -> {
-                    if (renewLeaseConsumer != null) {
+                    Consumer<Lease> leaseConsumer = renewLeaseConsumer;
+
+                    if (leaseConsumer != null) {
                         OperationImpl op = invocation.getArgument(1);
 
                         Lease lease = LeaseBatch.fromBytes(ByteBuffer.wrap(op.value()).order(ByteOrder.LITTLE_ENDIAN)).leases().iterator()
                                 .next();
 
-                        renewLeaseConsumer.accept(lease);
+                        leaseConsumer.accept(lease);
                     }
 
                     return completedFuture(true);

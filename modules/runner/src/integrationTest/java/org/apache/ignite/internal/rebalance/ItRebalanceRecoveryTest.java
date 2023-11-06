@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.rebalance;
 
-import static org.apache.ignite.internal.Hacks.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,7 +68,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     private static boolean containsPartition(Ignite node) {
         var tableManager = ((TableManager) node.tables());
 
-        MvPartitionStorage storage = tableManager.tableImpl("TEST")
+        MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()
                 .storage()
                 .getMvPartition(0);

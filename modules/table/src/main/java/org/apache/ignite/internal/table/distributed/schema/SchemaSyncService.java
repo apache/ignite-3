@@ -23,6 +23,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 /**
  * Implements Schema Synchronization wait logic as defined in IEP-98.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface SchemaSyncService {
     /**
      * Waits till metadata (like table/index schemas) is complete for the given timestamp. The 'complete' here means

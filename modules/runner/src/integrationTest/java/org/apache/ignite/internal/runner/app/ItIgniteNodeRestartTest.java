@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
+import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -108,7 +110,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -116,12 +118,14 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -154,6 +158,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(ConfigurationExtension.class)
 @Timeout(120)
+@WithSystemProperty(key = IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY, value = "200")
 public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
@@ -172,6 +177,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageProfilesConfiguration storageProfilesConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -253,7 +261,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        var placementDriver = new TestPlacementDriver(name);
+        var placementDriver = new TestPlacementDriver(() -> clusterSvc.topologyService().localMember());
 
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,
@@ -269,7 +277,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterStateStorage,
                 logicalTopology,
                 clusterManagementConfiguration,
-                new NodeAttributesCollector(nodeAttributes)
+                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
@@ -367,7 +375,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        CatalogSchemaManager schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageMgr);
+        SchemaManager schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
@@ -389,7 +397,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaMgr,
                 lockManager,
                 replicaService,
-                clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
                 storagePath,
@@ -760,6 +767,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20709")
     public void nodeWithDataTest() {
         IgniteImpl ignite = startNode(0);
 
@@ -854,7 +862,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         createTableWithData(List.of(ignite), TABLE_NAME, 1, partitions);
 
-        TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
 
         InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
 
@@ -881,7 +889,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         checkTableWithData(ignite, TABLE_NAME);
 
-        table = (TableImpl) ignite.tables().table(TABLE_NAME);
+        table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
 
         // Check data that was added after flush.
         for (int i = 0; i < 100; i++) {
@@ -897,7 +905,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
-    public void testTwoNodesRestartDirect() throws InterruptedException {
+    public void testTwoNodesRestartDirect() {
         twoNodesRestart(true);
     }
 
@@ -905,7 +913,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
-    public void testTwoNodesRestartReverse() throws InterruptedException {
+    public void testTwoNodesRestartReverse() {
         twoNodesRestart(false);
     }
 

@@ -685,7 +685,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
                 new Column[]{new Column("VAL", type, nullable)}
         );
 
-        TableImpl table = createTable(schema);
+        TableViewInternal table = createTable(schema);
 
         return new KeyValueViewImpl<>(
                 table.internalTable(),

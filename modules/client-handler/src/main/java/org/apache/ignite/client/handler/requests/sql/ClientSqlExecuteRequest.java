@@ -36,6 +36,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.api.SessionBuilderImpl;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -161,8 +162,8 @@ public class ClientSqlExecuteRequest {
     private static Session readSession(ClientMessageUnpacker in, IgniteSql sql, IgniteTransactions transactions) {
         SessionBuilder sessionBuilder = sql.sessionBuilder();
 
-        if (transactions != null) {
-            sessionBuilder.igniteTransactions(transactions);
+        if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
+            ((SessionBuilderImpl) sessionBuilder).igniteTransactions(transactions);
         }
 
         if (!in.tryUnpackNil()) {

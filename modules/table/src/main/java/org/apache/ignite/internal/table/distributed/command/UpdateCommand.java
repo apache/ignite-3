@@ -23,7 +23,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,28 +35,23 @@ public interface UpdateCommand extends PartitionCommand {
 
     UUID rowUuid();
 
-    @Nullable
-    BinaryRowMessage rowMessage();
+    @Nullable TimedBinaryRowMessage messageRowToUpdate();
 
     String txCoordinatorId();
 
     /** Returns the row to update or {@code null} if the row should be removed. */
-    @Nullable
-    default BinaryRow row() {
-        BinaryRowMessage message = rowMessage();
+    default @Nullable BinaryRow rowToUpdate() {
+        TimedBinaryRowMessage tsRoMsg = messageRowToUpdate();
 
-        return message == null ? null : message.asBinaryRow();
+        return tsRoMsg == null ? null : tsRoMsg.binaryRow();
     }
 
     /**
      * Returns the timestamp of the last committed entry.
      */
-    long lastCommitTimestampLong();
-
-    /**
-     * Returns the timestamp of the last committed entry.
-     */
     default @Nullable HybridTimestamp lastCommitTimestamp() {
-        return nullableHybridTimestamp(lastCommitTimestampLong());
+        TimedBinaryRowMessage tsRoMsg = messageRowToUpdate();
+
+        return tsRoMsg == null ? null : nullableHybridTimestamp(tsRoMsg.timestamp());
     }
 }

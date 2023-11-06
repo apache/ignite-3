@@ -29,20 +29,22 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.PlanId;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 
 /**
@@ -54,31 +56,57 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 public class MappingServiceImpl implements MappingService, LogicalTopologyEventListener {
     private static final int MAPPING_ATTEMPTS = 3;
 
-    private final AtomicReference<Set<String>> nodesSetRef = new AtomicReference<>(Set.of());
+    private final LogicalTopologyHolder topologyHolder = new LogicalTopologyHolder();
+    private final CompletableFuture<Void> initialTopologyFuture = new CompletableFuture<>();
 
     private final String localNodeName;
     private final ExecutionTargetProvider targetProvider;
+    private final Cache<PlanId, FragmentsTemplate> templatesCache;
+    private final Executor taskExecutor;
 
+
+    /**
+     * Constructor.
+     *
+     * @param localNodeName Name of the current Ignite node.
+     * @param targetProvider Execution target provider.
+     * @param cacheFactory A factory to create cache of fragments.
+     * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param taskExecutor Mapper service task executor.
+     */
     public MappingServiceImpl(
             String localNodeName,
-            ExecutionTargetProvider targetProvider
+            ExecutionTargetProvider targetProvider,
+            CacheFactory cacheFactory,
+            int cacheSize,
+            Executor taskExecutor
     ) {
         this.localNodeName = localNodeName;
         this.targetProvider = targetProvider;
+        this.templatesCache = cacheFactory.create(cacheSize);
+        this.taskExecutor = taskExecutor;
     }
 
     @Override
     public CompletableFuture<List<MappedFragment>> map(MultiStepPlan multiStepPlan) {
-        List<Fragment> fragments = multiStepPlan.fragments();
+        if (initialTopologyFuture.isDone()) {
+            return map0(multiStepPlan);
+        }
 
-        List<String> nodes = List.copyOf(nodesSetRef.get());
+        return initialTopologyFuture.thenComposeAsync(ignore -> map0(multiStepPlan), taskExecutor);
+    }
 
+    private CompletableFuture<List<MappedFragment>> map0(MultiStepPlan multiStepPlan) {
+        List<String> nodes = topologyHolder.nodes();
         MappingContext context = new MappingContext(localNodeName, nodes);
 
-        List<Fragment> fragments0 = Commons.transform(fragments, fragment -> fragment.attach(context.cluster()));
+        FragmentsTemplate template = getOrCreateTemplate(multiStepPlan, context);
+
+        IdGenerator idGenerator = new IdGenerator(template.nextId);
+        List<Fragment> fragments = new ArrayList<>(template.fragments);
 
         List<CompletableFuture<IntObjectPair<ExecutionTarget>>> targets =
-                fragments0.stream().flatMap(fragment -> Stream.concat(
+                fragments.stream().flatMap(fragment -> Stream.concat(
                         fragment.tables().stream()
                                 .map(table -> targetProvider.forTable(context.targetFactory(), table)
                                         .thenApply(target -> IntObjectPair.of(table.id(), target))
@@ -101,14 +129,14 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                         targetsById.put(pair.firstInt(), pair.second());
                     }
 
-                    FragmentMapper mapper = new FragmentMapper(context.cluster().getMetadataQuery(), context, targetsById);
+                    FragmentMapper mapper = new FragmentMapper(template.cluster.getMetadataQuery(), context, targetsById);
 
                     Long2ObjectMap<FragmentMapping> mappingByFragmentId = new Long2ObjectOpenHashMap<>();
                     Long2ObjectMap<ColocationGroup> groupsBySourceId = new Long2ObjectOpenHashMap<>();
                     Long2ObjectMap<List<String>> allSourcesByExchangeId = new Long2ObjectOpenHashMap<>();
                     Exception ex = null;
                     boolean lastAttemptSucceed = true;
-                    List<Fragment> fragmentsToMap = fragments0;
+                    List<Fragment> fragmentsToMap = fragments;
                     for (int attempt = 0; attempt < MAPPING_ATTEMPTS; attempt++) {
                         Fragment currentFragment = null;
                         try {
@@ -151,7 +179,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                             fragmentsToMap = replace(
                                     fragmentsToMap,
                                     currentFragment,
-                                    new FragmentSplitter(mappingException.node()).go(currentFragment)
+                                    new FragmentSplitter(idGenerator, mappingException.node()).go(currentFragment)
                             );
 
                             lastAttemptSucceed = false;
@@ -200,23 +228,17 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
     @Override
     public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-        nodesSetRef.set(deriveNodeNames(newTopology));
+        topologyHolder.update(newTopology);
     }
 
     @Override
     public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-        nodesSetRef.set(deriveNodeNames(newTopology));
+        topologyHolder.update(newTopology);
     }
 
     @Override
     public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-        nodesSetRef.set(deriveNodeNames(newTopology));
-    }
-
-    private static Set<String> deriveNodeNames(LogicalTopologySnapshot topology) {
-        return topology.nodes().stream()
-                .map(LogicalNode::name)
-                .collect(Collectors.toUnmodifiableSet());
+        topologyHolder.update(newTopology);
     }
 
     private static List<Fragment> replace(
@@ -257,5 +279,63 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         newFragments.addAll(replacement.subList(1, replacement.size()));
 
         return newFragments;
+    }
+
+    /**
+     * Holder for topology snapshots that guarantees monotonically increasing versions.
+     */
+    class LogicalTopologyHolder {
+        private volatile List<String> nodes = List.of();
+        private long ver = Long.MIN_VALUE;
+
+        void update(LogicalTopologySnapshot topologySnapshot) {
+            synchronized (this) {
+                if (ver < topologySnapshot.version()) {
+                    nodes = deriveNodeNames(topologySnapshot);
+                    ver = topologySnapshot.version();
+                }
+
+                if (initialTopologyFuture.isDone() || !nodes.contains(localNodeName)) {
+                    return;
+                }
+            }
+
+            initialTopologyFuture.complete(null);
+        }
+
+        List<String> nodes() {
+            return nodes;
+        }
+
+        private List<String> deriveNodeNames(LogicalTopologySnapshot topology) {
+            return topology.nodes().stream()
+                    .map(LogicalNode::name)
+                    .collect(Collectors.toUnmodifiableList());
+        }
+    }
+
+    private FragmentsTemplate getOrCreateTemplate(MultiStepPlan plan, MappingContext context) {
+        // QuerySplitter is deterministic, thus we can cache result in order to reuse it next time
+        return templatesCache.get(plan.id(), key -> {
+            IdGenerator idGenerator = new IdGenerator(0);
+
+            List<Fragment> fragments = new QuerySplitter(idGenerator, context.cluster()).split(plan.root());
+
+            return new FragmentsTemplate(
+                    idGenerator.nextId(), context.cluster(), fragments
+            );
+        });
+    }
+
+    private static class FragmentsTemplate {
+        private final long nextId;
+        private final RelOptCluster cluster;
+        private final List<Fragment> fragments;
+
+        FragmentsTemplate(long nextId, RelOptCluster cluster, List<Fragment> fragments) {
+            this.nextId = nextId;
+            this.cluster = cluster;
+            this.fragments = fragments;
+        }
     }
 }

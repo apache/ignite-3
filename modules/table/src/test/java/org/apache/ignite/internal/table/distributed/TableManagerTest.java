@@ -86,8 +86,8 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
-import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -98,8 +98,8 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -199,7 +199,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private DataStorageManager dsm;
 
-    private CatalogSchemaManager sm;
+    private SchemaManager sm;
 
     private DistributionZoneManager distributionZoneManager;
 
@@ -380,7 +380,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void tableManagerStopTest1() throws Exception {
-        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+        IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
@@ -400,7 +400,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void tableManagerStopTest2() throws Exception {
-        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+        IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
@@ -420,7 +420,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void tableManagerStopTest3() throws Exception {
-        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+        IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
@@ -440,14 +440,14 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void tableManagerStopTest4() throws Exception {
-        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+        IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> doThrow(new RuntimeException()).when(tblAndMnr.get1().internalTable().txStateStorage()).close());
     }
 
-    private IgniteBiTuple<TableImpl, TableManager> startTableManagerStopTest() throws Exception {
-        TableImpl table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
+    private IgniteBiTuple<TableViewInternal, TableManager> startTableManagerStopTest() throws Exception {
+        TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
         verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any());
 
@@ -456,7 +456,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         return new IgniteBiTuple<>(table, tableManager);
     }
 
-    private void endTableManagerStopTest(TableImpl table, TableManager tableManager, Runnable mockDoThrow) throws Exception {
+    private void endTableManagerStopTest(TableViewInternal table, TableManager tableManager, Runnable mockDoThrow) throws Exception {
         mockDoThrow.run();
 
         tableManager.stop();
@@ -571,7 +571,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @return Table.
      * @throws Exception If something went wrong.
      */
-    private TableImpl mockManagersAndCreateTable(String tableName, CompletableFuture<TableManager> tblManagerFut) throws Exception {
+    private TableViewInternal mockManagersAndCreateTable(String tableName, CompletableFuture<TableManager> tblManagerFut) throws Exception {
         return mockManagersAndCreateTableWithDelay(tableName, tblManagerFut, null);
     }
 
@@ -601,7 +601,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @return Table manager.
      * @throws Exception If something went wrong.
      */
-    private TableImpl mockManagersAndCreateTableWithDelay(
+    private TableViewInternal mockManagersAndCreateTableWithDelay(
             String tableName,
             CompletableFuture<TableManager> tblManagerFut,
             @Nullable Phaser phaser
@@ -660,7 +660,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createTable(tableName);
 
-        TableImpl tbl2 = tableManager.tableImpl(tableName);
+        TableViewInternal tbl2 = tableManager.tableView(tableName);
 
         assertNotNull(tbl2);
 
@@ -698,12 +698,11 @@ public class TableManagerTest extends IgniteAbstractTest {
                 replicaMgr,
                 null,
                 null,
-                ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,
                 msm,
-                sm = new CatalogSchemaManager(revisionUpdater, catalogManager, msm),
+                sm = new SchemaManager(revisionUpdater, catalogManager, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
@@ -713,7 +712,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(NODE_NAME)
+                new TestPlacementDriver(node)
         ) {
 
             @Override

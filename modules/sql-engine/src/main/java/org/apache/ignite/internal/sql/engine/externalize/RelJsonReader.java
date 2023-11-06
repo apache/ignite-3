@@ -133,13 +133,13 @@ public class RelJsonReader {
         /** {@inheritDoc} */
         @Override
         public RelOptCluster getCluster() {
-            return Commons.cluster();
+            return Commons.emptyCluster();
         }
 
         /** {@inheritDoc} */
         @Override
         public RelTraitSet getTraitSet() {
-            return Commons.cluster().traitSet();
+            return Commons.emptyCluster().traitSet();
         }
 
         /** {@inheritDoc} */

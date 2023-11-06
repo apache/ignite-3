@@ -24,17 +24,22 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
  * Contains local attributes that are collected during node startup and become visible
  * to all cluster nodes after the local node is added to the logical topology.
  *
- * @see LogicalNode#attributes()
+ * @see LogicalNode#userAttributes()
  * @see LogicalNode#systemAttributes()
  */
 public interface NodeAttributes {
     /**
-     * Returns configuration defined attributes.
+     * Returns user defined attributes from a node's configuration.
      */
-    Map<String, String> configAttributes();
+    Map<String, String> userAttributes();
 
     /**
      * Returns internal attributes provided by system components.
      */
     Map<String, String> systemAttributes();
+
+    /**
+     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564
+     */
+    Map<String, String> storageProfiles();
 }

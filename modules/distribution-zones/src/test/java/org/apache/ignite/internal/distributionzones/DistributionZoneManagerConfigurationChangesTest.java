@@ -22,9 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZoneWithAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
@@ -53,7 +51,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -160,8 +157,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         assertDataNodesForZoneWithAttributes(zoneId, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
 
         assertZoneScaleUpChangeTriggerKey(2L, zoneId, keyValueStorage);
-
-        assertZonesChangeTriggerKey(2, zoneId, keyValueStorage);
     }
 
     @Test
@@ -188,23 +183,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         assertZoneScaleUpChangeTriggerKey(2L, zoneId, keyValueStorage);
         assertZoneScaleUpChangeTriggerKey(4L, zoneId2, keyValueStorage);
-        assertZonesChangeTriggerKey(2L, zoneId, keyValueStorage);
-        assertZonesChangeTriggerKey(4L, zoneId2, keyValueStorage);
-    }
-
-    @Test
-    void testZoneDeleteDoNotRemoveMetaStorageKey() throws Exception {
-        createZone(ZONE_NAME);
-
-        int zoneId = getZoneId(ZONE_NAME);
-
-        assertDataNodesForZoneWithAttributes(zoneId, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
-
-        keyValueStorage.put(zonesChangeTriggerKey(zoneId).bytes(), longToBytes(100), HybridTimestamp.MIN_VALUE);
-
-        dropZone(ZONE_NAME);
-
-        assertDataNodesForZoneWithAttributes(zoneId, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
     }
 
     private void createZone(String zoneName) {

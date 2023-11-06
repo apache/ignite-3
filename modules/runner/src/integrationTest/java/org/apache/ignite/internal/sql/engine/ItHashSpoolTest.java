@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
@@ -28,7 +30,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Hash spool test.
  */
-public class ItHashSpoolTest extends ClusterPerClassIntegrationTest {
+public class ItHashSpoolTest extends BaseSqlIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /**
@@ -40,7 +42,7 @@ public class ItHashSpoolTest extends ClusterPerClassIntegrationTest {
             LOG.info("Start cleanUp()");
         }
 
-        for (Table table : CLUSTER_NODES.get(0).tables().tables()) {
+        for (Table table : CLUSTER.aliveNode().tables().tables()) {
             sql("DROP TABLE " + table.name());
         }
 

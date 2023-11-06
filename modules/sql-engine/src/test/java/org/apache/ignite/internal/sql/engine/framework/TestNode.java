@@ -18,55 +18,47 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
+import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolver;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.exec.LogicalRelImplementor;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.NoOpExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
-import org.apache.ignite.internal.sql.engine.exec.rel.Node;
-import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
-import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
-import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
-import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
@@ -95,12 +87,17 @@ public class TestNode implements LifecycleAware {
     TestNode(
             String nodeName,
             ClusterService clusterService,
+            ParserService parserService,
+            PrepareService prepareService,
             SqlSchemaManager schemaManager,
-            MappingService mappingService
+            MappingService mappingService,
+            ExecutableTableRegistry tableRegistry,
+            DdlCommandHandler ddlCommandHandler,
+            SystemViewManager systemViewManager
     ) {
         this.nodeName = nodeName;
-        var ps = new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT, mock(MetricManager.class));
-        this.prepareService = registerService(ps);
+        this.parserService = parserService;
+        this.prepareService = prepareService;
         this.schemaManager = schemaManager;
 
         TopologyService topologyService = clusterService.topologyService();
@@ -111,50 +108,29 @@ public class TestNode implements LifecycleAware {
         QueryTaskExecutor taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
 
         MessageService messageService = registerService(new MessageServiceImpl(
-                topologyService.localMember().name(), messagingService, taskExecutor, new IgniteSpinBusyLock()
+                nodeName, messagingService, taskExecutor, new IgniteSpinBusyLock()
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry, messageService
         ));
-        NoOpExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
-        ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
+        ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
+                tableRegistry, view -> () -> systemViewManager.scanView(view.name())
+        );
 
-        executionService = registerService(new ExecutionServiceImpl<>(
-                messageService,
+        executionService = registerService(ExecutionServiceImpl.create(
                 topologyService,
-                mappingService,
+                messageService,
                 schemaManager,
-                mock(DdlCommandHandler.class),
+                ddlCommandHandler,
                 taskExecutor,
                 rowHandler,
-                dependencyResolver,
-                (ctx, deps) -> new LogicalRelImplementor<Object[]>(
-                        ctx,
-                        new HashFunctionFactoryImpl<>(rowHandler),
-                        mailboxRegistry,
-                        exchangeService,
-                        deps
-                ) {
-                    @Override
-                    public Node<Object[]> visit(IgniteTableScan rel) {
-                        DataProvider<Object[]> dataProvider = rel.getTable().unwrap(TestTable.class).dataProvider(ctx.localNode().name());
-
-                        return new ScanNode<>(ctx, dataProvider);
-                    }
-
-                    @Override
-                    public Node<Object[]> visit(IgniteIndexScan rel) {
-                        TestTable tbl = rel.getTable().unwrap(TestTable.class);
-                        TestIndex idx = (TestIndex) tbl.indexes().get(rel.indexName());
-
-                        DataProvider<Object[]> dataProvider = idx.dataProvider(ctx.localNode().name());
-
-                        return new ScanNode<>(ctx, dataProvider);
-                    }
-                }
+                mailboxRegistry,
+                exchangeService,
+                mappingService,
+                dependencyResolver
         ));
 
-        parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+        registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));
     }
 
     /** {@inheritDoc} */
@@ -217,12 +193,43 @@ public class TestNode implements LifecycleAware {
         return await(prepareService.prepareAsync(parsedResult, createContext()));
     }
 
+    /**
+     * Executes the given script.
+     *
+     * <p>This method splits given string by semicolon and execute every statement
+     * one by one. Technically it may execute SELECT statements as well, but since
+     * it returns nothing, it doesn't make any sense.
+     *
+     * @param script Script to execute.
+     */
+    public void initSchema(String script) {
+        for (String statement : script.split(";")) {
+            if (StringUtils.nullOrBlank(statement) || statement.trim().startsWith("--")) {
+                continue;
+            }
+
+            ParsedResult parsedResult = parserService.parse(statement);
+            BaseQueryContext ctx = createContext();
+
+            QueryPlan plan = await(prepareService.prepareAsync(parsedResult, ctx));
+
+            if (plan.type() != SqlQueryType.DDL && plan.type() != SqlQueryType.DML) {
+                continue;
+            }
+
+            AsyncCursor<?> cursor = executionService.executePlan(new NoOpTransaction("tx"), plan, ctx);
+
+            await(cursor.requestNextAsync(1));
+        }
+    }
+
     private BaseQueryContext createContext() {
         return BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schemaManager.schema(DEFAULT_SCHEMA_NAME, Long.MAX_VALUE))
+                                .defaultSchema(schemaManager.schema(Long.MAX_VALUE).getSubSchema(DEFAULT_SCHEMA_NAME))
                                 .build()
                 )
                 .build();
@@ -232,5 +239,24 @@ public class TestNode implements LifecycleAware {
         services.add(service);
 
         return service;
+    }
+
+    private static class IgniteComponentLifecycleAwareAdapter implements LifecycleAware {
+
+        final IgniteComponent component;
+
+        private IgniteComponentLifecycleAwareAdapter(IgniteComponent component) {
+            this.component = component;
+        }
+
+        @Override
+        public void start() {
+            component.start();
+        }
+
+        @Override
+        public void stop() throws Exception {
+            component.stop();
+        }
     }
 }
