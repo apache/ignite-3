@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -155,13 +154,24 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
+
             CatalogVersionsSpan that = (CatalogVersionsSpan) o;
-            return tableId == that.tableId && fromCatalogVersion == that.fromCatalogVersion && toCatalogVersion == that.toCatalogVersion;
+
+            if (tableId != that.tableId) {
+                return false;
+            }
+            if (fromCatalogVersion != that.fromCatalogVersion) {
+                return false;
+            }
+            return toCatalogVersion == that.toCatalogVersion;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(tableId, fromCatalogVersion, toCatalogVersion);
+            int result = tableId;
+            result = 31 * result + fromCatalogVersion;
+            result = 31 * result + toCatalogVersion;
+            return result;
         }
     }
 
@@ -184,13 +194,24 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
+
             CatalogVersionToTableVersionSpan that = (CatalogVersionToTableVersionSpan) o;
-            return tableId == that.tableId && fromCatalogVersion == that.fromCatalogVersion && toTableVersion == that.toTableVersion;
+
+            if (tableId != that.tableId) {
+                return false;
+            }
+            if (fromCatalogVersion != that.fromCatalogVersion) {
+                return false;
+            }
+            return toTableVersion == that.toTableVersion;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(tableId, fromCatalogVersion, toTableVersion);
+            int result = tableId;
+            result = 31 * result + fromCatalogVersion;
+            result = 31 * result + toTableVersion;
+            return result;
         }
     }
 }
