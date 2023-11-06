@@ -1001,7 +1001,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tables Tables to stop.
      */
     private void cleanUpTablesResources(Map<Integer, TableImpl> tables) {
-        var futures = new ArrayList<CompletableFuture<Void>>();
+        var futures = new ArrayList<CompletableFuture<Void>>(tables.size());
 
         for (TableImpl table : tables.values()) {
             futures.add(runAsync(() -> {
@@ -1014,15 +1014,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 for (int p = 0; p < internalTable.partitions(); p++) {
                     TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
+                    stopping.add(() -> closePartitionTrackers(internalTable, replicationGroupId.partitionId()));
+
                     stopping.add(() -> replicaMgr.stopReplica(replicationGroupId).get(10, TimeUnit.SECONDS));
 
                     stopping.add(() -> raftMgr.stopRaftNodes(replicationGroupId));
 
-                    CompletableFuture<Void> removeFromGcFuture = mvGc.removeStorage(replicationGroupId);
-
-                    stopping.add(() -> closePartitionTrackers(internalTable, replicationGroupId.partitionId()));
-
-                    stopping.add(() -> removeFromGcFuture.get(10, TimeUnit.SECONDS));
+                    stopping.add(() -> mvGc.removeStorage(replicationGroupId).get(10, TimeUnit.SECONDS));
                 }
 
                 stopping.add(internalTable.storage());
