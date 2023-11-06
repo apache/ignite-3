@@ -62,6 +62,7 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
 
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
+        // It is safe to access the Catalog as the caller must have already waited till the Catalog is up-to-date with the timestamps.
         int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
         int toCatalogVersion = catalogService.activeCatalogVersion(toIncluding.longValue());
 
@@ -73,6 +74,7 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
 
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding) {
+        // It is safe to access the Catalog as the caller must have already waited till the Catalog is up-to-date.
         int fromCatalogVersion = catalogService.activeCatalogVersion(fromIncluding.longValue());
 
         return catalogVersionToTableVersionSpansCache.computeIfAbsent(
