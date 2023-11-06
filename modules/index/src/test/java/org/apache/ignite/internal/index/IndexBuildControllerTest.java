@@ -65,7 +65,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
@@ -115,7 +114,10 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.stopAll(catalogManager, indexBuildController);
+        IgniteUtils.closeAll(
+                catalogManager == null ? null : catalogManager::stop,
+                indexBuildController == null ? null : indexBuildController::close
+        );
     }
 
     @Test

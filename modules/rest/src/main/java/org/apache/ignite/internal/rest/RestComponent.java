@@ -188,6 +188,8 @@ public class RestComponent implements IgniteComponent {
 
         Map<String, Object> result = new HashMap<>();
         result.put("micronaut.server.port", port);
+        result.put("micronaut.server.cors.enabled", "true");
+        result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
         result.put("ignite.endpoints.filter-non-initialized", "true");
 
         if (sslEnabled) {
