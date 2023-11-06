@@ -29,6 +29,8 @@ import static org.mockito.AdditionalMatchers.lt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -139,7 +141,7 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
 
         assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
 
-//        verify(catalogService, times(1)).tableVersionsBetween(anyInt(), anyInt(), anyInt());
+        verify(catalogService, times(1)).table(tableId, 3);
     }
 
     @Test
@@ -201,6 +203,6 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
 
         assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
 
-//        verify(catalogService, times(1)).tableVersionsBetween(anyInt(), anyInt(), anyInt());
+        verify(catalogService, times(1)).table(tableId, 3);
     }
 }
