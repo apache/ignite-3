@@ -32,6 +32,7 @@ import java.net.SocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -183,6 +184,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
 
         var requestCounter = new AtomicInteger();
+        var connectionIdGen = new AtomicLong();
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
@@ -206,7 +208,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         authenticationManager(securityConfiguration),
                                         clock,
                                         new AlwaysSyncedSchemaSyncService(),
-                                        TestServer.mockCatalogService()
+                                        TestServer.mockCatalogService(),
+                                        connectionIdGen.incrementAndGet()
                                 )
                         );
                     }

@@ -35,6 +35,7 @@ import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -142,6 +143,7 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
         }).when(ctx).close();
 
         AuthenticationManager authenticationManager = new AuthenticationManagerImpl();
+        AtomicLong clientIdGen = new AtomicLong(0);
 
         handler = new ClientInboundMessageHandler(
                 igniteTables,
@@ -156,7 +158,8 @@ class ClientInboundMessageHandlerTest extends BaseIgniteAbstractTest {
                 authenticationManager,
                 clock,
                 schemaSyncService,
-                catalogService
+                catalogService,
+                clientIdGen.incrementAndGet()
         );
 
         authenticationManager.listen(handler);
