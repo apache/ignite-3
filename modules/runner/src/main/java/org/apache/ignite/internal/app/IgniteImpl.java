@@ -153,6 +153,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxRecoveryManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
@@ -313,6 +314,9 @@ public class IgniteImpl implements Ignite {
 
     /** Index building manager. */
     private final IndexBuildingManager indexBuildingManager;
+
+    /** Transaction recovery manager. */
+    private final TxRecoveryManager txRecoveryManager;
 
     /**
      * The Constructor.
@@ -572,6 +576,8 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
+        txRecoveryManager = new TxRecoveryManager(lockMgr, txManager, clusterSvc);
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
@@ -819,6 +825,7 @@ public class IgniteImpl implements Ignite {
                                     computeComponent,
                                     replicaMgr,
                                     txManager,
+                                    txRecoveryManager,
                                     dataStorageMgr,
                                     schemaManager,
                                     volatileLogStorageFactoryCreator,
