@@ -21,7 +21,6 @@ import static java.util.stream.Collectors.toSet;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -46,7 +45,7 @@ class SchemaCompatibilityValidator {
     private final SchemaSyncService schemaSyncService;
 
     // TODO: Remove entries from cache when compacting schemas in SchemaManager https://issues.apache.org/jira/browse/IGNITE-20789
-    private final ConcurrentMap<DiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TableDefinitionDiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
     /** Constructor. */
     SchemaCompatibilityValidator(
@@ -146,7 +145,7 @@ class SchemaCompatibilityValidator {
 
     private boolean isForwardCompatible(FullTableSchema prevSchema, FullTableSchema nextSchema) {
         TableDefinitionDiff diff = diffCache.computeIfAbsent(
-                new DiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
+                new TableDefinitionDiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
                 key -> nextSchema.diffFrom(prevSchema)
         );
 
@@ -258,36 +257,6 @@ class SchemaCompatibilityValidator {
 
         if (table.tableVersion() != requestSchemaVersion) {
             throw new InternalSchemaVersionMismatchException();
-        }
-    }
-
-    private static class DiffKey {
-        private final int tableId;
-        private final int fromSchemaVersion;
-        private final int toSchemaVersion;
-
-        private DiffKey(int tableId, int fromSchemaVersion, int toSchemaVersion) {
-            this.tableId = tableId;
-            this.fromSchemaVersion = fromSchemaVersion;
-            this.toSchemaVersion = toSchemaVersion;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            DiffKey diffKey = (DiffKey) o;
-            return tableId == diffKey.tableId && fromSchemaVersion == diffKey.fromSchemaVersion
-                    && toSchemaVersion == diffKey.toSchemaVersion;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(tableId, fromSchemaVersion, toSchemaVersion);
         }
     }
 }
