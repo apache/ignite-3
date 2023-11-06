@@ -31,8 +31,11 @@ public class ClientSqlCursorCloseRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
+     * @param in Unpacker.
+     * @param out Packer.
      * @param resources Resources.
+     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
+     * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,

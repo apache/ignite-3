@@ -314,7 +314,6 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
     }
 
-
     @Override
     protected int nodes() {
         return clusterSize;

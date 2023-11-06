@@ -43,7 +43,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmark that runs sql queries via embedded client on single node cluster.
+ * Benchmark that runs sql queries via embedded client on clusters of different size.
  */
 @State(Scope.Benchmark)
 @Fork(1)

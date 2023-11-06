@@ -64,7 +64,8 @@ public class ClientSqlExecuteRequest {
      * @param sql SQL API.
      * @param resources Resources.
      * @param metrics Metrics.
-     * @return Future.
+     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
+     * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,

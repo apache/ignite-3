@@ -35,7 +35,8 @@ public class ClientSqlCursorNextPageRequest {
      *
      * @param in  Unpacker.
      * @param out Packer.
-     * @return Future.
+     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
+     * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
