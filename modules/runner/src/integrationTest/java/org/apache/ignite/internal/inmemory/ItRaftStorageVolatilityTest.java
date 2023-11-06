@@ -108,7 +108,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
     private int testTableId(IgniteImpl ignite) {
         TableManager tables = (TableManager) ignite.tables();
-        return tables.tableImpl(TABLE_NAME).tableId();
+        return tables.tableView(TABLE_NAME).tableId();
     }
 
     @Test

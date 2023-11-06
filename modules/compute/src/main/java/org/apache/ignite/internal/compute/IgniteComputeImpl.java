@@ -31,7 +31,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -191,10 +191,10 @@ public class IgniteComputeImpl implements IgniteCompute {
         }
     }
 
-    private CompletableFuture<TableImpl> requiredTable(String tableName) {
+    private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
         String parsedName = IgniteNameUtils.parseSimpleName(tableName);
 
-        return tables.tableImplAsync(parsedName)
+        return tables.tableViewAsync(parsedName)
                 .thenApply(table -> {
                     if (table == null) {
                         throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, parsedName);
@@ -203,15 +203,15 @@ public class IgniteComputeImpl implements IgniteCompute {
                 });
     }
 
-    private static ClusterNode leaderOfTablePartitionByTupleKey(TableImpl table, Tuple key) {
+    private static ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
         return requiredLeaderByPartition(table, table.partition(key));
     }
 
-    private static  <K> ClusterNode leaderOfTablePartitionByMappedKey(TableImpl table, K key, Mapper<K> keyMapper) {
+    private static  <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
         return requiredLeaderByPartition(table, table.partition(key, keyMapper));
     }
 
-    private static ClusterNode requiredLeaderByPartition(TableImpl table, int partitionIndex) {
+    private static ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
         ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
         if (leaderNode == null) {
             throw new IgniteInternalException("Leader not found for partition " + partitionIndex);

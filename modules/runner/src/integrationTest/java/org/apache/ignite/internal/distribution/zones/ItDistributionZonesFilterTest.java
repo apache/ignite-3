@@ -45,7 +45,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.Session;
@@ -123,7 +123,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -189,7 +189,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -247,7 +247,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -323,7 +323,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -369,7 +369,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
