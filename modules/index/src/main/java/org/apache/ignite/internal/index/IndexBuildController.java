@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -63,8 +64,11 @@ import org.apache.ignite.network.ClusterService;
  *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - for a new local primary replica, starts the building of all corresponding
  *     indexes, for an expired primary replica, stops the building of all corresponding indexes.</li>
  * </ul>
+ *
+ * <p>A few words about restoring the building of indexes on node recovery: the building of indexes will be resumed by
+ * {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}, which will fire due to a change in the {@link ReplicaMeta#getLeaseholderId()} on
+ * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
-// TODO: IGNITE-20544 Start building indexes on node recovery
 public class IndexBuildController implements IgniteComponent {
     private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
 
@@ -325,7 +329,7 @@ public class IndexBuildController implements IgniteComponent {
     }
 
     private boolean isLeaseExpire(ReplicaMeta replicaMeta) {
-        return !isLocalNode(replicaMeta.getLeaseholder()) || clock.now().after(replicaMeta.getExpirationTime());
+        return !isPrimaryReplica(replicaMeta, localNode(), clock.now());
     }
 
     private static long enlistmentConsistencyToken(ReplicaMeta replicaMeta) {

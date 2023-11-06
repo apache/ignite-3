@@ -50,7 +50,6 @@ import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.TestOnly;
@@ -58,7 +57,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Table view implementation for binary objects.
  */
-public class TableImpl implements Table {
+public class TableImpl implements TableViewInternal {
     /** Internal table. */
     private final InternalTable tbl;
 
@@ -103,30 +102,22 @@ public class TableImpl implements Table {
         this.schemaReg = schemaReg;
     }
 
-    /**
-     * Gets a table id.
-     *
-     * @return Table id as UUID.
-     */
+    @Override
     public int tableId() {
         return tbl.tableId();
     }
 
-    /**
-     * Provides current table with notion of a primary index.
-     *
-     * @param pkId An identifier of a primary index.
-     */
+    @Override
     public void pkId(int pkId) {
         this.pkId.complete(pkId);
     }
 
-    /** Returns an identifier of a primary index. */
+    @Override
     public int pkId() {
         return pkId.join();
     }
 
-    /** Returns an internal table instance this view represents. */
+    @Override
     public InternalTable internalTable() {
         return tbl;
     }
@@ -135,18 +126,12 @@ public class TableImpl implements Table {
         return tbl.name();
     }
 
-    /**
-     * Gets a schema view for the table.
-     *
-     * @return Schema view.
-     */
+    @Override
     public SchemaRegistry schemaView() {
         return schemaReg;
     }
 
-    /**
-     * Sets a schema view for the table.
-     */
+    @Override
     public void schemaView(SchemaRegistry schemaReg) {
         assert this.schemaReg == null : "Schema registry is already set [tableName=" + name() + ']';
 
@@ -175,12 +160,7 @@ public class TableImpl implements Table {
         return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions);
     }
 
-    /**
-     * Returns a partition for a key tuple.
-     *
-     * @param key The tuple.
-     * @return The partition.
-     */
+    @Override
     public int partition(Tuple key) {
         Objects.requireNonNull(key);
 
@@ -195,13 +175,7 @@ public class TableImpl implements Table {
         }
     }
 
-    /**
-     * Returns a partition for a key.
-     *
-     * @param key The key.
-     * @param keyMapper Key mapper
-     * @return The partition.
-     */
+    @Override
     public <K> int partition(K key, Mapper<K> keyMapper) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
@@ -217,13 +191,7 @@ public class TableImpl implements Table {
         return tbl.partition(keyRow);
     }
 
-    /**
-     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
-     * it cannot be found.
-     *
-     * @param partition partition number
-     * @return leader node of the partition group corresponding to the partition
-     */
+    @Override
     public ClusterNode leaderAssignment(int partition) {
         return tbl.leaderAssignment(partition);
     }
@@ -285,13 +253,7 @@ public class TableImpl implements Table {
         return fut;
     }
 
-    /**
-     * Register the index with given id in a table.
-     *
-     * @param indexDescriptor Index descriptor.
-     * @param unique A flag indicating whether the given index unique or not.
-     * @param searchRowResolver Function which converts given table row to an index key.
-     */
+    @Override
     public void registerHashIndex(
             StorageHashIndexDescriptor indexDescriptor,
             boolean unique,
@@ -310,12 +272,7 @@ public class TableImpl implements Table {
         completeWaitIndex(indexId);
     }
 
-    /**
-     * Register the index with given id in a table.
-     *
-     * @param indexDescriptor Index descriptor.
-     * @param searchRowResolver Function which converts given table row to an index key.
-     */
+    @Override
     public void registerSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor,
             ColumnsExtractor searchRowResolver,
@@ -333,11 +290,7 @@ public class TableImpl implements Table {
         completeWaitIndex(indexId);
     }
 
-    /**
-     * Unregister given index from table.
-     *
-     * @param indexId An index id to unregister.
-     */
+    @Override
     public void unregisterIndex(int indexId) {
         indexWrapperById.remove(indexId);
 

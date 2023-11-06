@@ -38,7 +38,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -148,7 +148,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         createTable(ignite0, TABLE_NAME);
 
-        TableImpl table = tableImpl(ignite0, TABLE_NAME);
+        TableViewInternal table = tableView(ignite0, TABLE_NAME);
 
         assertEquals(1, table.schemaView().lastKnownSchemaVersion());
 
@@ -158,9 +158,9 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         alterTable(ignite0, TABLE_NAME);
 
-        table = tableImpl(ignite2, TABLE_NAME);
+        table = tableView(ignite2, TABLE_NAME);
 
-        TableImpl table0 = table;
+        TableViewInternal table0 = table;
         assertTrue(waitForCondition(() -> table0.schemaView().lastKnownSchemaVersion() == 2, 5_000));
 
         // Should not receive the table because we are waiting for the synchronization of schemas.
@@ -181,9 +181,9 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         ignite1 = (IgniteImpl) ignite1Fut.join();
 
-        table = tableImpl(ignite1, TABLE_NAME);
+        table = tableView(ignite1, TABLE_NAME);
 
-        TableImpl table1 = table;
+        TableViewInternal table1 = table;
         assertTrue(waitForCondition(() -> table1.schemaView().lastKnownSchemaVersion() == 2, 5_000));
     }
 
@@ -284,7 +284,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         createTable(ignite0, TABLE_NAME);
 
-        TableImpl table = tableImpl(ignite0, TABLE_NAME);
+        TableViewInternal table = tableView(ignite0, TABLE_NAME);
 
         assertEquals(1, table.schemaView().lastKnownSchemaVersion());
 
@@ -309,7 +309,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 continue;
             }
 
-            TableImpl tableOnNode = tableImpl(node, TABLE_NAME);
+            TableViewInternal tableOnNode = tableView(node, TABLE_NAME);
 
             assertTrue(waitForCondition(() -> tableOnNode.schemaView().lastKnownSchemaVersion() == 2, 10_000));
         }
@@ -356,11 +356,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         return rs;
     }
 
-    private static TableImpl tableImpl(Ignite ignite, String tableName) {
+    private static TableViewInternal tableView(Ignite ignite, String tableName) {
         CompletableFuture<Table> tableFuture = ignite.tables().tableAsync(tableName);
 
         assertThat(tableFuture, willCompleteSuccessfully());
 
-        return (TableImpl) tableFuture.join();
+        return (TableViewInternal) tableFuture.join();
     }
 }

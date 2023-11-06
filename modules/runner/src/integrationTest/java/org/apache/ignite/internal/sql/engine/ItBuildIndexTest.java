@@ -45,7 +45,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
@@ -199,7 +199,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static RaftGroupService getRaftClient(Ignite node, int partitionId) {
-        TableImpl table = getTableImpl(node, TABLE_NAME);
+        TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
         return table.internalTable().partitionRaftGroupService(partitionId);
