@@ -18,7 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 
-description = 'ignite-utilities'
+description = 'ignite-dev-utilities'
 
 dependencies {
 }
