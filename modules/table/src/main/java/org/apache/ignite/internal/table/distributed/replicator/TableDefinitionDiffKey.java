@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import java.util.Objects;
-
 /**
  * Key for table definitions diff.
  */
@@ -41,13 +39,23 @@ class TableDefinitionDiffKey {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TableDefinitionDiffKey tableDefinitionDiffKey = (TableDefinitionDiffKey) o;
-        return tableId == tableDefinitionDiffKey.tableId && fromSchemaVersion == tableDefinitionDiffKey.fromSchemaVersion
-                && toSchemaVersion == tableDefinitionDiffKey.toSchemaVersion;
+
+        TableDefinitionDiffKey that = (TableDefinitionDiffKey) o;
+
+        if (tableId != that.tableId) {
+            return false;
+        }
+        if (fromSchemaVersion != that.fromSchemaVersion) {
+            return false;
+        }
+        return toSchemaVersion == that.toSchemaVersion;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(tableId, fromSchemaVersion, toSchemaVersion);
+        int result = tableId;
+        result = 31 * result + fromSchemaVersion;
+        result = 31 * result + toSchemaVersion;
+        return result;
     }
 }
