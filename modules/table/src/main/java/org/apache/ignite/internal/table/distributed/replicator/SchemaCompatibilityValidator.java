@@ -40,7 +40,7 @@ import org.apache.ignite.internal.tx.TransactionIds;
 /**
  * Validates schema compatibility.
  */
-class SchemaCompatValidator {
+class SchemaCompatibilityValidator {
     private final ValidationSchemasSource validationSchemasSource;
     private final CatalogService catalogService;
     private final SchemaSyncService schemaSyncService;
@@ -49,7 +49,7 @@ class SchemaCompatValidator {
     private final ConcurrentMap<DiffKey, TableDefinitionDiff> diffCache = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    SchemaCompatValidator(
+    SchemaCompatibilityValidator(
             ValidationSchemasSource validationSchemasSource,
             CatalogService catalogService,
             SchemaSyncService schemaSyncService

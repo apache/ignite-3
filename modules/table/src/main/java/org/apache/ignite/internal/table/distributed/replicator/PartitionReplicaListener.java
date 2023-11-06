@@ -238,7 +238,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Cleanup futures. */
     private final ConcurrentHashMap<RowId, CompletableFuture<?>> rowCleanupMap = new ConcurrentHashMap<>();
 
-    private final SchemaCompatValidator schemaCompatValidator;
+    private final SchemaCompatibilityValidator schemaCompatValidator;
 
     /** Instance of the local node. */
     private final ClusterNode localNode;
@@ -328,7 +328,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
-        schemaCompatValidator = new SchemaCompatValidator(validationSchemasSource, catalogService, schemaSyncService);
+        schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
