@@ -163,13 +163,15 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 throw new UnresolvableConsistentIdException("No node by consistent ID " + senderConsistentId);
             }
 
-            // TODO asch cache mapping https://issues.apache.org/jira/browse/IGNITE-14832
             if (prc == null) {
                 for (Class<?> iface : cls.getInterfaces()) {
                     prc = processors.get(iface.getName());
 
-                    if (prc != null)
+                    if (prc != null) {
+                        processors.putIfAbsent(cls.getName(), prc);
+
                         break;
+                    }
                 }
             }
 

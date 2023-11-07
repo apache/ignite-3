@@ -180,11 +180,16 @@ public class RaftMessageGroup {
         /**
          * Message type for {@link ActionRequest}.
          */
-        public static final short ACTION_REQUEST = 4000;
+        public static final short READ_ACTION_REQUEST = 4000;
+
+        /**
+         * Message type for {@link ActionRequest}.
+         */
+        public static final short WRITE_ACTION_REQUEST = 4001;
 
         /**
          * Message type for {@link ActionResponse}.
          */
-        public static final short ACTION_RESPONSE = 4001;
+        public static final short ACTION_RESPONSE = 4002;
     }
 }

@@ -17,12 +17,22 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
+
 /**
  * Submit an action to a replication group.
  */
-public interface ActionRequest extends Message {
+@Transferable(RpcActionMessageGroup.READ_ACTION_REQUEST)
+public interface ReadActionRequest extends ActionRequest {
     /**
-     * @return Group id.
+     * @return Action's command.
      */
-    String groupId();
+    ReadCommand command();
+
+    /**
+     * @return {@code True} for linearizable reading.
+     */
+    boolean readOnlySafe();
 }
