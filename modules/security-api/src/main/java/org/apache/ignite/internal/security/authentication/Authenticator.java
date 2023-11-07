@@ -26,7 +26,7 @@ import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeExcepti
 public interface Authenticator {
     /**
      * Authenticates a user with the given request. Returns the user details if the authentication was successful. Throws an exception
-     * otherwise.
+     * otherwise .
      *
      * @param authenticationRequest The authentication request.
      * @return The user details.
