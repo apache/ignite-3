@@ -471,7 +471,9 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         private void checkState() {
-            assert data != null : "Row has not been initialised";
+            if (data == null) {
+                throw new IllegalStateException("Row has not been initialised");
+            }
         }
     }
 }
