@@ -25,4 +25,9 @@ public interface CatalogVersionAware {
      * Returns version that the Catalog must have locally for the node to be allowed to accept this command via replication.
      */
     int requiredCatalogVersion();
+
+    /**
+     * Setter for the required catalog version. Should be used with caution. Only object's creator should call it.
+     */
+    void requiredCatalogVersion(int version);
 }

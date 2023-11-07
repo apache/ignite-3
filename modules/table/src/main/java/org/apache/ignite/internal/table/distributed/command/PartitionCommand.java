@@ -19,7 +19,9 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshaller;
 import org.apache.ignite.network.annotations.Transient;
+import org.apache.ignite.network.annotations.WithSetter;
 
 /**
  * Partition transactional command.
@@ -40,5 +42,14 @@ public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogVer
      */
     @Override
     @Transient
+    @WithSetter
     int requiredCatalogVersion();
+
+    /**
+     * Setter for {@link #requiredCatalogVersion()}. Called by the creator or the {@link PartitionCommandsMarshaller} while deserializing.
+     */
+    @Override
+    default void requiredCatalogVersion(int version) {
+        // No-op.
+    }
 }

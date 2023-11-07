@@ -51,13 +51,15 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public <T> T unmarshall(ByteBuffer raw) {
-        skipRequiredCatalogVersion(raw);
+        int requiredCatalogVersion = readRequiredCatalogVersion(raw);
 
-        return super.unmarshall(raw);
-    }
+        T res = super.unmarshall(raw);
 
-    private void skipRequiredCatalogVersion(ByteBuffer raw) {
-        readRequiredCatalogVersion(raw);
+        if (res instanceof CatalogVersionAware) {
+            ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);
+        }
+
+        return res;
     }
 
     /**
