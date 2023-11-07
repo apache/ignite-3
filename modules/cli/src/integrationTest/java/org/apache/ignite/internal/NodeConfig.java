@@ -34,9 +34,15 @@ public class NodeConfig {
     public static final String keyStorePassword = "changeit";
     public static final String trustStorePassword = "changeit";
 
-    /** Node bootstrap configuration pattern with SSL enabled. */
+    /** Node bootstrap configuration pattern with REST SSL enabled. */
     public static final String REST_SSL_BOOTSTRAP_CONFIG = restSslBootstrapConfig(null);
 
+    /**
+     *  Node bootstrap configuration pattern with REST SSL enabled.
+     *
+     * @param ciphers Custom ciphers suites.
+     * @return Config pattern.
+     */
     public static String restSslBootstrapConfig(@Nullable String ciphers) {
         return "{\n"
                 + "  network: {\n"
@@ -65,8 +71,15 @@ public class NodeConfig {
                 + "}";
     }
 
+    /** Node bootstrap configuration pattern with client SSL enabled. */
     public static final String CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG = clientConnectorSslBootstrapConfig(null);
 
+    /**
+     *  Node bootstrap configuration pattern with client SSL enabled.
+     *
+     * @param ciphers Custom ciphers suites.
+     * @return Config pattern.
+     */
     public static String clientConnectorSslBootstrapConfig(@Nullable String ciphers) {
         return "{\n"
                 + "  network: {\n"
