@@ -69,15 +69,10 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.security.authentication.AnonymousRequest;
-import org.apache.ignite.internal.security.authentication.AuthenticationManager;
-import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
-import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -729,21 +724,6 @@ public class PlatformTestNodeRunner {
                     });
 
             assertThat(changeFuture, willCompleteSuccessfully());
-
-            AuthenticationManager authenticationManager = IgniteTestUtils.getFieldValue(ignite, "authenticationManager");
-            AuthenticationRequest<?, ?> authnReq = enable
-                    ? new UsernamePasswordRequest("user-1", "password-1")
-                    : new AnonymousRequest();
-
-            // TODO: waitForCondition
-            while (true) {
-                try {
-                    authenticationManager.authenticate(authnReq);
-                    break;
-                } catch (Exception e) {
-                    // No-op.
-                }
-            }
 
             return null;
         }
