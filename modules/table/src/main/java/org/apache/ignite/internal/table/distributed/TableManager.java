@@ -853,12 +853,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 raftGroupService
         );
 
+        CompletableFuture<Void> whenReplicaReady = allOf(
+                ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
+                table.pkIndexesReadyFuture()
+        );
+
         replicaMgr.startReplica(
                 replicaGrpId,
-                allOf(
-                        ((Loza) raftMgr).raftNodeReadyFuture(replicaGrpId),
-                        table.pkIndexesReadyFuture()
-                ),
+                whenReplicaReady,
                 listener,
                 raftGroupService,
                 storageIndexTracker
@@ -1012,17 +1014,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 InternalTable internalTable = table.internalTable();
 
-                for (int p = 0; p < internalTable.partitions(); p++) {
-                    TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+                stopping.add(() -> {
+                    var stopReplicaFutures = new CompletableFuture<?>[internalTable.partitions()];
 
-                    stopping.add(() -> closePartitionTrackers(internalTable, replicationGroupId.partitionId()));
+                    for (int p = 0; p < internalTable.partitions(); p++) {
+                        TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-                    stopping.add(() -> replicaMgr.stopReplica(replicationGroupId).get(10, TimeUnit.SECONDS));
+                        stopReplicaFutures[p] = stopPartition(replicationGroupId, table);
+                    }
 
-                    stopping.add(() -> raftMgr.stopRaftNodes(replicationGroupId));
-
-                    stopping.add(() -> mvGc.removeStorage(replicationGroupId).get(10, TimeUnit.SECONDS));
-                }
+                    allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
+                });
 
                 stopping.add(internalTable.storage());
                 stopping.add(internalTable.txStateStorage());
@@ -1273,71 +1275,58 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int tableId = tableDescriptor.id();
         int partitions = zoneDescriptor.partitions();
 
-        try {
-            CompletableFuture<?>[] removeStorageFromGcFutures = new CompletableFuture<?>[partitions];
-
-            for (int p = 0; p < partitions; p++) {
-                TablePartitionId replicationGroupId = new TablePartitionId(tableId, p);
-
-                raftMgr.stopRaftNodes(replicationGroupId);
-
-                removeStorageFromGcFutures[p] = replicaMgr
-                        .stopReplica(replicationGroupId)
-                        .thenCompose((notUsed) -> mvGc.removeStorage(replicationGroupId));
+        localPartsByTableIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
+            if (e != null) {
+                return failedFuture(e);
             }
 
-            localPartsByTableIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
+            var newMap = new HashMap<>(previousVal);
+            newMap.remove(tableId);
 
-                var newMap = new HashMap<>(previousVal);
-                newMap.remove(tableId);
+            return completedFuture(newMap);
+        }));
 
-                return completedFuture(newMap);
-            }));
+        tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
 
-            tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
+            var map = new HashMap<>(previousVal);
 
-                var map = new HashMap<>(previousVal);
+            TableImpl table = map.remove(tableId);
 
-                TableImpl table = map.remove(tableId);
+            assert table != null : tableId;
 
-                assert table != null : tableId;
+            InternalTable internalTable = table.internalTable();
 
-                InternalTable internalTable = table.internalTable();
+            CompletableFuture<?>[] stopReplicaFutures = new CompletableFuture<?>[partitions];
 
-                for (int partitionId = 0; partitionId < partitions; partitionId++) {
-                    closePartitionTrackers(internalTable, partitionId);
-                }
+            for (int partitionId = 0; partitionId < partitions; partitionId++) {
+                var replicationGroupId = new TablePartitionId(tableId, partitionId);
 
-                // TODO: IGNITE-18703 Destroy raft log and meta
+                stopReplicaFutures[partitionId] = stopPartition(replicationGroupId, table);
+            }
 
-                CompletableFuture<Void> destroyTableStoragesFuture = allOf(removeStorageFromGcFutures)
-                        .thenCompose(unused -> allOf(
-                                internalTable.storage().destroy(),
-                                runAsync(() -> internalTable.txStateStorage().destroy(), ioExecutor))
-                        );
+            // TODO: IGNITE-18703 Destroy raft log and meta
+            CompletableFuture<Void> destroyTableStoragesFuture = allOf(stopReplicaFutures)
+                    .thenCompose(unused -> allOf(
+                            internalTable.storage().destroy(),
+                            runAsync(() -> internalTable.txStateStorage().destroy(), ioExecutor))
+                    );
 
-                CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId());
+            CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId());
 
-                return allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture)
-                        .thenApply(v -> map);
-            }));
+            return allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture)
+                    .thenApply(v -> map);
+        }));
 
-            startedTables.remove(tableId);
+        startedTables.remove(tableId);
 
-            Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
-                    .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
-                    .collect(Collectors.toSet());
+        Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
+                .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
+                .collect(Collectors.toSet());
 
-            metaStorageMgr.removeAll(assignmentKeys);
-        } catch (NodeStoppingException e) {
-            // No op.
-        }
+        metaStorageMgr.removeAll(assignmentKeys);
     }
 
     private CompletableFuture<Set<Assignment>> calculateAssignments(TablePartitionId tablePartitionId) {
@@ -2078,51 +2067,65 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }, ioExecutor);
     }
 
-    private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, long revision) {
-        try {
-            raftMgr.stopRaftNodes(tablePartitionId);
-        } catch (NodeStoppingException e) {
-            // No-op
-        }
-
-        CompletableFuture<Boolean> stopReplicaFut;
-        try {
-            stopReplicaFut = replicaMgr.stopReplica(tablePartitionId);
-        } catch (NodeStoppingException e) {
-            stopReplicaFut = completedFuture(true);
-        }
-
-        return destroyPartitionStorages(tablePartitionId, revision, stopReplicaFut);
-    }
-
-    private CompletableFuture<Void> destroyPartitionStorages(
-            TablePartitionId tablePartitionId,
-            long revision,
-            CompletableFuture<Boolean> stopReplicaFut
-    ) {
-        int partitionId = tablePartitionId.partitionId();
-
-        return tablesById(revision)
-                // TODO: IGNITE-18703 Destroy raft log and meta
-                .thenCombine(mvGc.removeStorage(tablePartitionId), (tables, unused) -> {
+    private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, long causalityToken) {
+        return tablesById(causalityToken)
+                .thenCompose(tables -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 
-                    // TODO: IGNITE-19905 - remove the check.
-                    if (table == null) {
-                        return allOf(stopReplicaFut);
+                    return stopPartition(tablePartitionId, table)
+                            .thenCompose(v -> destroyPartitionStorages(tablePartitionId, table));
+                });
+    }
+
+    /**
+     * Stops all resources associated with a given partition, like replicas and partition trackers.
+     *
+     * @param tablePartitionId Partition ID.
+     * @param table Table which this partition belongs to.
+     * @return Future that will be completed after all resources have been closed.
+     */
+    private CompletableFuture<Void> stopPartition(TablePartitionId tablePartitionId, TableImpl table) {
+        // TODO: IGNITE-19905 - remove the check.
+        if (table != null) {
+            closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
+        }
+
+        CompletableFuture<Boolean> stopReplicaFuture;
+
+        try {
+            stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
+        } catch (NodeStoppingException e) {
+            // No-op.
+            stopReplicaFuture = completedFuture(false);
+        }
+
+        return stopReplicaFuture
+                .thenCompose(v -> {
+                    try {
+                        raftMgr.stopRaftNodes(tablePartitionId);
+                    } catch (NodeStoppingException ignored) {
+                        // No-op.
                     }
 
-                    InternalTable internalTable = table.internalTable();
+                    return mvGc.removeStorage(tablePartitionId);
+                });
+    }
 
-                    closePartitionTrackers(internalTable, partitionId);
+    private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
+        // TODO: IGNITE-18703 Destroy raft log and meta
+        // TODO: IGNITE-19905 - remove the check.
+        if (table == null) {
+            return completedFuture(null);
+        }
 
-                    return allOf(
-                            stopReplicaFut,
-                            internalTable.storage().destroyPartition(partitionId),
-                            runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
-                    );
-                })
-                .thenCompose(Function.identity());
+        InternalTable internalTable = table.internalTable();
+
+        int partitionId = tablePartitionId.partitionId();
+
+        return allOf(
+                internalTable.storage().destroyPartition(partitionId),
+                runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
+        );
     }
 
     private int[] collectTableIndexIds(int tableId, int catalogVersion) {
