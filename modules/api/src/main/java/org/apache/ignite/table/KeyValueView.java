@@ -24,6 +24,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.sql.Criteria;
+import org.apache.ignite.sql.QueryCursor;
+import org.apache.ignite.sql.QueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -491,4 +494,19 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @see #getAndReplace(Transaction, Object, Object)
      */
     CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, V val);
+
+    /**
+     * Scan query over cache entries.
+     *
+     * @param filter If {@code null} then all entries will be returned.
+     */
+    QueryCursor<Map.Entry<K, V>> query(@Nullable Criteria filter);
+
+    /**
+     * Scan query over cache entries.
+     *
+     * @param filter If {@code null} then all entries will be returned.
+     * @param opts Scan query options.
+     */
+    QueryCursor<Map.Entry<K, V>> query(@Nullable Criteria filter, QueryOptions opts);
 }

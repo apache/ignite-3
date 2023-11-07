@@ -20,6 +20,9 @@ package org.apache.ignite.table;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.sql.Criteria;
+import org.apache.ignite.sql.QueryCursor;
+import org.apache.ignite.sql.QueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -313,4 +316,19 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      *         excluded from the collection result.
      */
     CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs);
+
+    /**
+     * Scan query over table records.
+     *
+     * @param filter If {@code null} then all entries will be returned.
+     */
+    QueryCursor<R> query(@Nullable Criteria filter);
+
+    /**
+     * Scan query over table records.
+     *
+     * @param filter If {@code null} then all entries will be returned.
+     * @param opts Scan query options.
+     */
+    QueryCursor<R> query(@Nullable Criteria filter, QueryOptions opts);
 }

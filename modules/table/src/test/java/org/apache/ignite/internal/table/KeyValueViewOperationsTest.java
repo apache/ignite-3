@@ -32,7 +32,11 @@ import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.apache.ignite.internal.type.NativeTypes.datetime;
 import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
+import static org.apache.ignite.sql.Criteria.and;
+import static org.apache.ignite.sql.Criteria.equal;
+import static org.apache.ignite.sql.Criteria.greaterThan;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -58,6 +62,7 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -71,6 +76,8 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.sql.Criteria;
+import org.apache.ignite.sql.QueryOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -697,6 +704,45 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         assertThat(result, is(equalTo(expectedValue)));
 
         verify(internalTable, times(2)).get(any(), isNull());
+    }
+
+    @Test
+    void query() throws Exception {
+        var view = kvView();
+
+        var key1 = TestKeyObject.randomObject(rnd);
+        var key2 = TestKeyObject.randomObject(rnd);
+        var key3 = TestKeyObject.randomObject(rnd);
+        
+        var val1 = TestObjectWithAllTypes.randomObject(rnd);
+        val1.setIntCol(42);
+        val1.setPrimitiveIntCol(9999);
+        val1.setBooleanCol(true);
+
+        var val2 = TestObjectWithAllTypes.randomObject(rnd);
+        val1.setIntCol(42);
+        val1.setPrimitiveIntCol(1000);
+        val1.setBooleanCol(true);
+
+        var val3 = TestObjectWithAllTypes.randomObject(rnd);
+        val1.setIntCol(42);
+        val1.setPrimitiveIntCol(9999);
+        val1.setBooleanCol(false);
+
+        view.putAll(
+                null,
+                Map.of(
+                        key1, val1,
+                        key2, val2,
+                        key3, val3
+                ));
+
+        var cursor = kvView().query(
+                and(equal("intCol", 42), greaterThan("primitiveIntCol", 9000), equal("booleanCol", true)),
+                QueryOptions.builder().pageSize(10).build()
+        );
+
+       assertThat(cursor.getAll(), containsInAnyOrder(new IgniteBiTuple<>(key1, val1)));
     }
 
     /**
