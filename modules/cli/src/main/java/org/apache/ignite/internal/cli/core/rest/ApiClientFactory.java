@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.core.rest;
 
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_CIPHERS;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
@@ -35,16 +36,20 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
+import okhttp3.ConnectionSpec;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.OkHttpClient.Builder;
@@ -98,18 +103,9 @@ public class ApiClientFactory {
                 .keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
                 .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
                 .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
-                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
+                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()))
+                .ciphers(configManager.getCurrentProperty(REST_CIPHERS.value()));
         return setupAuthentication(builder).build();
-    }
-
-    private ApiClientSettingsBuilder settingsBuilder(String path) {
-        ConfigManager configManager = configManagerProvider.get();
-        return ApiClientSettings.builder()
-                .basePath(path)
-                .keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
-                .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
-                .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
-                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
     }
 
     private ApiClientSettingsBuilder setupAuthentication(ApiClientSettingsBuilder builder) {
@@ -191,6 +187,9 @@ public class ApiClientFactory {
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(keyManagers, trustManagers, new SecureRandom());
+
+        setCiphers(builder, settings);
+
         return builder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustManagers[0])
                 .hostnameVerifier(OkHostnameVerifier.INSTANCE);
     }
@@ -238,6 +237,18 @@ public class ApiClientFactory {
             } else {
                 throw e;
             }
+        }
+    }
+
+    private static void setCiphers(Builder builder, ApiClientSettings settings) {
+        if (!nullOrBlank(settings.ciphers())) {
+            List<String> cipherSuites = Arrays.stream(settings.ciphers().split(","))
+                    .map(String::strip)
+                    .collect(Collectors.toList());
+            ConnectionSpec spec = new ConnectionSpec.Builder(true)
+                    .cipherSuites(cipherSuites.toArray(String[]::new))
+                    .build();
+            builder.connectionSpecs(List.of(spec));
         }
     }
 
