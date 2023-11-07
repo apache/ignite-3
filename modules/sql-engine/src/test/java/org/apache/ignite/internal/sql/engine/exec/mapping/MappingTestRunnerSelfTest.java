@@ -145,7 +145,8 @@ public class MappingTestRunnerSelfTest extends BaseIgniteAbstractTest {
                     return new TestSetup(targetProvider, schema, topologySnapshot);
                 }, "_runner_self.test"));
 
-        assertThat(err.getMessage(), containsString("Both overwriteResults and stripResults have been specified"));
+        String error = "Both MAPPING_TESTS_OVERWRITE_RESULTS and MAPPING_TESTS_STRIP_RESULTS have been specified";
+        assertThat(err.getMessage(), containsString(error));
     }
 
     private static MappingTestRunner newTestRunner() {

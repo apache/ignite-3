@@ -142,7 +142,7 @@ final class MappingTestRunner {
         stripResults = IgniteSystemProperties.getBoolean(STRIP_RESULTS, false);
 
         if (overwriteResults && stripResults) {
-            throw new IllegalStateException("Both overwriteResults and stripResults have been specified");
+            throw new IllegalStateException(format("Both {} and {} have been specified", OVERWRITE_RESULTS, STRIP_RESULTS));
         }
     }
 
