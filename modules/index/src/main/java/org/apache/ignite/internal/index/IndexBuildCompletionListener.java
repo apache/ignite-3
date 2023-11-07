@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
-/**
- * This is a temporary package to host code needed until CatalogService is ready
- * TODO: IGNITE-19447 - remove/rework when switched to full-blown usage of CatalogService.
- */
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.index;
+
+/** Index build completion listener, will be called when a distributed build of an index for a specific partition completes. */
+@FunctionalInterface
+interface IndexBuildCompletionListener {
+    /** Handles the index build completion event. */
+    void onBuildCompletion(int indexId, int tableId, int partitionId);
+}

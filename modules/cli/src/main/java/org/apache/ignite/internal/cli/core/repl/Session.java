@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.cli.core.exception.ConnectionException;
 import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 
 /**
@@ -30,19 +29,14 @@ public class Session implements ConnectionEventListener {
 
     private final AtomicReference<SessionInfo> info = new AtomicReference<>();
 
-    public Session() {
-    }
-
     @Override
     public void onConnect(SessionInfo sessionInfo) {
-        if (!info.compareAndSet(null, sessionInfo)) {
-            throw new ConnectionException("Already connected to " + info.get().nodeUrl());
-        }
+        info.set(sessionInfo);
     }
 
     @Override
     public void onDisconnect() {
-        info.getAndSet(null);
+        info.set(null);
     }
 
     /** Returns {@link SessionInfo}. */

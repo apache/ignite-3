@@ -31,14 +31,13 @@ class ConnectCommandTest extends CliCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should throw error if provided an unknown node name")
-    void unknownNodeName() {
+    void invalidNodeUrl() {
         execute("nodeName");
 
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Node nodeName not found. Provide valid name or use URL")
+                () -> assertErrOutputContains("Invalid URL 'nodeName' (no protocol: nodeName)")
         );
     }
 

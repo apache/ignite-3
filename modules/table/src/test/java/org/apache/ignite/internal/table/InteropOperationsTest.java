@@ -73,7 +73,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private static final SchemaDescriptor SCHEMA;
 
     /** Table for tests. */
-    private static final TableImpl TABLE;
+    private static final TableViewInternal TABLE;
 
     /** Dummy internal table for tests. */
     private static final DummyInternalTableImpl INT_TABLE;

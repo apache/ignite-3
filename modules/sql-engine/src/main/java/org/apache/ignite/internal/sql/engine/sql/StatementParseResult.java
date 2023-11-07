@@ -45,7 +45,7 @@ public final class StatementParseResult extends ParseResult {
         }
     };
 
-    private final List<SqlNode> list;
+    private final SqlNode statement;
 
     /**
      * Constructor.
@@ -53,21 +53,15 @@ public final class StatementParseResult extends ParseResult {
      * @param sqlNode A parsed statement.
      * @param dynamicParamsCount The number of dynamic parameters.
      */
-    public StatementParseResult(SqlNode sqlNode, int dynamicParamsCount) {
+    StatementParseResult(SqlNode sqlNode, int dynamicParamsCount) {
         super(dynamicParamsCount);
         assert !(sqlNode instanceof SqlNodeList) : "Can not create a statement result from a node list: " + sqlNode;
-        this.list = List.of(sqlNode);
+        this.statement = sqlNode;
     }
 
     /** Returns a parsed statement. */
     public SqlNode statement() {
-        return list.get(0);
-    }
-
-    /** {@inheritDoc} **/
-    @Override
-    public List<SqlNode> statements() {
-        return list;
+        return statement;
     }
 
     /** {@inheritDoc} **/

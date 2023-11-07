@@ -66,8 +66,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -88,6 +88,7 @@ import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -133,6 +134,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -146,7 +148,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
+import org.apache.ignite.internal.table.distributed.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
@@ -268,6 +270,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
+    private final AtomicBoolean beforeStopGuard = new AtomicBoolean();
+
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Schema manager. */
@@ -374,7 +378,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
-            TopologyService topologyService,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
             Path storagePath,
@@ -412,6 +415,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
+
+        TopologyService topologyService = clusterService.topologyService();
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -478,6 +483,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 metaStorageMgr,
                 clusterService.messagingService(),
+                topologyService,
                 clusterNodeResolver,
                 tableId -> latestTablesById().get(tableId)
         );
@@ -889,7 +895,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 txStatePartitionStorage,
                 transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
-                new NonHistoricSchemas(schemaManager, schemaSyncService),
+                new CatalogValidationSchemasSource(catalogService, schemaManager),
                 localNode(),
                 schemaSyncService,
                 catalogService,
@@ -951,8 +957,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public void stop() {
-        if (!stopGuard.compareAndSet(false, true)) {
+    public void beforeNodeStop() {
+        if (!beforeStopGuard.compareAndSet(false, true)) {
             return;
         }
 
@@ -964,23 +970,32 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-        Map<Integer, TableImpl> tablesToStop = Stream.concat(latestTablesById().entrySet().stream(), pendingTables.entrySet().stream())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
+        var tablesToStop = new HashMap<Integer, TableImpl>();
+
+        tablesToStop.putAll(latestTablesById());
+        tablesToStop.putAll(pendingTables);
 
         cleanUpTablesResources(tablesToStop);
+    }
 
-        try {
-            IgniteUtils.closeAllManually(lowWatermark, mvGc);
-        } catch (Throwable t) {
-            LOG.error("Failed to close internal components", t);
+    @Override
+    public void stop() throws Exception {
+        assert beforeStopGuard.get() : "'stop' called before 'beforeNodeStop'";
+
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
         }
 
-        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.closeAllManually(
+                lowWatermark,
+                mvGc,
+                () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS)
+        );
     }
 
     /**
@@ -989,73 +1004,44 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tables Tables to stop.
      */
     private void cleanUpTablesResources(Map<Integer, TableImpl> tables) {
+        var futures = new ArrayList<CompletableFuture<Void>>(tables.size());
+
         for (TableImpl table : tables.values()) {
-            table.beforeClose();
+            futures.add(runAsync(() -> {
+                Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
 
-            List<Runnable> stopping = new ArrayList<>();
+                stopping.add(table::beforeClose);
 
-            AtomicReference<Throwable> throwable = new AtomicReference<>();
+                InternalTable internalTable = table.internalTable();
 
-            AtomicBoolean nodeStoppingEx = new AtomicBoolean();
+                for (int p = 0; p < internalTable.partitions(); p++) {
+                    TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-            InternalTable internalTable = table.internalTable();
+                    stopping.add(() -> closePartitionTrackers(internalTable, replicationGroupId.partitionId()));
 
-            for (int p = 0; p < internalTable.partitions(); p++) {
-                int partitionId = p;
+                    stopping.add(() -> replicaMgr.stopReplica(replicationGroupId).get(10, TimeUnit.SECONDS));
 
-                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+                    stopping.add(() -> raftMgr.stopRaftNodes(replicationGroupId));
 
-                stopping.add(() -> {
-                    try {
-                        raftMgr.stopRaftNodes(replicationGroupId);
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
-                });
+                    stopping.add(() -> mvGc.removeStorage(replicationGroupId).get(10, TimeUnit.SECONDS));
+                }
 
-                stopping.add(() -> {
-                    try {
-                        replicaMgr.stopReplica(replicationGroupId).join();
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
-                });
+                stopping.add(internalTable.storage());
+                stopping.add(internalTable.txStateStorage());
+                stopping.add(internalTable);
 
-                CompletableFuture<Void> removeFromGcFuture = mvGc.removeStorage(replicationGroupId);
+                try {
+                    IgniteUtils.closeAllManually(stopping.build());
+                } catch (Throwable t) {
+                    LOG.error("Unable to stop table [name={}, tableId={}]", t, table.name(), table.tableId());
+                }
+            }, ioExecutor));
+        }
 
-                stopping.add(() -> {
-                    try {
-                        closePartitionTrackers(internalTable, partitionId);
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
-                });
-
-                stopping.add(() -> {
-                    try {
-                        // Should be done fairly quickly.
-                        removeFromGcFuture.join();
-                    } catch (Throwable t) {
-                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-                    }
-                });
-            }
-
-            stopping.forEach(Runnable::run);
-
-            try {
-                IgniteUtils.closeAllManually(
-                        internalTable.storage(),
-                        internalTable.txStateStorage(),
-                        internalTable
-                );
-            } catch (Throwable t) {
-                handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
-            }
-
-            if (throwable.get() != null) {
-                LOG.error("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
-            }
+        try {
+            allOf(futures.toArray(CompletableFuture[]::new)).get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            LOG.error("Unable to clean table resources", e);
         }
     }
 
@@ -1451,7 +1437,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public TableImpl table(int id) throws NodeStoppingException {
+    public TableViewInternal table(int id) throws NodeStoppingException {
         return join(tableAsync(id));
     }
 
@@ -1468,7 +1454,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param id Table id.
      * @return Future.
      */
-    public CompletableFuture<TableImpl> tableAsync(long causalityToken, int id) {
+    public CompletableFuture<TableViewInternal> tableAsync(long causalityToken, int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1480,7 +1466,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<TableImpl> tableAsync(int tableId) {
+    public CompletableFuture<TableViewInternal> tableAsync(int tableId) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
@@ -1517,12 +1503,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public TableImpl tableImpl(String name) {
-        return join(tableImplAsync(name));
+    public TableViewInternal tableView(String name) {
+        return join(tableViewAsync(name));
     }
 
     @Override
-    public CompletableFuture<TableImpl> tableImplAsync(String name) {
+    public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
     }
 
@@ -1532,7 +1518,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    private CompletableFuture<TableImpl> tableAsyncInternal(String name) {
+    private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
@@ -1550,14 +1536,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<TableImpl> tableAsyncInternalBusy(int tableId) {
+    private CompletableFuture<TableViewInternal> tableAsyncInternalBusy(int tableId) {
         TableImpl tableImpl = latestTablesById().get(tableId);
 
         if (tableImpl != null) {
             return completedFuture(tableImpl);
         }
 
-        CompletableFuture<TableImpl> getLatestTableFuture = new CompletableFuture<>();
+        CompletableFuture<TableViewInternal> getLatestTableFuture = new CompletableFuture<>();
 
         CompletionListener<Void> tablesListener = (token, v, th) -> {
             if (th == null) {
@@ -2141,26 +2127,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .thenCompose(Function.identity());
     }
 
-    private static void handleExceptionOnCleanUpTablesResources(
-            Throwable t,
-            AtomicReference<Throwable> throwable,
-            AtomicBoolean nodeStoppingEx
-    ) {
-        if (t instanceof CompletionException || t instanceof ExecutionException) {
-            t = t.getCause();
-        }
-
-        if (!throwable.compareAndSet(null, t)) {
-            if (!(t instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
-                throwable.get().addSuppressed(t);
-            }
-        }
-
-        if (t instanceof NodeStoppingException) {
-            nodeStoppingEx.set(true);
-        }
-    }
-
     private int[] collectTableIndexIds(int tableId, int catalogVersion) {
         return catalogService.indexes(catalogVersion).stream()
                 .filter(indexDescriptor -> indexDescriptor.tableId() == tableId)
@@ -2213,7 +2179,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param tableId Table id.
      */
-    public @Nullable TableImpl getTable(int tableId) {
+    public @Nullable TableViewInternal getTable(int tableId) {
         return startedTables.get(tableId);
     }
 
@@ -2223,7 +2189,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      */
     @TestOnly
-    public @Nullable TableImpl getTable(String name) {
+    public @Nullable TableViewInternal getTable(String name) {
         return findTableImplByName(startedTables.values(), name);
     }
 

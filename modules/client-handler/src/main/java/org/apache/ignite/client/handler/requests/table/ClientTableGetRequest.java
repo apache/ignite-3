@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -46,7 +46,7 @@ public class ClientTableGetRequest {
             if (table == null) {
                 out.packNil();
             } else {
-                out.packInt(((TableImpl) table).tableId());
+                out.packInt(((TableViewInternal) table).tableId());
             }
         });
     }

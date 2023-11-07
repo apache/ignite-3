@@ -99,7 +99,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class JraftServerImpl implements RaftServer {
     /**
-     * Enables logit log storage. {@code true} by default.
+     * Enables logit log storage. {@code false} by default.
      * This is a temporary property, that should only be used for testing and comparing the two storages.
      */
     public static final String LOGIT_STORAGE_ENABLED_PROPERTY = "LOGIT_STORAGE_ENABLED";
@@ -172,7 +172,7 @@ public class JraftServerImpl implements RaftServer {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
-        this.logStorageFactory = IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, true)
+        this.logStorageFactory = IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
                 ? new LogitLogStorageFactory(dataPath.resolve("log"), getLogOptions())
                 : new DefaultLogStorageFactory(dataPath.resolve("log"));
         this.opts = opts;

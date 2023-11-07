@@ -56,6 +56,7 @@ public final class AnsiStringSupport {
         }
 
         /** Marks given text with the configured before style. */
+        @Override
         public String mark(String textToMark) {
             if (style == Style.BOLD) {
                 return String.format("@|fg(%d),bold %s|@", color.code, textToMark);
@@ -74,6 +75,7 @@ public final class AnsiStringSupport {
             this.value = value;
         }
 
+        @Override
         public String mark(String textToMark) {
             return String.format("@|%s %s|@", value, textToMark);
         }

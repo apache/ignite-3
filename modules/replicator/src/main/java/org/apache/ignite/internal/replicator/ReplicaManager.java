@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -377,14 +378,12 @@ public class ReplicaManager implements IgniteComponent {
 
             replicaFut
                     .thenCompose(replica -> replica.processPlacementDriverMessage(msg))
-                    .handle((response, ex) -> {
+                    .whenComplete((response, ex) -> {
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
-                        } else {
+                        } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
                             LOG.error("Failed to process placement driver message [msg={}]", ex, msg);
                         }
-
-                        return null;
                     });
         } finally {
             busyLock.leaveBusy();

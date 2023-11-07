@@ -383,7 +383,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 transactionStateResolver,
                 storageUpdateHandler,
-                new DummySchemas(schemaManager),
+                new DummyValidationSchemasSource(schemaManager),
                 LOCAL_NODE,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,

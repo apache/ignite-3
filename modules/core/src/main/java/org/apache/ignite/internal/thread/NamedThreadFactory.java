@@ -103,4 +103,17 @@ public class NamedThreadFactory implements ThreadFactory {
     public static NamedThreadFactory create(String nodeName, String poolName, IgniteLogger logger) {
         return new NamedThreadFactory(threadPrefix(nodeName, poolName), logger);
     }
+
+    /**
+     * Creates a thread factory based on a node's name and a name of the pool.
+     *
+     * @param nodeName Node name.
+     * @param poolName Pool name.
+     * @param daemon Whether threads created by the factory should be daemon or not.
+     * @param logger Logger.
+     * @return Thread factory.
+     */
+    public static NamedThreadFactory create(String nodeName, String poolName, boolean daemon, IgniteLogger logger) {
+        return new NamedThreadFactory(threadPrefix(nodeName, poolName), daemon, logger);
+    }
 }
