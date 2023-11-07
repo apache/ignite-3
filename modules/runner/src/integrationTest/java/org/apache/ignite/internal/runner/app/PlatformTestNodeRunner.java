@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
@@ -45,7 +44,6 @@ import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
 import static org.apache.ignite.sql.ColumnType.UUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
@@ -55,9 +53,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
-import org.apache.commons.math3.stat.inference.TestUtils;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -73,10 +69,11 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
+import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
+import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.security.authentication.event.AuthenticationListener;
-import org.apache.ignite.internal.security.authentication.event.EventType;
 import org.apache.ignite.internal.security.configuration.SecurityChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
@@ -710,17 +707,7 @@ public class PlatformTestNodeRunner {
         @Override
         public Void execute(JobExecutionContext context, Object... args) {
             boolean enable = ((Integer) args[0]) != 0;
-            EventType eventType = enable ? EventType.AUTHENTICATION_ENABLED : EventType.AUTHENTICATION_DISABLED;
             @SuppressWarnings("resource") IgniteImpl ignite = (IgniteImpl) context.ignite();
-
-            CountDownLatch latch = new CountDownLatch(1);
-            AuthenticationManager authenticationManager = IgniteTestUtils.getFieldValue(ignite, "authenticationManager");
-            AuthenticationListener authnListener = e -> {
-                if (e.type() == eventType) {
-                    latch.countDown();
-                }
-            };
-            authenticationManager.listen(authnListener);
 
             CompletableFuture<Void> changeFuture = ignite.clusterConfiguration().change(
                     root -> {
@@ -743,12 +730,19 @@ public class PlatformTestNodeRunner {
 
             assertThat(changeFuture, willCompleteSuccessfully());
 
-            try {
-                assertTrue(latch.await(5, SECONDS));
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            } finally {
-                authenticationManager.stopListen(authnListener);
+            AuthenticationManager authenticationManager = IgniteTestUtils.getFieldValue(ignite, "authenticationManager");
+            AuthenticationRequest<?, ?> authnReq = enable
+                    ? new UsernamePasswordRequest("user-1", "password-1")
+                    : new AnonymousRequest();
+
+            // TODO: waitForCondition
+            while (true) {
+                try {
+                    authenticationManager.authenticate(authnReq);
+                    break;
+                } catch (Exception e) {
+                    // No-op.
+                }
             }
 
             return null;
