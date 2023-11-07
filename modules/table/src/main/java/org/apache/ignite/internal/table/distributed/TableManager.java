@@ -68,6 +68,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -528,21 +529,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void performRebalanceOnRecovery(long recoveryRevision) {
-        CompletableFuture<Void> pendingAssignmentsRecoveryFuture;
-
         var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
         var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
 
-        Stream<CompletableFuture<?>> pendingFutures;
-        Stream<CompletableFuture<?>> stableFutures;
+        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEvents(pendingAssignmentsPrefix, recoveryRevision,
+                this::handleChangePendingAssignmentEvent, "pending"));
+        startVv.update(recoveryRevision, (v, e) -> handleAssignmentsEvents(stableAssignmentsPrefix, recoveryRevision,
+                this::handleChangeStableAssignmentEvent, "stable"));
+    }
 
-        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(pendingAssignmentsPrefix, recoveryRevision)) {
-            pendingFutures = cursor.stream()
-                    .map(pendingAssignmentEntry -> {
+    private CompletableFuture<Void> handleAssignmentsEvents(
+            ByteArray prefix,
+            long revision,
+            BiFunction<Entry, Long, CompletableFuture<Void>> assignmentsEventHandler,
+            String assignmentsType
+    ) {
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, revision)) {
+            CompletableFuture<?>[] futures = cursor.stream()
+                    .map(entry -> {
                         if (LOG.isInfoEnabled()) {
                             LOG.info(
-                                    "Missed pending assignments for key '{}' discovered, performing recovery",
-                                    new String(pendingAssignmentEntry.key(), UTF_8)
+                                    "Missed {} assignments for key '{}' discovered, performing recovery",
+                                    assignmentsType,
+                                    new String(entry.key(), UTF_8)
                             );
                         }
 
@@ -550,36 +559,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         // 'handleChangePendingAssignmentEvent' accesses some Versioned Values that only store values starting with
                         // tokens equal to Meta Storage recovery revision. In other words, if the entry has a lower revision than the
                         // recovery revision, there will never be a Versioned Value corresponding to its revision.
-                        return handleChangePendingAssignmentEvent(pendingAssignmentEntry, recoveryRevision);
+                        return assignmentsEventHandler.apply(entry, revision);
+                    })
+                    .toArray(CompletableFuture[]::new);
+
+
+            return allOf(futures)
+                    // Simply log any errors, we don't want to block watch processing.
+                    .exceptionally(e -> {
+                        LOG.error("Error when performing assignments recovery", e);
+
+                        return null;
                     });
         }
-
-        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(stableAssignmentsPrefix, recoveryRevision)) {
-            stableFutures = cursor.stream()
-                    .map(stableAssignmentEntry -> {
-                        if (LOG.isInfoEnabled()) {
-                            LOG.info(
-                                    "Missed stable assignments for key '{}' discovered, performing recovery",
-                                    new String(stableAssignmentEntry.key(), UTF_8)
-                            );
-                        }
-
-                        return handleChangeStableAssignmentEvent(stableAssignmentEntry, recoveryRevision);
-                    });
-        }
-
-        CompletableFuture<?>[] futures = Stream.concat(pendingFutures, stableFutures)
-                .toArray(CompletableFuture[]::new);
-
-        pendingAssignmentsRecoveryFuture = allOf(futures)
-                // Simply log any errors, we don't want to block watch processing.
-                .exceptionally(e -> {
-                    LOG.error("Error when performing assignments recovery", e);
-
-                    return null;
-                });
-
-        startVv.update(recoveryRevision, (v, e) -> pendingAssignmentsRecoveryFuture);
     }
 
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
@@ -719,6 +711,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             List<Set<Assignment>> newAssignments,
             CompletableFuture<?> partitionFuture
     ) {
+        var eee = new Exception("qqq");
         int tableId = table.tableId();
 
         Set<Assignment> newPartAssignment = newAssignments.get(partId);
@@ -775,6 +768,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 if (!startGroup) {
                     return false;
                 }
+
+                Peer serverPeer = newConfiguration.peer(localNode().name());
+
+                var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                if (((Loza) raftMgr).isStarted(raftNodeId)) {
+                    return true;
+                }
+
                 TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                 RaftGroupOptions groupOptions = groupOptionsForPartition(
@@ -784,12 +786,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         partitionUpdateHandlers
                 );
 
-                Peer serverPeer = newConfiguration.peer(localNode().name());
-
-                var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
-
                 try {
                     // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                    new Exception("qqqq", eee).printStackTrace();
                     ((Loza) raftMgr).startRaftGroupNode(
                             raftNodeId,
                             newConfiguration,
@@ -834,7 +833,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     ((InternalTableImpl) internalTbl).updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                     boolean startedRaftNode = startGroupFut.join();
-                    if (localMemberAssignment == null || !startedRaftNode) {
+                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
                         return;
                     }
 
@@ -1816,27 +1815,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int partId = replicaGrpId.partitionId();
 
-        if (LOG.isInfoEnabled()) {
-            var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
-
-            LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                            + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                    stringKey, partId, tbl.name(), localMember.address());
-        }
-
         Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
 
         Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsEntry.value());
-
-        transactionStateResolver.updateAssignment(
-                replicaGrpId,
-                stableAssignments.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toList())
-        );
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalServices = pendingAssignments.stream()
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
+
+        if (LOG.isInfoEnabled()) {
+            var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
+
+            LOG.info("Received update on pending assignments. Check if new raft group should be started"
+                            + " [key={}, partition={}, table={}, localMemberAddress={}, shouldStartLocalServices={}, revision={}]",
+                    stringKey, partId, tbl.name(), localMember.address(), shouldStartLocalServices, revision);
+        }
+
+        transactionStateResolver.updateAssignment(
+                replicaGrpId,
+                stableAssignments.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toList())
+        );
 
         CompletableFuture<Void> localServicesStartFuture;
 
