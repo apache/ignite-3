@@ -43,6 +43,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
+/**
+ * Abundant transactions integration tests.
+ */
 public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test_table";
@@ -119,7 +122,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
         RecordView view = node.tables().table(TABLE_NAME).recordView();
 
         try {
-            Transaction rwTx2= node.transactions().begin();
+            Transaction rwTx2 = node.transactions().begin();
 
             view.upsert(rwTx2, Tuple.create().set("key", 42).set("val", "val2"));
         } catch (Exception e) {
