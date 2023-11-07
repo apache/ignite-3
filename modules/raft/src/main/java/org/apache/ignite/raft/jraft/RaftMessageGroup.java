@@ -22,7 +22,7 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;import org.apache.ignite.raft.jraft.rpc.RpcRequests;import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 
 /**
  * Message group for the Raft module.
@@ -178,12 +178,12 @@ public class RaftMessageGroup {
      */
     public static final class RpcActionMessageGroup {
         /**
-         * Message type for {@link ActionRequest}.
+         * Message type for {@link ReadActionRequest}.
          */
         public static final short READ_ACTION_REQUEST = 4000;
 
         /**
-         * Message type for {@link ActionRequest}.
+         * Message type for {@link WriteActionRequest}.
          */
         public static final short WRITE_ACTION_REQUEST = 4001;
 

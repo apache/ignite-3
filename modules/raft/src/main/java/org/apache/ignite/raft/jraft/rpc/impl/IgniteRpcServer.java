@@ -164,15 +164,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
             }
 
             if (prc == null) {
-                for (Class<?> iface : cls.getInterfaces()) {
-                    prc = processors.get(iface.getName());
-
-                    if (prc != null) {
-                        processors.putIfAbsent(cls.getName(), prc);
-
-                        break;
-                    }
-                }
+                prc = getProcessor(cls);
             }
 
             if (prc == null)
@@ -198,6 +190,26 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
                 LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());
             }
+        }
+
+        private @Nullable RpcProcessor<NetworkMessage> getProcessor(Class<?> cls) {
+            RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
+
+            if (prc != null) {
+                processors.putIfAbsent(cls.getName(), prc);
+
+                return prc;
+            }
+
+            for (Class<?> iface : cls.getInterfaces()) {
+                prc = getProcessor(iface);
+
+                if (prc != null) {
+                    return prc;
+                }
+            }
+
+            return null;
         }
     }
 
