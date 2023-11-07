@@ -17,13 +17,16 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -80,7 +83,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
@@ -555,6 +557,7 @@ public class ItTxTestCluster {
 
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
+                                        0,
                                         completedFuture(null),
                                         listener,
                                         raftSvc,
@@ -726,11 +729,7 @@ public class ItTxTestCluster {
      * @throws Exception If failed.
      */
     public void shutdownCluster() throws Exception {
-        cluster.parallelStream().map(c -> {
-            c.stop();
-            return null;
-        }).forEach(o -> {
-        });
+        cluster.parallelStream().forEach(ClusterService::stop);
 
         if (client != null) {
             client.stop();
@@ -746,13 +745,25 @@ public class ItTxTestCluster {
 
                 ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-                for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
-                    replicaMgr.stopReplica(grp).join();
-                }
+                CompletableFuture<?>[] replicaStopFutures = replicaMgr.startedGroups().stream()
+                        .map(grp -> {
+                            try {
+                                return replicaMgr.stopReplica(grp, 0);
+                            } catch (NodeStoppingException e) {
+                                throw new AssertionError(e);
+                            }
+                        })
+                        .toArray(CompletableFuture[]::new);
 
-                for (RaftNodeId nodeId : rs.localNodes()) {
-                    rs.stopRaftNode(nodeId);
-                }
+                assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
+
+                rs.localNodes().parallelStream().forEach(nodeId -> {
+                    try {
+                        rs.stopRaftNode(nodeId);
+                    } catch (NodeStoppingException e) {
+                        throw new AssertionError(e);
+                    }
+                });
 
                 replicaMgr.stop();
                 rs.stop();

@@ -20,7 +20,10 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
+import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -40,6 +43,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -66,9 +70,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -79,11 +81,12 @@ import org.jetbrains.annotations.TestOnly;
 
 /**
  * Replica manager maintains {@link Replica} instances on an Ignite node.
- * Manager allows starting, stopping, getting a {@link Replica} by its unique id.
- * Only a single instance of the class exists in Ignite node.
- * This class allow to start/stop/get a replica.
+ *
+ * <p>Manager allows starting, stopping, getting a {@link Replica} by its unique id.
+ *
+ * <p>Only a single instance of the class exists in Ignite node.
  */
-public class ReplicaManager implements IgniteComponent {
+public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
     /** Default Idle safe time propagation period for tests. */
     public static final int DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
 
@@ -99,9 +102,9 @@ public class ReplicaManager implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
-    private final AtomicBoolean metaStorageNodes = new AtomicBoolean();
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Meta storage service. */
+    /** Meta storage node names. */
     private final CompletableFuture<Set<String>> msNodes = new CompletableFuture<>();
 
     /** Cluster network service. */
@@ -220,10 +223,14 @@ public class ReplicaManager implements IgniteComponent {
             return;
         }
 
+        assert correlationId != null;
+
         ReplicaRequest request = (ReplicaRequest) message;
 
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            LOG.info("Skipping a Replica message, because the node is stopping");
+
+            return;
         }
 
         try {
@@ -236,24 +243,21 @@ public class ReplicaManager implements IgniteComponent {
 
                     if (!replicaFut.isDone()) {
                         replicaFut.whenComplete((createdReplica, ex) -> {
-                                    if (ex != null) {
-                                        clusterNetSvc.messagingService().respond(
-                                                senderConsistentId,
-                                                REPLICA_MESSAGES_FACTORY
-                                                        .errorReplicaResponse()
-                                                        .throwable(ex)
-                                                        .build(),
-                                                correlationId);
-                                    } else {
-                                        createdReplica.ready().thenAccept(unused ->
-                                                IgniteUtils.inBusyLock(
-                                                        busyLock,
-                                                        () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
-                                                )
-                                        );
-                                    }
-                                }
-                        );
+                            if (ex != null) {
+                                clusterNetSvc.messagingService().respond(
+                                        senderConsistentId,
+                                        REPLICA_MESSAGES_FACTORY
+                                                .errorReplicaResponse()
+                                                .throwable(ex)
+                                                .build(),
+                                        correlationId);
+                            } else {
+                                createdReplica.ready().thenRun(() -> inBusyLock(
+                                        busyLock,
+                                        () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
+                                ));
+                            }
+                        });
                     } else {
                         sendAwaitReplicaResponse(senderConsistentId, correlationId);
                     }
@@ -287,7 +291,7 @@ public class ReplicaManager implements IgniteComponent {
 
             CompletableFuture<ReplicaResult> resFut = replica.processRequest(request, senderId);
 
-            resFut.handle((res, ex) -> {
+            resFut.whenComplete((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
@@ -317,27 +321,23 @@ public class ReplicaManager implements IgniteComponent {
                 if (ex == null && res.replicationFuture() != null) {
                     assert request instanceof PrimaryReplicaRequest;
 
-                    res.replicationFuture().handle((res0, ex0) -> {
+                    res.replicationFuture().whenComplete((res0, ex0) -> {
                         NetworkMessage msg0;
 
                         LOG.debug("Sending delayed response for replica request [request={}]", request);
 
-                        if (ex == null) {
+                        if (ex0 == null) {
                             msg0 = prepareReplicaResponse(sendTimestamp, res0);
                         } else {
-                            LOG.warn("Failed to process delayed response [request={}]", ex, request);
+                            LOG.warn("Failed to process delayed response [request={}]", ex0, request);
 
-                            msg0 = prepareReplicaErrorResponse(sendTimestamp, ex);
+                            msg0 = prepareReplicaErrorResponse(sendTimestamp, ex0);
                         }
 
                         // Using strong send here is important to avoid a reordering with a normal response.
                         clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
-
-                        return null;
                     });
                 }
-
-                return null;
             });
         } finally {
             busyLock.leaveBusy();
@@ -354,7 +354,7 @@ public class ReplicaManager implements IgniteComponent {
      * @param ex An exception
      * @return True if this exception has thrown due to timeout or connection problem, false otherwise.
      */
-    private static boolean isConnectivityRelatedException(Throwable ex) {
+    private static boolean isConnectivityRelatedException(@Nullable Throwable ex) {
         if (ex instanceof ExecutionException || ex instanceof CompletionException) {
             ex = ex.getCause();
         }
@@ -367,10 +367,14 @@ public class ReplicaManager implements IgniteComponent {
             return;
         }
 
+        assert correlationId != null;
+
         var msg = (PlacementDriverReplicaMessage) msg0;
 
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            LOG.info("Skipping a Placement Driver message, because the node is stopping");
+
+            return;
         }
 
         try {
@@ -396,7 +400,7 @@ public class ReplicaManager implements IgniteComponent {
      * @param groupId Replication group id.
      * @param redirectNodeId Node consistent id to redirect.
      */
-    private void stopLeaseProlongation(ReplicationGroupId groupId, String redirectNodeId) {
+    private void stopLeaseProlongation(ReplicationGroupId groupId, @Nullable String redirectNodeId) {
         LOG.info("The replica does not meet the requirements for the leaseholder [groupId={}, redirectNodeId={}]", groupId, redirectNodeId);
 
         msNodes.thenAccept(nodeIds -> {
@@ -418,15 +422,18 @@ public class ReplicaManager implements IgniteComponent {
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
+     * @param causalityToken Causality token.
      * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
      * @throws NodeStoppingException If node is stopping.
-     * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
+     * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
+     *         started.
      */
-    public void startReplica(
+    public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
+            long causalityToken,
             CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
@@ -437,7 +444,7 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         try {
-            startReplicaInternal(replicaGrpId, whenReplicaReady, listener, raftClient, storageIndexTracker);
+            return startReplicaInternal(replicaGrpId, causalityToken, whenReplicaReady, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
@@ -447,13 +454,15 @@ public class ReplicaManager implements IgniteComponent {
      * Internal method for starting a replica.
      *
      * @param replicaGrpId Replication group id.
+     * @param causalityToken Causality token.
      * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
      */
-    private void startReplicaInternal(
+    private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
+            long causalityToken,
             CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
@@ -472,35 +481,48 @@ public class ReplicaManager implements IgniteComponent {
                 placementDriver
         );
 
-        replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
-            if (replicaFut == null) {
+        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+
                 return completedFuture(newReplica);
             } else {
-                if (replicaFut.isDone() && !replicaFut.isCancelled() && !replicaFut.isCompletedExceptionally()) {
-                    return completedFuture(newReplica);
-                }
+                existingReplicaFuture.complete(newReplica);
 
-                replicaFut.complete(newReplica);
-
-                return replicaFut;
+                return existingReplicaFuture;
             }
         });
+
+        var eventParams = new LocalReplicaEventParameters(causalityToken, replicaGrpId);
+
+        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
+                .exceptionally(e -> {
+                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event", e);
+
+                    return null;
+                })
+                .thenCompose(v -> replicaFuture);
+    }
+
+    private static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
+        return future.isDone() && !future.isCancelled() && !future.isCompletedExceptionally();
     }
 
     /**
      * Stops a replica by the partition group id.
      *
      * @param replicaGrpId Replication group id.
+     * @param causalityToken Causality token.
      * @return True if the replica is found and closed, false otherwise.
      * @throws NodeStoppingException If the node is stopping.
      */
-    public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+    public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId, long causalityToken) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return stopReplicaInternal(replicaGrpId);
+            return stopReplicaInternal(replicaGrpId, causalityToken);
         } finally {
             busyLock.leaveBusy();
         }
@@ -510,37 +532,57 @@ public class ReplicaManager implements IgniteComponent {
      * Internal method for stopping a replica.
      *
      * @param replicaGrpId Replication group id.
+     * @param causalityToken Causality token.
      * @return True if the replica is found and closed, false otherwise.
      */
-    private CompletableFuture<Boolean> stopReplicaInternal(ReplicationGroupId replicaGrpId) {
-        CompletableFuture<Replica> removed = replicas.remove(replicaGrpId);
+    private CompletableFuture<Boolean> stopReplicaInternal(ReplicationGroupId replicaGrpId, long causalityToken) {
+        var isRemovedFuture = new CompletableFuture<Boolean>();
 
-        if (removed != null) {
-            if (!removed.isDone()) {
-                removed.completeExceptionally(new ReplicaStoppingException(
-                        replicaGrpId,
-                        clusterNetSvc.topologyService().localMember()
-                ));
+        var eventParams = new LocalReplicaEventParameters(causalityToken, replicaGrpId);
+
+        fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
+            if (e != null) {
+                LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event", e);
             }
 
-            if (!removed.isCompletedExceptionally()) {
-                return removed
-                        .thenCompose(Replica::shutdown)
-                        .handle((notUsed, throwable) -> {
-                            if (throwable == null) {
-                                return true;
-                            } else {
-                                LOG.error("Failed to stop replica [replicaGrpId={}]", throwable, replicaGrpId);
+            if (!busyLock.enterBusy()) {
+                isRemovedFuture.completeExceptionally(new NodeStoppingException());
 
-                                return false;
-                            }
-                        });
+                return;
             }
 
-            return completedFuture(true);
-        }
+            try {
+                replicas.compute(replicaGrpId, (grpId, replicaFuture) -> {
+                    if (replicaFuture == null) {
+                        isRemovedFuture.complete(false);
+                    } else if (!replicaFuture.isDone()) {
+                        ClusterNode localMember = clusterNetSvc.topologyService().localMember();
 
-        return completedFuture(false);
+                        replicaFuture.completeExceptionally(new ReplicaStoppingException(grpId, localMember));
+
+                        isRemovedFuture.complete(true);
+                    } else if (!isCompletedSuccessfully(replicaFuture)) {
+                        isRemovedFuture.complete(true);
+                    } else {
+                        replicaFuture
+                                .thenCompose(Replica::shutdown)
+                                .whenComplete((notUsed, throwable) -> {
+                                    if (throwable != null) {
+                                        LOG.error("Failed to stop replica [replicaGrpId={}]", throwable, grpId);
+                                    }
+
+                                    isRemovedFuture.complete(throwable == null);
+                                });
+                    }
+
+                    return null;
+                });
+            } finally {
+                busyLock.leaveBusy();
+            }
+        });
+
+        return isRemovedFuture;
     }
 
     /** {@inheritDoc} */
@@ -557,13 +599,12 @@ public class ReplicaManager implements IgniteComponent {
         );
 
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
-                    if (e != null) {
-                        msNodes.completeExceptionally(e);
-                    } else {
-                        msNodes.complete(nodes);
-                    }
-                }
-        );
+            if (e != null) {
+                msNodes.completeExceptionally(e);
+            } else {
+                msNodes.complete(nodes);
+            }
+        });
 
         localNodeId = clusterNetSvc.topologyService().localMember().id();
     }
@@ -571,7 +612,7 @@ public class ReplicaManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        if (!metaStorageNodes.compareAndSet(false, true)) {
+        if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
@@ -582,12 +623,10 @@ public class ReplicaManager implements IgniteComponent {
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="
-                    + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
+                + replicas.entrySet().stream().filter(e -> e.getValue().isDone()).map(Entry::getKey).collect(toSet()) + ']';
 
         for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
-            if (!replicaFuture.isDone()) {
-                replicaFuture.completeExceptionally(new NodeStoppingException());
-            }
+            replicaFuture.completeExceptionally(new NodeStoppingException());
         }
     }
 
@@ -607,7 +646,7 @@ public class ReplicaManager implements IgniteComponent {
      */
     private void sendReplicaUnavailableErrorResponse(
             String senderConsistentId,
-            @Nullable Long correlationId,
+            long correlationId,
             ReplicationGroupId groupId,
             @Nullable HybridTimestamp requestTimestamp
     ) {
@@ -631,8 +670,8 @@ public class ReplicaManager implements IgniteComponent {
                             .errorReplicaResponse()
                             .throwable(
                                     new ReplicaUnavailableException(
-                                        groupId,
-                                        clusterNetSvc.topologyService().localMember())
+                                            groupId,
+                                            clusterNetSvc.topologyService().localMember())
                             )
                             .build(),
                     correlationId);
@@ -642,7 +681,7 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Sends await replica response.
      */
-    private void sendAwaitReplicaResponse(String senderConsistentId, @Nullable Long correlationId) {
+    private void sendAwaitReplicaResponse(String senderConsistentId, long correlationId) {
         clusterNetSvc.messagingService().respond(
                 senderConsistentId,
                 REPLICA_MESSAGES_FACTORY
