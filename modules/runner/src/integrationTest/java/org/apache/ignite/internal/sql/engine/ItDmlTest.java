@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
@@ -665,5 +666,34 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         sql("DELETE FROM test WHERE a = 0");
         assertQuery("SELECT d FROM test").returnNothing().check();
+    }
+
+    @Test
+    public void testInsertValueOverflow() {
+        sql("CREATE TABLE TEST_SOURCE (ID INT PRIMARY KEY, VAL SMALLINT);");
+        sql("INSERT INTO TEST_SOURCE (ID, VAL) VALUES (2147483647, 200);");
+        sql("CREATE TABLE TEST_DEST (ID INT PRIMARY KEY, VAL TINYINT);");
+
+/*        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "INTEGER out of range",
+                () -> sql("SELECT ID + 10 FROM TEST_SOURCE")
+        );
+
+        assertThrowsSqlException(Common.INTERNAL_ERR, "Value out of range", () -> sql("INSERT INTO TEST_DEST VALUES (1, 200)"));*/
+
+/*
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "TINYINT out of range",
+                () -> sql("INSERT INTO TEST_DEST VALUES (1, (SELECT VAL FROM TEST_SOURCE WHERE ID=2147483647))")
+        );
+*/
+
+        sql("INSERT INTO TEST_DEST VALUES (1, (SELECT VAL FROM TEST_SOURCE WHERE ID=2147483647))");
+
+        List<List<Object>> res = sql("SELECT VAL FROM TEST_DEST");
+        System.err.println("!!!: " + res);
+
     }
 }

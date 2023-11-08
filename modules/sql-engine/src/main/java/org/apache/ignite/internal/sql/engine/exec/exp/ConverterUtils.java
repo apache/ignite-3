@@ -219,6 +219,15 @@ public class ConverterUtils {
             throw new AssertionError("For conversion to decimal, ConverterUtils#convertToDecimal method should be used instead.");
         }
 
+        Primitive toPrimitive = Primitive.of(toType);
+        Primitive fromPrimitive = Primitive.of(fromType);
+
+        System.err.println("!!!!: " + fromPrimitive + " " + toPrimitive);
+
+        if (fromPrimitive != null) {
+            //
+        }
+
         // SELECT '0.1'::DECIMAL::VARCHAR case, looks like a stub
         if (toType == String.class) {
             if (fromType == BigDecimal.class) {
