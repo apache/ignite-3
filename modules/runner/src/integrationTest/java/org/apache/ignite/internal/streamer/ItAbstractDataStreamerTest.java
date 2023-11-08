@@ -49,7 +49,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@Disabled
+
+/**
+ * Common test logic for data streamer - client and server APIs.
+ */
 public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrationTest {
     public static final String TABLE_NAME = "test_table";
 
