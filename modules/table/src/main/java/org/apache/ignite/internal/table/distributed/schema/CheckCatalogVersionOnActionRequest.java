@@ -35,6 +35,7 @@ import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,6 +68,12 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
         if (!(commandsMarshaller instanceof PartitionCommandsMarshaller)) {
             return null;
         }
+
+        if (!(request instanceof WriteActionRequest)) {
+            return null;
+        }
+
+        Command command = ((WriteActionRequest) request).command();
 
         var partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
 

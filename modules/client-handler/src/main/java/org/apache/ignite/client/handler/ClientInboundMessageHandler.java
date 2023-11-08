@@ -673,10 +673,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientSqlExecuteRequest.process(in, out, sql, resources, metrics, igniteTransactions);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
-                return ClientSqlCursorNextPageRequest.process(in, out, resources);
+                return ClientSqlCursorNextPageRequest.process(in, out, resources, igniteTransactions);
 
             case ClientOp.SQL_CURSOR_CLOSE:
-                return ClientSqlCursorCloseRequest.process(in, resources);
+                return ClientSqlCursorCloseRequest.process(in, out, resources, igniteTransactions);
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
                 return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);

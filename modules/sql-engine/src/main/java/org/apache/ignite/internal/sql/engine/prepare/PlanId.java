@@ -32,7 +32,8 @@ public class PlanId implements Serializable {
     private final UUID prepareServiceId;
     private final long planNumber;
 
-    PlanId(UUID prepareServiceId, long planNumber) {
+    /** Constructor. */
+    public PlanId(UUID prepareServiceId, long planNumber) {
         this.prepareServiceId = prepareServiceId;
         this.planNumber = planNumber;
     }

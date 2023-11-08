@@ -32,7 +32,7 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -100,7 +100,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     @Test
     void delegatesWhenCommandHasNoRequiredCatalogVersion() {
-        ActionRequest request = raftMessagesFactory.actionRequest()
+        ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
                 .command(commandsMarshaller.marshall(commandWithoutRequiredCatalogVersion()))
                 .build();
@@ -108,7 +108,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
         assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller), is(nullValue()));
     }
 
-    private Command commandWithoutRequiredCatalogVersion() {
+    private WriteCommand commandWithoutRequiredCatalogVersion() {
         return replicaMessagesFactory.safeTimeSyncCommand().build();
     }
 
@@ -116,7 +116,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     void delegatesWhenHavingEnoughMetadata() {
         when(catalogService.latestCatalogVersion()).thenReturn(5);
 
-        ActionRequest request = raftMessagesFactory.actionRequest()
+        ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
                 .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(3)))
                 .build();
@@ -124,7 +124,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
         assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller), is(nullValue()));
     }
 
-    private Command commandWithRequiredCatalogVersion(int requiredVersion) {
+    private WriteCommand commandWithRequiredCatalogVersion(int requiredVersion) {
         return tableMessagesFactory.updateCommand()
                 .tablePartitionId(tableMessagesFactory.tablePartitionIdMessage().build())
                 .txId(UUID.randomUUID())
@@ -138,7 +138,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     void returnsErrorCodeBusyWhenNotHavingEnoughMetadata() {
         when(catalogService.latestCatalogVersion()).thenReturn(5);
 
-        ActionRequest request = raftMessagesFactory.actionRequest()
+        ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
                 .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
@@ -159,7 +159,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     void checksLeadershipBeforeCheckingMetadataWhenNotLeaderAndNotTransferring(State state) {
         when(node.getNodeState()).thenReturn(state);
 
-        ActionRequest request = raftMessagesFactory.actionRequest()
+        ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
                 .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
@@ -185,7 +185,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     void checksLeadershipBeforeCheckingMetadataWhenTransferring() {
         when(node.getNodeState()).thenReturn(State.STATE_TRANSFERRING);
 
-        ActionRequest request = raftMessagesFactory.actionRequest()
+        ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
                 .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();

@@ -44,9 +44,11 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
+import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 
 /**
@@ -100,24 +102,32 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 ? commandsMarshaller.unmarshall(request.command())
                 : request.deserializedCommand();
 
-        if (command instanceof WriteCommand) {
-            if (listener instanceof BeforeApplyHandler) {
+        if (request instanceof WriteActionRequest) {
+            if (fsm.getListener() instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    request = patchCommandBeforeApply(request, (BeforeApplyHandler) listener, command, commandsMarshaller);
-
-                    applyWrite(node, request, command, rpcCtx);
+                    callOnBeforeApply(request, fsm);
+                    applyWrite(node, (WriteActionRequest) request, rpcCtx);
                 }
             } else {
-                applyWrite(node, request, command, rpcCtx);
+                applyWrite(node, (WriteActionRequest) request, rpcCtx);
             }
         } else {
             if (listener instanceof BeforeApplyHandler) {
                 request = patchCommandBeforeApply(request, (BeforeApplyHandler) listener, command, commandsMarshaller);
             }
 
-            applyRead(node, request, (ReadCommand) command, rpcCtx);
+            applyRead(node, (ReadActionRequest) request, rpcCtx);
         }
     }
+
+    private static void callOnBeforeApply(ActionRequest request, DelegatingStateMachine fsm) {
+        Command command = request instanceof WriteActionRequest
+                ? ((WriteActionRequest) request).command()
+                : ((ReadActionRequest) request).command();
+
+        ((BeforeApplyHandler) fsm.getListener()).onBeforeApply(command);
+    }
+
 
     /**
      * This method calls {@link BeforeApplyHandler#onBeforeApply(Command)} and returns action request with a serialized version of the
@@ -154,7 +164,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param command The command.
      * @param rpcCtx The context.
      */
-    private void applyWrite(Node node, ActionRequest request, Command command, RpcContext rpcCtx) {
+    private void applyWrite(Node node, WriteActionRequest request, Command command, RpcContext rpcCtx) {
         node.apply(new Task(ByteBuffer.wrap(request.command()),
                 new CommandClosureImpl<>(command) {
                     @Override
@@ -183,7 +193,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param command The command.
      * @param rpcCtx The context.
      */
-    private void applyRead(Node node, ActionRequest request, ReadCommand command, RpcContext rpcCtx) {
+    private void applyRead(Node node, ReadActionRequest request, RpcContext rpcCtx) {
         if (request.readOnlySafe()) {
             node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
                 @Override public void run(Status status, long index, byte[] reqCtx) {
