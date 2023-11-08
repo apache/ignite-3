@@ -1060,7 +1060,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     public void addPrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
         Objects.requireNonNull(listener);
 
-        // TODO
+        // TODO: Subscribe once? Or just add every listener separately to avoid tracking them here?
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (event, err) -> {
             System.out.println("Primary replica event: " + event);
             return CompletableFuture.completedFuture(false); // Continue listening.
