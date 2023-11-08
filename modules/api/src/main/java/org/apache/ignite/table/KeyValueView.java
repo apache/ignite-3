@@ -193,7 +193,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Puts into a table a new, or replaces an existing, value associated with the given key.
      *
-     * <p>NB: The method doesn't support {@code null} value, use {@link #getNullableAndPut(Transaction, Object, Object)} instead.
+     * <p>NB: The method doesn't support {@code null} value, use {@link #getNullableAndPut(Transaction, Object, Object)} instead. // TODO: ???
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
@@ -207,7 +207,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Asynchronously puts into a table a new, or replaces an existing, value associated with given key.
      *
-     * <p>NB: The method doesn't support {@code null} value, use {@link #getNullableAndPutAsync(Transaction, Object, Object)} instead.
+     * <p>NB: The method doesn't support {@code null} value, use {@link #getNullableAndPutAsync(Transaction, Object, Object)} instead. // TODO: ???
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
