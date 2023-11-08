@@ -31,8 +31,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -88,7 +88,6 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -170,8 +169,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Metric manager. */
     private final MetricManager metricManager;
 
-    /** Counter to keep track of the current number of live SQL cursors. */
-    private final AtomicInteger numberOfOpenCursors = new AtomicInteger();
+    private final ConcurrentMap<UUID, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
 
     /** Constructor. */
     public SqlQueryProcessor(
@@ -217,7 +215,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
-        SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(numberOfOpenCursors::get);
+        SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
         metricManager.registerSource(sqlClientMetricSource);
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
@@ -318,6 +316,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override
     public synchronized void stop() throws Exception {
         busyLock.block();
+
+        openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
+        openedCursors.clear();
 
         metricManager.unregisterSource(SqlClientMetricSource.NAME);
 
@@ -427,36 +428,32 @@ public class SqlQueryProcessor implements QueryProcessor {
             BaseQueryContext ctx,
             QueryPlan plan
     ) {
-        var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
 
-        SqlQueryType queryType = plan.type();
+        try {
+            var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
-        numberOfOpenCursors.incrementAndGet();
+            SqlQueryType queryType = plan.type();
+            UUID queryId = ctx.queryId();
 
-        return new AsyncSqlCursorImpl<>(
-                queryType,
-                plan.metadata(),
-                txWrapper,
-                new AsyncCursor<>() {
-                    private AtomicBoolean finished = new AtomicBoolean(false);
+            AsyncSqlCursor<List<Object>> cursor = new AsyncSqlCursorImpl<>(
+                    queryType,
+                    plan.metadata(),
+                    txWrapper,
+                    dataCursor,
+                    () -> openedCursors.remove(queryId)
+            );
 
-                    @Override
-                    public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
-                        return dataCursor.requestNextAsync(rows);
-                    }
+            Object old = openedCursors.put(queryId, cursor);
 
-                    @Override
-                    public CompletableFuture<Void> closeAsync() {
-                        if (finished.compareAndSet(false, true)) {
-                            numberOfOpenCursors.decrementAndGet();
+            assert old == null;
 
-                            return dataCursor.closeAsync();
-                        } else {
-                            return CompletableFuture.completedFuture(null);
-                        }
-                    }
-                }
-        );
+            return cursor;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**

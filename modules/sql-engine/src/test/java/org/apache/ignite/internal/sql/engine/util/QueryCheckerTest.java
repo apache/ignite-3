@@ -286,7 +286,8 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                     type,
                     plan.metadata(),
                     new QueryTransactionWrapper(new NoOpTransaction("test"), false),
-                    dataCursor
+                    dataCursor,
+                    () -> {}
             );
 
             return CompletableFuture.completedFuture(sqlCursor);

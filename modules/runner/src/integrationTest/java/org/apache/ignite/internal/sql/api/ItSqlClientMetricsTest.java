@@ -76,18 +76,28 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNormalFlow() throws Exception {
-        Session session = sql.createSession();
+        try (Session session = sql.createSession()) {
+            session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+
+            // default pageSize greater than number of rows in a table, thus cursor will be closed immediately
+            assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        }
+
+        Session session = sql.sessionBuilder()
+                .defaultPageSize(1)
+                .build();
+
         ResultSet<SqlRow> rs1 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
 
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
-        //ToDo: https://issues.apache.org/jira/browse/IGNITE-20022 - We could implement auto cleanup resources when result set is fully read
         rs1.forEachRemaining(c -> {});
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
+        ResultSet<SqlRow> rs2 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
         session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
 
-        rs1.close();
+        rs2.close();
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
         session.close();
@@ -96,7 +106,10 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testMetricsDuringTimeouts() throws Exception {
-        Session session = sql.sessionBuilder().idleTimeout(1, TimeUnit.SECONDS).build();
+        Session session = sql.sessionBuilder()
+                .defaultPageSize(1)
+                .idleTimeout(1, TimeUnit.SECONDS)
+                .build();
 
         session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
