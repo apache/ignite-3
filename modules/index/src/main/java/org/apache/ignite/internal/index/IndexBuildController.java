@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -35,8 +36,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -46,7 +47,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -63,9 +63,12 @@ import org.apache.ignite.network.ClusterService;
  *     <li>{@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED} - for a new local primary replica, starts the building of all corresponding
  *     indexes, for an expired primary replica, stops the building of all corresponding indexes.</li>
  * </ul>
+ *
+ * <p>A few words about restoring the building of indexes on node recovery: the building of indexes will be resumed by
+ * {@link PrimaryReplicaEvent#PRIMARY_REPLICA_ELECTED}, which will fire due to a change in the {@link ReplicaMeta#getLeaseholderId()} on
+ * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
-// TODO: IGNITE-20544 Start building indexes on node recovery
-public class IndexBuildController implements IgniteComponent {
+class IndexBuildController implements ManuallyCloseable {
     private static final long AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC = 10;
 
     private final IndexBuilder indexBuilder;
@@ -87,7 +90,7 @@ public class IndexBuildController implements IgniteComponent {
     private final Set<TablePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
-    public IndexBuildController(
+    IndexBuildController(
             IndexBuilder indexBuilder,
             IndexManager indexManager,
             CatalogService catalogService,
@@ -106,12 +109,7 @@ public class IndexBuildController implements IgniteComponent {
     }
 
     @Override
-    public void start() {
-        // No-op.
-    }
-
-    @Override
-    public void stop() {
+    public void close() {
         if (!closeGuard.compareAndSet(false, true)) {
             return;
         }
@@ -149,6 +147,10 @@ public class IndexBuildController implements IgniteComponent {
 
     private CompletableFuture<?> onIndexCreate(CreateIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
+            if (parameters.indexDescriptor().available()) {
+                return completedFuture(null);
+            }
+
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
@@ -321,7 +323,7 @@ public class IndexBuildController implements IgniteComponent {
     }
 
     private boolean isLeaseExpire(ReplicaMeta replicaMeta) {
-        return !isLocalNode(replicaMeta.getLeaseholder()) || clock.now().after(replicaMeta.getExpirationTime());
+        return !isPrimaryReplica(replicaMeta, localNode(), clock.now());
     }
 
     private static long enlistmentConsistencyToken(ReplicaMeta replicaMeta) {

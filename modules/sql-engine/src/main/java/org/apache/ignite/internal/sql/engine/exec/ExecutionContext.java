@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Type;
@@ -41,8 +42,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.AbstractQueryContext;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -50,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Runtime context allowing access to the tables in a database.
  */
-public class ExecutionContext<RowT> extends AbstractQueryContext implements DataContext {
+public class ExecutionContext<RowT> implements DataContext {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
 
     private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
@@ -59,8 +58,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * TODO: https://issues.apache.org/jira/browse/IGNITE-15276 Support other locales.
      */
     private static final Locale LOCALE = Locale.ENGLISH;
-
-    private final BaseQueryContext qctx;
 
     private final QueryTaskExecutor executor;
 
@@ -94,7 +91,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * Constructor.
      *
      * @param executor Task executor.
-     * @param qctx Base query context.
      * @param qryId Query ID.
      * @param description Partitions information.
      * @param handler Row handler.
@@ -102,7 +98,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
-            BaseQueryContext qctx,
             QueryTaskExecutor executor,
             UUID qryId,
             ClusterNode localNode,
@@ -112,10 +107,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             Map<String, Object> params,
             TxAttributes txAttributes
     ) {
-        super(qctx);
-
         this.executor = executor;
-        this.qctx = qctx;
         this.qryId = qryId;
         this.description = description;
         this.handler = handler;
@@ -126,8 +118,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
-                this.qctx.typeFactory(),
-                this.qctx.config().getParserConfig().conformance()
+                FRAMEWORK_CONFIG.getParserConfig().conformance()
         );
 
         long ts = System.currentTimeMillis();
@@ -215,19 +206,19 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     /** {@inheritDoc} */
     @Override
     public SchemaPlus getRootSchema() {
-        throw new AssertionError("getRootSchema");
+        throw new AssertionError("should not be called");
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteTypeFactory getTypeFactory() {
-        return qctx.typeFactory();
+        return IgniteTypeFactory.INSTANCE;
     }
 
     /** {@inheritDoc} */
     @Override
     public QueryProvider getQueryProvider() {
-        return null; // TODO
+        throw new AssertionError("should not be called");
     }
 
     /** {@inheritDoc} */

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -59,6 +60,7 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
 
         return PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
+                        .queryId(UUID.randomUUID())
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())

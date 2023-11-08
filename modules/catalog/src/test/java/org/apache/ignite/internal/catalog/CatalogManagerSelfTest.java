@@ -247,6 +247,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(table.id(), pkIndex.tableId());
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
+        assertTrue(pkIndex.available());
 
         CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
         assertNotNull(desc);
@@ -1585,11 +1586,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void addColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("val2", INT32))), willCompleteSuccessfully());
+        addSomeColumn();
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
         assertThat(table.tableVersion(), is(2));
+    }
+
+    private void addSomeColumn() {
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("val2", INT32))), willCompleteSuccessfully());
     }
 
     @Test
@@ -1931,6 +1936,60 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 manager.execute(MakeIndexAvailableCommand.builder().indexId(indexId(INDEX_NAME)).build()),
                 willBe(nullValue())
         );
+
+        assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testPkAvailableIndexEvent() {
+        CompletableFuture<Integer> fireEventFuture = new CompletableFuture<>();
+
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
+            if (exception != null) {
+                fireEventFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    fireEventFuture.complete(((MakeIndexAvailableEventParameters) parameters).indexId());
+                } catch (Throwable t) {
+                    fireEventFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        String tableName = TABLE_NAME + "_new";
+
+        createSomeTable(tableName);
+
+        assertThat(fireEventFuture, willBe(notNullValue()));
+
+        assertEquals(indexId(pkIndexName(tableName)), fireEventFuture.join());
+    }
+
+    @Test
+    void testPkAvailableOnCreateIndexEvent() {
+        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+
+        manager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+            if (exception != null) {
+                fireEventFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    CreateIndexEventParameters createIndexEventParameters = (CreateIndexEventParameters) parameters;
+
+                    assertTrue(createIndexEventParameters.indexDescriptor().available());
+
+                    fireEventFuture.complete(null);
+                } catch (Throwable t) {
+                    fireEventFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        createSomeTable(TABLE_NAME);
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
     }

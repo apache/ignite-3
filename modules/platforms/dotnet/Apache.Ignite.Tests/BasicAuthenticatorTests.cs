@@ -32,12 +32,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
     private bool _authnEnabled;
 
     [TearDown]
-    public async Task DisableAuthenticationAfterTest()
-    {
-        await EnableAuthn(false);
-
-        Assert.DoesNotThrowAsync(async () => await Client.Tables.GetTablesAsync());
-    }
+    public async Task DisableAuthenticationAfterTest() => await EnableAuthn(false);
 
     [Test]
     public async Task TestAuthnOnClientNoAuthnOnServer()
@@ -116,6 +111,21 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         {
             // Wait for the server to apply the configuration change and drop the client connection.
             client.WaitForConnections(0, 3000);
+        }
+        else
+        {
+            await TestUtils.WaitForConditionAsync(async () =>
+            {
+                try
+                {
+                    await Client.Tables.GetTablesAsync();
+                    return true;
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+            });
         }
 
         _authnEnabled = enable;

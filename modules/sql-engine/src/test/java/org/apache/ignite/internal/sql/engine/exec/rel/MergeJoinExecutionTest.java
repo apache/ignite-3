@@ -45,8 +45,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -485,13 +483,11 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
         ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
         ExecutionContext<Object[]> ectx =
-                new ExecutionContext<>(BaseQueryContext.builder().logger(log).build(), null, null, null,
+                new ExecutionContext<>(null, null, null,
                         null, null, ArrayRowHandler.INSTANCE, null, null);
 
-        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, typeFactory, SqlConformanceEnum.DEFAULT);
+        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, SqlConformanceEnum.DEFAULT);
 
         RelFieldCollation colLeft = new RelFieldCollation(2, Direction.ASCENDING, NullDirection.FIRST);
         RelFieldCollation colRight = new RelFieldCollation(0, Direction.ASCENDING, NullDirection.FIRST);

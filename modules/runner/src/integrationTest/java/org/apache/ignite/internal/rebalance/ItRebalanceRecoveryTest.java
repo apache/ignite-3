@@ -68,7 +68,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     private static boolean containsPartition(Ignite node) {
         var tableManager = ((TableManager) node.tables());
 
-        MvPartitionStorage storage = tableManager.tableImpl("TEST")
+        MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()
                 .storage()
                 .getMvPartition(0);

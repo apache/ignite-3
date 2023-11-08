@@ -1,0 +1,53 @@
+N1
+SELECT * FROM t1_n1
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  tree:
+    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N1]
+  tables: [T1_N1]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+---
+
+N2
+SELECT * FROM t1_n1
+---
+Fragment#0 root
+  executionNodes: [N2]
+  remoteFragments: [1]
+  tree:
+    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N2]
+  executionNodes: [N1]
+  tables: [T1_N1]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+---
+
+N1
+SELECT * FROM t1_n1 WHERE ID = 0
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  tree:
+    IgniteReceiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N1]
+  tables: [T1_N1]
+  tree:
+    IgniteSender(targetFragment=0, exchange=1, distribution=single)
+      IgniteTableScan(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
+---

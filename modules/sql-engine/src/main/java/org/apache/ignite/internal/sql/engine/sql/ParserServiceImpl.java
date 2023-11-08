@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -42,7 +43,6 @@ public class ParserServiceImpl implements ParserService {
     }
 
     /** {@inheritDoc} */
-    @WithSpan
     @Override
     public ParsedResult parse(String query) {
         ParsedResult cachedResult = queryToParsedResultCache.get(query);
@@ -72,6 +72,31 @@ public class ParserServiceImpl implements ParserService {
         }
 
         return result;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ParsedResult> parseScript(String query) {
+        ScriptParseResult parsedStatement = IgniteSqlParser.parse(query, ScriptParseResult.MODE);
+        List<ParsedResult> results = new ArrayList<>(parsedStatement.results().size());
+
+        for (StatementParseResult result : parsedStatement.results()) {
+            SqlNode parsedTree = result.statement();
+            SqlQueryType queryType = Commons.getQueryType(parsedTree);
+            String normalizedQuery = parsedTree.toString();
+
+            assert queryType != null : normalizedQuery;
+
+            results.add(new ParsedResultImpl(
+                    queryType,
+                    normalizedQuery,
+                    normalizedQuery,
+                    result.dynamicParamsCount(),
+                    () -> parsedTree
+            ));
+        }
+
+        return results;
     }
 
     static class ParsedResultImpl implements ParsedResult {

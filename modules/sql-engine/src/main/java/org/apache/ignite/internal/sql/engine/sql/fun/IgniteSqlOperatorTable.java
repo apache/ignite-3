@@ -192,6 +192,12 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             OperandTypes.NUMERIC_OPTIONAL_INTEGER,
             SqlFunctionCategory.NUMERIC);
 
+    /** The {@code OCTET_LENGTH(string|binary)} function. */
+    public static final SqlFunction OCTET_LENGTH = SqlBasicFunction.create("OCTET_LENGTH",
+            ReturnTypes.INTEGER_NULLABLE,
+            OperandTypes.CHARACTER.or(OperandTypes.BINARY),
+            SqlFunctionCategory.NUMERIC);
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -412,7 +418,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.LEAST);
         register(SqlLibraryOperators.GREATEST);
         register(SqlLibraryOperators.COMPRESS);
-        register(SqlStdOperatorTable.OCTET_LENGTH);
+        register(OCTET_LENGTH);
         register(SqlStdOperatorTable.DEFAULT);
         register(SqlStdOperatorTable.REINTERPRET);
 

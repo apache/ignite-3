@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static java.util.Collections.emptyList;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
@@ -28,15 +27,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
  */
 public class TableDefinitionDiff {
     private static final TableDefinitionDiff EMPTY = new TableDefinitionDiff(
-            emptyList(), emptyList(), emptyList(), emptyList(), emptyList()
+            emptyList(), emptyList(), emptyList()
     );
 
     private final List<CatalogTableColumnDescriptor> addedColumns;
     private final List<CatalogTableColumnDescriptor> removedColumns;
     private final List<ColumnDefinitionDiff> changedColumns;
-
-    private final List<CatalogIndexDescriptor> addedIndexes;
-    private final List<CatalogIndexDescriptor> removedIndexes;
 
     // TODO: IGNITE-19229 - other change types
 
@@ -55,15 +51,11 @@ public class TableDefinitionDiff {
     public TableDefinitionDiff(
             List<CatalogTableColumnDescriptor> addedColumns,
             List<CatalogTableColumnDescriptor> removedColumns,
-            List<ColumnDefinitionDiff> changedColumns,
-            List<CatalogIndexDescriptor> addedIndexes,
-            List<CatalogIndexDescriptor> removedIndexes
+            List<ColumnDefinitionDiff> changedColumns
     ) {
         this.addedColumns = List.copyOf(addedColumns);
         this.removedColumns = List.copyOf(removedColumns);
         this.changedColumns = List.copyOf(changedColumns);
-        this.addedIndexes = List.copyOf(addedIndexes);
-        this.removedIndexes = List.copyOf(removedIndexes);
     }
 
     /**
@@ -88,20 +80,6 @@ public class TableDefinitionDiff {
     }
 
     /**
-     * Returns indexes that were added.
-     */
-    public List<CatalogIndexDescriptor> addedIndexes() {
-        return addedIndexes;
-    }
-
-    /**
-     * Returns indexes that were removed.
-     */
-    public List<CatalogIndexDescriptor> removedIndexes() {
-        return removedIndexes;
-    }
-
-    /**
      * Returns whether this diff is empty (so no difference at all).
      *
      * @return Whether this diff is empty (so no difference at all).
@@ -109,8 +87,6 @@ public class TableDefinitionDiff {
     public boolean isEmpty() {
         return addedColumns.isEmpty()
                 && removedColumns.isEmpty()
-                && changedColumns.isEmpty()
-                && addedIndexes.isEmpty()
-                && removedIndexes.isEmpty();
+                && changedColumns.isEmpty();
     }
 }

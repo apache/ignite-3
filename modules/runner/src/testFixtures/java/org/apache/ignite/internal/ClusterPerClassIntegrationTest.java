@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.table.Table;
@@ -118,12 +120,54 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createTable(String name, int replicas, int partitions) {
-        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
-                "ZONE_" + name.toUpperCase(), replicas, partitions));
-        sql(IgniteStringFormatter.format("CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) "
-                + "WITH PRIMARY_ZONE='{}'", name, "ZONE_" + name.toUpperCase()));
+        return createZoneAndTable(zoneName(name), name, replicas, partitions);
+    }
 
-        return CLUSTER.node(0).tables().table(name);
+    /**
+     * Creates zone and table.
+     *
+     * @param zoneName Zone name.
+     * @param tableName Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     */
+    protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
+        sql(format(
+                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
+                zoneName, replicas, partitions
+        ));
+
+        sql(format(
+                "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) WITH PRIMARY_ZONE='{}'",
+                tableName, zoneName
+        ));
+
+        return CLUSTER.node(0).tables().table(tableName);
+    }
+
+    /**
+     * Inserts data into the table created by {@link #createZoneAndTable(String, String, int, int)}.
+     *
+     * @param tableName Table name.
+     * @param people People to insert into the table.
+     */
+    protected static void insertPersons(String tableName, Person... people) {
+        insertData(
+                tableName,
+                List.of("ID", "NAME", "SALARY"),
+                Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
+        );
+    }
+
+    /**
+     * Creates an index for the table created by {@link #createZoneAndTable(String, String, int, int)}..
+     *
+     * @param tableName Table name.
+     * @param indexName Index name.
+     * @param columnName Column name.
+     */
+    protected static void createIndex(String tableName, String indexName, String columnName) {
+        sql(format("CREATE INDEX {} ON {} ({})", indexName, tableName, columnName));
     }
 
     protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
@@ -163,5 +207,24 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 .filter(ignite -> consistentId.equals(ignite.name()))
                 .findFirst()
                 .orElse(null);
+    }
+
+    protected static String zoneName(String tableName) {
+        return "ZONE_" + tableName.toUpperCase();
+    }
+
+    /** Class for inserting into a table using {@link #insertPersons(String, Person...)}. */
+    protected static class Person {
+        final int id;
+
+        final String name;
+
+        final double salary;
+
+        public Person(int id, String name, double salary) {
+            this.id = id;
+            this.name = name;
+            this.salary = salary;
+        }
     }
 }

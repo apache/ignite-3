@@ -94,6 +94,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
@@ -109,11 +110,11 @@ import org.apache.ignite.internal.table.distributed.replicator.TransactionStateR
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.table.impl.DummySchemas;
+import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -410,7 +411,7 @@ public class ItTxTestCluster {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    public TableImpl startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
+    public TableViewInternal startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
         CatalogService catalogService = mock(CatalogService.class);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
@@ -545,7 +546,7 @@ public class ItTxTestCluster {
                                         txStateStorage,
                                         transactionStateResolver,
                                         storageUpdateHandler,
-                                        new DummySchemas(schemaManager),
+                                        new DummyValidationSchemasSource(schemaManager),
                                         consistentIdToNode.apply(assignment),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
@@ -641,7 +642,7 @@ public class ItTxTestCluster {
             TxStateStorage txStateStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
-            Schemas schemas,
+            ValidationSchemasSource validationSchemasSource,
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
@@ -663,7 +664,7 @@ public class ItTxTestCluster {
                 txStateStorage,
                 transactionStateResolver,
                 storageUpdateHandler,
-                schemas,
+                validationSchemasSource,
                 localNode,
                 schemaSyncService,
                 catalogService,
