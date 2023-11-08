@@ -222,11 +222,16 @@ public class ConverterUtils {
         Primitive toPrimitive = Primitive.of(toType);
         Primitive fromPrimitive = Primitive.of(fromType);
 
-        System.err.println("!!!!: " + fromPrimitive + " " + toPrimitive);
+        // check overflow for 'integer' subtypes
+        if (fromPrimitive == Primitive.LONG && toPrimitive == Primitive.INT)
+            return IgniteExpressions.convertToIntExact(operand);
 
-        if (fromPrimitive != null) {
-            //
-        }
+        if ((fromPrimitive == Primitive.LONG || fromPrimitive == Primitive.INT) && toPrimitive == Primitive.SHORT)
+            return IgniteExpressions.convertToShortExact(operand);
+
+        if ((fromPrimitive == Primitive.LONG || fromPrimitive == Primitive.INT || fromPrimitive == Primitive.SHORT)
+                && toPrimitive == Primitive.BYTE)
+            return IgniteExpressions.convertToByteExact(operand);
 
         // SELECT '0.1'::DECIMAL::VARCHAR case, looks like a stub
         if (toType == String.class) {

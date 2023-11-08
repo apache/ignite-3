@@ -23,13 +23,9 @@ SELECT 128::DECIMAL(18,0)::TINYINT
 statement error
 SELECT (SELECT 128::DECIMAL(18,0)::TINYINT)
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-20784
 statement error
 SELECT (SELECT (127 + 1)::DECIMAL(18,0)::TINYINT)
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-20784
 query I
 SELECT 2147483647 + 1
 ----
