@@ -22,14 +22,11 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
@@ -38,7 +35,6 @@ import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -96,22 +92,6 @@ public class ConfigurationRegistry implements IgniteComponent {
         });
     }
 
-    /**
-     * Registers default validator implementation to the validators map.
-     *
-     * @param validators     Validators map.
-     * @param annotatopnType Annotation type instance for the validator.
-     * @param validator      Validator instance.
-     * @param <A>            Annotation type.
-     */
-    private static <A extends Annotation> void addDefaultValidator(
-            Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
-            Class<A> annotatopnType,
-            Validator<A, ?> validator
-    ) {
-        validators.computeIfAbsent(annotatopnType, a -> new HashSet<>(1)).add(validator);
-    }
-
     /** {@inheritDoc} */
     @Override
     public void start() {
@@ -132,12 +112,23 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
+     * Initializes the configuration with the given source. This method should be used only for the initial setup of the configuration. The
+     * configuration is initialized with the provided source only if the storage is empty, and it is saved along with the defaults. This
+     * method must be called before {@link #start()}.
+     *
+     * @param configurationSource the configuration source to initialize with.
+     */
+    public void initializeConfigurationWith(ConfigurationSource configurationSource) {
+        changer.initializeConfigurationWith(configurationSource);
+    }
+
+    /**
      * Gets the public configuration tree.
      *
      * @param rootKey Root key.
-     * @param <V>     View type.
-     * @param <C>     Change type.
-     * @param <T>     Configuration tree type.
+     * @param <V> View type.
+     * @param <C> Change type.
+     * @param <T> Configuration tree type.
      * @return Public configuration tree.
      */
     public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {

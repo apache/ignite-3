@@ -94,6 +94,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
 
+    private volatile ConfigurationSource initialConfiguration;
+
     /** Future that resolves after the defaults are persisted to the storage. */
     private final CompletableFuture<Void> defaultsPersisted = new CompletableFuture<>();
 
@@ -243,9 +245,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getMessage(), e);
         }
 
+        Map<String, ? extends Serializable> storageValues = data.values();
+        long version = data.changeId();
+
         SuperRoot superRoot = new SuperRoot(rootCreator());
 
-        Map<String, ?> dataValuesPrefixMap = toPrefixMap(data.values());
+        Map<String, ?> dataValuesPrefixMap = toPrefixMap(storageValues);
 
         for (RootKey<?, ?> rootKey : rootKeys.values()) {
             Map<String, ?> rootPrefixMap = (Map<String, ?>) dataValuesPrefixMap.get(rootKey.key());
@@ -262,6 +267,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         SuperRoot superRootNoDefaults = superRoot.copy();
 
         addDefaults(superRoot);
+
+        // Fill the configuration with the initial configuration.
+        if (version == 0 && initialConfiguration != null) {
+            initialConfiguration.descend(superRoot);
+        }
 
         // Validate the restored configuration.
         validateConfiguration(superRoot);
@@ -285,7 +295,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * default values that are not persisted to the storage and writes them if there are any.
      */
     private void persistDefaults() {
-        changeInternally(ConfigurationUtil.EMPTY_CFG_SRC, true)
+        // If the storage version is 0, it indicates that the storage is empty.
+        // In this case, write the defaults along with the initial configuration.
+        ConfigurationSource cfgSrc =
+                initialConfiguration != null && storageRoots.version == 0 ? initialConfiguration : ConfigurationUtil.EMPTY_CFG_SRC;
+
+        changeInternally(cfgSrc, true)
                 .whenComplete((v, e) -> {
                     if (e == null) {
                         defaultsPersisted.complete(null);
@@ -293,6 +308,17 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                         defaultsPersisted.completeExceptionally(e);
                     }
                 });
+    }
+
+    /**
+     * Initializes the configuration with the given source. This method should be used only for the initial setup of the configuration. The
+     * configuration is initialized with the provided source only if the storage is empty, and it is saved along with the defaults. This
+     * method must be called before {@link #start()}.
+     *
+     * @param cfg the configuration source to initialize with.
+     */
+    public void initializeConfigurationWith(ConfigurationSource cfg) {
+        initialConfiguration = cfg;
     }
 
     /** {@inheritDoc} */
