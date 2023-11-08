@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.Command;
@@ -85,7 +85,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         if (request.command() instanceof WriteCommand) {
             if (fsm.getListener() instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    callOnBeforeApply(request, fsm);
+                    try {
+                        callOnBeforeApply(request, fsm);
+                    } catch (SafeTimeReorderException e) {
+                        rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.EREORDER.getNumber()).build());
+                    }
+
                     applyWrite(node, request, rpcCtx);
                 }
             } else {

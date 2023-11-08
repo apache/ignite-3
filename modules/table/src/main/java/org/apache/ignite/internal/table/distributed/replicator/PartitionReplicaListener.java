@@ -85,6 +85,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -850,31 +851,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (!isPrimary) {
             return completedFuture(null);
         }
-        return applySafeTimeSyncCommandWithRetry(new CompletableFuture<>());
-    }
-
-    private CompletableFuture<Void> applySafeTimeSyncCommandWithRetry(CompletableFuture<Void> resultFuture) {
-        applySafeTimeSyncCommand()
-                .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        if (ex.getCause() instanceof SafeTimeReorderException) {
-                            System.out.println(">>> Retry 1");
-                            applySafeTimeSyncCommandWithRetry(resultFuture);
-                        } else {
-                            resultFuture.completeExceptionally(ex);
-                        }
-                    } else {
-                        resultFuture.complete(res);
-                    }
-                });
-
-        return resultFuture;
-    }
-
-    private CompletableFuture<Void> applySafeTimeSyncCommand() {
-        synchronized (commandProcessingLinearizationMutex) {
-            return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build());
-        }
+        return applyCmdWithRetryOnSafeTimeReorderException(
+                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build()).thenApply(res -> null);
     }
 
     /**
@@ -1487,7 +1465,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : hybridClock.now();
 
         return reliableCatalogVersionFor(tsForCatalogVersion)
-                .thenCompose(catalogVersion -> applyFinishCommandWithRetry(
+                .thenCompose(catalogVersion -> applyFinishCommand(
                                 txId,
                                 commit,
                                 commitTimestamp,
@@ -1495,8 +1473,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 catalogVersion,
                                 aggregatedGroupIds.stream()
                                         .map(PartitionReplicaListener::tablePartitionId)
-                                        .collect(toList()),
-                                new CompletableFuture<>()
+                                        .collect(toList())
                         )
                 )
                 .whenComplete((o, throwable) -> {
@@ -1504,47 +1481,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     markFinished(txId, txState, commitTimestamp);
                 });
-    }
-
-    private CompletableFuture<Object> applyFinishCommandWithRetry(
-            UUID transactionID,
-            boolean commit,
-            HybridTimestamp commitTimestamp,
-            String txCoordinatorId,
-            int catalogVersion,
-            List<TablePartitionIdMessage> tablePartitionIds,
-            CompletableFuture<Object> resultFuture
-    ) {
-        applyFinishCommand(
-                transactionID,
-                commit,
-                commitTimestamp,
-                txCoordinatorId,
-                catalogVersion,
-                tablePartitionIds
-        )
-                .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        if (ex.getCause() instanceof SafeTimeReorderException) {
-                            System.out.println(">>> Retry 5");
-                            applyFinishCommandWithRetry(
-                                    transactionID,
-                                    commit,
-                                    commitTimestamp,
-                                    txCoordinatorId,
-                                    catalogVersion,
-                                    tablePartitionIds,
-                                    resultFuture
-                            );
-                        } else {
-                            resultFuture.completeExceptionally(ex);
-                        }
-                    } else {
-                        resultFuture.complete(res);
-                    }
-                });
-
-        return resultFuture;
     }
 
     private CompletableFuture<Object> applyFinishCommand(
@@ -1569,7 +1505,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());
             }
 
-            return raftClient.run(finishTxCmdBldr.build());
+            return applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build());
         }
     }
 
@@ -1637,58 +1573,18 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return reliableCatalogVersionFor(commandTimestamp)
                     .thenCompose(catalogVersion -> {
-                        applyCleanupCommandWithRetry(
+                        applyCleanupCommand(
                                 request.txId(),
                                 request.commit(),
                                 request.commitTimestamp(),
                                 request.commitTimestampLong(),
-                                catalogVersion,
-                                new CompletableFuture<>()
+                                catalogVersion
                         );
 
                         return allOffFuturesExceptionIgnored(txReadFutures, request)
                                 .thenRun(() -> releaseTxLocks(request.txId()));
                     });
         });
-    }
-
-    private CompletableFuture<Void> applyCleanupCommandWithRetry(
-            UUID transactionID,
-            boolean commit,
-            HybridTimestamp commitTimestamp,
-            long commitTimestampLong,
-            int catalogVersion,
-            CompletableFuture<Void> resultFuture
-    ) {
-        applyCleanupCommand(
-                transactionID,
-                commit,
-                commitTimestamp,
-                commitTimestampLong,
-                catalogVersion
-        )
-                .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        if (ex.getCause() instanceof SafeTimeReorderException) {
-                            System.out.println(">>> Retry 0");
-                            applyCleanupCommandWithRetry(
-                                    transactionID,
-                                    commit,
-                                    commitTimestamp,
-                                    commitTimestampLong,
-                                    catalogVersion,
-                                    resultFuture);
-                        } else {
-                            LOG.warn("Failed to complete transaction cleanup command [txId=" + transactionID + ']', ex);
-
-                            resultFuture.complete(null);
-                        }
-                    } else {
-                        resultFuture.complete(res);
-                    }
-                });
-
-        return resultFuture;
     }
 
     private CompletableFuture<Void> applyCleanupCommand(
@@ -1709,7 +1605,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         storageUpdateHandler.handleTransactionCleanup(transactionID, commit, commitTimestamp);
 
-        return raftClient.run(txCleanupCmd);
+        return applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd).thenApply(res -> null);
     }
 
     private String getTxCoordinatorId(UUID txId) {
@@ -2381,13 +2277,36 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future.
      */
     private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd) {
-        return raftClient.run(cmd).exceptionally(throwable -> {
+        return applyCmdWithRetryOnSafeTimeReorderException(cmd).exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
                 throw new ReplicationTimeoutException(replicationGroupId);
             } else if (throwable instanceof RuntimeException) {
                 throw (RuntimeException) throwable;
             } else {
                 throw new ReplicationException(replicationGroupId, throwable);
+            }
+        });
+    }
+
+    private CompletableFuture<Object> applyCmdWithRetryOnSafeTimeReorderException(Command cmd) {
+        return raftClient.run(cmd).exceptionally(ex -> {
+            if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
+                System.out.println("Gogogo");
+                assert cmd instanceof SafeTimePropagatingCommand;
+
+                SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) cmd;
+
+                HybridTimestamp safeTimeForRetry = hybridClock.now();
+
+                synchronized (safeTime) {
+                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimeForRetry);
+                }
+
+                safeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
+
+                return applyCmdWithExceptionHandling(cmd);
+            } else {
+                return failedFuture(ex);
             }
         });
     }
@@ -2405,53 +2324,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param catalogVersion Validated catalog version associated with given operation.
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateCommandWithRetry(
-            TablePartitionId tablePartId,
-            UUID rowUuid,
-            @Nullable BinaryRow row,
-            @Nullable HybridTimestamp lastCommitTimestamp,
-            UUID txId,
-            boolean full,
-            String txCoordinatorId,
-            int catalogVersion,
-            CompletableFuture<CompletableFuture<?>> resultFuture
-    ) {
-        applyUpdateCommand(
-                tablePartId,
-                rowUuid,
-                row,
-                lastCommitTimestamp,
-                txId,
-                full,
-                txCoordinatorId,
-                catalogVersion
-        )
-                .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        if (ex.getCause() instanceof SafeTimeReorderException) {
-                            System.out.println(">>> Retry 2");
-                            applyUpdateCommandWithRetry(
-                                    tablePartId,
-                                    rowUuid,
-                                    row,
-                                    lastCommitTimestamp,
-                                    txId,
-                                    full,
-                                    txCoordinatorId,
-                                    catalogVersion,
-                                    resultFuture
-                            );
-                        } else {
-                            resultFuture.completeExceptionally(ex);
-                        }
-                    } else {
-                        resultFuture.complete(res);
-                    }
-                });
-
-        return resultFuture;
-    }
-
     private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
@@ -2539,16 +2411,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param catalogVersion Validated catalog version associated with given operation.
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateCommandWithRetry(
+    private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(
             ReadWriteSingleRowReplicaRequest request,
             UUID rowUuid,
             @Nullable BinaryRow row,
             @Nullable HybridTimestamp lastCommitTimestamp,
             String txCoordinatorId,
-            int catalogVersion,
-            CompletableFuture<CompletableFuture<?>> resultFuture
+            int catalogVersion
     ) {
-        return applyUpdateCommandWithRetry(
+        return applyUpdateCommand(
                 request.commitPartitionId().asTablePartitionId(),
                 rowUuid,
                 row,
@@ -2556,8 +2427,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 request.transactionId(),
                 request.full(),
                 txCoordinatorId,
-                catalogVersion,
-                resultFuture
+                catalogVersion
         );
     }
 
@@ -2796,14 +2666,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                         .thenCompose(catalogVersion -> awaitCleanup(validatedRowId, catalogVersion))
                                         .thenCompose(
-                                                catalogVersion -> applyUpdateCommandWithRetry(
+                                                catalogVersion -> applyUpdateCommand(
                                                         request,
                                                         validatedRowId.uuid(),
                                                         null,
                                                         lastCommitTime,
                                                         txCoordinatorId,
-                                                        catalogVersion,
-                                                        new CompletableFuture<>()
+                                                        catalogVersion
                                                 )
                                         )
                                         .thenApply(res -> new ReplicaResult(true, res));
@@ -2821,14 +2690,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return takeLocksForInsert(searchRow, rowId0, txId)
                             .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(
-                                            catalogVersion -> applyUpdateCommandWithRetry(
+                                            catalogVersion -> applyUpdateCommand(
                                                     request,
                                                     rowId0.uuid(),
                                                     searchRow,
                                                     lastCommitTime,
                                                     txCoordinatorId,
-                                                    catalogVersion,
-                                                    new CompletableFuture<>()
+                                                    catalogVersion
                                             )
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
@@ -2854,14 +2722,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
-                                            catalogVersion -> applyUpdateCommandWithRetry(
+                                            catalogVersion -> applyUpdateCommand(
                                                     request,
                                                     rowId0.uuid(),
                                                     searchRow,
                                                     lastCommitTime,
                                                     txCoordinatorId,
-                                                    catalogVersion,
-                                                    new CompletableFuture<>()
+                                                    catalogVersion
                                             )
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
@@ -2887,14 +2754,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
-                                            catalogVersion -> applyUpdateCommandWithRetry(
+                                            catalogVersion -> applyUpdateCommand(
                                                     request,
                                                     rowId0.uuid(),
                                                     searchRow,
                                                     lastCommitTime,
                                                     txCoordinatorId,
-                                                    catalogVersion,
-                                                    new CompletableFuture<>()
+                                                    catalogVersion
                                             )
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
@@ -2916,14 +2782,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
-                                            catalogVersion -> applyUpdateCommandWithRetry(
+                                            catalogVersion -> applyUpdateCommand(
                                                     request,
                                                     rowId.uuid(),
                                                     searchRow,
                                                     lastCommitTime,
                                                     txCoordinatorId,
-                                                    catalogVersion,
-                                                    new CompletableFuture<>()
+                                                    catalogVersion
                                             )
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
@@ -2945,14 +2810,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
-                                            catalogVersion -> applyUpdateCommandWithRetry(
+                                            catalogVersion -> applyUpdateCommand(
                                                     request,
                                                     rowId.uuid(),
                                                     searchRow,
                                                     lastCommitTime,
                                                     txCoordinatorId,
-                                                    catalogVersion,
-                                                    new CompletableFuture<>()
+                                                    catalogVersion
                                             )
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
@@ -3008,7 +2872,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(rowLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId()))
                             .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
-                                    catalogVersion -> applyUpdateCommandWithRetry(
+                                    catalogVersion -> applyUpdateCommand(
                                             request.commitPartitionId().asTablePartitionId(),
                                             rowId.uuid(),
                                             null,
@@ -3016,8 +2880,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             request.transactionId(),
                                             request.full(),
                                             txCoordinatorId,
-                                            catalogVersion,
-                                            new CompletableFuture<>()
+                                            catalogVersion
                                     )
                             )
                             .thenApply(res -> new ReplicaResult(true, res));
@@ -3033,7 +2896,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             .thenCompose(ignored -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId()))
                             .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                             .thenCompose(
-                                    catalogVersion -> applyUpdateCommandWithRetry(
+                                    catalogVersion -> applyUpdateCommand(
                                             request.commitPartitionId().asTablePartitionId(),
                                             rowId.uuid(),
                                             null,
@@ -3041,8 +2904,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             request.transactionId(),
                                             request.full(),
                                             txCoordinatorId,
-                                            catalogVersion,
-                                            new CompletableFuture<>()
+                                            catalogVersion
                                     )
                             )
                             .thenApply(res -> new ReplicaResult(row, res));
@@ -3278,7 +3140,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             return validateWriteAgainstSchemaAfterTakingLocks(txId)
                                     .thenCompose(catalogVersion -> awaitCleanup(rowIdLock.get1(), catalogVersion))
                                     .thenCompose(
-                                            catalogVersion -> applyUpdateCommandWithRetry(
+                                            catalogVersion -> applyUpdateCommand(
                                                     commitPartitionId.asTablePartitionId(),
                                                     rowIdLock.get1().uuid(),
                                                     newRow,
@@ -3286,8 +3148,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                     txId,
                                                     request.full(),
                                                     txCoordinatorId,
-                                                    catalogVersion,
-                                                    new CompletableFuture<>()
+                                                    catalogVersion
                                             )
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock))

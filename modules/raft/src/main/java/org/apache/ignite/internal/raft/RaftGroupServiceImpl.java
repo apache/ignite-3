@@ -21,6 +21,7 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.ThreadLocalRandom.current;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_MISS;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
@@ -54,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -616,6 +618,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     scheduleRetry(() -> sendWithRetry(leader, requestFactory, stopTime, fut));
                 }
 
+                break;
+            case EREORDER:
+                // TODO: Use proper message instead.
+                fut.completeExceptionally(new SafeTimeReorderException(REPLICATION_SAFE_TIME_MISS, "errorMsg"));
                 break;
 
             default:

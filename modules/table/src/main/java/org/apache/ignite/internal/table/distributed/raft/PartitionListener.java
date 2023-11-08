@@ -47,6 +47,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -79,7 +80,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-public class PartitionListener implements RaftGroupListener {
+public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -151,18 +152,6 @@ public class PartitionListener implements RaftGroupListener {
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
-            if (command instanceof SafeTimePropagatingCommand) {
-                SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
-                if (cmd.safeTimeLong() > maxObservableSafeTime) {
-                    maxObservableSafeTime = cmd.safeTimeLong();
-                } else {
-                    System.out.println("!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + clo.command().getClass());
-                    if (!(command instanceof TxCleanupCommand)) {
-                        clo.result(new SafeTimeReorderException(REPLICATION_SAFE_TIME_MISS, "errorMsg"));
-                        return;
-                    }
-                }
-            }
 
             long commandIndex = clo.index();
             long commandTerm = clo.term();
@@ -464,6 +453,25 @@ public class PartitionListener implements RaftGroupListener {
     @Override
     public void onShutdown() {
         storage.close();
+    }
+
+    @Override
+    public void onBeforeApply(Command command) {
+        // TODO: comment about thread safety
+        if (command instanceof SafeTimePropagatingCommand) {
+            SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+
+            if (cmd.safeTimeLong() > maxObservableSafeTime) {
+//                System.out.println("Updating maxObservableSafeTime cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + command.getClass());
+                maxObservableSafeTime = cmd.safeTimeLong();
+            } else {
+                System.out.println("!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + command.getClass());
+                if (!(command instanceof TxCleanupCommand)) {
+                    // TODO: Use proper message instead
+                    throw new SafeTimeReorderException(REPLICATION_SAFE_TIME_MISS, "errorMsg");
+                }
+            }
+        }
     }
 
     /**
