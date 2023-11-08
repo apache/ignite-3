@@ -110,6 +110,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
+        // TODO IGNITE-20807
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -122,6 +123,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, V defaultValue) {
+        // TODO IGNITE-20807
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -241,6 +243,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, V val) {
+        // TODO IGNITE-20807
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -349,6 +352,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
+        // TODO IGNITE-20807
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -423,6 +427,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
+        // TODO IGNITE-20807
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
