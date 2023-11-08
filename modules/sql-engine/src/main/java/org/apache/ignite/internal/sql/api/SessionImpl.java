@@ -318,6 +318,8 @@ public class SessionImpl implements AbstractSession {
                         return qryProc.querySingleAsync(properties, transactions, (InternalTransaction) transaction, query, args)
                                 .thenCompose(cursor -> {
                                     if (!busyLock.enterBusy()) {
+                                        cursor.closeAsync();
+
                                         return CompletableFuture.failedFuture(sessionIsClosedException());
                                     }
 

@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
-import org.apache.ignite.internal.sql.engine.util.ChainedIterator;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.FilteringIterator;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -146,7 +146,7 @@ public final class SqlPropertiesHelper {
 
         @Override
         public Iterator<Entry<Property<?>, Object>> iterator() {
-            return new ChainedIterator<>(
+            return CollectionUtils.concat(
                     primary.iterator(),
                     new FilteringIterator<>(secondary.iterator(), entry -> !primary.hasProperty(entry.getKey()))
             );
