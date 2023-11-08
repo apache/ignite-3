@@ -189,7 +189,7 @@ public class RestComponent implements IgniteComponent {
         Map<String, Object> result = new HashMap<>();
         result.put("micronaut.server.port", port);
         result.put("micronaut.server.cors.enabled", "true");
-        result.put("micronaut.server.cors.configurations.web.allowedHeaders", "Authorization");
+        result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
         result.put("ignite.endpoints.filter-non-initialized", "true");
 
         if (sslEnabled) {
@@ -225,8 +225,8 @@ public class RestComponent implements IgniteComponent {
 
     private Map<String, Object> authProperties() {
         return Map.of("micronaut.security.enabled", true,
-                        "micronaut.security.intercept-url-map[0].pattern", "/**",
-                        "micronaut.security.intercept-url-map[0].access", "isAuthenticated()");
+                        "micronaut.security.intercept-url-map[1].pattern", "/**",
+                        "micronaut.security.intercept-url-map[1].access", "isAuthenticated()");
     }
 
     private static String toMicronautClientAuth(ClientAuth clientAuth) {
