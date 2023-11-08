@@ -17,6 +17,8 @@
 
 package org.apache.ignite.sql;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -36,7 +38,9 @@ public interface CriteriaQueryCursor<T> extends Iterator<T>, Iterable<T>, AutoCl
      *
      * @return List containing all query results.
      */
-    List<T> getAll();
+    default List<T> getAll() {
+        return stream().collect(toList());
+    }
 
     /** {@inheritDoc} */
     @Override

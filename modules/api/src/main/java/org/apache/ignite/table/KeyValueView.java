@@ -498,15 +498,19 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Criteria query over cache entries.
      *
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param criteria If {@code null} then all entries will be returned.
      */
-    CriteriaQueryCursor<Entry<K, V>> criteriaQuery(@Nullable Criteria criteria);
+    default CriteriaQueryCursor<Entry<K, V>> criteriaQuery(@Nullable Transaction tx, @Nullable Criteria criteria) {
+        return criteriaQuery(tx, criteria, CriteriaQueryOptions.DEFAULT);
+    }
 
     /**
      * Criteria query over cache entries.
      *
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param criteria If {@code null} then all entries will be returned.
      * @param opts Criteria query options.
      */
-    CriteriaQueryCursor<Entry<K, V>> criteriaQuery(@Nullable Criteria criteria, CriteriaQueryOptions opts);
+    CriteriaQueryCursor<Entry<K, V>> criteriaQuery(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 }

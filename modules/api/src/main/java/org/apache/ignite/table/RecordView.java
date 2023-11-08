@@ -320,15 +320,19 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
     /**
      * Scan query over table records.
      *
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param criteria If {@code null} then all entries will be returned.
      */
-    CriteriaQueryCursor<R> criteriaQuery(@Nullable Criteria criteria);
+    default CriteriaQueryCursor<R> criteriaQuery(@Nullable Transaction tx, @Nullable Criteria criteria) {
+        return criteriaQuery(tx, criteria, CriteriaQueryOptions.DEFAULT);
+    }
 
     /**
      * Scan query over table records.
      *
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param criteria If {@code null} then all entries will be returned.
      * @param opts Scan query options.
      */
-    CriteriaQueryCursor<R> criteriaQuery(@Nullable Criteria criteria, CriteriaQueryOptions opts);
+    CriteriaQueryCursor<R> criteriaQuery(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 }

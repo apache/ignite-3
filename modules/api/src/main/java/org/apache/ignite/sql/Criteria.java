@@ -17,10 +17,12 @@
 
 package org.apache.ignite.sql;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Represents a predicate. Implementations of this interface are basic building blocks for performing criteria queries.
  */
-public class Criteria {
+public interface Criteria {
     /**
      * Create a predicate for testing the column is equal to a given value.
      *
@@ -28,7 +30,7 @@ public class Criteria {
      * @param value Column value.
      * @return the created <b>equal</b> predicate instance.
      */
-    public static <R> Criteria  equal(String columnName, Comparable<R> value) {
+    public static <R> Criteria equal(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -114,6 +116,17 @@ public class Criteria {
      * @return the created <b>not</b> predicate instance.
      */
     public static Criteria not(Criteria criteria) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Creates a predicate that will add SQL to where clause.
+     *
+     * @param sql Regular SQL where clause.
+     * @param arguments Arguments for the statement.
+     * @return the created <b>sql</b> predicate instance.
+     */
+    public static Criteria sql(String sql, @Nullable Object... arguments) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 }

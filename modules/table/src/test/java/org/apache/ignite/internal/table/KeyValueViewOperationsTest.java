@@ -35,6 +35,8 @@ import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.apache.ignite.sql.Criteria.and;
 import static org.apache.ignite.sql.Criteria.equal;
 import static org.apache.ignite.sql.Criteria.greaterThan;
+import static org.apache.ignite.sql.Criteria.sql;
+import static org.apache.ignite.sql.CriteriaBuilder.columnName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
@@ -730,18 +732,33 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
 
         view.putAll(
                 null,
-                Map.of(
-                        key1, val1,
-                        key2, val2,
-                        key3, val3
-                ));
-
-        var cursor = kvView().criteriaQuery(
-                and(equal("intCol", 42), greaterThan("primitiveIntCol", 9000), equal("booleanCol", true)),
-                CriteriaQueryOptions.builder().pageSize(10).build()
+                Map.of(key1, val1, key2, val2, key3, val3)
         );
 
-       assertThat(cursor.getAll(), containsInAnyOrder(new IgniteBiTuple<>(key1, val1)));
+        // Criteria
+        try (var cursor = kvView().criteriaQuery(
+                null,
+                and(equal("intCol", 42), greaterThan("primitiveIntCol", 9000), equal("booleanCol", true)),
+                CriteriaQueryOptions.builder().pageSize(10).build()
+        )) {
+            assertThat(cursor.getAll(), containsInAnyOrder(new IgniteBiTuple<>(key1, val1)));
+        }
+
+        // CriteriaBuilder
+        try (var cursor = kvView().criteriaQuery(
+                null,
+                columnName("intCol").equal(42)
+                        .and(columnName("primitiveIntCol").greaterThan(9000))
+                        .and(columnName("primitiveIntCol").equal(true)),
+                CriteriaQueryOptions.builder().pageSize(10).build()
+        )) {
+            assertThat(cursor.getAll(), containsInAnyOrder(new IgniteBiTuple<>(key1, val1)));
+        }
+
+        //  SQL where clause as criteria.
+        try (var cursor = kvView().criteriaQuery(null, sql("intCol = ? AND primitiveIntCol > ? AND booleanCol = true", 42, 9000))) {
+            assertThat(cursor.getAll(), containsInAnyOrder(new IgniteBiTuple<>(key1, val1)));
+        }
     }
 
     /**
