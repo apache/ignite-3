@@ -749,8 +749,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
                 null,
                 columnName("intCol").equal(42)
                         .and(columnName("primitiveIntCol").greaterThan(9000))
-                        .and(columnName("primitiveIntCol").equal(true)),
-                CriteriaQueryOptions.builder().pageSize(10).build()
+                        .and(columnName("booleanCol").equal(true))
         )) {
             assertThat(cursor.getAll(), containsInAnyOrder(new IgniteBiTuple<>(key1, val1)));
         }
