@@ -7,6 +7,10 @@ info:
     name: Apache 2.0
     url: https://ignite.apache.org
   version: 3.0.0-SNAPSHOT
+servers:
+- url: http://localhost:10300
+security:
+- basicAuth: []
 paths:
   /management/v1/cluster/init:
     post:
@@ -984,3 +988,7 @@ components:
       enum:
       - MAJORITY
       - ALL
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic

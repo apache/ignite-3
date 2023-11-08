@@ -455,7 +455,7 @@ public class Cluster {
             nodesToStop = runningNodes().collect(toList());
         }
 
-        nodesToStop.forEach(node -> IgnitionManager.stop(node.name()));
+        nodesToStop.parallelStream().forEach(node -> IgnitionManager.stop(node.name()));
     }
 
     /**

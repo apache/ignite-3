@@ -311,6 +311,9 @@ public interface Session extends AutoCloseable {
      */
     Flow.Publisher<Void> closeReactive();
 
+    /** Returns {@code true} if the given session has been closed, returns {@code false} otherwise. */
+    boolean closed();
+
     /**
      * Creates a new session builder from the current session.
      *

@@ -183,6 +183,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final SchemaVersions schemaVersions;
 
+    private final long connectionId;
+
     /**
      * Constructor.
      *
@@ -211,7 +213,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             AuthenticationManager authenticationManager,
             HybridClock clock,
             SchemaSyncService schemaSyncService,
-            CatalogService catalogService
+            CatalogService catalogService,
+            long connectionId
     ) {
         assert igniteTables != null;
         assert igniteTransactions != null;
@@ -250,12 +253,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
+        this.connectionId = connectionId;
     }
 
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
         channelHandlerContext = ctx;
         super.channelRegistered(ctx);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Connection registered [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+        }
     }
 
     /** {@inheritDoc} */
@@ -285,6 +293,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         igniteTables.removeAssignmentsChangeListener(partitionAssignmentsChangeListener);
 
         super.channelInactive(ctx);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+        }
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
@@ -308,7 +320,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             clientContext = new ClientContext(clientVer, clientCode, features, userDetails);
 
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Handshake [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + clientContext);
+                LOG.debug("Handshake [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                        + clientContext);
             }
 
             // Response.
@@ -332,7 +345,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             ctx.channel().closeFuture().addListener(f -> metrics.sessionsActiveDecrement());
         } catch (Throwable t) {
-            LOG.warn("Handshake failed [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + t.getMessage(), t);
+            LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                    + t.getMessage(), t);
 
             packer.close();
 
@@ -345,7 +359,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                 write(errPacker, ctx);
             } catch (Throwable t2) {
-                LOG.warn("Handshake failed [remoteAddress=" + ctx.channel().remoteAddress() + "]: " + t2.getMessage(), t2);
+                LOG.warn("Handshake failed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: "
+                        + t2.getMessage(), t2);
 
                 errPacker.close();
                 exceptionCaught(ctx, t2);
@@ -394,7 +409,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx) {
-        LOG.warn("Error processing client request [id=" + requestId + ", op=" + opCode
+        LOG.warn("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
                 + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
 
         var packer = getPacker(ctx.alloc());
@@ -520,8 +535,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                         metrics.requestsProcessedIncrement();
 
-                        LOG.trace("Client request processed [id=" + reqId + ", op=" + op
-                                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+                        if (LOG.isTraceEnabled()) {
+                            LOG.trace("Client request processed [id=" + reqId + ", op=" + op
+                                    + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+                        }
                     }
                 });
             }
@@ -656,10 +673,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientSqlExecuteRequest.process(in, out, sql, resources, metrics, igniteTransactions);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
-                return ClientSqlCursorNextPageRequest.process(in, out, resources);
+                return ClientSqlCursorNextPageRequest.process(in, out, resources, igniteTransactions);
 
             case ClientOp.SQL_CURSOR_CLOSE:
-                return ClientSqlCursorCloseRequest.process(in, resources);
+                return ClientSqlCursorCloseRequest.process(in, out, resources, igniteTransactions);
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
                 return ClientTablePartitionAssignmentGetRequest.process(in, out, igniteTables);
@@ -676,7 +693,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         boolean assignmentChanged = partitionAssignmentChanged.compareAndSet(true, false);
 
         if (assignmentChanged && LOG.isInfoEnabled()) {
-            LOG.info("Partition assignment changed, notifying client [remoteAddress=" + ctx.channel().remoteAddress() + ']');
+            LOG.info("Partition assignment changed, notifying client [connectionId=" + connectionId + ", remoteAddress="
+                    + ctx.channel().remoteAddress() + ']');
         }
 
         var flags = ResponseFlags.getFlags(assignmentChanged);
@@ -708,8 +726,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             }
         }
 
-        LOG.warn("Exception in client connector pipeline [remoteAddress=" + ctx.channel().remoteAddress() + "]: "
-                + cause.getMessage(), cause);
+        LOG.warn("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
+                + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
 
         ctx.close();
     }

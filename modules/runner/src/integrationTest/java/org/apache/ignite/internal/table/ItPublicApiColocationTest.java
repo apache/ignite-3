@@ -94,9 +94,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER.aliveNode().tables().table("test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER.aliveNode().tables().table("test1");
+        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
+        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
+        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
 
         for (int i = 0; i < parts; ++i) {
             List<Tuple> r0 = getAll(tbl0, i);
@@ -138,9 +138,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER.aliveNode().tables().table("test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER.aliveNode().tables().table("test1");
+        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
+        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
+        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
 
         Function<Tuple, Tuple> tupleColocationExtract = (t) -> {
             Tuple ret = Tuple.create();
@@ -188,7 +188,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         return args.stream();
     }
 
-    private static List<Tuple> getAll(TableImpl tbl, int part) throws ExecutionException, InterruptedException {
+    private static List<Tuple> getAll(TableViewInternal tbl, int part) throws ExecutionException, InterruptedException {
         List<Tuple> res = new ArrayList<>();
         CompletableFuture<Void> f = new CompletableFuture<>();
 

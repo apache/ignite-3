@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.index;
+package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
@@ -62,7 +62,7 @@ import org.apache.ignite.network.ClusterNode;
  * <p>Notes: It is expected that only the primary replica will run tasks to build the index, and if the replica loses primacy, it will stop
  * the task to build the index, and this will be done by an external component.</p>
  */
-public class IndexBuilder implements ManuallyCloseable {
+class IndexBuilder implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuilder.class);
 
     static final int BATCH_SIZE = 100;
@@ -86,7 +86,7 @@ public class IndexBuilder implements ManuallyCloseable {
      * @param threadCount Number of threads to build indexes.
      * @param replicaService Replica service.
      */
-    public IndexBuilder(String nodeName, int threadCount, ReplicaService replicaService) {
+    IndexBuilder(String nodeName, int threadCount, ReplicaService replicaService) {
         this.replicaService = replicaService;
 
         executor = new ThreadPoolExecutor(

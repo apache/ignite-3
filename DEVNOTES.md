@@ -274,6 +274,16 @@ docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
 > cluster init --cluster-name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
 ```
 
+### Run Swagger UI with docker-compose
+
+To run Swagger UI in docker, run the following command:
+```shell
+  cd modules/rest-api/openapi
+  docker-compose up
+```
+
+Swagger UI will be available at http://localhost:8082
+
 ## Release candidate verification
 1. Build all packages (this will also run unit tests and all checks)
     ```shell

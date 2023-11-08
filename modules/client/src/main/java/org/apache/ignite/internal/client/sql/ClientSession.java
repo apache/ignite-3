@@ -291,6 +291,13 @@ public class ClientSession implements AbstractSession {
 
     /** {@inheritDoc} */
     @Override
+    public boolean closed() {
+        // TODO IGNITE-17134 Cancel/close all active cursors, queries, futures.
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public SessionBuilder toBuilder() {
         throw new UnsupportedOperationException("Not implemented yet.");
     }

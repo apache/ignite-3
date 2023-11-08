@@ -15,26 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+apply from: "$rootDir/buildscripts/java-core.gradle"
 
-import org.apache.calcite.plan.Context;
+description = 'ignite-dev-utilities'
 
-/**
- * Abstract query context.
- */
-public class AbstractQueryContext implements Context {
-    private final Context parentCtx;
-
-    public AbstractQueryContext(Context parentCtx) {
-        this.parentCtx = parentCtx;
-    }
-
-    /** {@inheritDoc} */
-    @Override public <C> C unwrap(Class<C> cls) {
-        if (cls == getClass()) {
-            return cls.cast(this);
-        }
-
-        return parentCtx.unwrap(cls);
-    }
+dependencies {
 }

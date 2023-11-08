@@ -87,12 +87,10 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
-import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -316,6 +314,9 @@ public class TestBuilders {
         /** Sets the size of the table. */
         TableBuilder size(int size);
 
+        /** Sets id for the table. The caller must guarantee that provided id is unique. */
+        TableBuilder tableId(int id);
+
         /**
          * Builds a table.
          *
@@ -453,7 +454,6 @@ public class TestBuilders {
         @Override
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
-                    BaseQueryContext.builder().build(),
                     Objects.requireNonNull(executor, "executor"),
                     queryId,
                     Objects.requireNonNull(node, "node"),
@@ -572,7 +572,7 @@ public class TestBuilders {
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
-                        var targetProvider = new TestNodeExecutionTargetProvider(systemViewManager, owningNodesByTableName);
+                        var targetProvider = new TestNodeExecutionTargetProvider(systemViewManager::owningNodes, owningNodesByTableName);
                         var mappingService = new MappingServiceImpl(name, targetProvider, EmptyCacheFactory.INSTANCE, 0, Runnable::run);
 
                         systemViewManager.register(() -> systemViews);
@@ -633,6 +633,7 @@ public class TestBuilders {
         private String name;
         private IgniteDistribution distribution;
         private int size = 100_000;
+        private Integer tableId;
 
         /** {@inheritDoc} */
         @Override
@@ -713,6 +714,14 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public TableBuilder tableId(int id) {
+            this.tableId = id;
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestTable build() {
             if (distribution == null) {
                 throw new IllegalArgumentException("Distribution is not specified");
@@ -733,6 +742,7 @@ public class TestBuilders {
                     .collect(Collectors.toList());
 
             return new TestTable(
+                    tableId != null ? tableId : TestTable.ID.incrementAndGet(),
                     tableDescriptor,
                     Objects.requireNonNull(name),
                     size,
@@ -1250,15 +1260,55 @@ public class TestBuilders {
         return newRow;
     }
 
+    /** Returns a builder for {@link ExecutionTargetProvider}. */
+    public static ExecutionTargetProviderBuilder executionTargetProviderBuilder() {
+        return new ExecutionTargetProviderBuilder();
+    }
+
+    /** A builder to create instances of {@link ExecutionTargetProvider}. */
+    public static final class ExecutionTargetProviderBuilder {
+
+        private final Map<String, List<String>> owningNodesByTableName = new HashMap<>();
+
+        private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
+
+        private ExecutionTargetProviderBuilder() {
+
+        }
+
+        /** Adds tables to list of nodes mapping. */
+        public ExecutionTargetProviderBuilder addTables(Map<String, List<String>> tables) {
+            this.owningNodesByTableName.putAll(tables);
+            return this;
+        }
+
+        /**
+         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes
+         * a system view is available at.
+         */
+        public ExecutionTargetProviderBuilder setSystemViews(Function<String, List<String>> systemViews) {
+            this.owningNodesBySystemViewName = systemViews;
+            return this;
+        }
+
+        /** Creates an instance of {@link ExecutionTargetProvider}. */
+        public ExecutionTargetProvider build() {
+            return new TestNodeExecutionTargetProvider(owningNodesBySystemViewName, Map.copyOf(owningNodesByTableName));
+        }
+    }
+
     private static class TestNodeExecutionTargetProvider implements ExecutionTargetProvider {
 
-        final SystemViewManager systemViewManager;
+        final Function<String, List<String>> owningNodesBySystemViewName;
 
         final Map<String, List<String>> owningNodesByTableName;
 
-        private TestNodeExecutionTargetProvider(SystemViewManager systemViewManager, Map<String, List<String>> owningNodesByTableName) {
-            this.systemViewManager = systemViewManager;
-            this.owningNodesByTableName = owningNodesByTableName;
+        private TestNodeExecutionTargetProvider(
+                Function<String, List<String>> owningNodesBySystemViewName,
+                Map<String, List<String>> owningNodesByTableName) {
+
+            this.owningNodesBySystemViewName = owningNodesBySystemViewName;
+            this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
         }
 
         @Override
@@ -1278,7 +1328,7 @@ public class TestBuilders {
 
         @Override
         public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-            List<String> nodes = systemViewManager.owningNodes(view.name());
+            List<String> nodes = owningNodesBySystemViewName.apply(view.name());
 
             if (nullOrEmpty(nodes)) {
                 return CompletableFuture.failedFuture(
