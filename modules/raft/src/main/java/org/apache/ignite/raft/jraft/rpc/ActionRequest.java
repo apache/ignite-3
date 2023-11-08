@@ -18,7 +18,7 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 /**
- * Submit an action to a replication group.
+ * Common interface for {@link ReadActionRequest} and {@link WriteActionRequest}.
  */
 public interface ActionRequest extends Message {
     /**

@@ -22,17 +22,17 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
 
 /**
- * Submit an action to a replication group.
+ * Submit a read action to a replication group.
  */
 @Transferable(RpcActionMessageGroup.READ_ACTION_REQUEST)
 public interface ReadActionRequest extends ActionRequest {
     /**
-     * @return Action's command.
+     * Returns an action's command.
      */
     ReadCommand command();
 
     /**
-     * @return {@code True} for linearizable reading.
+     * Returns {@code True} for linearizable reading.
      */
     boolean readOnlySafe();
 }

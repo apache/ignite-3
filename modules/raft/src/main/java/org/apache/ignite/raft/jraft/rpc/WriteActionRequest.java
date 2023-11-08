@@ -22,12 +22,12 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
 
 /**
- * Submit an action to a replication group.
+ * Submit a  write action to a replication group.
  */
 @Transferable(RpcActionMessageGroup.WRITE_ACTION_REQUEST)
 public interface WriteActionRequest extends ActionRequest {
     /**
-     * @return Action's command.
+     * Returns an action's command.
      */
     WriteCommand command();
 }
