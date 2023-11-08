@@ -119,15 +119,17 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
                     /** {@inheritDoc} */
                     @Override
-                    public RowBuilder<Object[]> newRow() {
-                        data = new Object[rowLen];
+                    public void reset() {
+                        this.data = null;
                         fieldIdx = 0;
-                        return this;
                     }
 
                     /** {@inheritDoc} */
                     @Override
                     public RowBuilder<Object[]> addField(Object value) {
+                        if (data == null) {
+                            data = new Object[rowLen];
+                        }
                         data[fieldIdx++] = value;
                         return this;
                     }
@@ -136,10 +138,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                     @Override
                     public Object[] build() {
                         assert data != null : "Row has not been initialised";
-
-                        Object[] row = data;
-                        data = null;
-                        return row;
+                        return data;
                     }
                 };
             }

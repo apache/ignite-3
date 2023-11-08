@@ -19,8 +19,10 @@ package org.apache.ignite.internal.sql.engine.exec.row;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -189,12 +191,53 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
         RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
 
-        RowWrapper row1 = builder.newRow().addField(value1).build();
-        assertEquals(value1, handler.get(0, row1));
+        RowWrapper row00 = builder.addField(value1).build();
+        assertEquals(value1, handler.get(0, row00));
+
+        RowWrapper row01 = builder.build();
+        assertEquals(value1, handler.get(0, row01));
+
+        builder.reset();
 
         Object value2 = generateValueByType(0, type);
-        RowWrapper row2 = builder.newRow().addField(value2).build();
+        RowWrapper row2 = builder.addField(value2).build();
         assertEquals(value2, handler.get(0, row2));
+    }
+
+    @Test
+    public void testRowBuilderRejectInvalidField() {
+        RowSchema rowSchema = rowSchema(List.of(ColumnType.INT32), new Object[]{1});
+        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+
+        RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
+        builder.addField(1);
+
+        IllegalStateException err = assertThrows(IllegalStateException.class, () -> builder.addField(1));
+        assertThat(err.getMessage(), containsString("Field index is out of bounds"));
+    }
+
+    @Test
+    public void testRowBuilderBuildReset() {
+        RowSchema rowSchema = rowSchema(List.of(ColumnType.INT32), new Object[]{1});
+        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+
+        RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
+
+        RowWrapper row1 = builder.addField(1).build();
+        assertEquals(1, handler.get(0, row1));
+
+        builder.reset();
+
+        String error = "Builder state has been reset. Calling build should not be allowed";
+        assertThrows(IllegalStateException.class, builder::build, error);
+
+        RowWrapper row2 = builder.addField(2).buildAndReset();
+        assertEquals(2, handler.get(0, row2));
+
+        assertThrows(IllegalStateException.class, builder::build, error);
+
+        RowWrapper row3 = builder.addField(3).build();
+        assertEquals(3, handler.get(0, row3));
     }
 
     private RowSchema rowSchema(List<ColumnType> columnTypes, Object[] values) {

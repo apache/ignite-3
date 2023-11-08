@@ -443,16 +443,12 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         /** {@inheritDoc} */
         @Override
-        public RowBuilder<RowWrapper> newRow() {
-            data = new Object[schemaLen];
-            fieldIdx = 0;
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public RowBuilder<RowWrapper> addField(Object value) {
-            checkState();
+            if (data == null) {
+                data = new Object[schemaLen];
+            }
+
+            checkIndex();
 
             data[fieldIdx++] = value;
             return this;
@@ -464,15 +460,25 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             checkState();
 
             Object[] row = data;
+            return new ObjectsArrayRowWrapper(rowSchema, row);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void reset() {
             data = null;
             fieldIdx = 0;
-
-            return new ObjectsArrayRowWrapper(rowSchema, row);
         }
 
         private void checkState() {
             if (data == null) {
                 throw new IllegalStateException("Row has not been initialised");
+            }
+        }
+
+        private void checkIndex() {
+            if (fieldIdx >= schemaLen) {
+                throw new IllegalStateException(format("Field index is out of bounds: {}/{}", fieldIdx, schemaLen));
             }
         }
     }

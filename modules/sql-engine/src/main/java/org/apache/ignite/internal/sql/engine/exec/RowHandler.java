@@ -23,7 +23,7 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Universal accessor and mutator for rows. It also has factory methods.
+ * Universal accessor for rows. It also has factory methods.
  */
 public interface RowHandler<RowT> {
     /**
@@ -106,32 +106,44 @@ public interface RowHandler<RowT> {
      * <pre>
      *     // Create a row builder
      *     var rowBuilder = rowFactory.rowBuilder();
-     *
-     *     // Call newRow() to start construction of a new row.
-     *     rowBuilder.newRow();
      *     ...
      *     // Call build() after all fields have been set.
      *     var row1 = rowBuilder.build();
+     *     // Call reset() to cleanup the state of this builder.
+     *     rowBuilder.reset();
      * </pre>
      */
     interface RowBuilder<RowT> {
 
         /**
-         * Initiates construction of a new row. This method should be called prior to the first call to {@link #addField(Object)}.
-         *
-         * @return this.
-         */
-        RowBuilder<RowT> newRow();
-
-        /**
-         * Add a field to the current row.
+         * Adds a field to the current row.
          *
          * @param value Field value.
          * @return this.
          */
-        RowBuilder<RowT> addField(Object value);
+        RowBuilder<RowT> addField(@Nullable Object value);
 
         /** Creates a new row from a previously added fields. */
         RowT build();
+
+        /**
+         * Resets the state of this builder.
+         */
+        void reset();
+
+        /**
+         * Creates a new row and resets the state of this builder. This is a shorthand for:
+         * <pre>
+         *     Row row = builder.build();
+         *     builder.reset();
+         *     return row;
+         * </pre>
+         */
+        default RowT buildAndReset() {
+            RowT row = build();
+            reset();
+            return row;
+        }
+
     }
 }

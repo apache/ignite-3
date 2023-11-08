@@ -295,15 +295,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         if (!values.isEmpty()) {
             RowBuilder<RowT> rowBuilder = factory.rowBuilder();
-            rowBuilder.newRow();
 
             for (int i = 0; i < values.size(); i++) {
                 int field = i % columns;
 
                 if (field == 0 && i > 0) {
-                    rows.add(rowBuilder.build());
-
-                    rowBuilder.newRow();
+                    rows.add(rowBuilder.buildAndReset());
                 }
 
                 RexLiteral literal = values.get(i);
@@ -312,7 +309,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 rowBuilder.addField(val);
             }
 
-            rows.add(rowBuilder.build());
+            rows.add(rowBuilder.buildAndReset());
         }
 
         return rows;
@@ -676,9 +673,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public boolean test(RowT r) {
-            rowBuilder.newRow();
             scalar.execute(ctx, r, rowBuilder);
-            RowT res = rowBuilder.build();
+            RowT res = rowBuilder.buildAndReset();
 
             return Boolean.TRUE.equals(hnd.get(0, res));
         }
@@ -695,9 +691,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public boolean test(RowT r1, RowT r2) {
-            rowBuilder.newRow();
             scalar.execute(ctx, r1, r2, rowBuilder);
-            RowT res = rowBuilder.build();
+            RowT res = rowBuilder.buildAndReset();
 
             return Boolean.TRUE.equals(hnd.get(0, res));
         }
@@ -722,11 +717,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public RowT apply(RowT r) {
-            rowBuilder.newRow();
-
             scalar.execute(ctx, r, rowBuilder);
 
-            return rowBuilder.build();
+            return rowBuilder.buildAndReset();
         }
     }
 
@@ -746,11 +739,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public RowT get() {
-            rowBuilder.newRow();
-
             scalar.execute(ctx, null, rowBuilder);
 
-            return rowBuilder.build();
+            return rowBuilder.buildAndReset();
         }
     }
 
@@ -770,10 +761,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public T get() {
-            rowBuilder.newRow();
-
             scalar.execute(ctx, null, rowBuilder);
-            RowT res = rowBuilder.build();
+            RowT res = rowBuilder.buildAndReset();
 
             return (T) ctx.rowHandler().get(0, res);
         }
@@ -852,10 +841,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         /** Compute row. */
         private RowT getRow(SingleScalar scalar, RowBuilder<RowT> rowBuilder) {
-            rowBuilder.newRow();
-
             scalar.execute(ctx, null, rowBuilder);
-            RowT res = rowBuilder.build();
+            RowT res = rowBuilder.buildAndReset();
 
             RowHandler<RowT> hnd = ctx.rowHandler();
 
@@ -878,8 +865,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             if (!hasNullBounds) {
                 return res;
             } else {
-                rowBuilder.newRow();
-
                 for (int i = 0; i < hnd.columnCount(res); i++) {
                     Object fldVal = hnd.get(i, res);
                     if (fldVal == ctx.nullBound()) {
@@ -889,7 +874,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     }
                 }
 
-                return rowBuilder.build();
+                return rowBuilder.buildAndReset();
             }
         }
 

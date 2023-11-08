@@ -181,14 +181,14 @@ public class TypeUtils {
                 assert handler.columnCount(r) == converters.size();
 
                 RowBuilder<RowT> rowBuilder = factory.rowBuilder();
-                rowBuilder.newRow();
 
                 for (int i = 0; i < converters.size(); i++) {
                     Object converted = converters.get(i).apply(handler.get(i, r));
                     rowBuilder.addField(converted);
                 }
 
-                RowT newRow = rowBuilder.build();
+                RowT newRow = rowBuilder.buildAndReset();
+
                 assert handler.columnCount(newRow) == converters.size();
 
                 return newRow;
