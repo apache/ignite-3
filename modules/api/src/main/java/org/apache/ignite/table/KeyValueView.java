@@ -202,7 +202,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @throws MarshallerException if one of the keys or values doesn't match the schema.
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      */
-    V getAndPut(@Nullable Transaction tx, K key, @Nullable V val);
+    @Nullable V getAndPut(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously puts into a table a new, or replaces an existing, value associated with given key.
@@ -335,7 +335,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @throws UnexpectedNullValueException If the key value is {@code null}.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    V getAndRemove(@Nullable Transaction tx, K key);
+    @Nullable V getAndRemove(@Nullable Transaction tx, K key);
 
     /**
      * Asynchronously gets and removes from a table a value associated with the given key.
