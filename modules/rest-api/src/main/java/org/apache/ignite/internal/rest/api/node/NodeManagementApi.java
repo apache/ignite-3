@@ -20,8 +20,6 @@ package org.apache.ignite.internal.rest.api.node;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Produces;
-import io.micronaut.security.annotation.Secured;
-import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -35,7 +33,6 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * REST endpoint allows to read node state.
  */
 @Controller("/management/v1/node")
-@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "nodeManagement")
 public interface NodeManagementApi {
 

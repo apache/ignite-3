@@ -55,6 +55,7 @@ dependencies {
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-security')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.micronaut.junit5
