@@ -193,7 +193,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Puts into a table a new, or replaces an existing, value associated with the given key.
      *
-     * <p>NB: The method doesn't support {@code null} value, use {@link #getNullableAndPut(Transaction, Object, Object)} instead. // TODO: ???
+     * <p>NB: The method doesn't support {@code null} return value, use {@link #getNullableAndPut(Transaction, Object, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
@@ -202,12 +202,13 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @throws MarshallerException if one of the keys or values doesn't match the schema.
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      */
-    @Nullable V getAndPut(@Nullable Transaction tx, K key, @Nullable V val);
+    V getAndPut(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously puts into a table a new, or replaces an existing, value associated with given key.
      *
-     * <p>NB: The method doesn't support {@code null} value, use {@link #getNullableAndPutAsync(Transaction, Object, Object)} instead. // TODO: ???
+     * <p>NB: The method doesn't support {@code null} return value, use {@link #getNullableAndPutAsync(Transaction, Object, Object)}
+     *     instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
@@ -326,7 +327,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Gets and removes from a table a value associated with the given key.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemove(Transaction, Object)} instead.
+     * <p>NB: Method doesn't support {@code null} return value, use {@link #getNullableAndRemove(Transaction, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
@@ -339,7 +340,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Asynchronously gets and removes from a table a value associated with the given key.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemoveAsync(Transaction, Object)} instead.
+     * <p>NB: Method doesn't support {@code null} return value, use {@link #getNullableAndRemoveAsync(Transaction, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
@@ -443,7 +444,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * </code></pre>
      * except the action is performed atomically.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndReplace(Transaction, Object, Object)} instead.
+     * <p>NB: Method doesn't support {@code null} return value, use {@link #getNullableAndReplace(Transaction, Object, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
@@ -457,7 +458,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     /**
      * Asynchronously replaces a value for a given key if it exists.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndReplaceAsync(Transaction, Object, Object)} instead.
+     * <p>NB: Method doesn't support {@code null} return value, use {@link #getNullableAndReplaceAsync(Transaction, Object, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
