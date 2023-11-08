@@ -164,7 +164,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
             }
 
             if (prc == null) {
-                prc = getProcessor(cls);
+                prc = getProcessor(cls, cls);
             }
 
             if (prc == null)
@@ -192,17 +192,17 @@ public class IgniteRpcServer implements RpcServer<Void> {
             }
         }
 
-        private @Nullable RpcProcessor<NetworkMessage> getProcessor(Class<?> cls) {
+        private @Nullable RpcProcessor<NetworkMessage> getProcessor(Class<?> origin, Class<?> cls) {
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
             if (prc != null) {
-                processors.putIfAbsent(cls.getName(), prc);
+                processors.putIfAbsent(origin.getName(), prc);
 
                 return prc;
             }
 
             for (Class<?> iface : cls.getInterfaces()) {
-                prc = getProcessor(iface);
+                prc = getProcessor(origin, iface);
 
                 if (prc != null) {
                     return prc;
