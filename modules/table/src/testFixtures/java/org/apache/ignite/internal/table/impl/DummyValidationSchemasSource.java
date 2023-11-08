@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
@@ -29,7 +29,9 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -37,41 +39,23 @@ import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 
 /**
- * A dummy implementation over {@link SchemaManager}. It is dummy because:
- *
- * <ul>
- *     <li>It imitates historicity, but always takes the latest known schema</li>
- *     <li>{@link #tableSchemaVersionsBetween(int, HybridTimestamp, HybridTimestamp)} always returns a single schema to avoid
- *     validation failures</li>
- * </ul>
- *
- * <p>The point of this implementation is to allow the system work in the pre-SchemaSync fashion before the switch to CatalogService
- * is possible.
+ * Dummy {@link ValidationSchemasSource} implementation that is not historic and always uses same {@link SchemaRegistry}.
  */
-// TODO: IGNITE-19447 - remove when switched to the CatalogService
-public class NonHistoricSchemas implements Schemas {
-    private final SchemaManager schemaManager;
+public class DummyValidationSchemasSource implements ValidationSchemasSource {
+    private final SchemaRegistry schemaRegistry;
 
-    private final SchemaSyncService schemaSyncService;
-
-    public NonHistoricSchemas(SchemaManager schemaManager, SchemaSyncService schemaSyncService) {
-        this.schemaManager = schemaManager;
-        this.schemaSyncService = schemaSyncService;
+    public DummyValidationSchemasSource(SchemaRegistry schemaRegistry) {
+        this.schemaRegistry = schemaRegistry;
     }
 
     @Override
-    public CompletableFuture<?> waitForSchemasAvailability(HybridTimestamp ts) {
-        return schemaSyncService.waitForMetadataCompleteness(ts);
-    }
-
-    @Override
-    public CompletableFuture<?> waitForSchemaAvailability(int tableId, int schemaVersion) {
+    public CompletableFuture<Void> waitForSchemaAvailability(int tableId, int schemaVersion) {
         return completedFuture(null);
     }
 
     @Override
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
-        SchemaDescriptor schemaDescriptor = schemaManager.schemaRegistry(tableId).lastKnownSchema();
+        SchemaDescriptor schemaDescriptor = schemaRegistry.lastKnownSchema();
 
         List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
                 .map(colName -> {
@@ -86,17 +70,15 @@ public class NonHistoricSchemas implements Schemas {
         var fullSchema = new FullTableSchema(
                 1,
                 1,
-                columns,
-                List.of()
+                columns
         );
 
         return List.of(fullSchema);
     }
 
     @Override
-    public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toIncluding) {
-        // Returning an empty list makes sure that backward validation never fails, which is what we want before
-        // we switch to CatalogService completely.
+    public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, int toTableVersionIncluding) {
+        // Returning an empty list makes sure that backward validation never fails, which is what we want.
         return List.of();
     }
 
@@ -107,7 +89,7 @@ public class NonHistoricSchemas implements Schemas {
      * @param column Column to convert.
      * @return Conversion result.
      */
-    public static CatalogTableColumnDescriptor columnDescriptor(Column column) {
+    private static CatalogTableColumnDescriptor columnDescriptor(Column column) {
         NativeType nativeType = column.type();
         int precision;
         int scale;

@@ -18,21 +18,49 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Embedded implementation of the Ignite SQL query facade.
  */
-public class IgniteSqlImpl implements IgniteSql {
+public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
+
+    /** Session expiration check period in milliseconds. */
+    private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean closed = new AtomicBoolean(false);
+
     private final QueryProcessor qryProc;
 
     private final IgniteTransactions transactions;
+
+    /** Session expiration worker. */
+    private final ScheduledExecutorService executor;
+
+    private final ConcurrentMap<SessionId, SessionImpl> sessions = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -40,9 +68,17 @@ public class IgniteSqlImpl implements IgniteSql {
      * @param qryProc Query processor.
      * @param transactions Transactions facade.
      */
-    public IgniteSqlImpl(QueryProcessor qryProc, IgniteTransactions transactions) {
+    public IgniteSqlImpl(
+            String nodeName,
+            QueryProcessor qryProc,
+            IgniteTransactions transactions
+    ) {
         this.qryProc = qryProc;
         this.transactions = transactions;
+
+        executor = Executors.newSingleThreadScheduledExecutor(
+                NamedThreadFactory.create(nodeName, "sql-session-cleanup", true, LOG)
+        );
     }
 
     /** {@inheritDoc} */
@@ -54,7 +90,9 @@ public class IgniteSqlImpl implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new SessionBuilderImpl(qryProc, transactions, new HashMap<>());
+        return new SessionBuilderImpl(
+                busyLock, sessions, qryProc, transactions, System::currentTimeMillis, new HashMap<>()
+        );
     }
 
     /** {@inheritDoc} */
@@ -67,5 +105,40 @@ public class IgniteSqlImpl implements IgniteSql {
     @Override
     public StatementBuilder statementBuilder() {
         return new StatementBuilderImpl();
+    }
+
+    @Override
+    public void start() {
+        executor.scheduleWithFixedDelay(
+                () -> {
+                    for (SessionImpl session : sessions.values()) {
+                        if (session.expired()) {
+                            session.closeAsync();
+                        }
+                    }
+                },
+                SESSION_EXPIRE_CHECK_PERIOD,
+                SESSION_EXPIRE_CHECK_PERIOD,
+                TimeUnit.MILLISECONDS
+        );
+    }
+
+    @Override
+    public void stop() throws Exception {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        executor.shutdownNow();
+
+        sessions.values().forEach(SessionImpl::closeAsync);
+        sessions.clear();
+    }
+
+    @TestOnly
+    public List<Session> sessions() {
+        return List.copyOf(sessions.values());
     }
 }

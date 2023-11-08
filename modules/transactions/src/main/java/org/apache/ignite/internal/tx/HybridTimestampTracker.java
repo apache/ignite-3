@@ -44,7 +44,7 @@ public class HybridTimestampTracker {
      *
      * @param ts Timestamp to use for update.
      */
-    public void update(HybridTimestamp ts) {
+    public void update(@Nullable HybridTimestamp ts) {
         long tsVal = HybridTimestamp.hybridTimestampToLong(ts);
 
         timestamp.updateAndGet(x -> Math.max(x, tsVal));

@@ -38,6 +38,7 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -60,13 +61,16 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @SuppressWarnings({"WeakerAccess", "unused"})
-public class SelectBenchmark extends AbstractOneNodeBenchmark {
+public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     private static final int TABLE_SIZE = 30_000;
     private static final String SELECT_ALL_FROM_USERTABLE = "select * from usertable where ycsb_key = ?";
 
     private final Random random = new Random();
 
     private KeyValueView<Tuple, Tuple> keyValueView;
+
+    @Param({"1", "2", "3"})
+    private int clusterSize;
 
     /**
      * Fills the table with data.
@@ -261,6 +265,11 @@ public class SelectBenchmark extends AbstractOneNodeBenchmark {
         KeyValueView<Tuple, Tuple> kvView() {
             return kvView;
         }
+    }
+
+    @Override
+    protected int nodes() {
+        return clusterSize;
     }
 }
 
