@@ -98,55 +98,62 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         DelegatingStateMachine fsm = (DelegatingStateMachine) node.getOptions().getFsm();
         RaftGroupListener listener = fsm.getListener();
 
-        Command command = request.deserializedCommand() == null
-                ? commandsMarshaller.unmarshall(request.command())
-                : request.deserializedCommand();
-
         if (request instanceof WriteActionRequest) {
+            WriteActionRequest writeRequest = (WriteActionRequest)request;
+
+            WriteCommand command = writeRequest.deserializedCommand();
+
+            if (command == null) {
+                command = commandsMarshaller.unmarshall(writeRequest.command());
+            }
+
             if (fsm.getListener() instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    callOnBeforeApply(request, fsm);
-                    applyWrite(node, (WriteActionRequest) request, rpcCtx);
+                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+
+                    applyWrite(node, writeRequest, command, rpcCtx);
                 }
             } else {
-                applyWrite(node, (WriteActionRequest) request, rpcCtx);
+                applyWrite(node, writeRequest, command, rpcCtx);
             }
         } else {
+            ReadActionRequest readRequest = (ReadActionRequest) request;
+
             if (listener instanceof BeforeApplyHandler) {
-                request = patchCommandBeforeApply(request, (BeforeApplyHandler) listener, command, commandsMarshaller);
+                ReadCommand command = readRequest.command();
+
+                readRequest = patchCommandBeforeApply(readRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
             }
 
-            applyRead(node, (ReadActionRequest) request, rpcCtx);
+            applyRead(node, readRequest, rpcCtx);
         }
     }
-
-    private static void callOnBeforeApply(ActionRequest request, DelegatingStateMachine fsm) {
-        Command command = request instanceof WriteActionRequest
-                ? ((WriteActionRequest) request).command()
-                : ((ReadActionRequest) request).command();
-
-        ((BeforeApplyHandler) fsm.getListener()).onBeforeApply(command);
-    }
-
 
     /**
      * This method calls {@link BeforeApplyHandler#onBeforeApply(Command)} and returns action request with a serialized version of the
      * updated command, if it has been updated. Otherwise, the method returns the original {@code request} instance. The reason for such
      * behavior is the fact that we use {@code byte[]} in action requests, thus modified command should be serialized twice.
      */
-    private ActionRequest patchCommandBeforeApply(
-            ActionRequest request,
+    private <AR extends ActionRequest> AR patchCommandBeforeApply(
+            AR request,
             BeforeApplyHandler beforeApplyHandler,
             Command command,
             Marshaller commandsMarshaller
     ) {
         if (beforeApplyHandler.onBeforeApply(command)) {
-            return factory.actionRequest()
-                .groupId(request.groupId())
-                .readOnlySafe(request.readOnlySafe())
-                .command(commandsMarshaller.marshall(command))
-                .deserializedCommand(command)
-                .build();
+            if (request instanceof WriteActionRequest) {
+                return (AR) factory.writeActionRequest()
+                    .groupId(request.groupId())
+                    .command(commandsMarshaller.marshall(command))
+                    .deserializedCommand((WriteCommand)command)
+                    .build();
+            } else {
+                return (AR) factory.readActionRequest()
+                    .groupId(request.groupId())
+                    .command((ReadCommand)command)
+                    .readOnlySafe(((ReadActionRequest)request).readOnlySafe())
+                    .build();
+            }
         } else {
             return request;
         }
@@ -190,7 +197,6 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     /**
      * @param node The node.
      * @param request The request.
-     * @param command The command.
      * @param rpcCtx The context.
      */
     private void applyRead(Node node, ReadActionRequest request, RpcContext rpcCtx) {
@@ -204,7 +210,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                         try {
                             fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                                 @Override public ReadCommand command() {
-                                    return command;
+                                    return request.command();
                                 }
 
                                 @Override public void result(Serializable res) {
@@ -234,7 +240,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             try {
                 fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
                     @Override public ReadCommand command() {
-                        return command;
+                        return request.command();
                     }
 
                     @Override public void result(Serializable res) {

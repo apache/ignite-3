@@ -23,7 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation for methods of {@link Transferable} interface, that makes serializer/deserializer ignore the property.
+ * Annotation for methods of {@link Transferable} interface, that makes generated serializer/deserializer ignore the property.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.SOURCE)

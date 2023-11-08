@@ -459,10 +459,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         Function<Peer, ActionRequest> requestFactory;
 
         if (cmd instanceof WriteCommand) {
+            byte[] commandBytes = commandsMarshaller.marshall(cmd);
+
             requestFactory = targetPeer -> factory.writeActionRequest()
                     .groupId(groupId)
-                    .command(commandsMarshaller.marshall(cmd))
-                    .deserializedCommand(cmd)
+                    .command(commandBytes)
+                    .deserializedCommand((WriteCommand) cmd)
                     .build();
         } else {
             requestFactory = targetPeer -> factory.readActionRequest()

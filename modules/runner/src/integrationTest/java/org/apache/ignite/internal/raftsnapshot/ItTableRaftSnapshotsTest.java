@@ -674,7 +674,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
                 BiPredicate<String, NetworkMessage> dropSafeTimeUntilSecondInstallSnapshotRequestIsProcessed = (recipientId, message) ->
                         message instanceof WriteActionRequest
-                                && isSafeTimeSyncCommand((ActionRequest) message, serializationRegistry)
+                                && isSafeTimeSyncCommand((WriteActionRequest) message, serializationRegistry)
                                 && !snapshotInstallFailedDueToIdenticalRetry.get();
 
                 theCluster.node(0).dropMessages(
@@ -692,7 +692,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         }
     }
 
-    private static boolean isSafeTimeSyncCommand(ActionRequest request, MessageSerializationRegistry serializationRegistry) {
+    private static boolean isSafeTimeSyncCommand(WriteActionRequest request, MessageSerializationRegistry serializationRegistry) {
         String groupId = request.groupId();
 
         if (groupId.equals(MetastorageGroupId.INSTANCE.toString()) || groupId.equals(CmgGroupId.INSTANCE.toString())) {

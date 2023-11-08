@@ -627,9 +627,9 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         when(messagingService.invoke(
                 any(ClusterNode.class),
                 // Must be an anonymous class, to deduce the message type from the generic superclass.
-                argThat(new ArgumentMatcher<ActionRequest>() {
+                argThat(new ArgumentMatcher<WriteActionRequest>() {
                     @Override
-                    public boolean matches(ActionRequest arg) {
+                    public boolean matches(WriteActionRequest arg) {
                         Object command = new OptimizedMarshaller(cluster.serializationRegistry()).unmarshall(arg.command());
 
                         return command instanceof TestWriteCommand;
