@@ -155,21 +155,21 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    void put(@Nullable Transaction tx, K key, V val);
+    void put(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously puts into a table a value associated with the given key.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, V val);
+    CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Puts associated key-value pairs.
