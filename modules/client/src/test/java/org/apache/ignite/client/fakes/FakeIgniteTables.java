@@ -178,7 +178,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+    public void addPrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
         Objects.requireNonNull(listener);
 
         assignmentsChangeListeners.add(listener);
@@ -186,7 +186,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+    public boolean removePrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
         Objects.requireNonNull(listener);
 
         return assignmentsChangeListeners.remove(listener);

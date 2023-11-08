@@ -250,7 +250,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         );
 
         this.partitionAssignmentsChangeListener = this::onPartitionAssignmentChanged;
-        igniteTables.addAssignmentsChangeListener(partitionAssignmentsChangeListener);
+        igniteTables.addPrimaryReplicaChangeListener(partitionAssignmentsChangeListener);
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
         this.connectionId = connectionId;
@@ -290,7 +290,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();
-        igniteTables.removeAssignmentsChangeListener(partitionAssignmentsChangeListener);
+        igniteTables.removePrimaryReplicaChangeListener(partitionAssignmentsChangeListener);
 
         super.channelInactive(ctx);
 

@@ -1056,7 +1056,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+    public void addPrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
         Objects.requireNonNull(listener);
 
         assignmentsChangeListeners.add(listener);
@@ -1064,7 +1064,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
+    public boolean removePrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
         Objects.requireNonNull(listener);
 
         return assignmentsChangeListeners.remove(listener);

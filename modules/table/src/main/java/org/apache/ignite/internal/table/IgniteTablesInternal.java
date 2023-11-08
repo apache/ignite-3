@@ -93,12 +93,12 @@ public interface IgniteTablesInternal extends IgniteTables {
      *
      * @param listener Listener.
      */
-    void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener);
+    void addPrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener);
 
     /**
-     * Removes assignments change listener.
+     * Removes primary replica change listener.
      *
      * @param listener Listener.
      */
-    boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener);
+    boolean removePrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener);
 }
