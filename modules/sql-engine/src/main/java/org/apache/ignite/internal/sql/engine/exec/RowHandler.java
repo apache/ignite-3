@@ -144,6 +144,5 @@ public interface RowHandler<RowT> {
             reset();
             return row;
         }
-
     }
 }
