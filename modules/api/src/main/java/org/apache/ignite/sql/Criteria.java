@@ -18,66 +18,77 @@
 package org.apache.ignite.sql;
 
 /**
- * Represents a predicate. Implementations of this interface are basic building blocks for performing scan queries.
+ * Represents a predicate. Implementations of this interface are basic building blocks for performing criteria queries.
  */
 public class Criteria {
     /**
-     * Create a predicate for testing the field value.
+     * Create a predicate for testing the column is equal to a given value.
      *
-     * @param fieldName Field name.
-     * @param value Field value.
+     * @param columnName Column name.
+     * @param value Column value.
      * @return the created <b>equal</b> predicate instance.
      */
-    public static <R> Criteria equal(String fieldName, Comparable<R> value) {
+    public static <R> Criteria  equal(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
-     * Create a predicate for testing whether the first argument is greater than value.
+     * Create a predicate for testing whether the column is greater than value.
      *
-     * @param fieldName Field name.
-     * @param value Field value.
+     * @param columnName Column name.
+     * @param value Column value.
      * @return the created <b>greaterThan</b> predicate instance.
      */
-    public static <R> Criteria greaterThan(String fieldName, Comparable<R> value) {
+    public static <R> Criteria greaterThan(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
-     * Create a predicate for testing whether the first argument is greater than or equal to value.
+     * Create a predicate for testing whether the column is greater than or equal to value.
      *
-     * @param fieldName Field name.
-     * @param value Field value.
+     * @param columnName Column name.
+     * @param value Column value.
      * @return the created <b>greaterThanOrEqualTo</b> predicate instance.
      */
-    public static <R> Criteria greaterThanOrEqualTo(String fieldName, Comparable<R> value) {
+    public static <R> Criteria greaterThanOrEqualTo(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
-     * Create a predicate for testing whether the first argument is less than value.
+     * Create a predicate for testing whether the column is less than value.
      *
-     * @param fieldName Field name.
-     * @param value Field value.
+     * @param columnName Column name.
+     * @param value Column value.
      * @return the created <b>lessThan</b> predicate instance.
      */
-    public static <R> Criteria lessThan(String fieldName, Comparable<R> value) {
+    public static <R> Criteria lessThan(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
-     * Create a predicate for testing whether the first argument is less than or equal to value.
+     * Create a predicate for testing whether the column is less than or equal to value.
      *
-     * @param fieldName Field name.
-     * @param value Field value.
+     * @param columnName Column name.
+     * @param value Column value.
      * @return the created <b>lessThanOrEqualTo</b> predicate instance.
      */
-    public static <R> Criteria lessThanOrEqualTo(String fieldName, Comparable<R> value) {
+    public static <R> Criteria lessThanOrEqualTo(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
-     * Creates an <b>and</b> predicate that will perform the logical <b>and</b> operation on the given {@code predicates}.
+     * Create a predicate for testing whether the first argument is an element of a certain collection.
+     *
+     * @param columnName Column name.
+     * @param values Column values.
+     * @return the created <b>in</b> predicate instance.
+     */
+    public static <R> Criteria in(String columnName, Comparable<R>... values) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Creates a predicate that will perform the logical <b>and</b> operation on the given {@code predicates}.
      *
      * @param criterions the child predicates to form the resulting <b>and</b> predicate from.
      * @return the created <b>and</b> predicate instance.
@@ -87,7 +98,7 @@ public class Criteria {
     }
 
     /**
-     * Creates an <b>or</b> predicate that will perform the logical <b>or</b> operation on the given {@code predicates}.
+     * Creates a predicate that will perform the logical <b>or</b> operation on the given {@code predicates}.
      *
      * @param criterions the child predicates to form the resulting <b>or</b> predicate from.
      * @return the created <b>or</b> predicate instance.
@@ -97,7 +108,7 @@ public class Criteria {
     }
 
     /**
-     * Creates a <b>not</b> predicate that will negate the result of the given {@code predicate}.
+     * Creates a predicate that will negate the result of the given {@code predicate}.
      *
      * @param criteria the predicate to negate the value of.
      * @return the created <b>not</b> predicate instance.

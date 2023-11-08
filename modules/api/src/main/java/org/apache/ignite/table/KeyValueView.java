@@ -25,8 +25,8 @@ import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.Criteria;
-import org.apache.ignite.sql.QueryCursor;
-import org.apache.ignite.sql.QueryOptions;
+import org.apache.ignite.sql.CriteriaQueryCursor;
+import org.apache.ignite.sql.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -496,17 +496,17 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
     CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, V val);
 
     /**
-     * Scan query over cache entries.
+     * Criteria query over cache entries.
      *
-     * @param filter If {@code null} then all entries will be returned.
+     * @param criteria If {@code null} then all entries will be returned.
      */
-    QueryCursor<Map.Entry<K, V>> query(@Nullable Criteria filter);
+    CriteriaQueryCursor<Entry<K, V>> criteriaQuery(@Nullable Criteria criteria);
 
     /**
-     * Scan query over cache entries.
+     * Criteria query over cache entries.
      *
-     * @param filter If {@code null} then all entries will be returned.
-     * @param opts Scan query options.
+     * @param criteria If {@code null} then all entries will be returned.
+     * @param opts Criteria query options.
      */
-    QueryCursor<Map.Entry<K, V>> query(@Nullable Criteria filter, QueryOptions opts);
+    CriteriaQueryCursor<Entry<K, V>> criteriaQuery(@Nullable Criteria criteria, CriteriaQueryOptions opts);
 }

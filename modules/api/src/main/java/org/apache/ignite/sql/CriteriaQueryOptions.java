@@ -18,11 +18,11 @@
 package org.apache.ignite.sql;
 
 /**
- * Scan query options.
+ * Criteria query options.
  */
-public class QueryOptions {
+public class CriteriaQueryOptions {
     /** Default options. */
-    public static final QueryOptions DEFAULT = builder().build();
+    public static final CriteriaQueryOptions DEFAULT = builder().build();
 
     private final int pageSize;
 
@@ -31,7 +31,7 @@ public class QueryOptions {
      *
      * @param pageSize Page size.
      */
-    private QueryOptions(int pageSize) {
+    private CriteriaQueryOptions(int pageSize) {
         this.pageSize = pageSize;
     }
 
@@ -78,10 +78,10 @@ public class QueryOptions {
         /**
          * Builds the options.
          *
-         * @return Data streamer options.
+         * @return Criteria query options.
          */
-        public QueryOptions build() {
-            return new QueryOptions(pageSize);
+        public CriteriaQueryOptions build() {
+            return new CriteriaQueryOptions(pageSize);
         }
     }
 }

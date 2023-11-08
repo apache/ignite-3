@@ -23,10 +23,10 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * Query result cursor. Implements {@link Iterable} only for convenience, e.g. {@link #iterator()}
+ * Criteria query result cursor. Implements {@link Iterable} only for convenience, e.g. {@link #iterator()}
  * can be obtained only once. Also if iteration is started then {@link #getAll()} method calls are prohibited.
  */
-public interface QueryCursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
+public interface CriteriaQueryCursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
     /**
      * Gets all query results and stores them in the collection.
      * Use this method when you know in advance that query result is

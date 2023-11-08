@@ -76,8 +76,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.sql.Criteria;
-import org.apache.ignite.sql.QueryOptions;
+import org.apache.ignite.sql.CriteriaQueryOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -737,9 +736,9 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
                         key3, val3
                 ));
 
-        var cursor = kvView().query(
+        var cursor = kvView().criteriaQuery(
                 and(equal("intCol", 42), greaterThan("primitiveIntCol", 9000), equal("booleanCol", true)),
-                QueryOptions.builder().pageSize(10).build()
+                CriteriaQueryOptions.builder().pageSize(10).build()
         );
 
        assertThat(cursor.getAll(), containsInAnyOrder(new IgniteBiTuple<>(key1, val1)));

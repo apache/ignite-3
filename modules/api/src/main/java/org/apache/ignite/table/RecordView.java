@@ -21,8 +21,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.Criteria;
-import org.apache.ignite.sql.QueryCursor;
-import org.apache.ignite.sql.QueryOptions;
+import org.apache.ignite.sql.CriteriaQueryCursor;
+import org.apache.ignite.sql.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -320,15 +320,15 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
     /**
      * Scan query over table records.
      *
-     * @param filter If {@code null} then all entries will be returned.
+     * @param criteria If {@code null} then all entries will be returned.
      */
-    QueryCursor<R> query(@Nullable Criteria filter);
+    CriteriaQueryCursor<R> criteriaQuery(@Nullable Criteria criteria);
 
     /**
      * Scan query over table records.
      *
-     * @param filter If {@code null} then all entries will be returned.
+     * @param criteria If {@code null} then all entries will be returned.
      * @param opts Scan query options.
      */
-    QueryCursor<R> query(@Nullable Criteria filter, QueryOptions opts);
+    CriteriaQueryCursor<R> criteriaQuery(@Nullable Criteria criteria, CriteriaQueryOptions opts);
 }
