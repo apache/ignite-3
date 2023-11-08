@@ -138,6 +138,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                     @Override
                     public Object[] build() {
                         assert data != null : "Row has not been initialised";
+                        assert fieldIdx == data.length : "Row has not been fully built";
                         return data;
                     }
                 };

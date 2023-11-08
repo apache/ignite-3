@@ -474,11 +474,14 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             if (data == null) {
                 throw new IllegalStateException("Row has not been initialised");
             }
+            if (fieldIdx != schemaLen) {
+                throw new IllegalStateException(format("Row has not been fully built. Index: {}, fields: {}", fieldIdx, schemaLen));
+            }
         }
 
         private void checkIndex() {
             if (fieldIdx >= schemaLen) {
-                throw new IllegalStateException(format("Field index is out of bounds: {}/{}", fieldIdx, schemaLen));
+                throw new IllegalStateException(format("Field index is out of bounds. Index: {}, fields: {}", fieldIdx, schemaLen));
             }
         }
     }

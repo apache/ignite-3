@@ -228,16 +228,30 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
         builder.reset();
 
-        String error = "Builder state has been reset. Calling build should not be allowed";
-        assertThrows(IllegalStateException.class, builder::build, error);
+        String message = "Row has not been initialised";
+        IllegalStateException err1 = assertThrows(IllegalStateException.class, builder::build);
+        assertThat(err1.getMessage(), containsString(message));
 
         RowWrapper row2 = builder.addField(2).buildAndReset();
         assertEquals(2, handler.get(0, row2));
 
-        assertThrows(IllegalStateException.class, builder::build, error);
+        IllegalStateException err2 = assertThrows(IllegalStateException.class, builder::build);
+        assertThat(err2.getMessage(), containsString(message));
 
         RowWrapper row3 = builder.addField(3).build();
         assertEquals(3, handler.get(0, row3));
+    }
+
+    @Test
+    public void testRowBuilderBuildingIncompleteRowIsNotAllowed() {
+        RowSchema rowSchema = rowSchema(List.of(ColumnType.INT32, ColumnType.INT32), new Object[]{1, 2});
+        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
+
+        RowBuilder<RowWrapper> rowBuilder = rowFactory.rowBuilder();
+        rowBuilder.addField(1);
+
+        IllegalStateException err = assertThrows(IllegalStateException.class, rowBuilder::build);
+        assertThat(err.getMessage(), containsString("Row has not been fully built"));
     }
 
     private RowSchema rowSchema(List<ColumnType> columnTypes, Object[] values) {
