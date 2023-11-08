@@ -49,7 +49,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      * @see #getNullable(Transaction, Object)
      */
-    V get(@Nullable Transaction tx, K key);
+    @Nullable V get(@Nullable Transaction tx, K key);
 
     /**
      * Asynchronously gets a value associated with a given key.
@@ -96,7 +96,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Value or {@code defaultValue} if does not exist.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    V getOrDefault(@Nullable Transaction tx, K key, V defaultValue);
+    @Nullable V getOrDefault(@Nullable Transaction tx, K key, @Nullable V defaultValue);
 
     /**
      * Gets a value associated with a given key, if it exists and is not null, otherwise returns {@code defaultValue}.
@@ -108,7 +108,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @throws MarshallerException if the key doesn't match the schema.
      * @see #getOrDefault(Transaction, Object, Object)
      */
-    CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, V defaultValue);
+    CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, @Nullable V defaultValue);
 
     /**
      * Get values associated with given keys.
