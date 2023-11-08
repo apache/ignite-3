@@ -851,8 +851,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (!isPrimary) {
             return completedFuture(null);
         }
-        return applyCmdWithRetryOnSafeTimeReorderException(
-                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build()).thenApply(res -> null);
+
+        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+
+        applyCmdWithRetryOnSafeTimeReorderException(
+                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build(),
+                resultFuture
+        );
+
+        return resultFuture.thenApply(res -> null);
     }
 
     /**
@@ -1504,8 +1511,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (commit) {
                 finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());
             }
+            CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-            return applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build());
+            applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build(), resultFuture);
+
+            return resultFuture;
         }
     }
 
@@ -1605,7 +1615,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         storageUpdateHandler.handleTransactionCleanup(transactionID, commit, commitTimestamp);
 
-        return applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd).thenApply(res -> null);
+        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+
+        applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd, resultFuture);
+
+        return resultFuture.thenApply(res -> null);
     }
 
     private String getTxCoordinatorId(UUID txId) {
@@ -1980,13 +1994,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                             .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
-                                    catalogVersion -> applyUpdateAllCommandWithRetry(
+                                    catalogVersion -> applyUpdateAllCommand(
                                             request,
                                             rowIdsToDelete,
                                             lastCommitTimes,
                                             txCoordinatorId,
-                                            catalogVersion,
-                                            new CompletableFuture<>()
+                                            catalogVersion
                                     )
                             )
                             .thenApply(res -> new ReplicaResult(result, res));
@@ -2050,13 +2063,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     // We are inserting completely new rows - no need to cleanup anything in this case, hence empty times.
                                     validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                             )
-                            .thenCompose(catalogVersion -> applyUpdateAllCommandWithRetry(
+                            .thenCompose(catalogVersion -> applyUpdateAllCommand(
                                             request,
                                             convertedMap,
                                             emptyMap(),
                                             txCoordinatorId,
-                                            catalogVersion,
-                                            new CompletableFuture<>()
+                                            catalogVersion
                                     )
                             )
                             .thenApply(res -> {
@@ -2113,13 +2125,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                             .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
-                                    catalogVersion -> applyUpdateAllCommandWithRetry(
+                                    catalogVersion -> applyUpdateAllCommand(
                                             request,
                                             rowsToUpdate,
                                             lastCommitTimes,
                                             txCoordinatorId,
-                                            catalogVersion,
-                                            new CompletableFuture<>()
+                                            catalogVersion
                                     )
                             )
                             .thenApply(res -> {
@@ -2232,7 +2243,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                             .thenCompose(catalogVersion -> awaitCleanup(rows, catalogVersion))
                             .thenCompose(
-                                    catalogVersion -> applyUpdateAllCommandWithRetry(
+                                    catalogVersion -> applyUpdateAllCommand(
                                             rowIdsToDelete,
                                             lastCommitTimes,
                                             request.commitPartitionId(),
@@ -2240,8 +2251,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             request.full(),
                                             txCoordinatorId,
                                             catalogVersion,
-                                            request.skipDelayedAck(),
-                                            new CompletableFuture<>()
+                                            request.skipDelayedAck()
                                     )
                             )
                             .thenApply(res -> new ReplicaResult(result, res));
@@ -2276,8 +2286,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cmd Raft command.
      * @return Raft future.
      */
-    private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd) {
-        return applyCmdWithRetryOnSafeTimeReorderException(cmd).exceptionally(throwable -> {
+    private void applyCmdWithExceptionHandling(Command cmd, CompletableFuture<Object> resultFuture) {
+        applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
+
+        resultFuture.exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
                 throw new ReplicationTimeoutException(replicationGroupId);
             } else if (throwable instanceof RuntimeException) {
@@ -2288,25 +2300,31 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
-    private CompletableFuture<Object> applyCmdWithRetryOnSafeTimeReorderException(Command cmd) {
-        return raftClient.run(cmd).exceptionally(ex -> {
-            if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
-                System.out.println("Gogogo");
-                assert cmd instanceof SafeTimePropagatingCommand;
+    private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture) {
+        raftClient.run(cmd).whenComplete((res, ex) -> {
+            if (ex != null) {
+                if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
+                    assert cmd instanceof SafeTimePropagatingCommand;
 
-                SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) cmd;
+                    SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) cmd;
 
-                HybridTimestamp safeTimeForRetry = hybridClock.now();
+                    HybridTimestamp safeTimeForRetry = hybridClock.now();
 
-                synchronized (safeTime) {
-                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimeForRetry);
+                    if ((cmd instanceof UpdateCommand && !((UpdateCommand) cmd).full())) {
+//                            (cmd instanceof UpdateAllCommand && !((UpdateAllCommand) cmd).full())) {
+                        synchronized (safeTime) {
+                            updateTrackerIgnoringTrackerClosedException(safeTime, safeTimeForRetry);
+                        }
+                    }
+
+                    safeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
+
+                    applyCmdWithRetryOnSafeTimeReorderException(safeTimePropagatingCommand, resultFuture);
+                } else {
+                    resultFuture.completeExceptionally(ex);
                 }
-
-                safeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
-
-                return applyCmdWithExceptionHandling(cmd);
             } else {
-                return failedFuture(ex);
+                resultFuture.complete(res);
             }
         });
     }
@@ -2348,7 +2366,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             );
 
             if (!cmd.full()) {
-                CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+
+                applyCmdWithExceptionHandling(cmd, resultFuture);
+
+                CompletableFuture<UUID> fut = resultFuture.thenApply(res -> {
                     // This check guaranties the result will never be lost. Currently always null.
                     assert res == null : "Replication result is lost";
 
@@ -2375,7 +2397,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return completedFuture(fut);
             } else {
-                return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+
+                applyCmdWithExceptionHandling(cmd, resultFuture);
+
+                return resultFuture.thenApply(res -> {
                     // This check guaranties the result will never be lost. Currently always null.
                     assert res == null : "Replication result is lost";
 
@@ -2431,66 +2457,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         );
     }
 
-    /**
-     * Executes an UpdateAll command.
-     *
-     * @param rowsToUpdate All {@link BinaryRow}s represented as {@link ByteBuffer}s to be updated.
-     * @param lastCommitTimes All timestamps of the last committed entries for each row.
-     * @param commitPartitionId Partition ID that these rows belong to.
-     * @param transactionId Transaction ID.
-     * @param full {@code true} if this is a single-command transaction.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param catalogVersion Validated catalog version associated with given operation.
-     * @param skipDelayedAck {@code true} to disable the delayed ack optimization.
-     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
-     */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommandWithRetry(
-            Map<UUID, BinaryRowMessage> rowsToUpdate,
-            Map<UUID, HybridTimestamp> lastCommitTimes,
-            TablePartitionIdMessage commitPartitionId,
-            UUID transactionId,
-            boolean full,
-            String txCoordinatorId,
-            int catalogVersion,
-            boolean skipDelayedAck,
-            CompletableFuture<CompletableFuture<?>> resultFuture
-    ) {
-        applyUpdateAllCommand(
-                rowsToUpdate,
-                lastCommitTimes,
-                commitPartitionId,
-                transactionId,
-                full,
-                txCoordinatorId,
-                catalogVersion,
-                skipDelayedAck
-        )
-                .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        if (ex.getCause() instanceof SafeTimeReorderException) {
-                            System.out.println(">>> Retry 3");
-                            applyUpdateAllCommandWithRetry(
-                                    rowsToUpdate,
-                                    lastCommitTimes,
-                                    commitPartitionId,
-                                    transactionId,
-                                    full,
-                                    txCoordinatorId,
-                                    catalogVersion,
-                                    skipDelayedAck,
-                                    resultFuture
-                            );
-                        } else {
-                            resultFuture.completeExceptionally(ex);
-                        }
-                    } else {
-                        resultFuture.complete(res);
-                    }
-                });
-
-        return resultFuture;
-    }
-
     private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             Map<UUID, HybridTimestamp> lastCommitTimes,
@@ -2531,9 +2497,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
+                    CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+
+                    applyCmdWithExceptionHandling(cmd, resultFuture);
+
+                    return resultFuture.thenApply(res -> null);
                 } else {
-                    CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                    CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+
+                    applyCmdWithExceptionHandling(cmd, resultFuture);
+
+                    CompletableFuture<Object> fut = resultFuture.thenApply(res -> {
                         // Currently result is always null on a successfull execution of a replication command.
                         // This check guaranties the result will never be lost.
                         assert res == null : "Replication result is lost";
@@ -2561,7 +2535,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return completedFuture(fut);
                 }
             } else {
-                return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+                CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+
+                applyCmdWithExceptionHandling(cmd, resultFuture);
+
+                return resultFuture.thenApply(res -> {
                     assert res == null : "Replication result is lost";
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
@@ -2593,15 +2571,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param catalogVersion Validated catalog version associated with given operation.
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommandWithRetry(
+    private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
             ReadWriteMultiRowReplicaRequest request,
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             Map<UUID, HybridTimestamp> lastCommitTimes,
             String txCoordinatorId,
-            int catalogVersion,
-            CompletableFuture<CompletableFuture<?>> resultFuture
+            int catalogVersion
     ) {
-        return applyUpdateAllCommandWithRetry(
+        return applyUpdateAllCommand(
                 rowsToUpdate,
                 lastCommitTimes,
                 request.commitPartitionId(),
@@ -2609,8 +2586,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 request.full(),
                 txCoordinatorId,
                 catalogVersion,
-                request.skipDelayedAck(),
-                resultFuture
+                request.skipDelayedAck()
         );
     }
 

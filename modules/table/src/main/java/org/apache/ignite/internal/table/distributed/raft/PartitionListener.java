@@ -217,7 +217,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
                 // TODO: sanpwc txcleanup command shouldn't implement SafeTimePropagatingCommand
                 if (!(command instanceof TxCleanupCommand)) {
-                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                    synchronized (safeTime) {
+                        updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                    }
                 }
             }
 
@@ -465,8 +467,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 //                System.out.println("Updating maxObservableSafeTime cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + command.getClass());
                 maxObservableSafeTime = cmd.safeTimeLong();
             } else {
-                System.out.println("!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + command.getClass());
-                if (!(command instanceof TxCleanupCommand)) {
+//                System.out.println(
+//                        "!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", "
+//                                + command.getClass());
+                if (cmd instanceof TxCleanupCommand) {
                     // TODO: Use proper message instead
                     throw new SafeTimeReorderException(REPLICATION_SAFE_TIME_MISS, "errorMsg");
                 }
