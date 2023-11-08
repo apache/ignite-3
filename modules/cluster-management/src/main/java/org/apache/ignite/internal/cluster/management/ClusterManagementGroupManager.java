@@ -679,6 +679,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         // Fail the futures to unblock dependent operations
         joinFuture.completeExceptionally(new NodeStoppingException());
+
+        initialClusterConfigurationFuture.completeExceptionally(new NodeStoppingException());
     }
 
     /**
