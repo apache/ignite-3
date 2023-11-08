@@ -244,7 +244,8 @@ class SessionImplTest extends BaseIgniteAbstractTest {
 
         session.close();
 
-        cursorFuture.complete(mock(AsyncSqlCursor.class));
+        AsyncSqlCursor<List<Object>> cursor = mock(AsyncSqlCursor.class);
+        cursorFuture.complete(cursor);
 
         assertThrowsSqlException(
                 SESSION_CLOSED_ERR,
@@ -252,6 +253,7 @@ class SessionImplTest extends BaseIgniteAbstractTest {
                 () -> await(result)
         );
         assertThat(session.openedCursors(), empty());
+        verify(cursor).closeAsync();
     }
 
     @Test
