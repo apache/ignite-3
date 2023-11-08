@@ -109,7 +109,7 @@ public interface RowHandler<RowT> {
      *     ...
      *     // Call build() after all fields have been set.
      *     var row1 = rowBuilder.build();
-     *     // Call reset() to cleanup the state of a builder.
+     *     // Call reset() to cleanup builder's state.
      *     rowBuilder.reset();
      * </pre>
      */
