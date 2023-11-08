@@ -35,6 +35,7 @@ import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,7 +65,11 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
             return errorIfNotLeader;
         }
 
-        Command command = request.command();
+        if (!(request instanceof WriteActionRequest)) {
+            return null;
+        }
+
+        Command command = ((WriteActionRequest) request).command();
 
         if (command instanceof CatalogVersionAware) {
             int requiredCatalogVersion = ((CatalogVersionAware) command).requiredCatalogVersion();

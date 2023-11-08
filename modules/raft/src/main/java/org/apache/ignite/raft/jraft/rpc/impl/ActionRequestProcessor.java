@@ -42,9 +42,11 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
+import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Marshaller;
 
@@ -82,25 +84,30 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
         JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
-        if (request.command() instanceof WriteCommand) {
+        if (request instanceof WriteActionRequest) {
             if (fsm.getListener() instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
                     callOnBeforeApply(request, fsm);
-                    applyWrite(node, request, rpcCtx);
+                    applyWrite(node, (WriteActionRequest) request, rpcCtx);
                 }
             } else {
-                applyWrite(node, request, rpcCtx);
+                applyWrite(node, (WriteActionRequest) request, rpcCtx);
             }
         } else {
             if (fsm.getListener() instanceof BeforeApplyHandler) {
                 callOnBeforeApply(request, fsm);
             }
 
-            applyRead(node, request, rpcCtx);
+            applyRead(node, (ReadActionRequest) request, rpcCtx);
         }
     }
+
     private static void callOnBeforeApply(ActionRequest request, DelegatingStateMachine fsm) {
-        ((BeforeApplyHandler) fsm.getListener()).onBeforeApply(request.command());
+        Command command = request instanceof WriteActionRequest
+                ? ((WriteActionRequest) request).command()
+                : ((ReadActionRequest) request).command();
+
+        ((BeforeApplyHandler) fsm.getListener()).onBeforeApply(command);
     }
 
     private Object groupIdSyncMonitor(String groupId) {
@@ -114,7 +121,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param request The request.
      * @param rpcCtx  The context.
      */
-    private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
+    private void applyWrite(Node node, WriteActionRequest request, RpcContext rpcCtx) {
         Marshaller commandsMarshaller = node.getOptions().getCommandsMarshaller();
 
         assert commandsMarshaller != null;
@@ -146,7 +153,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param request The request.
      * @param rpcCtx  The context.
      */
-    private void applyRead(Node node, ActionRequest request, RpcContext rpcCtx) {
+    private void applyRead(Node node, ReadActionRequest request, RpcContext rpcCtx) {
         if (request.readOnlySafe()) {
             node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
                 @Override public void run(Status status, long index, byte[] reqCtx) {
