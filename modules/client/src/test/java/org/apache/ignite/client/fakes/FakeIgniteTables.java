@@ -40,6 +40,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 
@@ -171,7 +172,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
+    public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) {
         return completedFuture(partitionAssignments);
     }
 

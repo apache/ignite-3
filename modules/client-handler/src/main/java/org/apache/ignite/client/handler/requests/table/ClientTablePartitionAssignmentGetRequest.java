@@ -22,6 +22,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -44,16 +45,16 @@ public class ClientTablePartitionAssignmentGetRequest {
     ) throws NodeStoppingException {
         int tableId = in.unpackInt();
 
-        return tables.assignmentsAsync(tableId).thenAccept(assignment -> {
-            if (assignment == null) {
+        return tables.primaryReplicasAsync(tableId).thenAccept(primaryReplicas -> {
+            if (primaryReplicas == null) {
                 out.packInt(0);
                 return;
             }
 
-            out.packInt(assignment.size());
+            out.packInt(primaryReplicas.size());
 
-            for (String leaderNodeId : assignment) {
-                out.packString(leaderNodeId);
+            for (PrimaryReplica primaryReplica : primaryReplicas) {
+                out.packString(primaryReplica.node().name());
             }
         });
     }

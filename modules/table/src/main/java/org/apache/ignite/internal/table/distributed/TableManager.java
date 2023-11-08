@@ -167,6 +167,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteException;
@@ -1047,14 +1048,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
-        return tableAsync(tableId).thenApply(table -> {
-            if (table == null) {
-                return null;
-            }
-
-            return table.internalTable().assignments();
-        });
+    public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) {
+        return tableAsync(tableId).thenCompose(table -> table != null
+                ? table.internalTable().primaryReplicasAsync()
+                : completedFuture(null));
     }
 
     /** {@inheritDoc} */

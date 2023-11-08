@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -85,10 +86,10 @@ public interface IgniteTablesInternal extends IgniteTables {
      * @param tableId Unique id of a table.
      * @return List of the current assignments.
      */
-    CompletableFuture<List<String>> assignmentsAsync(int tableId) throws NodeStoppingException;
+    CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) throws NodeStoppingException;
 
     /**
-     * Adds a listener to track changes in {@link #assignmentsAsync}.
+     * Adds a listener to track changes in {@link #primaryReplicasAsync}.
      *
      * @param listener Listener.
      */
