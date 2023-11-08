@@ -202,7 +202,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         @Override
         int columnsCount() {
-            return row.length;
+            return rowSchema.fields().size();
         }
 
         @Override
