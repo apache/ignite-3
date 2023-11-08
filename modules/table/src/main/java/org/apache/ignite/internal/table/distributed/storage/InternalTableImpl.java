@@ -1487,7 +1487,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
-    public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync() {
+    public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
         List<CompletableFuture<PrimaryReplica>> result = new ArrayList<>();
 

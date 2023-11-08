@@ -420,7 +420,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync() {
+    public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
         return CompletableFuture.failedFuture(new IgniteInternalException(new OperationNotSupportedException()));
     }
 

@@ -1050,7 +1050,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) {
         return tableAsync(tableId).thenCompose(table -> table != null
-                ? table.internalTable().primaryReplicasAsync()
+                ? table.internalTable().primaryReplicas()
                 : completedFuture(null));
     }
 

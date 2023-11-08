@@ -264,7 +264,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
                 return tableManager.tableAsync(table.id())
-                        .thenCompose(tbl -> tbl.internalTable().primaryReplicasAsync())
+                        .thenCompose(tbl -> tbl.internalTable().primaryReplicas())
                         .thenApply(replicas -> {
                             List<NodeWithTerm> assignments = replicas.stream()
                                     .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
