@@ -106,6 +106,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -1058,6 +1059,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public void addPrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
         Objects.requireNonNull(listener);
+
+        // TODO
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (event, err) -> {
+            System.out.println("Primary replica event: " + event);
+            return CompletableFuture.completedFuture(false); // Continue listening.
+        });
 
         assignmentsChangeListeners.add(listener);
     }
