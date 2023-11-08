@@ -24,9 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.sql.Criteria;
-import org.apache.ignite.sql.CriteriaQueryCursor;
-import org.apache.ignite.sql.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * @apiNote 'Key/value class field' &gt;-&lt; 'table column' mapping laid down in implementation.
  * @see org.apache.ignite.table.mapper.Mapper
  */
-public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
+public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, CriteriaQuerySource<Entry<K, V>> {
     /**
      * Gets a value associated with a given key.
      *
@@ -494,23 +491,4 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @see #getAndReplace(Transaction, Object, Object)
      */
     CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, V val);
-
-    /**
-     * Criteria query over cache entries.
-     *
-     * @param tx Transaction or {@code null} to auto-commit.
-     * @param criteria If {@code null} then all entries will be returned.
-     */
-    default CriteriaQueryCursor<Entry<K, V>> criteriaQuery(@Nullable Transaction tx, @Nullable Criteria criteria) {
-        return criteriaQuery(tx, criteria, CriteriaQueryOptions.DEFAULT);
-    }
-
-    /**
-     * Criteria query over cache entries.
-     *
-     * @param tx Transaction or {@code null} to auto-commit.
-     * @param criteria If {@code null} then all entries will be returned.
-     * @param opts Criteria query options.
-     */
-    CriteriaQueryCursor<Entry<K, V>> criteriaQuery(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
 }

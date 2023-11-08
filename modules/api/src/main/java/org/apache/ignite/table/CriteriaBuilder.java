@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.table;
 
 /**
  * Represents a criteria builder. Implementations of this interface are basic building blocks for performing criteria queries.

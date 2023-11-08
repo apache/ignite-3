@@ -32,11 +32,11 @@ import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.apache.ignite.internal.type.NativeTypes.datetime;
 import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
-import static org.apache.ignite.sql.Criteria.and;
-import static org.apache.ignite.sql.Criteria.equal;
-import static org.apache.ignite.sql.Criteria.greaterThan;
-import static org.apache.ignite.sql.Criteria.sql;
-import static org.apache.ignite.sql.CriteriaBuilder.columnName;
+import static org.apache.ignite.table.Criteria.and;
+import static org.apache.ignite.table.Criteria.equal;
+import static org.apache.ignite.table.Criteria.greaterThan;
+import static org.apache.ignite.table.Criteria.sql;
+import static org.apache.ignite.table.CriteriaBuilder.columnName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
@@ -78,7 +78,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.sql.CriteriaQueryOptions;
+import org.apache.ignite.table.CriteriaQueryOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -736,7 +736,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         );
 
         // Criteria
-        try (var cursor = kvView().criteriaQuery(
+        try (var cursor = kvView().queryCriteria(
                 null,
                 and(equal("intCol", 42), greaterThan("primitiveIntCol", 9000), equal("booleanCol", true)),
                 CriteriaQueryOptions.builder().pageSize(10).build()
@@ -745,7 +745,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         }
 
         // CriteriaBuilder
-        try (var cursor = kvView().criteriaQuery(
+        try (var cursor = kvView().queryCriteria(
                 null,
                 columnName("intCol").equal(42)
                         .and(columnName("primitiveIntCol").greaterThan(9000))
@@ -755,7 +755,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         }
 
         //  SQL where clause as criteria.
-        try (var cursor = kvView().criteriaQuery(null, sql("intCol = ? AND primitiveIntCol > ? AND booleanCol = true", 42, 9000))) {
+        try (var cursor = kvView().queryCriteria(null, sql("intCol = ? AND primitiveIntCol > ? AND booleanCol = true", 42, 9000))) {
             assertThat(cursor.getAll(), containsInAnyOrder(new IgniteBiTuple<>(key1, val1)));
         }
     }

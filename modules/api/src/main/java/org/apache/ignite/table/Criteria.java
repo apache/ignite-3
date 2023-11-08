@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.table;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +30,7 @@ public interface Criteria {
      * @param value Column value.
      * @return the created <b>equal</b> predicate instance.
      */
-    public static <R> Criteria equal(String columnName, Comparable<R> value) {
+    static <R> Criteria equal(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -41,7 +41,7 @@ public interface Criteria {
      * @param value Column value.
      * @return the created <b>greaterThan</b> predicate instance.
      */
-    public static <R> Criteria greaterThan(String columnName, Comparable<R> value) {
+    static <R> Criteria greaterThan(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -52,7 +52,7 @@ public interface Criteria {
      * @param value Column value.
      * @return the created <b>greaterThanOrEqualTo</b> predicate instance.
      */
-    public static <R> Criteria greaterThanOrEqualTo(String columnName, Comparable<R> value) {
+    static <R> Criteria greaterThanOrEqualTo(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -63,7 +63,7 @@ public interface Criteria {
      * @param value Column value.
      * @return the created <b>lessThan</b> predicate instance.
      */
-    public static <R> Criteria lessThan(String columnName, Comparable<R> value) {
+    static <R> Criteria lessThan(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -74,7 +74,7 @@ public interface Criteria {
      * @param value Column value.
      * @return the created <b>lessThanOrEqualTo</b> predicate instance.
      */
-    public static <R> Criteria lessThanOrEqualTo(String columnName, Comparable<R> value) {
+    static <R> Criteria lessThanOrEqualTo(String columnName, Comparable<R> value) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -85,7 +85,7 @@ public interface Criteria {
      * @param values Column values.
      * @return the created <b>in</b> predicate instance.
      */
-    public static <R> Criteria in(String columnName, Comparable<R>... values) {
+    static <R> Criteria in(String columnName, Comparable<R>... values) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -95,7 +95,7 @@ public interface Criteria {
      * @param criterions the child predicates to form the resulting <b>and</b> predicate from.
      * @return the created <b>and</b> predicate instance.
      */
-    public static Criteria and(Criteria... criterions) {
+    static Criteria and(Criteria... criterions) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -105,7 +105,7 @@ public interface Criteria {
      * @param criterions the child predicates to form the resulting <b>or</b> predicate from.
      * @return the created <b>or</b> predicate instance.
      */
-    public static Criteria or(Criteria... criterions) {
+    static Criteria or(Criteria... criterions) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -115,7 +115,7 @@ public interface Criteria {
      * @param criteria the predicate to negate the value of.
      * @return the created <b>not</b> predicate instance.
      */
-    public static Criteria not(Criteria criteria) {
+    static Criteria not(Criteria criteria) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -126,7 +126,7 @@ public interface Criteria {
      * @param arguments Arguments for the statement.
      * @return the created <b>sql</b> predicate instance.
      */
-    public static Criteria sql(String sql, @Nullable Object... arguments) {
+    static Criteria sql(String sql, @Nullable Object... arguments) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 }

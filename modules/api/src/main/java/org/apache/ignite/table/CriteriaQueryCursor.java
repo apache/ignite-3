@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.table;
 
 import static java.util.stream.Collectors.toList;
 
