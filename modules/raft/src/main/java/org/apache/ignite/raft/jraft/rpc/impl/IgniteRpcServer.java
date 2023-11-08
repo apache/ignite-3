@@ -155,7 +155,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
         /** {@inheritDoc} */
         @Override public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
-            RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
             ClusterNode sender = clusterService().topologyService().getByConsistentId(senderConsistentId);
 
@@ -163,9 +162,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 throw new UnresolvableConsistentIdException("No node by consistent ID " + senderConsistentId);
             }
 
-            if (prc == null) {
-                prc = getProcessor(cls, cls);
-            }
+            RpcProcessor<NetworkMessage> prc = getProcessor(cls, cls);
 
             if (prc == null)
                 return;
@@ -196,8 +193,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
             if (prc != null) {
-                processors.putIfAbsent(origin.getName(), prc);
-
                 return prc;
             }
 
@@ -205,6 +200,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 prc = getProcessor(origin, iface);
 
                 if (prc != null) {
+                    processors.putIfAbsent(origin.getName(), prc);
+
                     return prc;
                 }
             }
