@@ -270,9 +270,6 @@ public abstract class Marshaller {
         /** {@inheritDoc} */
         @Override
         public void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException {
-            // Pojo marshaller does not support null objects, unlike simple marshaller.
-            Objects.requireNonNull(obj);
-
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
             }
