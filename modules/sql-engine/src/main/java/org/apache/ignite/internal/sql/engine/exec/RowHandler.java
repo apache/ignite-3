@@ -104,12 +104,12 @@ public interface RowHandler<RowT> {
      * A builder to create rows. It uses the schema provided by an instance of row factory that created it.
      *
      * <pre>
-     *     // Create a row builder
+     *     // Create a row builder.
      *     var rowBuilder = rowFactory.rowBuilder();
      *     ...
      *     // Call build() after all fields have been set.
      *     var row1 = rowBuilder.build();
-     *     // Call reset() to cleanup the state of this builder.
+     *     // Call reset() to cleanup the state of a builder.
      *     rowBuilder.reset();
      * </pre>
      */
