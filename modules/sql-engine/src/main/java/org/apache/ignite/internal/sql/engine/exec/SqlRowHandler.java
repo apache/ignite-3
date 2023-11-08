@@ -192,6 +192,8 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
      * Wrapper over an array of objects.
      */
     private static class ObjectsArrayRowWrapper extends RowWrapper {
+        private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(RowSchema.builder().build(), new Object[0]);
+
         private final RowSchema rowSchema;
         private final Object[] row;
 
@@ -202,7 +204,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         @Override
         int columnsCount() {
-            return rowSchema.fields().size();
+            return row.length;
         }
 
         @Override
@@ -459,8 +461,12 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         public RowWrapper build() {
             checkState();
 
-            Object[] row = data;
-            return new ObjectsArrayRowWrapper(rowSchema, row);
+            if (rowSchema.fields().isEmpty()) {
+                return ObjectsArrayRowWrapper.EMPTY_ROW;
+            } else {
+                Object[] row = data;
+                return new ObjectsArrayRowWrapper(rowSchema, row);
+            }
         }
 
         /** {@inheritDoc} */
