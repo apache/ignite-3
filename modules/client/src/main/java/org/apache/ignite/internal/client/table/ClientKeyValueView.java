@@ -221,9 +221,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, V val) {
+    public CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
@@ -427,12 +426,12 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, K key, V val) {
+    private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, K key, @Nullable V val) {
         writeSchemaAndTx(s, w, tx);
         writeKeyValueRaw(s, w, key, val);
     }
 
-    private void writeKeyValueRaw(ClientSchema s, PayloadOutputChannel w, K key, V val) {
+    private void writeKeyValueRaw(ClientSchema s, PayloadOutputChannel w, K key, @Nullable V val) {
         var builder = new BinaryTupleBuilder(s.columns().length);
         var noValueSet = new BitSet();
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
