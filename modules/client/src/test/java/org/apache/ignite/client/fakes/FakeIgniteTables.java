@@ -28,6 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -173,7 +175,11 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) {
-        return completedFuture(partitionAssignments);
+        var replicas = partitionAssignments.stream()
+                .map(nodeName -> new PrimaryReplica(new ClientClusterNode("", nodeName, null), 0))
+                .collect(Collectors.toList());
+
+        return completedFuture(replicas);
     }
 
     /** {@inheritDoc} */
