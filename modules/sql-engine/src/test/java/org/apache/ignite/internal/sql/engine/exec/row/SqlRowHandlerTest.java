@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
@@ -252,6 +253,13 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
         IllegalStateException err = assertThrows(IllegalStateException.class, rowBuilder::build);
         assertThat(err.getMessage(), containsString("Row has not been fully built"));
+    }
+
+    @Test
+    public void testRowBuilderEmptyRow() {
+        RowFactory<RowWrapper> rowFactory = handler.factory(RowSchema.builder().build());
+        RowBuilder<RowWrapper> rowBuilder = rowFactory.rowBuilder();
+        assertNotNull(rowBuilder.build());
     }
 
     private RowSchema rowSchema(List<ColumnType> columnTypes, Object[] values) {

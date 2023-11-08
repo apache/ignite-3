@@ -127,7 +127,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                     /** {@inheritDoc} */
                     @Override
                     public RowBuilder<Object[]> addField(Object value) {
-                        if (data == null) {
+                        if (fieldIdx == 0 && data == null) {
                             data = new Object[rowLen];
                         }
                         data[fieldIdx++] = value;
@@ -137,7 +137,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                     /** {@inheritDoc} */
                     @Override
                     public Object[] build() {
-                        assert data != null : "Row has not been initialised";
+                        assert rowLen == 0 || data != null : "Row has not been initialised";
                         assert fieldIdx == data.length : "Row has not been fully built";
                         return data;
                     }

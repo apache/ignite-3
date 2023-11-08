@@ -444,7 +444,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         /** {@inheritDoc} */
         @Override
         public RowBuilder<RowWrapper> addField(Object value) {
-            if (data == null) {
+            if (fieldIdx == 0 && data == null) {
                 data = new Object[schemaLen];
             }
 
@@ -471,7 +471,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         private void checkState() {
-            if (data == null) {
+            if (schemaLen != 0 && data == null) {
                 throw new IllegalStateException("Row has not been initialised");
             }
             if (fieldIdx != schemaLen) {
