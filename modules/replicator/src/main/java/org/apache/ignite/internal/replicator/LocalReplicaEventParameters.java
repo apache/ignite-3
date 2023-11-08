@@ -22,19 +22,16 @@ import org.apache.ignite.internal.event.EventParameters;
 /**
  * Parameters of events produced by {@link ReplicaManager}.
  */
-public class LocalReplicaEventParameters extends EventParameters {
+public class LocalReplicaEventParameters implements EventParameters {
     /** ID of the created replica. */
     private final ReplicationGroupId groupId;
 
     /**
      * Constructor.
      *
-     * @param causalityToken Causality Token. Can be equal to {@code -1} if this event is not related to any distributed operation.
      * @param groupId Replication Group ID.
      */
-    public LocalReplicaEventParameters(long causalityToken, ReplicationGroupId groupId) {
-        super(causalityToken);
-
+    public LocalReplicaEventParameters(ReplicationGroupId groupId) {
         this.groupId = groupId;
     }
 
@@ -53,16 +50,11 @@ public class LocalReplicaEventParameters extends EventParameters {
 
         LocalReplicaEventParameters that = (LocalReplicaEventParameters) o;
 
-        if (causalityToken() != that.causalityToken()) {
-            return false;
-        }
         return groupId.equals(that.groupId);
     }
 
     @Override
     public int hashCode() {
-        int result = groupId.hashCode();
-        result = 31 * result + (int) (causalityToken() ^ (causalityToken() >>> 32));
-        return result;
+        return groupId.hashCode();
     }
 }

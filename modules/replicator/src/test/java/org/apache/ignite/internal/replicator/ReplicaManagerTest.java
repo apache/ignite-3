@@ -93,7 +93,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<?>[] replicaStopFutures = replicaManager.startedGroups().stream()
             .map(id -> {
                 try {
-                    return replicaManager.stopReplica(id, -1);
+                    return replicaManager.stopReplica(id);
                 } catch (NodeStoppingException e) {
                     throw new AssertionError(e);
                 }
@@ -125,11 +125,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var groupId = new TablePartitionId(0, 0);
 
-        var causalityToken = 239L;
-
         CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
                 groupId,
-                causalityToken,
                 completedFuture(null),
                 replicaListener,
                 raftGroupService,
@@ -138,12 +135,12 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(startReplicaFuture, willCompleteSuccessfully());
 
-        var expectedCreateParams = new LocalReplicaEventParameters(causalityToken, groupId);
+        var expectedCreateParams = new LocalReplicaEventParameters(groupId);
 
         verify(createReplicaListener).notify(eq(expectedCreateParams), isNull());
         verify(removeReplicaListener, never()).notify(any(), any());
 
-        CompletableFuture<Boolean> stopReplicaFuture = replicaManager.stopReplica(groupId, causalityToken);
+        CompletableFuture<Boolean> stopReplicaFuture = replicaManager.stopReplica(groupId);
 
         assertThat(stopReplicaFuture, willBe(true));
 

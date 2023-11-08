@@ -557,7 +557,6 @@ public class ItTxTestCluster {
 
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
-                                        0,
                                         completedFuture(null),
                                         listener,
                                         raftSvc,
@@ -748,7 +747,7 @@ public class ItTxTestCluster {
                 CompletableFuture<?>[] replicaStopFutures = replicaMgr.startedGroups().stream()
                         .map(grp -> {
                             try {
-                                return replicaMgr.stopReplica(grp, 0);
+                                return replicaMgr.stopReplica(grp);
                             } catch (NodeStoppingException e) {
                                 throw new AssertionError(e);
                             }

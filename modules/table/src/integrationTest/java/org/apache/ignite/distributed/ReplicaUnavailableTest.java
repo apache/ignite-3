@@ -155,7 +155,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
                         replicaManager.startReplica(
                                 tablePartitionId,
-                                0,
                                 completedFuture(null),
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(5)
@@ -203,7 +202,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     try {
                         log.info("Replica msg " + message.getClass().getSimpleName());
 
-                        assertThat(replicaManager.stopReplica(tablePartitionId, 0), willSucceedFast());
+                        assertThat(replicaManager.stopReplica(tablePartitionId), willSucceedFast());
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
                     }
@@ -258,7 +257,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
                         replicaManager.startReplica(
                                 tablePartitionId,
-                                0,
                                 new CompletableFuture<>(),
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(5)

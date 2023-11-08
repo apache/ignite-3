@@ -250,7 +250,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(emptySet()));
 
-        when(replicaMgr.stopReplica(any(), anyLong())).thenReturn(completedFuture(true));
+        when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
 
         tblManagerFut = new CompletableFuture<>();
 
@@ -327,7 +327,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         verify(mvTableStorage).destroy();
         verify(txStateTableStorage).destroy();
-        verify(replicaMgr, times(PARTITIONS)).stopReplica(any(), anyLong());
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
 
@@ -405,7 +405,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
                 () -> {
                     try {
-                        when(replicaMgr.stopReplica(any(), anyLong())).thenThrow(NodeStoppingException.class);
+                        when(replicaMgr.stopReplica(any())).thenThrow(NodeStoppingException.class);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -463,7 +463,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.stop();
 
         verify(rm, times(PARTITIONS)).stopRaftNodes(any());
-        verify(replicaMgr, times(PARTITIONS)).stopReplica(any(), anyLong());
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         verify(table.internalTable().storage()).close();
         verify(table.internalTable().txStateStorage()).close();

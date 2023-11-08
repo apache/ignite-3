@@ -228,7 +228,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         ReplicaRequest request = (ReplicaRequest) message;
 
         if (!busyLock.enterBusy()) {
-            LOG.info("Skipping a Replica message, because the node is stopping");
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Failed to process replica request (the node is stopping) [request={}].", request);
+            }
 
             return;
         }
@@ -298,9 +300,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaResponse(sendTimestamp, res.result());
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
-                        LOG.warn("Failed to process replica request [request={}]", ex, request);
+                        LOG.warn("Failed to process replica request [request={}].", ex, request);
                     } else {
-                        LOG.debug("Failed to process replica request [request={}]", ex, request);
+                        LOG.debug("Failed to process replica request [request={}].", ex, request);
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
@@ -372,7 +374,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         var msg = (PlacementDriverReplicaMessage) msg0;
 
         if (!busyLock.enterBusy()) {
-            LOG.info("Skipping a Placement Driver message, because the node is stopping");
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Failed to process placement driver message (the node is stopping) [msg={}].", msg);
+            }
 
             return;
         }
@@ -386,7 +390,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
                         } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
-                            LOG.error("Failed to process placement driver message [msg={}]", ex, msg);
+                            LOG.error("Failed to process placement driver message [msg={}].", ex, msg);
                         }
                     });
         } finally {
@@ -422,7 +426,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param causalityToken Causality token.
      * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
@@ -433,7 +436,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            long causalityToken,
             CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
@@ -444,7 +446,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, causalityToken, whenReplicaReady, listener, raftClient, storageIndexTracker);
+            return startReplicaInternal(replicaGrpId, whenReplicaReady, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
@@ -454,7 +456,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Internal method for starting a replica.
      *
      * @param replicaGrpId Replication group id.
-     * @param causalityToken Causality token.
      * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
@@ -462,7 +463,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
-            long causalityToken,
             CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
@@ -493,11 +493,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
         });
 
-        var eventParams = new LocalReplicaEventParameters(causalityToken, replicaGrpId);
+        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
         return fireEvent(AFTER_REPLICA_STARTED, eventParams)
                 .exceptionally(e -> {
-                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event", e);
+                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
 
                     return null;
                 })
@@ -512,17 +512,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Stops a replica by the partition group id.
      *
      * @param replicaGrpId Replication group id.
-     * @param causalityToken Causality token.
      * @return True if the replica is found and closed, false otherwise.
      * @throws NodeStoppingException If the node is stopping.
      */
-    public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId, long causalityToken) throws NodeStoppingException {
+    public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return stopReplicaInternal(replicaGrpId, causalityToken);
+            return stopReplicaInternal(replicaGrpId);
         } finally {
             busyLock.leaveBusy();
         }
@@ -532,17 +531,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Internal method for stopping a replica.
      *
      * @param replicaGrpId Replication group id.
-     * @param causalityToken Causality token.
      * @return True if the replica is found and closed, false otherwise.
      */
-    private CompletableFuture<Boolean> stopReplicaInternal(ReplicationGroupId replicaGrpId, long causalityToken) {
+    private CompletableFuture<Boolean> stopReplicaInternal(ReplicationGroupId replicaGrpId) {
         var isRemovedFuture = new CompletableFuture<Boolean>();
 
-        var eventParams = new LocalReplicaEventParameters(causalityToken, replicaGrpId);
+        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
-                LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event", e);
+                LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
             }
 
             if (!busyLock.enterBusy()) {
@@ -568,7 +566,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 .thenCompose(Replica::shutdown)
                                 .whenComplete((notUsed, throwable) -> {
                                     if (throwable != null) {
-                                        LOG.error("Failed to stop replica [replicaGrpId={}]", throwable, grpId);
+                                        LOG.error("Failed to stop replica [replicaGrpId={}].", throwable, grpId);
                                     }
 
                                     isRemovedFuture.complete(throwable == null);

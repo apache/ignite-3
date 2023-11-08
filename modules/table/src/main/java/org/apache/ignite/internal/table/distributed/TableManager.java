@@ -775,7 +775,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             try {
                                 startReplicaWithNewListener(
                                         replicaGrpId,
-                                        causalityToken,
                                         table,
                                         safeTimeTracker,
                                         storageIndexTracker,
@@ -836,7 +835,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void startReplicaWithNewListener(
             TablePartitionId replicaGrpId,
-            long causalityToken,
             TableImpl table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
@@ -862,7 +860,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         replicaMgr.startReplica(
                 replicaGrpId,
-                causalityToken,
                 whenReplicaReady,
                 listener,
                 raftGroupService,
@@ -1023,7 +1020,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     for (int p = 0; p < internalTable.partitions(); p++) {
                         TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-                        stopReplicaFutures[p] = stopPartition(replicationGroupId, table, -1);
+                        stopReplicaFutures[p] = stopPartition(replicationGroupId, table);
                     }
 
                     allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
@@ -1307,7 +1304,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             for (int partitionId = 0; partitionId < partitions; partitionId++) {
                 var replicationGroupId = new TablePartitionId(tableId, partitionId);
 
-                stopReplicaFutures[partitionId] = stopPartition(replicationGroupId, table, causalityToken);
+                stopReplicaFutures[partitionId] = stopPartition(replicationGroupId, table);
             }
 
             // TODO: IGNITE-18703 Destroy raft log and meta
@@ -1770,7 +1767,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
                                 startReplicaWithNewListener(
                                         replicaGrpId,
-                                        revision,
                                         tbl,
                                         safeTimeTracker,
                                         storageIndexTracker,
@@ -2076,7 +2072,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .thenCompose(tables -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 
-                    return stopPartition(tablePartitionId, table, causalityToken)
+                    return stopPartition(tablePartitionId, table)
                             .thenCompose(v -> destroyPartitionStorages(tablePartitionId, table));
                 });
     }
@@ -2088,7 +2084,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param table Table which this partition belongs to.
      * @return Future that will be completed after all resources have been closed.
      */
-    private CompletableFuture<Void> stopPartition(TablePartitionId tablePartitionId, TableImpl table, long causalityToken) {
+    private CompletableFuture<Void> stopPartition(TablePartitionId tablePartitionId, TableImpl table) {
         // TODO: IGNITE-19905 - remove the check.
         if (table != null) {
             closePartitionTrackers(table.internalTable(), tablePartitionId.partitionId());
@@ -2097,7 +2093,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
-            stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId, causalityToken);
+            stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
         } catch (NodeStoppingException e) {
             // No-op.
             stopReplicaFuture = completedFuture(false);

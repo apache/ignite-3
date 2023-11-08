@@ -46,7 +46,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
@@ -694,7 +693,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < NODE_COUNT; i++) {
             verify(getNode(i).raftManager, times(1))
                     .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
-            verify(getNode(i).replicaManager, times(1)).startReplica(any(), anyLong(), any(), any(), any(), any());
+            verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
         }
     }
 

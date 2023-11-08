@@ -401,7 +401,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             assertNotNull(raftManager);
             assertNotNull(replicaManager);
 
-            replicaManager.stopReplica(testGrpId, 0).join();
+            replicaManager.stopReplica(testGrpId).join();
             raftManager.stopRaftNodes(testGrpId);
         }
     }
@@ -448,7 +448,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
                     replicaManager.startReplica(
                             groupId,
-                            0,
                             allOf(raftManager.raftNodeReadyFuture(groupId)),
                             (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
