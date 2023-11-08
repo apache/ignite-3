@@ -312,7 +312,8 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals("new_name", pojoView.get(null, DEFAULT_ID));
 
         assertNull(res2);
-        assertEquals("name", pojoView.get(null, 100L));
+        assertEquals("name", res3);
+        assertNull(pojoView.get(null, 100L));
     }
 
     @Test
