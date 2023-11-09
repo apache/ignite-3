@@ -424,7 +424,8 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param oldVal Expected value associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
+     * @param oldVal Expected value associated with the specified key. Can be {@code null} when mapped to a single column
+     *     with a simple type.
      * @param newVal Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
