@@ -103,6 +103,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private long maxObservableSafeTime = -1;
 
+    private long maxObservableSafeTimeVerificator = -1;
+
+
     /**
      * The constructor.
      *
@@ -151,6 +154,16 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
+
+            if (command instanceof SafeTimePropagatingCommand) {
+                SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+
+                if (cmd.safeTimeLong() > maxObservableSafeTimeVerificator) {
+                    maxObservableSafeTimeVerificator = cmd.safeTimeLong();
+                } else {
+                    assert false: "Safe time reordering detected.";
+                }
+            }
 
             long commandIndex = clo.index();
             long commandTerm = clo.term();
@@ -214,11 +227,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                // TODO: sanpwc txcleanup command shouldn't implement SafeTimePropagatingCommand
-                if (!(command instanceof TxCleanupCommand)) {
-                    synchronized (safeTime) {
-                        updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
-                    }
+                synchronized (safeTime) {
+                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
                 }
             }
 
@@ -471,9 +481,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             if (cmd.safeTimeLong() > maxObservableSafeTime) {
                 maxObservableSafeTime = cmd.safeTimeLong();
             } else {
-                if (cmd instanceof TxCleanupCommand) {
-                    throw new SafeTimeReorderException();
-                }
+                throw new SafeTimeReorderException();
             }
         }
     }

@@ -91,6 +91,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                         callOnBeforeApply(request, fsm);
                     } catch (SafeTimeReorderException e) {
                         rpcCtx.sendResponse(factory.errorResponse().errorCode(RaftError.EREORDER.getNumber()).build());
+
+                        return;
                     }
 
                     applyWrite(node, (WriteActionRequest) request, rpcCtx);

@@ -2434,7 +2434,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     HybridTimestamp safeTimeForRetry = hybridClock.now();
 
-                    if ((cmd instanceof UpdateCommand && !((UpdateCommand) cmd).full())) {
+                    if ((cmd instanceof UpdateCommand && !((UpdateCommand) cmd).full()) ||
+                            (cmd instanceof UpdateAllCommand && !((UpdateAllCommand) cmd).full())) {
                         synchronized (safeTime) {
                             updateTrackerIgnoringTrackerClosedException(safeTime, safeTimeForRetry);
                         }
@@ -2489,6 +2490,21 @@ public class PartitionReplicaListener implements ReplicaListener {
             );
 
             if (!cmd.full()) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
+                synchronized (safeTime) {
+                    storageUpdateHandler.handleUpdate(
+                            cmd.txId(),
+                            cmd.rowUuid(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.rowToUpdate(),
+                            true,
+                            null,
+                            null,
+                            null);
+
+                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                }
+
                 CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
                 applyCmdWithExceptionHandling(cmd, resultFuture);
@@ -2500,23 +2516,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     // Set context for delayed response.
                     return cmd.txId();
                 });
-
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                synchronized (safeTime) {
-                    if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                        storageUpdateHandler.handleUpdate(
-                                cmd.txId(),
-                                cmd.rowUuid(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                cmd.rowToUpdate(),
-                                true,
-                                null,
-                                null,
-                                null);
-
-                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                    }
-                }
 
                 return completedFuture(fut);
             } else {
@@ -2590,7 +2589,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @param catalogVersion Validated catalog version associated with given operation.
      * @param skipDelayedAck {@code true} to disable the delayed ack optimization.
-     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
+     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command, CompletableFuture)}.
      */
     private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
@@ -2616,18 +2615,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                 if (skipDelayedAck) {
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                     synchronized (safeTime) {
-                        if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                            storageUpdateHandler.handleUpdateAll(
-                                    cmd.txId(),
-                                    cmd.rowsToUpdate(),
-                                    cmd.tablePartitionId().asTablePartitionId(),
-                                    true,
-                                    null,
-                                    null
-                            );
+                        storageUpdateHandler.handleUpdateAll(
+                                cmd.txId(),
+                                cmd.rowsToUpdate(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                true,
+                                null,
+                                null
+                        );
 
-                            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                        }
+                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                     }
 
                     CompletableFuture<Object> resultFuture = new CompletableFuture<>();
@@ -2636,6 +2633,20 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return resultFuture.thenApply(res -> null);
                 } else {
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
+                    synchronized (safeTime) {
+                        storageUpdateHandler.handleUpdateAll(
+                                cmd.txId(),
+                                cmd.rowsToUpdate(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                true,
+                                null,
+                                null
+                        );
+
+                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    }
+
                     CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
                     applyCmdWithExceptionHandling(cmd, resultFuture);
@@ -2648,22 +2659,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         // Set context for delayed response.
                         return cmd.txId();
                     });
-
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                    synchronized (safeTime) {
-                        if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                            storageUpdateHandler.handleUpdateAll(
-                                    cmd.txId(),
-                                    cmd.rowsToUpdate(),
-                                    cmd.tablePartitionId().asTablePartitionId(),
-                                    true,
-                                    null,
-                                    null
-                            );
-
-                            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                        }
-                    }
 
                     return completedFuture(fut);
                 }
