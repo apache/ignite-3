@@ -174,6 +174,10 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<PrimaryReplica>> primaryReplicasAsync(int tableId) {
+        if (partitionAssignments == null) {
+            return completedFuture(null);
+        }
+
         var replicas = partitionAssignments.stream()
                 .map(nodeName -> new PrimaryReplica(new ClientClusterNode("", nodeName, null), 0))
                 .collect(Collectors.toList());
