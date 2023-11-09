@@ -204,14 +204,17 @@ public class IgniteComputeImpl implements IgniteCompute {
     }
 
     private static ClusterNode leaderOfTablePartitionByTupleKey(TableViewInternal table, Tuple key) {
+        // TODO: Use primary replica
         return requiredLeaderByPartition(table, table.partition(key));
     }
 
     private static  <K> ClusterNode leaderOfTablePartitionByMappedKey(TableViewInternal table, K key, Mapper<K> keyMapper) {
+        // TODO: Use primary replica
         return requiredLeaderByPartition(table, table.partition(key, keyMapper));
     }
 
     private static ClusterNode requiredLeaderByPartition(TableViewInternal table, int partitionIndex) {
+        // TODO: Use primary replica
         ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
         if (leaderNode == null) {
             throw new IgniteInternalException("Leader not found for partition " + partitionIndex);
