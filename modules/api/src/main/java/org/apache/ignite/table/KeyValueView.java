@@ -197,7 +197,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Replaced value or {@code null} if it did not exist.
      * @throws MarshallerException if one of the keys or values doesn't match the schema.
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
@@ -212,7 +212,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
@@ -223,7 +223,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Wrapped nullable value that was replaced or {@code null} if it did no exist.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
@@ -234,7 +234,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
@@ -245,7 +245,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return {@code True} if successful, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
@@ -256,7 +256,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
@@ -382,7 +382,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
@@ -402,7 +402,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param oldValue Expected value associated with the specified key.
-     * @param newValue Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param newValue Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
@@ -413,7 +413,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key or the oldValue doesn't match the schema.
      */
@@ -424,8 +424,8 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param oldVal Expected value associated with the specified key. Can be null when mapped to a single column with a simple type.
-     * @param newVal Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param oldVal Expected value associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
+     * @param newVal Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
@@ -448,7 +448,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Replaced value, or {@code null} if it did not exist.
      * @throws UnexpectedNullValueException If the value for the key is {@code null}.
      * @throws MarshallerException if the key, or the value doesn't match the schema.
@@ -463,7 +463,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
@@ -475,7 +475,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Wrapped nullable value that was replaced or {@code null} if it did not exist.
      * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
@@ -487,7 +487,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
