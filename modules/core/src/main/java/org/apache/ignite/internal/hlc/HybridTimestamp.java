@@ -235,7 +235,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     public String toString() {
         String formattedTime = DATE_FORMATTER.format(Instant.ofEpochMilli(getPhysical()).atZone(ZoneId.systemDefault()));
 
-        return String.format("HybridTimestamp [time=%s [%03d], value=%d]", formattedTime, getLogical(), time);
+        return String.format("HybridTimestamp [physical=%s, logical=%d, composite=%d]", formattedTime, getLogical(), time);
     }
 
     /**
