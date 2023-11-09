@@ -518,10 +518,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Node evictedNode = findNodeByConsistentId(evictedAssignment.consistentId());
 
         // Let's make sure that we handled the events (STABLE_ASSIGNMENTS_PREFIX) from the metastore correctly.
-        /*assertThat(
+        assertThat(
                 collectFinishHandleChangeStableAssignmentEventFuture(n -> !n.equals(evictedNode), TABLE_NAME, 0),
                 willCompleteSuccessfully()
-        );*/
+        );
 
         TablePartitionId tablePartitionId = evictedNode.getTablePartitionId(TABLE_NAME, 0);
 

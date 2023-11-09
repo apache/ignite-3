@@ -1102,7 +1102,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             // Check if the table already has assignments in the meta storage.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
-            // TODO: IGNITE-20210 Fix it
             if (partitionAssignments(metaStorageMgr, tableId, 0, causalityToken) != null) {
                 assignmentsFuture = completedFuture(tableAssignments(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
             } else {
@@ -1708,11 +1707,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             + " [key={}, partition={}, table={}, localMemberAddress={}, shouldStartLocalServices={}, revision={}]",
                     stringKey, partId, tbl.name(), localMember.address(), shouldStartLocalServices, revision);
         }
-
-        transactionStateResolver.updateAssignment(
-                replicaGrpId,
-                stableAssignments.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toList())
-        );
 
         CompletableFuture<Void> localServicesStartFuture;
 
