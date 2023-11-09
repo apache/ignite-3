@@ -32,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -242,7 +243,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     @MethodSource("provideRules")
     public void testMultipleRowsFromSingleAggr(String[] rules) {
         assertThrows(
-                IgniteException.class,
+                SqlException.class,
                 () -> assertQuery("SELECT (SELECT name FROM person)").disableRules(rules).check()
         );
 

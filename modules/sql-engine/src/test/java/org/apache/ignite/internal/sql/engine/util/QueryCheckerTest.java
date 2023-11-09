@@ -294,6 +294,17 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
+        public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(
+                SqlProperties properties,
+                IgniteTransactions transactions,
+                @Nullable InternalTransaction transaction,
+                String qry,
+                Object... params
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void start() {
             // NO-OP
         }

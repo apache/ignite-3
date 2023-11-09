@@ -490,6 +490,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 root.exceptionally(t -> {
                     this.close(true);
 
+                    QueryPrefetchCallback callback = ctx.prefetchCallback();
+                    if (callback != null) {
+                        taskExecutor.execute(() -> callback.onPrefetchComplete(t));
+                    }
+
                     return null;
                 });
 

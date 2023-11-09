@@ -27,7 +27,7 @@ import org.apache.ignite.internal.util.Cancellable;
 /**
  * Holds query cancel state.
  */
-public class QueryCancel {
+public class QueryCancel implements Cancellable {
     private final List<Cancellable> cancelActions = new ArrayList<>(3);
 
     private boolean canceled;
@@ -50,6 +50,7 @@ public class QueryCancel {
     /**
      * Executes cancel closure.
      */
+    @Override
     public synchronized void cancel() {
         if (canceled) {
             return;
@@ -76,15 +77,6 @@ public class QueryCancel {
 
         if (ex != null) {
             throw ex;
-        }
-    }
-
-    /**
-     * Stops query execution if a user requested cancel.
-     */
-    public synchronized void checkCancelled() throws QueryCancelledException {
-        if (canceled) {
-            throw new QueryCancelledException();
         }
     }
 
