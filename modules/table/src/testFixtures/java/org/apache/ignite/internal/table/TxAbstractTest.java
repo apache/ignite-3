@@ -382,8 +382,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /**
      * Tests negative transfer scenario.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17861")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17861")
     public void testTxClosureAbortAsync() {
         double balance1 = 10.;
         double balance2 = 300.;
@@ -1024,8 +1024,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tx2.rollback();
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15938") // TODO asch IGNITE-15938
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15938") // TODO asch IGNITE-15938
     public void testUpgradedLockInvalidation() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
