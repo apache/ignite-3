@@ -31,6 +31,8 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -51,6 +53,11 @@ import org.jetbrains.annotations.Nullable;
  * resources for the example.
  */
 public class RestComponent implements IgniteComponent {
+    /**
+     * Lock for micronaut server startup.
+     * TODO: remove when fix https://github.com/micronaut-projects/micronaut-core/issues/10091
+     */
+    private static final Lock SHARED_STURTAP_LOCK = new ReentrantLock();
 
     /** Unavailable port. */
     private static final int UNAVAILABLE_PORT = -1;
@@ -115,9 +122,12 @@ public class RestComponent implements IgniteComponent {
      * @return {@code True} if server was started successfully, {@code False} if couldn't bind one of the ports.
      */
     private synchronized boolean startServer(int httpPortCandidate, int httpsPortCandidate, boolean sslEnabled, boolean dualProtocol) {
+        // Workaround to avoid micronaut race condition on startup.
+        SHARED_STURTAP_LOCK.lock();
         try {
             httpPort = httpPortCandidate;
             httpsPort = httpsPortCandidate;
+
             context = buildMicronautContext(httpPortCandidate, httpsPortCandidate)
                     .deduceEnvironment(false)
                     .environments(BARE_METAL)
@@ -131,6 +141,8 @@ public class RestComponent implements IgniteComponent {
                 return false;
             }
             throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
+        } finally {
+            SHARED_STURTAP_LOCK.unlock();
         }
     }
 
