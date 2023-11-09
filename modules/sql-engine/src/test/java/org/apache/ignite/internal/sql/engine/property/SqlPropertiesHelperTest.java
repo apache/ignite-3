@@ -154,6 +154,69 @@ class SqlPropertiesHelperTest {
     }
 
     @Test
+    public void chainEmptyHolders() {
+        SqlProperties first = SqlPropertiesHelper.emptyProperties();
+        SqlProperties second = SqlPropertiesHelper.emptyProperties();
+
+        SqlProperties result = SqlPropertiesHelper.chain(first, second);
+
+        assertThat(result, notNullValue());
+        assertThat(result.iterator().hasNext(), is(false));
+    }
+
+    @Test
+    public void chainEmptyAndNonEmptyHolder() {
+        SqlProperties empty = SqlPropertiesHelper.emptyProperties();
+        SqlProperties nonEmpty = SqlPropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 42L)
+                .build();
+
+        List<Pair<SqlProperties, SqlProperties>> pairs = List.of(new Pair<>(empty, nonEmpty), new Pair<>(nonEmpty, empty));
+
+        for (Pair<SqlProperties, SqlProperties> pair : pairs) {
+            SqlProperties result = SqlPropertiesHelper.chain(pair.getFirst(), pair.getSecond());
+
+            assertThat(result, notNullValue());
+
+            Iterator<Entry<Property<?>, Object>> it = result.iterator();
+
+            assertThat(it.hasNext(), is(true));
+
+            Map.Entry<Property<?>, Object> entry = it.next();
+
+            assertThat(entry.getKey(), is(TestProps.LONG_PROP));
+            assertThat(entry.getValue(), is(42L));
+
+            assertThat(it.hasNext(), is(false));
+        }
+    }
+
+    @Test
+    public void chainNonEmptyWithConflict() {
+        SqlProperties first = SqlPropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 1L)
+                .set(TestProps.BYTE_PROP, (byte) 1)
+                .build();
+
+        SqlProperties second = SqlPropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 2L)
+                .set(TestProps.STRING_PROP, "2")
+                .build();
+
+        SqlProperties result = SqlPropertiesHelper.chain(first, second);
+
+        assertThat(result.get(TestProps.BYTE_PROP), is((byte) 1));
+        assertThat(result.get(TestProps.LONG_PROP), is(1L));
+        assertThat(result.get(TestProps.STRING_PROP), is("2"));
+
+        result = SqlPropertiesHelper.merge(second, first);
+
+        assertThat(result.get(TestProps.BYTE_PROP), is((byte) 1));
+        assertThat(result.get(TestProps.LONG_PROP), is(2L));
+        assertThat(result.get(TestProps.STRING_PROP), is("2"));
+    }
+
+    @Test
     public void createBuilderFromHolder() {
         SqlProperties base = SqlPropertiesHelper.newBuilder()
                 .set(TestProps.BYTE_PROP, (byte) 1)

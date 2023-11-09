@@ -38,7 +38,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @param properties User query properties. See {@link QueryProperty} for available properties.
      * @param transactions Transactions facade.
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
-     *      will be started by provided transactional facade.
+     *      will be started by provided transactions facade.
      * @param qry Single statement SQL query.
      * @param params Query parameters.
      * @return Sql cursor.
