@@ -17,6 +17,8 @@
 
 package org.apache.ignite.table;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,13 +27,13 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> Entry type.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface CriteriaQuerySource<T> {
     /**
      * Criteria query over cache entries.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction to execute the query within or {@code null}.
      * @param criteria If {@code null} then all entries will be returned.
+     * @throws SqlException If failed.
      */
     default CriteriaQueryCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria) {
         return queryCriteria(tx, criteria, CriteriaQueryOptions.DEFAULT);
@@ -40,9 +42,37 @@ public interface CriteriaQuerySource<T> {
     /**
      * Criteria query over cache entries.
      *
-     * @param tx Transaction or {@code null} to auto-commit.
+     * @param tx Transaction to execute the query within or {@code null}.
      * @param criteria If {@code null} then all entries will be returned.
      * @param opts Criteria query options.
+     * @throws SqlException If failed.
      */
     CriteriaQueryCursor<T> queryCriteria(@Nullable Transaction tx, @Nullable Criteria criteria, CriteriaQueryOptions opts);
+
+    /**
+     * Execute criteria query over cache entries in an asynchronous way.
+     *
+     * @param tx Transaction to execute the query within or {@code null}.
+     * @param criteria If {@code null} then all entries will be returned.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    default CompletableFuture<CriteriaQueryCursor<T>> queryCriteriaAsync(@Nullable Transaction tx, @Nullable Criteria criteria) {
+        return queryCriteriaAsync(tx, criteria, CriteriaQueryOptions.DEFAULT);
+    }
+
+    /**
+     * Execute criteria query over cache entries in an asynchronous way.
+     *
+     * @param tx Transaction to execute the query within or {@code null}.
+     * @param criteria If {@code null} then all entries will be returned.
+     * @param opts Criteria query options.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    CompletableFuture<CriteriaQueryCursor<T>> queryCriteriaAsync(
+            @Nullable Transaction tx,
+            @Nullable Criteria criteria,
+            CriteriaQueryOptions opts
+    );
 }
