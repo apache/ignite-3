@@ -666,7 +666,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 // TODO https://issues.apache.org/jira/browse/IGNITE-20463
                 if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
                     taskExecutor.execute(this::processNext);
-
                     return;
                 }
 
@@ -680,9 +679,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
                                 txWrapper.rollback();
-
                                 cursorFuture.completeExceptionally(ex);
-
                                 cancelAll(ex);
 
                                 return;
