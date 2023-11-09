@@ -161,7 +161,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 if (cmd.safeTimeLong() > maxObservableSafeTimeVerificator) {
                     maxObservableSafeTimeVerificator = cmd.safeTimeLong();
                 } else {
-                    assert false: "Safe time reordering detected.";
+                    assert false : "Safe time reordering detected.";
                 }
             }
 

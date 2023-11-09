@@ -2434,8 +2434,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     HybridTimestamp safeTimeForRetry = hybridClock.now();
 
-                    if ((cmd instanceof UpdateCommand && !((UpdateCommand) cmd).full()) ||
-                            (cmd instanceof UpdateAllCommand && !((UpdateAllCommand) cmd).full())) {
+                    if ((cmd instanceof UpdateCommand && !((UpdateCommand) cmd).full())
+                            || (cmd instanceof UpdateAllCommand && !((UpdateAllCommand) cmd).full())) {
                         synchronized (safeTime) {
                             updateTrackerIgnoringTrackerClosedException(safeTime, safeTimeForRetry);
                         }
