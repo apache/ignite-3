@@ -121,7 +121,7 @@ public class RestComponent implements IgniteComponent {
      * @param dualProtocol Dual protocol flag.
      * @return {@code True} if server was started successfully, {@code False} if couldn't bind one of the ports.
      */
-    private synchronized boolean startServer(int httpPortCandidate, int httpsPortCandidate, boolean sslEnabled, boolean dualProtocol) {
+    private boolean startServer(int httpPortCandidate, int httpsPortCandidate, boolean sslEnabled, boolean dualProtocol) {
         // Workaround to avoid micronaut race condition on startup.
         SHARED_STARTUP_LOCK.lock();
         try {
