@@ -15,38 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.event;
+package org.apache.ignite.internal.replicator;
 
-import org.apache.ignite.internal.event.CausalEventParameters;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.event.EventParameters;
 
-/** Primary replica event parameters. There are properties which associate with a concrete primary replica. */
-public class PrimaryReplicaEventParameters extends CausalEventParameters {
+/**
+ * Parameters of events produced by {@link ReplicaManager}.
+ */
+public class LocalReplicaEventParameters implements EventParameters {
+    /** ID of the created replica. */
     private final ReplicationGroupId groupId;
-
-    private final String leaseholder;
 
     /**
      * Constructor.
      *
-     * @param causalityToken Causality token.
-     * @param groupId Replication group ID.
-     * @param leaseholder Leaseholder node consistent ID.
+     * @param groupId Replication Group ID.
      */
-    public PrimaryReplicaEventParameters(long causalityToken, ReplicationGroupId groupId, String leaseholder) {
-        super(causalityToken);
-
+    public LocalReplicaEventParameters(ReplicationGroupId groupId) {
         this.groupId = groupId;
-        this.leaseholder = leaseholder;
     }
 
-    /** Replication group ID. */
     public ReplicationGroupId groupId() {
         return groupId;
     }
 
-    /** Returns leaseholder node consistent ID. */
-    public String leaseholder() {
-        return leaseholder;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        LocalReplicaEventParameters that = (LocalReplicaEventParameters) o;
+
+        return groupId.equals(that.groupId);
+    }
+
+    @Override
+    public int hashCode() {
+        return groupId.hashCode();
     }
 }
