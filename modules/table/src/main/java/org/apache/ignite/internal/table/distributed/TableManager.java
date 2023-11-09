@@ -185,7 +185,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager implements IgniteTablesInternal, IgniteComponent {
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
@@ -660,7 +659,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             for (int p = 0; p < partitions; p++) {
-                startPartition0(table, p, null, null, newAssignments, futures[p]);
+                startPartition(table, p, newAssignments, futures[p]);
             }
 
             return allOf(futures);
@@ -706,15 +705,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private void startPartition0(
+    private void startPartition(
             TableImpl table,
             int partId,
-            Set<Assignment> pendingAssignments,
-            Set<Assignment> stableAssignments,
             List<Set<Assignment>> newAssignments,
-            CompletableFuture<?> partitionFuture
+            @Nullable CompletableFuture<?> partitionFuture
     ) {
-        var eee = new Exception("qqq");
         int tableId = table.tableId();
 
         Set<Assignment> newPartAssignment = newAssignments.get(partId);
@@ -780,38 +776,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return true;
                 }
 
-                TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
-
-                RaftGroupOptions groupOptions = groupOptionsForPartition(
-                        internalTbl.storage(),
-                        internalTbl.txStateStorage(),
-                        partitionKey(internalTbl, partId),
-                        partitionUpdateHandlers
-                );
-
                 try {
-                    // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                    new Exception("qqqq", eee).printStackTrace();
-                    ((Loza) raftMgr).startRaftGroupNode(
+                    startPartitionRaftGroupNode(
+                            replicaGrpId,
                             raftNodeId,
                             newConfiguration,
-                            new PartitionListener(
-                                    txManager,
-                                    partitionDataStorage,
-                                    partitionUpdateHandlers.storageUpdateHandler,
-                                    txStatePartitionStorage,
-                                    safeTimeTracker,
-                                    storageIndexTracker
-                            ),
-                            new RebalanceRaftGroupEventsListener(
-                                    metaStorageMgr,
-                                    replicaGrpId,
-                                    busyLock,
-                                    createPartitionMover(internalTbl, partId),
-                                    this::calculateAssignments,
-                                    rebalanceScheduler
-                            ),
-                            groupOptions
+                            safeTimeTracker,
+                            storageIndexTracker,
+                            internalTbl,
+                            partitionStorages.getTxStateStorage(),
+                            partitionDataStorage,
+                            partitionUpdateHandlers
                     );
 
                     return true;
@@ -840,17 +815,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return;
                     }
 
-                    MvPartitionStorage partitionStorage = partitionStorages.getMvPartitionStorage();
-                    TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
-
                     try {
                         startReplicaWithNewListener(
                                 replicaGrpId,
                                 table,
                                 safeTimeTracker,
                                 storageIndexTracker,
-                                partitionStorage,
-                                txStateStorage,
+                                partitionStorages.getMvPartitionStorage(),
+                                partitionStorages.getTxStateStorage(),
                                 partitionUpdateHandlers,
                                 updatedRaftGroupService
                         );
@@ -859,83 +831,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
                 }), ioExecutor)
                 .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
+                    if (partitionFuture != null) {
+                        if (ex != null) {
+                            LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
 
-                        partitionFuture.completeExceptionally(ex);
-                    } else {
-                        partitionFuture.complete(null);
+                            partitionFuture.completeExceptionally(ex);
+                        } else {
+                            partitionFuture.complete(null);
+                        }
                     }
                 });
-    }
-
-    private void startPartition(
-            TableImpl tbl,
-            TablePartitionId replicaGrpId,
-            ClusterNode localMember,
-            Set<Assignment> pendingAssignments,
-            Set<Assignment> stableAssignments
-    ) {
-        inBusyLock(busyLock, () -> {
-            InternalTable internalTable = tbl.internalTable();
-            int partId = replicaGrpId.partitionId();
-
-            var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
-            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
-
-            PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
-
-            MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
-            TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
-
-            PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
-
-            PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                    partId,
-                    partitionDataStorage,
-                    tbl,
-                    safeTimeTracker
-            );
-
-            PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
-
-            try {
-                Peer serverPeer = pendingConfiguration.peer(localMember.name());
-
-                RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
-
-                if (!((Loza) raftMgr).isStarted(raftNodeId)) {
-                    PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
-
-                    startPartitionRaftGroupNode(
-                            replicaGrpId,
-                            pendingConfiguration,
-                            stableConfiguration,
-                            safeTimeTracker,
-                            storageIndexTracker,
-                            internalTable,
-                            txStatePartitionStorage,
-                            partitionDataStorage,
-                            partitionUpdateHandlers
-                    );
-                }
-
-                if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    startReplicaWithNewListener(
-                            replicaGrpId,
-                            tbl,
-                            safeTimeTracker,
-                            storageIndexTracker,
-                            mvPartitionStorage,
-                            txStatePartitionStorage,
-                            partitionUpdateHandlers,
-                            (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
-                    );
-                }
-            } catch (NodeStoppingException ignored) {
-                // No-op.
-            }
-        });
     }
 
     private void startReplicaWithNewListener(
@@ -1817,7 +1722,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         inBusyLock(busyLock, () -> localPartsUpdate(tbl, oldMap, List.of(pendingAssignments)))
                     , ioExecutor)
                     .thenRunAsync(() -> {
-                        startPartition0(tbl, replicaGrpId.partitionId(), pendingAssignments, stableAssignments, List.of(pendingAssignments), new CompletableFuture<>());
+                        startPartition(tbl, replicaGrpId.partitionId(), List.of(pendingAssignments, stableAssignments), null);
                     }, ioExecutor);
         } else {
             localServicesStartFuture = completedFuture(null);
@@ -1857,7 +1762,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void startPartitionRaftGroupNode(
             TablePartitionId replicaGrpId,
-            PeersAndLearners pendingConfiguration,
+            RaftNodeId raftNodeId,
             PeersAndLearners stableConfiguration,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
@@ -1866,8 +1771,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionDataStorage partitionDataStorage,
             PartitionUpdateHandlers partitionUpdateHandlers
     ) throws NodeStoppingException {
-        ClusterNode localMember = localNode();
-
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 internalTable.storage(),
                 internalTable.txStateStorage(),
@@ -1892,10 +1795,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 this::calculateAssignments,
                 rebalanceScheduler
         );
-
-        Peer serverPeer = pendingConfiguration.peer(localMember.name());
-
-        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
 
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
         ((Loza) raftMgr).startRaftGroupNode(
@@ -2025,6 +1924,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
                     .thenComposeAsync(mvPartitionStorage -> {
                         TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
+                        System.out.println("qqq created storage table=" + table.name() + ", partId=" + partitionId + ", node=" + localNode() +
+                                ", tableManager=" + this + ", internalTable=" + internalTable +
+                                ", partition=" + internalTable.storage().getMvPartition(partitionId));
 
                         if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
                                 || txStateStorage.lastAppliedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {

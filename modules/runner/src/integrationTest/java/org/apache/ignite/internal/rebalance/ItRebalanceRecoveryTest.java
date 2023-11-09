@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -59,7 +60,9 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
             session.execute(null, "ALTER ZONE TEST_ZONE SET REPLICAS=2");
         });
 
+        System.out.println("qqq restarting node old=" + cluster.node(1).node());
         cluster.restartNode(1);
+        System.out.println("qqq restarted node=" + cluster.node(1).node());
 
         assertTrue(containsPartition(cluster.node(0)));
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
@@ -72,6 +75,15 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
                 .internalTable()
                 .storage()
                 .getMvPartition(0);
+
+        System.out.println("qqq containsPartition node=" + ((IgniteImpl)node).node() +
+                ", tableManager=" + tableManager + ", internalTable=" + tableManager.tableView("TEST").internalTable() +
+                ", partition=" + storage
+        );
+
+        if (storage == null) {
+            return false;
+        }
 
         return storage.rowsCount() != 0;
     }
