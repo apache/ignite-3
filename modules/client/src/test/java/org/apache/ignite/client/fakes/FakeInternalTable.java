@@ -425,6 +425,11 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
+    public CompletableFuture<PrimaryReplica> primaryReplica(int partition) {
+        return CompletableFuture.failedFuture(new IgniteInternalException(new OperationNotSupportedException()));
+    }
+
+    @Override
     public ClusterNode leaderAssignment(int partition) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
