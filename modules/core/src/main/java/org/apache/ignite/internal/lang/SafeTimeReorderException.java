@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.lang;
 
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_REORDERING;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_REORDERING_ERR;
 
 /**
  * This exception is used to indicate a detection of a safe time reordering.
@@ -28,7 +28,7 @@ public class SafeTimeReorderException extends IgniteInternalException {
      * The constructor.
      */
     public SafeTimeReorderException() {
-        super(REPLICATION_SAFE_TIME_REORDERING, "Replication safe time reordering detected.");
+        super(REPLICATION_SAFE_TIME_REORDERING_ERR, "Replication safe time reordering detected.");
     }
 
 }
