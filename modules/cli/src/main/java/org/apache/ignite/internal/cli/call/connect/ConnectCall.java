@@ -94,7 +94,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         }
         try {
             // Try without authentication first to check whether the authentication is enabled on the cluster.
-            sessionInfo = connectWithoutAuthentication(nodeUrl);
+            sessionInfo = connectWithoutAuthentication(input);
             if (sessionInfo == null) {
                 // Try with authentication
                 sessionInfo = connectionChecker.checkConnection(input);
@@ -125,9 +125,8 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     }
 
     @Nullable
-    private SessionInfo connectWithoutAuthentication(String nodeUrl) throws ApiException {
+    private SessionInfo connectWithoutAuthentication(ConnectCallInput connectCallInput) throws ApiException {
         try {
-            ConnectCallInput connectCallInput = ConnectCallInput.builder().url(nodeUrl).build();
             return connectionChecker.checkConnectionWithoutAuthentication(connectCallInput);
         } catch (ApiException e) {
             if (e.getCause() == null && e.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {

@@ -15,8 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.event;
+package org.apache.ignite.internal.replicator;
 
-/** Event parameters. This type is passed to the {@link EventListener#notify(EventParameters, Throwable)}. */
-public interface EventParameters {
+import org.apache.ignite.internal.event.Event;
+
+/**
+ * Events produced by {@link ReplicaManager}.
+ */
+public enum LocalReplicaEvent implements Event {
+    /**
+     * Fired after a replica has been started on the local node.
+     */
+    AFTER_REPLICA_STARTED,
+
+    /**
+     * Fired before a replica has been stopped on the local node.
+     */
+    BEFORE_REPLICA_STOPPED;
 }

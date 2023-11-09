@@ -15,22 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+package org.apache.ignite.internal.event;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+/** {@link EventParameters} implementation that contains a Causality Token. */
+public abstract class CausalEventParameters implements EventParameters {
+    private final long causalityToken;
 
-import org.apache.ignite.internal.lang.IgniteInternalException;
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     */
+    public CausalEventParameters(long causalityToken) {
+        this.causalityToken = causalityToken;
+    }
 
-/**
- * Thrown when session has expired or no longer exists.
- */
-public class SessionNotFoundException extends IgniteInternalException {
-
-    private static final long serialVersionUID = -6297499977667006250L;
-
-    /** Constructor. */
-    public SessionNotFoundException(SessionId sessionId) {
-        super(INTERNAL_ERR, format("Session not found [{}]", sessionId));
+    /**
+     * Returns a causality token.
+     * The token is required for represent a causality dependency between several events.
+     * The earlier the event occurred, the lower the value of the token.
+     */
+    public long causalityToken() {
+        return causalityToken;
     }
 }

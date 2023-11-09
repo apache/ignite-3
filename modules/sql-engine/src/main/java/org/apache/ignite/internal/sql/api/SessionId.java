@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+package org.apache.ignite.internal.sql.api;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -24,7 +24,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Class-wrapper representing a session's identifier.
  */
-public class SessionId {
+class SessionId {
     private final UUID id;
 
     /**
@@ -32,7 +32,7 @@ public class SessionId {
      *
      * @param id Internal value of an identifier.
      */
-    public SessionId(UUID id) {
+    SessionId(UUID id) {
         this.id = Objects.requireNonNull(id, "id");
     }
 
