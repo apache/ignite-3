@@ -57,7 +57,7 @@ public class RestComponent implements IgniteComponent {
      * Lock for micronaut server startup.
      * TODO: remove when fix https://github.com/micronaut-projects/micronaut-core/issues/10091
      */
-    private static final Lock SHARED_STURTAP_LOCK = new ReentrantLock();
+    private static final Lock SHARED_STARTUP_LOCK = new ReentrantLock();
 
     /** Unavailable port. */
     private static final int UNAVAILABLE_PORT = -1;
@@ -123,7 +123,7 @@ public class RestComponent implements IgniteComponent {
      */
     private synchronized boolean startServer(int httpPortCandidate, int httpsPortCandidate, boolean sslEnabled, boolean dualProtocol) {
         // Workaround to avoid micronaut race condition on startup.
-        SHARED_STURTAP_LOCK.lock();
+        SHARED_STARTUP_LOCK.lock();
         try {
             httpPort = httpPortCandidate;
             httpsPort = httpsPortCandidate;
@@ -142,7 +142,7 @@ public class RestComponent implements IgniteComponent {
             }
             throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
         } finally {
-            SHARED_STURTAP_LOCK.unlock();
+            SHARED_STARTUP_LOCK.unlock();
         }
     }
 
