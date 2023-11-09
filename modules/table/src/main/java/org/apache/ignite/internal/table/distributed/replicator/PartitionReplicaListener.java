@@ -1613,7 +1613,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Object> applyFinishCommand(
-            UUID transactionID,
+            UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
             String txCoordinatorId,
@@ -1623,7 +1623,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // TODO: synchonized should go here. Not within finishTransaction but with all apply command.
         synchronized (commandProcessingLinearizationMutex) {
             FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
-                    .txId(transactionID)
+                    .txId(transactionId)
                     .commit(commit)
                     .safeTimeLong(hybridClock.nowLong())
                     .txCoordinatorId(txCoordinatorId)
@@ -1718,22 +1718,22 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Void> applyCleanupCommand(
-            UUID transactionID,
+            UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
             long commitTimestampLong,
             int catalogVersion
     ) {
         TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
-                .txId(transactionID)
+                .txId(transactionId)
                 .commit(commit)
                 .commitTimestampLong(commitTimestampLong)
                 .safeTimeLong(hybridClock.nowLong())
-                .txCoordinatorId(getTxCoordinatorId(transactionID))
+                .txCoordinatorId(getTxCoordinatorId(transactionId))
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
-        storageUpdateHandler.handleTransactionCleanup(transactionID, commit, commitTimestamp);
+        storageUpdateHandler.handleTransactionCleanup(transactionId, commit, commitTimestamp);
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
@@ -2435,7 +2435,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     HybridTimestamp safeTimeForRetry = hybridClock.now();
 
                     if ((cmd instanceof UpdateCommand && !((UpdateCommand) cmd).full())) {
-//                            (cmd instanceof UpdateAllCommand && !((UpdateAllCommand) cmd).full())) {
                         synchronized (safeTime) {
                             updateTrackerIgnoringTrackerClosedException(safeTime, safeTimeForRetry);
                         }
