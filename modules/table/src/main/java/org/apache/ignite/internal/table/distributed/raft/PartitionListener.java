@@ -243,7 +243,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
+                storageUpdateHandler.handleUpdate(
+                        cmd.txId(),
+                        cmd.rowUuid(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.rowToUpdate(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
                         cmd.full() ? cmd.safeTime() : null,
@@ -272,11 +276,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
+                storageUpdateHandler.handleUpdateAll(
+                        cmd.txId(),
+                        cmd.rowsToUpdate(),
+                        cmd.tablePartitionId().asTablePartitionId(),
                         !cmd.full(),
                         () -> storage.lastApplied(commandIndex, commandTerm),
-                        cmd.full() ? cmd.safeTime() : null,
-                        cmd.lastCommitTimestamps()
+                        cmd.full() ? cmd.safeTime() : null
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());

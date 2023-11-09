@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.storage.db;
 
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileType;
 
 /**
@@ -24,8 +25,8 @@ import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileType;
  */
 public class SegmentLogDB extends AbstractDB {
 
-    public SegmentLogDB(final String storePath) {
-        super(storePath);
+    public SegmentLogDB(String storePath, ScheduledExecutorService checkpointExecutor) {
+        super(storePath, checkpointExecutor);
     }
 
     @Override

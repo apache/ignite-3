@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.Kludges.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
@@ -291,7 +293,11 @@ public class ReplicaManager implements IgniteComponent {
                 if (ex == null) {
                     msg = prepareReplicaResponse(sendTimestamp, res.result());
                 } else {
-                    LOG.warn("Failed to process replica request [request={}]", ex, request);
+                    if (indicatesUnexpectedProblem(ex)) {
+                        LOG.warn("Failed to process replica request [request={}]", ex, request);
+                    } else {
+                        LOG.debug("Failed to process replica request [request={}]", ex, request);
+                    }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
                 }
@@ -338,6 +344,10 @@ public class ReplicaManager implements IgniteComponent {
         }
     }
 
+    private static boolean indicatesUnexpectedProblem(Throwable ex) {
+        return !(ex instanceof ExpectedReplicationException);
+    }
+
     /**
      * Checks this exception is caused of timeout or connectivity issue.
      *
@@ -368,14 +378,12 @@ public class ReplicaManager implements IgniteComponent {
 
             replicaFut
                     .thenCompose(replica -> replica.processPlacementDriverMessage(msg))
-                    .handle((response, ex) -> {
+                    .whenComplete((response, ex) -> {
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
-                        } else {
+                        } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
                             LOG.error("Failed to process placement driver message [msg={}]", ex, msg);
                         }
-
-                        return null;
                     });
         } finally {
             busyLock.leaveBusy();

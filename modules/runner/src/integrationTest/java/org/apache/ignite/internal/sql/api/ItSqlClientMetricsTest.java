@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 /** Test SQL client metrics. */
-public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
+public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     private MetricManager metricManager;
     private IgniteSql sql;
     private MetricSet clientMetricSet;
@@ -68,7 +68,7 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -105,7 +105,7 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
 
         assertTrue(waitForCondition(() -> queryProcessor().liveSessions().isEmpty(), 10_000));
 
-        assertInternalSqlException("Session not found", () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
+        assertInternalSqlException("Session is closed", () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
 
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
         rs1.close();

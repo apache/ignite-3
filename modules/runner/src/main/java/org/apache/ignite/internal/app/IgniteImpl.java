@@ -85,7 +85,7 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.index.IndexBuildController;
+import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -131,9 +131,9 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -210,7 +210,7 @@ public class IgniteImpl implements Ignite {
     private final SqlQueryProcessor qryEngine;
 
     /** Sql API facade. */
-    private final IgniteSql sql;
+    private final IgniteSqlImpl sql;
 
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
@@ -313,8 +313,8 @@ public class IgniteImpl implements Ignite {
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
 
-    /** Index build controller. */
-    private final IndexBuildController indexBuildController;
+    /** Index building manager. */
+    private final IndexBuildingManager indexBuildingManager;
 
     /**
      * The Constructor.
@@ -583,7 +583,6 @@ public class IgniteImpl implements Ignite {
                 replicaMgr,
                 lockMgr,
                 replicaSvc,
-                clusterSvc.topologyService(),
                 txManager,
                 dataStorageMgr,
                 storagePath,
@@ -603,14 +602,14 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
 
-        IndexBuilder indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors(), replicaSvc);
-
-        indexBuildController = new IndexBuildController(
-                indexBuilder,
-                indexManager,
+        indexBuildingManager = new IndexBuildingManager(
+                name,
+                replicaSvc,
                 catalogManager,
-                clusterSvc,
+                metaStorageMgr,
+                indexManager,
                 placementDriverMgr.placementDriver(),
+                clusterSvc,
                 clock
         );
 
@@ -630,7 +629,7 @@ public class IgniteImpl implements Ignite {
                 systemViewManager
         );
 
-        sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
+        sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -654,8 +653,6 @@ public class IgniteImpl implements Ignite {
 
         authenticationManager = createAuthenticationManager();
 
-        SecurityConfiguration securityConfiguration = clusterConfigRegistry.getConfiguration(SecurityConfiguration.KEY);
-
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
@@ -670,7 +667,6 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
-                securityConfiguration,
                 clock,
                 schemaSyncService,
                 catalogManager
@@ -827,10 +823,11 @@ public class IgniteImpl implements Ignite {
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
                                     indexManager,
-                                    indexBuildController,
+                                    indexBuildingManager,
                                     qryEngine,
                                     clientHandlerModule,
-                                    deploymentManager
+                                    deploymentManager,
+                                    sql
                             );
 
                             // The system view manager comes last because other components
@@ -859,8 +856,6 @@ public class IgniteImpl implements Ignite {
 
                         return cmgMgr.onJoinReady();
                     }, startupExecutor)
-                    // TODO Remove waiting for schema update after https://issues.apache.org/jira/browse/IGNITE-20498
-                    .thenComposeAsync(v -> systemViewManager.completeRegistration())
                     .thenRunAsync(() -> {
                         try {
                             // Transfer the node to the STARTED state.
@@ -911,8 +906,14 @@ public class IgniteImpl implements Ignite {
         return distributedTblMgr;
     }
 
+    @TestOnly
     public QueryProcessor queryEngine() {
         return qryEngine;
+    }
+
+    @TestOnly
+    public SystemViewManager systemViewManager() {
+        return systemViewManager;
     }
 
     @TestOnly

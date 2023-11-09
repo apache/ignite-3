@@ -86,6 +86,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The implementation of {@link RaftGroupService}.
  */
+// TODO: IGNITE-20738 Methods updateConfiguration/refreshMembers/*Peer/*Learner are not thread-safe
+// and can produce meaningless (peers, learners) pairs as a result.
 public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceImpl.class);
@@ -449,11 +451,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return refreshLeader().thenCompose(res -> run(cmd));
         }
 
-        Function<Peer, ActionRequest> requestFactory = targetPeer -> factory.actionRequest()
-                .command(cmd)
-                .groupId(groupId)
-                .readOnlySafe(true)
-                .build();
+        Function<Peer, ActionRequest> requestFactory;
+
+        if (cmd instanceof WriteCommand) {
+            requestFactory = targetPeer -> factory.writeActionRequest()
+                    .groupId(groupId)
+                    .command((WriteCommand) cmd)
+                    .build();
+        } else {
+            requestFactory = targetPeer -> factory.readActionRequest()
+                    .groupId(groupId)
+                    .command((ReadCommand) cmd)
+                    .readOnlySafe(true)
+                    .build();
+        }
 
         return this.<ActionResponse>sendWithRetry(leader, requestFactory)
                 .thenApply(resp -> (R) resp.result());
@@ -482,6 +493,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override
     public ClusterService clusterService() {
         return cluster;
+    }
+
+    @Override
+    public void updateConfiguration(PeersAndLearners configuration) {
+        peers = List.copyOf(configuration.peers());
+        learners = List.copyOf(configuration.learners());
+        leader = null;
     }
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(

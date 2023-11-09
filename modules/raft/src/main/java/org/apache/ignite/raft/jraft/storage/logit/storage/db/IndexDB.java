@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.storage.logit.storage.db;
 
 import java.util.List;
 
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.FileType;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexFile;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexFile.IndexEntry;
@@ -30,8 +31,8 @@ import org.apache.ignite.raft.jraft.storage.logit.util.Pair;
  */
 public class IndexDB extends AbstractDB {
 
-    public IndexDB(final String storePath) {
-        super(storePath);
+    public IndexDB(String storePath, ScheduledExecutorService checkpointExecutor) {
+        super(storePath, checkpointExecutor);
     }
 
     /**

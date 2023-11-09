@@ -24,6 +24,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile;
 
 /**
@@ -53,8 +54,8 @@ public class SegmentFile extends AbstractFile {
     // 4 Bytes for written data length
     private static final int    RECORD_DATA_LENGTH_SIZE = 4;
 
-    public SegmentFile(final String filePath, final int fileSize) {
-        super(filePath, fileSize, true);
+    public SegmentFile(RaftOptions raftOptions, final String filePath, final int fileSize) {
+        super(raftOptions, filePath, fileSize, true);
     }
 
     /**
@@ -102,9 +103,11 @@ public class SegmentFile extends AbstractFile {
                     getFilePath(), logIndex, pos, this.header.getFirstLogIndex(), getLastLogIndex());
                 return null;
             }
-            if (pos > getFlushedPosition()) {
+            // Original jraft code did the comparison with flushed position. In didn't work in cases where leader would write log entry
+            // locally, wouldn't flush it, and then will try replicating it. I don't know whether it's correct, but this is how it works.
+            if (pos > getWrotePosition()) {
                 LOG.warn(
-                    "Try to read data from segment file {} out of comitted position, logIndex={}, readPos={}, wrotePos={}, flushPos={}.",
+                    "Try to read data from segment file {} out of written position, logIndex={}, readPos={}, wrotePos={}, flushPos={}.",
                     getFilePath(), logIndex, pos, getWrotePosition(), getFlushedPosition());
                 return null;
             }
@@ -165,9 +168,7 @@ public class SegmentFile extends AbstractFile {
         if (buffer.remaining() < dataLen) {
             return CheckDataResult.CHECK_FAIL;
         }
-        final CheckDataResult result = CheckDataResult.CHECK_SUCCESS;
-        result.setSize(RECORD_MAGIC_BYTES_SIZE + RECORD_DATA_LENGTH_SIZE + dataLen);
-        return result;
+        return new CheckDataResult(RECORD_MAGIC_BYTES_SIZE + RECORD_DATA_LENGTH_SIZE + dataLen);
     }
 
     @Override

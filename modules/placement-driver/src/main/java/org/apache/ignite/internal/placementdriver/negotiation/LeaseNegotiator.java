@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.placementdriver.negotiation;
 
 import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement.UNDEFINED_AGREEMENT;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.LeaseUpdater;
@@ -82,12 +84,12 @@ public class LeaseNegotiator {
                                 .force(force)
                                 .build(),
                         leaseInterval)
-                .handle((msg, throwable) -> {
-                    if (throwable != null) {
-                        LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
-                    } else {
+                .whenComplete((msg, throwable) -> {
+                    if (throwable == null) {
                         assert msg instanceof LeaseGrantedMessageResponse : "Message type is unexpected [type="
                                 + msg.getClass().getSimpleName() + ']';
+                    } else if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
+                        LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                     }
 
                     LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
@@ -95,8 +97,6 @@ public class LeaseNegotiator {
                     fut.complete(response);
 
                     triggerToRenewLeases();
-
-                    return msg;
                 });
     }
 

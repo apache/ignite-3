@@ -18,7 +18,9 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.UUID;
@@ -28,6 +30,8 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -62,6 +66,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @SuppressWarnings("resource")
     public void testClientPropagatesLatestKnownHybridTimestamp() {
         assertNull(lastObservableTimestamp());
 
@@ -88,11 +93,44 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         client.transactions().begin(new TransactionOptions().readOnly(true));
         client.transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals(11, lastObservableTimestamp());
+
+        Statement statement = client.sql().statementBuilder()
+                .property("hasMorePages", true)
+                .query("SELECT 1")
+                .build();
+
+        // Execution of a SQL query should propagate observable time, not the current time of the clock.
+        currentServerTimestamp.set(20);
+        updateObservableTimestamp(14);
+        AsyncResultSet<?> rs = await(client.sql().createSession().executeAsync(null, statement));
+        assertEquals(14, lastObservableTimestamp());
+
+        assertNotNull(rs);
+
+        // Every fetch should propagate observable time, not the current time of the clock.
+        currentServerTimestamp.set(20);
+        updateObservableTimestamp(18);
+        await(rs.fetchNextPage());
+        assertEquals(18, lastObservableTimestamp());
+
+        currentServerTimestamp.set(24);
+        updateObservableTimestamp(20);
+        await(rs.fetchNextPage());
+        assertEquals(20, lastObservableTimestamp());
+
+        // Closing a result set should propagate observable time as well.
+        updateObservableTimestamp(22);
+        await(rs.closeAsync());
+        assertEquals(22, lastObservableTimestamp());
     }
 
     private static @Nullable Long lastObservableTimestamp() {
         HybridTimestamp ts = ignite.timestampTracker().get();
 
         return ts == null ? null : ts.longValue() >> LOGICAL_TIME_BITS_SIZE;
+    }
+
+    private static void updateObservableTimestamp(long newTime) {
+        ignite.timestampTracker().update(HybridTimestamp.hybridTimestamp(newTime << LOGICAL_TIME_BITS_SIZE));
     }
 }

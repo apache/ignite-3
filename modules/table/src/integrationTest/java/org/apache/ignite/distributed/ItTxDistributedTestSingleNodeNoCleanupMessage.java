@@ -46,7 +46,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -61,7 +61,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -137,7 +136,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     TxStateStorage txStateStorage,
                     TransactionStateResolver transactionStateResolver,
                     StorageUpdateHandler storageUpdateHandler,
-                    Schemas schemas,
+                    ValidationSchemasSource validationSchemasSource,
                     ClusterNode localNode,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
@@ -159,7 +158,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         txStateStorage,
                         transactionStateResolver,
                         storageUpdateHandler,
-                        schemas,
+                        validationSchemasSource,
                         localNode,
                         schemaSyncService,
                         catalogService,
@@ -191,20 +190,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
         customers = txTestCluster.startTable(CUST_TABLE_NAME, CUST_TABLE_ID, CUSTOMERS_SCHEMA);
 
         log.info("Tables have been started");
-    }
-
-    @Disabled("IGNITE-20560")
-    @Test
-    @Override
-    public void testTransactionAlreadyRolledback() {
-        super.testTransactionAlreadyRolledback();
-    }
-
-    @Disabled("IGNITE-20560")
-    @Test
-    @Override
-    public void testTransactionAlreadyCommitted() {
-        super.testTransactionAlreadyCommitted();
     }
 
     @Test

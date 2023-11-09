@@ -31,6 +31,7 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -46,7 +47,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
-import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -64,6 +64,10 @@ import org.jetbrains.annotations.Nullable;
 public class ClientHandlerModule implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
+
+    /** Connection id generator.
+     * The resulting connection id is local to the current node and is intended for logging, diagnostics, and management purposes. */
+    private static final AtomicLong CONNECTION_ID_GEN = new AtomicLong();
 
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
@@ -104,8 +108,6 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final AuthenticationManager authenticationManager;
 
-    private final SecurityConfiguration securityConfiguration;
-
     private final HybridClock clock;
 
     private final SchemaSyncService schemaSyncService;
@@ -126,7 +128,6 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param clusterIdSupplier ClusterId supplier.
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
-     * @param securityConfiguration Security configuration.
      * @param clock Hybrid clock.
      */
     public ClientHandlerModule(
@@ -142,7 +143,6 @@ public class ClientHandlerModule implements IgniteComponent {
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
-            SecurityConfiguration securityConfiguration,
             HybridClock clock,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService
@@ -158,7 +158,6 @@ public class ClientHandlerModule implements IgniteComponent {
         assert metricManager != null;
         assert metrics != null;
         assert authenticationManager != null;
-        assert securityConfiguration != null;
         assert clock != null;
         assert schemaSyncService != null;
         assert catalogService != null;
@@ -175,7 +174,6 @@ public class ClientHandlerModule implements IgniteComponent {
         this.metricManager = metricManager;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
-        this.securityConfiguration = securityConfiguration;
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
@@ -248,8 +246,11 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
+                        long connectionId = CONNECTION_ID_GEN.incrementAndGet();
+
                         if (LOG.isDebugEnabled()) {
-                            LOG.debug("New client connection [remoteAddress=" + ch.remoteAddress() + ']');
+                            LOG.debug("New client connection [connectionId=" + connectionId
+                                    + ", remoteAddress=" + ch.remoteAddress() + ']');
                         }
 
                         if (configuration.idleTimeout() > 0) {
@@ -257,16 +258,22 @@ public class ClientHandlerModule implements IgniteComponent {
                                     configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
 
                             ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics));
+                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
                         }
 
                         if (sslContext != null) {
                             ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                         }
 
+                        ClientInboundMessageHandler messageHandler = createInboundMessageHandler(configuration, clusterId, connectionId);
+                        authenticationManager.listen(messageHandler);
+
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                createInboundMessageHandler(configuration, clusterId));
+                                messageHandler
+                        );
+
+                        ch.closeFuture().addListener(future -> authenticationManager.stopListen(messageHandler));
 
                         metrics.connectionsInitiatedIncrement();
                     }
@@ -302,8 +309,11 @@ public class ClientHandlerModule implements IgniteComponent {
         return ch.closeFuture();
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, CompletableFuture<UUID> clusterId) {
-        ClientInboundMessageHandler clientInboundMessageHandler = new ClientInboundMessageHandler(
+    private ClientInboundMessageHandler createInboundMessageHandler(
+            ClientConnectorView configuration,
+            CompletableFuture<UUID> clusterId,
+            long connectionId) {
+        return new ClientInboundMessageHandler(
                 igniteTables,
                 igniteTransactions,
                 queryProcessor,
@@ -316,10 +326,9 @@ public class ClientHandlerModule implements IgniteComponent {
                 authenticationManager,
                 clock,
                 schemaSyncService,
-                catalogService
+                catalogService,
+                connectionId
         );
-        securityConfiguration.listen(clientInboundMessageHandler);
-        return clientInboundMessageHandler;
     }
 
 }

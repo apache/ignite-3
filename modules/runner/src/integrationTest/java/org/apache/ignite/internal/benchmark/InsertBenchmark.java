@@ -34,13 +34,17 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -51,14 +55,20 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for insertion operation, comparing KV, JDBC and SQL APIs.
  */
 @State(Scope.Benchmark)
+@Fork(1)
+@Threads(1)
+@Warmup(iterations = 10, time = 2)
+@Measurement(iterations = 20, time = 2)
+@BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-public class InsertBenchmark extends AbstractOneNodeBenchmark {
+public class InsertBenchmark extends AbstractMultiNodeBenchmark {
+    @Param({"1", "2", "3"})
+    private int clusterSize;
+
     /**
      * Benchmark for SQL insert via embedded client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void sqlInsert(SqlState state) {
         state.executeQuery();
     }
@@ -67,8 +77,6 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for KV insert via embedded client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void kvInsert(KvState state) {
         state.executeQuery();
     }
@@ -77,8 +85,6 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for JDBC insert.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void jdbcInsert(JdbcState state) throws SQLException {
         state.executeQuery();
     }
@@ -87,8 +93,6 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for SQL insert via thin client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void sqlThinInsert(SqlThinState state) {
         state.executeQuery();
     }
@@ -97,8 +101,6 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for KV insert via thin client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void kvThinInsert(KvThinState state) {
         state.executeQuery();
     }
@@ -310,5 +312,10 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
         return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+    }
+
+    @Override
+    protected int nodes() {
+        return clusterSize;
     }
 }

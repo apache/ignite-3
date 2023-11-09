@@ -52,9 +52,6 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -76,7 +73,6 @@ import org.junit.jupiter.api.Test;
  * Tests execution flow of TableScanNode.
  */
 public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
-
     private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
 
     // Ensures that all data from TableScanNode is being propagated correctly.
@@ -115,13 +111,15 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
+            String leaseholder = "local";
+
             TxManagerImpl txManager = new TxManagerImpl(
                     replicaSvc,
                     new HeapLockManager(),
                     new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef),
-                    () -> "local",
-                    new TestPlacementDriver("local")
+                    () -> leaseholder,
+                    new TestPlacementDriver(leaseholder, leaseholder)
             );
 
             txManager.start();
@@ -136,8 +134,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     return (RowT) TestInternalTableImpl.ROW;
                 }
             };
-            TableDescriptor descriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
-            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter, descriptor);
+            ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
                     partsWithTerms, null, null, null);
 

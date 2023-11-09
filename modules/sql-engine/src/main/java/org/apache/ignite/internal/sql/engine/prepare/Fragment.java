@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 
 import java.util.List;
-import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -30,7 +29,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Fragment of distributed query.
@@ -62,28 +60,12 @@ public class Fragment {
      */
     public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes,
             List<IgniteTable> tables, List<IgniteSystemView> systemViews) {
-        this(id, correlated, root, null, remotes, tables, systemViews);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param id An identifier of this fragment.
-     * @param correlated Whether some correlated variables should be set prior to fragment execution.
-     * @param root Root node of the fragment.
-     * @param rootSer Serialised representation of a root. Optional.
-     * @param remotes Remote sources of the fragment.
-     * @param tables A list of tables containing by this fragment.
-     * @param systemViews A list of system views containing by this fragment.
-     */
-    Fragment(long id, boolean correlated, IgniteRel root, @Nullable String rootSer, List<IgniteReceiver> remotes,
-            List<IgniteTable> tables, List<IgniteSystemView> systemViews) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
         this.tables = List.copyOf(tables);
         this.systemViews = List.copyOf(systemViews);
-        this.rootSer = rootSer != null ? rootSer : toJson(root);
+        this.rootSer = toJson(root);
         this.correlated = correlated;
     }
 
@@ -137,10 +119,6 @@ public class Fragment {
 
     public boolean rootFragment() {
         return !(root instanceof IgniteSender);
-    }
-
-    public Fragment attach(RelOptCluster cluster) {
-        return root.getCluster() == cluster ? this : new Cloner(cluster).go(this);
     }
 
     public boolean single() {

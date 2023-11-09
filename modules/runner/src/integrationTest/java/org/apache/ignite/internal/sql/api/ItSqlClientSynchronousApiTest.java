@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest.getClientAddresses;
 
+import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -36,7 +37,7 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
 
     @BeforeAll
     public void startClient() {
-        client = IgniteClient.builder().addresses(getClientAddresses(CLUSTER_NODES).get(0)).build();
+        client = IgniteClient.builder().addresses(getClientAddresses(List.of(CLUSTER.aliveNode())).get(0)).build();
     }
 
     @AfterAll
@@ -64,5 +65,11 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20598")
     public void checkTransactionsWithDml() {
         super.checkTransactionsWithDml();
+    }
+
+    @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20742")
+    public void testLockIsNotReleasedAfterTxRollback() {
+        super.testLockIsNotReleasedAfterTxRollback();
     }
 }

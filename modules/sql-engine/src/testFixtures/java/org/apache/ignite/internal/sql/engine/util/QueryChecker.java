@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Array;
@@ -26,10 +25,10 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
@@ -37,7 +36,6 @@ import org.hamcrest.core.SubstringMatcher;
 /** Query checker interface. */
 public interface QueryChecker {
     Object[] NULL_AS_VARARG = {null};
-    List<List<?>> EMPTY_RES = List.of(List.of());
 
     /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
     static Matcher<String> containsUnion(boolean all) {
@@ -186,7 +184,13 @@ public interface QueryChecker {
      * @param act Actual collection.
      */
     static void assertEqualsCollections(Collection<?> exp, Collection<?> act) {
-        assertEquals(exp.size(), act.size(), "Collections sizes are not equal:\nExpected: " + exp + "\nActual:   " + act);
+        if (exp.size() != act.size()) {
+            String errorMsg = new IgniteStringBuilder("Collections sizes are not equal:").nl()
+                    .app("\tExpected: ").app(exp).nl()
+                    .app("\t  Actual: ").app(act).toString();
+
+            throw new AssertionError(errorMsg);
+        }
 
         Iterator<?> it1 = exp.iterator();
         Iterator<?> it2 = act.iterator();
@@ -298,6 +302,8 @@ public interface QueryChecker {
     QueryChecker returns(Object... res);
 
     QueryChecker returnNothing();
+
+    QueryChecker returnSomething();
 
     QueryChecker columnNames(String... columns);
 

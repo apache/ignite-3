@@ -116,7 +116,6 @@ dependencies {
     testImplementation libs.auto.service.annotations
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
-    integrationTestAnnotationProcessor libs.auto.service
     integrationTestAnnotationProcessor libs.jmh.annotation.processor
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-affinity')
@@ -178,9 +177,10 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
     integrationTestImplementation libs.typesafe.config
-    integrationTestImplementation libs.auto.service.annotations
     integrationTestImplementation libs.netty.common
     integrationTestImplementation libs.netty.handler
+
+    testFixturesAnnotationProcessor libs.auto.service
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
@@ -189,12 +189,14 @@ dependencies {
     testFixturesImplementation project(':ignite-sql-engine')
     testFixturesImplementation project(':ignite-table')
     testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-sql-engine'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.auto.service.annotations
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {

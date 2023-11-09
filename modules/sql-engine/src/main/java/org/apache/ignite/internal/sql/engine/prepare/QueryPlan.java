@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryPlan interface.
@@ -27,17 +26,17 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface QueryPlan {
     /**
+     * Get a unique identifier of a plan.
+     */
+    PlanId id();
+
+    /**
      * Get query type, or {@code null} if this is a fragment.
      */
-    @Nullable SqlQueryType type();
+    SqlQueryType type();
 
     /**
      * Get fields metadata.
      */
     ResultSetMetadata metadata();
-
-    /**
-     * Clones this plan.
-     */
-    QueryPlan copy();
 }

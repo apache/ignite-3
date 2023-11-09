@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
-import static org.apache.calcite.runtime.SqlFunctions.octetLength;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
@@ -44,6 +43,7 @@ import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Statistic;
@@ -125,12 +125,111 @@ public class IgniteSqlFunctions {
 
     /** LENGTH(VARBINARY|VARCHAR). */
     public static int length(Object b) {
-        return b instanceof ByteString ? octetLength((ByteString) b) : charLength((String) b);
+        return b instanceof ByteString ? SqlFunctions.octetLength((ByteString) b) : charLength((String) b);
     }
 
-    private static BigDecimal setScale(int precision, int scale, BigDecimal decimal) {
-        return precision == IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL)
-            ? decimal : decimal.setScale(scale, RoundingMode.HALF_UP);
+    /** OCTET_LENGTH(VARBINARY). */
+    public static int octetLength(ByteString s) {
+        return s.length();
+    }
+
+    /** OCTET_LENGTH(VARCHAR). */
+    public static int octetLength(String s) {
+        return s.getBytes().length;
+    }
+
+    // SQL ROUND function
+
+    /** SQL {@code ROUND} operator applied to byte values. */
+    public static byte sround(byte b0) {
+        return (byte) sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to byte values. */
+    public static byte sround(byte b0, int b1) {
+        return (byte) sround((int) b0, b1);
+    }
+
+    /** SQL {@code ROUND} operator applied to short values. */
+    public static byte sround(short b0) {
+        return (byte) sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to short values. */
+    public static short sround(short b0, int b1) {
+        return (short) sround((int) b0, b1);
+    }
+
+    /** SQL {@code ROUND} operator applied to int values. */
+    public static int sround(int b0) {
+        return sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to int values. */
+    public static int sround(int b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            return (int) sround((long) b0, b1);
+        }
+    }
+
+    /** SQL {@code ROUND} operator applied to long values. */
+    public static long sround(long b0) {
+        return sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to long values. */
+    public static long sround(long b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            long abs = (long) Math.pow(10, Math.abs(b1));
+            return divide(b0, abs, RoundingMode.HALF_UP) * abs;
+        }
+    }
+
+    /** SQL {@code ROUND} operator applied to double values. */
+    public static double sround(double b0) {
+        return sround(BigDecimal.valueOf(b0)).doubleValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to double values. */
+    public static double sround(double b0, int b1) {
+        return sround(BigDecimal.valueOf(b0), b1).doubleValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to float values. */
+    public static float sround(float b0) {
+        return sround(BigDecimal.valueOf(b0)).floatValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to float values. */
+    public static float sround(float b0, int b1) {
+        return sround(BigDecimal.valueOf(b0), b1).floatValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to BigDecimal values. */
+    public static BigDecimal sround(BigDecimal b0) {
+        return b0.setScale(0, RoundingMode.HALF_UP);
+    }
+
+    /** SQL {@code ROUND} operator applied to BigDecimal values. */
+    public static BigDecimal sround(BigDecimal b0, int b1) {
+        // b0.movePointRight(b1).setScale(0, RoundingMode.DOWN).movePointLeft(b1);
+        int originalScale = b0.scale();
+
+        if (b1 >= originalScale) {
+            return b0;
+        }
+
+        BigDecimal roundedValue = b0.setScale(b1, RoundingMode.HALF_UP);
+        // Pad with zeros to match the original scale
+        return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
     }
 
     /** CAST(DOUBLE AS DECIMAL). */
@@ -433,5 +532,32 @@ public class IgniteSqlFunctions {
                 SqlNode parent, CalciteConnectionConfig cfg) {
             return true;
         }
+    }
+
+    private static long divide(long p, long q, RoundingMode mode) {
+        // Stripped down version of guava's LongMath::divide.
+
+        long div = p / q; // throws if q == 0
+        long rem = p - q * div; // equals p % q
+
+        int signum = 1 | (int) ((p ^ q) >> (Long.SIZE - 1));
+        boolean increment;
+        switch (mode) {
+            case HALF_DOWN:
+            case HALF_UP:
+                long absRem = Math.abs(rem);
+                long cmpRemToHalfDivisor = absRem - (Math.abs(q) - absRem);
+
+                if (cmpRemToHalfDivisor == 0) { // exactly on the half mark
+                    increment = mode == RoundingMode.HALF_UP;
+                } else {
+                    increment = cmpRemToHalfDivisor > 0; // closer to the UP value
+                }
+                break;
+            default:
+                throw new AssertionError();
+        }
+
+        return increment ? div + signum : div;
     }
 }

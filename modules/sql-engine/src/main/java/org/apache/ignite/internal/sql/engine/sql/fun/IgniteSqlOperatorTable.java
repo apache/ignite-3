@@ -17,19 +17,26 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.SqlBasicFunction;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlOperatorBinding;
 import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlReturnTypeInference;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Operator table that contains only Ignite-specific functions and operators.
@@ -159,6 +166,37 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     return false;
                 }
             };
+
+    /** The {@code ROUND(numeric [, numeric])} function. */
+    public static final SqlFunction ROUND = SqlBasicFunction.create("ROUND",
+            new SqlReturnTypeInference() {
+                @Override
+                public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+                    RelDataType operandType = opBinding.getOperandType(0);
+
+                    // If there is only one argument and it supports precision and scale, set scale 0.
+                    if (opBinding.getOperandCount() == 1 && operandType.getSqlTypeName().allowsPrecScale(true, true)) {
+                        int precision = operandType.getPrecision();
+                        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+                        RelDataType returnType = typeFactory.createSqlType(operandType.getSqlTypeName(), precision, 0);
+                        // Preserve nullability
+                        boolean nullable = operandType.isNullable();
+
+                        return typeFactory.createTypeWithNullability(returnType, nullable);
+                    } else {
+                        return operandType;
+                    }
+                }
+            },
+            OperandTypes.NUMERIC_OPTIONAL_INTEGER,
+            SqlFunctionCategory.NUMERIC);
+
+    /** The {@code OCTET_LENGTH(string|binary)} function. */
+    public static final SqlFunction OCTET_LENGTH = SqlBasicFunction.create("OCTET_LENGTH",
+            ReturnTypes.INTEGER_NULLABLE,
+            OperandTypes.CHARACTER.or(OperandTypes.BINARY),
+            SqlFunctionCategory.NUMERIC);
 
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
@@ -290,7 +328,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.COT); // Cotangent.
         register(SqlStdOperatorTable.DEGREES); // Radians to degrees.
         register(SqlStdOperatorTable.RADIANS); // Degrees to radians.
-        register(SqlStdOperatorTable.ROUND);
+        register(ROUND); // Fixes return type scale.
         register(SqlStdOperatorTable.SIGN);
         register(SqlStdOperatorTable.SIN); // Sine.
         register(SqlLibraryOperators.SINH); // Hyperbolic sine.
@@ -380,7 +418,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.LEAST);
         register(SqlLibraryOperators.GREATEST);
         register(SqlLibraryOperators.COMPRESS);
-        register(SqlStdOperatorTable.OCTET_LENGTH);
+        register(OCTET_LENGTH);
         register(SqlStdOperatorTable.DEFAULT);
         register(SqlStdOperatorTable.REINTERPRET);
 

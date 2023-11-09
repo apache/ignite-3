@@ -50,6 +50,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -57,6 +58,7 @@ import static org.apache.ignite.sql.ColumnType.NULL;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
@@ -245,6 +247,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(table.id(), pkIndex.tableId());
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
         assertTrue(pkIndex.unique());
+        assertTrue(pkIndex.available());
 
         CatalogTableColumnDescriptor desc = table.columnDescriptor("key1");
         assertNotNull(desc);
@@ -1583,11 +1586,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void addColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("val2", INT32))), willCompleteSuccessfully());
+        addSomeColumn();
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
         assertThat(table.tableVersion(), is(2));
+    }
+
+    private void addSomeColumn() {
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("val2", INT32))), willCompleteSuccessfully());
     }
 
     @Test
@@ -1931,6 +1938,87 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
 
         assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testPkAvailableIndexEvent() {
+        CompletableFuture<Integer> fireEventFuture = new CompletableFuture<>();
+
+        manager.listen(CatalogEvent.INDEX_AVAILABLE, (parameters, exception) -> {
+            if (exception != null) {
+                fireEventFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    fireEventFuture.complete(((MakeIndexAvailableEventParameters) parameters).indexId());
+                } catch (Throwable t) {
+                    fireEventFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        String tableName = TABLE_NAME + "_new";
+
+        createSomeTable(tableName);
+
+        assertThat(fireEventFuture, willBe(notNullValue()));
+
+        assertEquals(indexId(pkIndexName(tableName)), fireEventFuture.join());
+    }
+
+    @Test
+    void testPkAvailableOnCreateIndexEvent() {
+        CompletableFuture<Void> fireEventFuture = new CompletableFuture<>();
+
+        manager.listen(CatalogEvent.INDEX_CREATE, (parameters, exception) -> {
+            if (exception != null) {
+                fireEventFuture.completeExceptionally(exception);
+            } else {
+                try {
+                    CreateIndexEventParameters createIndexEventParameters = (CreateIndexEventParameters) parameters;
+
+                    assertTrue(createIndexEventParameters.indexDescriptor().available());
+
+                    fireEventFuture.complete(null);
+                } catch (Throwable t) {
+                    fireEventFuture.completeExceptionally(t);
+                }
+            }
+
+            return completedFuture(false);
+        });
+
+        createSomeTable(TABLE_NAME);
+
+        assertThat(fireEventFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void activationTimeIsStrictlyMonotonic() {
+        // Prepare schema changes.
+        ColumnParams column = ColumnParams.builder().name("ID").type(INT32).build();
+        CatalogCommand cmd1 = BaseCatalogManagerTest.createTableCommand(TABLE_NAME, List.of(column), List.of("ID"), null);
+        CatalogCommand cmd2 = BaseCatalogManagerTest.createTableCommand("test2", List.of(column), List.of("ID"), null);
+
+        // Make first schema change with delay = 1000.
+        delayDuration.set(10_000);
+        CompletableFuture<Void> schemaChangeFuture0 = manager.execute(cmd1);
+
+        // Make second schema change with delay = 1.
+        delayDuration.set(1);
+        CompletableFuture<Void> schemaChangeFuture1 = manager.execute(cmd2);
+
+        // Move clock forward to avoid awaiting.
+        clock.update(clock.now().addPhysicalTime(11_000));
+
+        assertThat(schemaChangeFuture0, willSucceedFast());
+        assertThat(schemaChangeFuture1, willSucceedFast());
+
+        // Make sure that we are getting the latest version of the schema using current timestamp.
+        int latestVer = manager.latestCatalogVersion();
+        int currentTsVer = manager.activeCatalogVersion(clock.now().longValue());
+        assertThat(currentTsVer, equalTo(latestVer));
     }
 
     private CompletableFuture<Void> changeColumn(

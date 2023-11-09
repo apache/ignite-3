@@ -22,8 +22,9 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -97,9 +98,6 @@ public class DistributionZonesUtil {
 
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
-
-    /** Key prefix, needed for processing the event about zone's update was triggered only once. */
-    private static final String DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX = "distributionZones.change.trigger.";
 
     /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()} in the Vault.*/
     private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_VAULT_PREFIX = "vault.distributionZones.topologyAugmentation.";
@@ -188,14 +186,6 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key needed for processing an event about zone's creation and deletion.
-     * With this key we can be sure that event was triggered only once.
-     */
-    public static ByteArray zonesChangeTriggerKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX + zoneId);
-    }
-
-    /**
      * The key needed for processing an event about zone's data node propagation on scale up.
      * With this key we can be sure that event was triggered only once.
      */
@@ -271,17 +261,27 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Condition for updating {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} key.
-     * Update only if the revision of the event is newer than value in that trigger key.
+     * Condition for creating all data nodes' related keys in Meta Storage. Condition passes only when
+     * {@link DistributionZonesUtil#zoneDataNodesKey(int)} not exists and not a tombstone in the Meta Storage.
      *
-     * @param revision Event revision.
+     * @param zoneId Distribution zone id
      * @return Update condition.
      */
-    static CompoundCondition triggerKeyConditionForZonesChanges(long revision, int zoneId) {
-        return or(
-                notExists(zonesChangeTriggerKey(zoneId)),
-                value(zonesChangeTriggerKey(zoneId)).lt(ByteUtils.longToBytes(revision))
+    static CompoundCondition conditionForZoneCreation(int zoneId) {
+        return and(
+                notExists(zoneDataNodesKey(zoneId)),
+                notTombstone(zoneDataNodesKey(zoneId))
         );
+    }
+
+    /**
+     * Condition for removing all data nodes' related keys in Meta Storage.
+     *
+     * @param zoneId Distribution zone id
+     * @return Update condition.
+     */
+    static SimpleCondition conditionForZoneRemoval(int zoneId) {
+        return exists(zoneDataNodesKey(zoneId));
     }
 
     /**
@@ -328,6 +328,14 @@ public class DistributionZonesUtil {
         ).yield(true);
     }
 
+    /**
+     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
+     *
+     * @param zoneId Distribution zone id
+     * @param revision Revision of the event.
+     * @param nodes Data nodes.
+     * @return Update command for the meta storage.
+     */
     static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
         return ops(
                 put(zoneDataNodesKey(zoneId), nodes),
@@ -337,8 +345,8 @@ public class DistributionZonesUtil {
 
 
     /**
-     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} and {@link DistributionZonesUtil#zonesChangeTriggerKey(int)}.
+     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} and
+     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
      *
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
@@ -349,26 +357,23 @@ public class DistributionZonesUtil {
         return ops(
                 put(zoneDataNodesKey(zoneId), nodes),
                 put(zoneScaleUpChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision)),
-                put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision)),
-                put(zonesChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
+                put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
         ).yield(true);
     }
 
     /**
      * Deletes data nodes, {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} values for a zone. Also sets {@code revision} to
-     * {@link DistributionZonesUtil#zonesChangeTriggerKey(int)}.
+     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} values for a zone.
      *
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
      * @return Update command for the meta storage.
      */
-    static Update deleteDataNodesAndUpdateTriggerKeys(int zoneId, long revision) {
+    static Update deleteDataNodesAndTriggerKeys(int zoneId, long revision) {
         return ops(
                 remove(zoneDataNodesKey(zoneId)),
                 remove(zoneScaleUpChangeTriggerKey(zoneId)),
-                remove(zoneScaleDownChangeTriggerKey(zoneId)),
-                put(zonesChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
+                remove(zoneScaleDownChangeTriggerKey(zoneId))
         ).yield(true);
     }
 

@@ -120,7 +120,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     private static final String NODE_NAME = "node1";
 
-    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(NODE_NAME);
+    private static final String NODE_ID = "node1";
+
+    private static final TestPlacementDriver TEST_PLACEMENT_DRIVER = new TestPlacementDriver(NODE_NAME, NODE_ID);
 
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
@@ -165,7 +167,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     private final ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
-            -> new ClusterNodeImpl(NODE_NAME, NODE_NAME, new NetworkAddress(addr, 3333));
+            -> new ClusterNodeImpl(NODE_ID, NODE_NAME, new NetworkAddress(addr, 3333));
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
@@ -209,7 +211,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         new HeapLockManager(),
                         hybridClock,
                         new TransactionIdGenerator(i),
-                        () -> NODE_NAME,
+                        () -> NODE_ID,
                         TEST_PLACEMENT_DRIVER
                 );
 
@@ -225,7 +227,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 new HeapLockManager(),
                 hybridClock,
                 new TransactionIdGenerator(-1),
-                () -> NODE_NAME,
+                () -> NODE_ID,
                 TEST_PLACEMENT_DRIVER
         );
 
@@ -310,7 +312,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .txId(req0.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
-                        .rowMessage(req0.binaryRowMessage())
+                        .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                .binaryRowMessage(msgFactory.binaryRowMessage()
+                                        .schemaVersion(req0.schemaVersion())
+                                        .binaryTuple(req0.binaryTuple())
+                                        .build())
+                                .build())
                         .safeTimeLong(hybridClock.nowLong())
                         .txCoordinatorId(UUID.randomUUID().toString())
                         .build();
@@ -475,7 +482,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                                 new HeapLockManager(),
                                 hybridClock,
                                 new TransactionIdGenerator(index),
-                                () -> NODE_NAME,
+                                () -> NODE_ID,
                                 TEST_PLACEMENT_DRIVER
                         );
                         txMgr.start();

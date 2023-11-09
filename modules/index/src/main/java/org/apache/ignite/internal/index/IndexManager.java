@@ -61,7 +61,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -167,6 +167,9 @@ public class IndexManager implements IgniteComponent {
      * <p>Example: when we start building an index, we will need {@link IndexStorage} (as well as storage {@link MvPartitionStorage}) to
      * build it and we can get them in {@link CatalogEvent#INDEX_CREATE} using this method.</p>
      *
+     * <p>During recovery, it is important to wait until the local node becomes a primary replica so that all index building commands are
+     * applied from the replication log.</p>
+     *
      * @param causalityToken Causality token.
      * @param tableId Table ID.
      * @return Future with multi-version table storage, completes with {@code null} if the table does not exist according to the passed
@@ -182,7 +185,7 @@ public class IndexManager implements IgniteComponent {
 
         long causalityToken = parameters.causalityToken();
 
-        CompletableFuture<TableImpl> tableFuture = tableManager.tableAsync(causalityToken, tableId);
+        CompletableFuture<TableViewInternal> tableFuture = tableManager.tableAsync(causalityToken, tableId);
 
         return inBusyLockAsync(busyLock, () -> mvTableStoragesByIdVv.update(
                 causalityToken,
@@ -358,7 +361,7 @@ public class IndexManager implements IgniteComponent {
                         (partitionSet, schemaRegistry) -> inBusyLock(busyLock, () -> {
                             registerIndex(table, index, partitionSet, schemaRegistry);
 
-                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableImplStrict(tableId).internalTable().storage());
+                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableViewStrict(tableId).internalTable().storage());
                         })))
         );
     }
@@ -369,7 +372,7 @@ public class IndexManager implements IgniteComponent {
             PartitionSet partitionSet,
             SchemaRegistry schemaRegistry
     ) {
-        TableImpl tableImpl = getTableImplStrict(table.id());
+        TableViewInternal tableView = getTableViewStrict(table.id());
 
         var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
 
@@ -379,7 +382,7 @@ public class IndexManager implements IgniteComponent {
         );
 
         if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
-            tableImpl.registerSortedIndex(
+            tableView.registerSortedIndex(
                     (StorageSortedIndexDescriptor) storageIndexDescriptor,
                     tableRowConverter,
                     partitionSet
@@ -387,7 +390,7 @@ public class IndexManager implements IgniteComponent {
         } else {
             boolean unique = index.unique();
 
-            tableImpl.registerHashIndex(
+            tableView.registerHashIndex(
                     (StorageHashIndexDescriptor) storageIndexDescriptor,
                     unique,
                     tableRowConverter,
@@ -395,7 +398,7 @@ public class IndexManager implements IgniteComponent {
             );
 
             if (unique) {
-                tableImpl.pkId(index.id());
+                tableView.pkId(index.id());
             }
         }
     }
@@ -432,8 +435,8 @@ public class IndexManager implements IgniteComponent {
         return newMap;
     }
 
-    private TableImpl getTableImplStrict(int tableId) {
-        TableImpl table = tableManager.getTable(tableId);
+    private TableViewInternal getTableViewStrict(int tableId) {
+        TableViewInternal table = tableManager.getTable(tableId);
 
         assert table != null : tableId;
 

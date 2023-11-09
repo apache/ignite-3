@@ -28,7 +28,7 @@ class AuthenticatorFactory {
         AuthenticationType type = AuthenticationType.parse(view.type());
         if (type == AuthenticationType.BASIC) {
             BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
-            return new BasicAuthenticator(basicAuthProviderView.username(), basicAuthProviderView.password());
+            return new BasicAuthenticator(view.name(), basicAuthProviderView.username(), basicAuthProviderView.password());
         } else {
             throw new IllegalArgumentException("Unexpected authentication type: " + type);
         }

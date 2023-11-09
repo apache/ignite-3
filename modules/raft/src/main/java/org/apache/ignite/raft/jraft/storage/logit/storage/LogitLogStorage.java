@@ -18,10 +18,11 @@
 package org.apache.ignite.raft.jraft.storage.logit.storage;
 
 import java.io.IOException;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;import java.util.concurrent.locks.Lock;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -53,7 +54,6 @@ import org.apache.ignite.raft.jraft.storage.logit.storage.file.index.IndexType;
 import org.apache.ignite.raft.jraft.storage.logit.util.Pair;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
-import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * A logStorage implemented by java
@@ -83,16 +83,16 @@ public class LogitLogStorage implements LogStorage {
     private LogStoreFactory               logStoreFactory;
 
     /** Executor that handles prefix truncation. */
-    private final Executor executor;
+    private final ScheduledExecutorService checkpointExecutor;
 
-    public LogitLogStorage(final String path, final StoreOptions storeOptions, RaftOptions raftOptions, Executor executor) {
-        this.indexStorePath = Paths.get(path, INDEX_STORE_PATH).toString();
-        this.segmentStorePath = Paths.get(path, SEGMENT_STORE_PATH).toString();
-        this.confStorePath = Paths.get(path, CONF_STORE_PATH).toString();
+    public LogitLogStorage(Path path, StoreOptions storeOptions, RaftOptions raftOptions, ScheduledExecutorService checkpointExecutor) {
+        this.indexStorePath = path.resolve(INDEX_STORE_PATH).toString();
+        this.segmentStorePath = path.resolve(SEGMENT_STORE_PATH).toString();
+        this.confStorePath = path.resolve(CONF_STORE_PATH).toString();
         this.storeOptions = storeOptions;
         this.raftOptions = raftOptions;
-        this.executor = executor;
-        final String checkPointPath = Paths.get(path, FIRST_INDEX_CHECKPOINT).toString();
+        this.checkpointExecutor = checkpointExecutor;
+        final String checkPointPath = path.resolve(FIRST_INDEX_CHECKPOINT).toString();
         this.firstLogIndexCheckpoint = new FirstLogIndexCheckpoint(checkPointPath, raftOptions);
     }
 
@@ -108,9 +108,9 @@ public class LogitLogStorage implements LogStorage {
 
             // Create dbs and recover
             this.logStoreFactory = new LogStoreFactory(this.storeOptions, raftOptions);
-            this.indexDB = new IndexDB(this.indexStorePath);
-            this.segmentLogDB = new SegmentLogDB(this.segmentStorePath);
-            this.confDB = new ConfDB(this.confStorePath);
+            this.indexDB = new IndexDB(this.indexStorePath, checkpointExecutor);
+            this.segmentLogDB = new SegmentLogDB(this.segmentStorePath, checkpointExecutor);
+            this.confDB = new ConfDB(this.confStorePath, checkpointExecutor);
             if (!(this.indexDB.init(this.logStoreFactory) && this.segmentLogDB.init(this.logStoreFactory) && this.confDB
                 .init(this.logStoreFactory))) {
                 LOG.warn("Init dbs failed when startup logitLogStorage");
@@ -470,11 +470,10 @@ public class LogitLogStorage implements LogStorage {
         try {
             final boolean ret = saveFirstLogIndex(firstIndexKept);
             if (ret) {
-                Utils.runInThread(executor, () -> {
-                    this.indexDB.truncatePrefix(firstIndexKept);
-                    this.segmentLogDB.truncatePrefix(firstIndexKept);
-                    this.confDB.truncatePrefix(firstIndexKept);
-                });
+                // TODO IGNITE-20754 Make async when possible.
+                this.indexDB.truncatePrefix(firstIndexKept);
+                this.segmentLogDB.truncatePrefix(firstIndexKept);
+                this.confDB.truncatePrefix(firstIndexKept);
             }
             return ret;
         } finally {

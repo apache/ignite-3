@@ -28,6 +28,7 @@ public class FeatureChecker {
             + "--add-exports=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED\n"
             + "--add-exports=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED\n"
             + "--add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED\n"
+            + "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
             + "--illegal-access=permit";
 
     /** Java version specific warning to be added in case access failed. */

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -102,6 +103,9 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     /** Internal table to test. */
     private InternalTable internalTbl;
+
+    @Mock
+    private BinaryRowEx someRow;
 
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
@@ -238,19 +242,19 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         when(tx.isReadOnly()).thenReturn(true);
 
         List<Executable> executables = List.of(
-                () -> internalTbl.delete(null, tx).get(),
-                () -> internalTbl.deleteAll(null, tx).get(),
-                () -> internalTbl.deleteExact(null, tx).get(),
-                () -> internalTbl.deleteAllExact(null, tx).get(),
-                () -> internalTbl.getAndDelete(null, tx).get(),
-                () -> internalTbl.getAndReplace(null, tx).get(),
-                () -> internalTbl.getAndUpsert(null, tx).get(),
-                () -> internalTbl.upsert(null, tx).get(),
-                () -> internalTbl.upsertAll(null, tx).get(),
-                () -> internalTbl.insert(null, tx).get(),
-                () -> internalTbl.insertAll(null, tx).get(),
-                () -> internalTbl.replace(null, tx).get(),
-                () -> internalTbl.replace(null, null, tx).get()
+                () -> internalTbl.delete(someRow, tx).get(),
+                () -> internalTbl.deleteAll(List.of(someRow), tx).get(),
+                () -> internalTbl.deleteExact(someRow, tx).get(),
+                () -> internalTbl.deleteAllExact(List.of(someRow), tx).get(),
+                () -> internalTbl.getAndDelete(someRow, tx).get(),
+                () -> internalTbl.getAndReplace(someRow, tx).get(),
+                () -> internalTbl.getAndUpsert(someRow, tx).get(),
+                () -> internalTbl.upsert(someRow, tx).get(),
+                () -> internalTbl.upsertAll(List.of(someRow), tx).get(),
+                () -> internalTbl.insert(someRow, tx).get(),
+                () -> internalTbl.insertAll(List.of(someRow), tx).get(),
+                () -> internalTbl.replace(someRow, tx).get(),
+                () -> internalTbl.replace(someRow, someRow, tx).get()
         );
 
         executables.forEach(executable -> {

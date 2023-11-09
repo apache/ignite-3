@@ -38,7 +38,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
@@ -118,6 +117,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -184,7 +184,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null, PLANNING_TIMEOUT, new MetricManager());
+        prepareService = new PrepareServiceImpl("test", 0, CaffeineCacheFactory.INSTANCE, null, PLANNING_TIMEOUT, new MetricManager());
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
@@ -408,7 +408,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(RemoteFragmentExecutionException.class, ex.getCause());
+            assertInstanceOf(QueryCancelledException.class, ex.getCause());
             assertNull(ex.getCause().getCause());
 
             return null;
@@ -604,6 +604,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ExecutionService execService = executionServices.get(0);
 
         Function<QueryPrefetchCallback, BaseQueryContext> createCtx = (callback) -> BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .prefetchCallback(callback)
                 .frameworkConfig(
@@ -611,7 +612,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .logger(log)
                 .build();
 
         QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
@@ -663,6 +663,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         IgniteInternalException expectedException = new IgniteInternalException(Common.INTERNAL_ERR, "Expected exception");
 
         BaseQueryContext ctx = BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .prefetchCallback(prefetchFut::completeExceptionally)
                 .frameworkConfig(
@@ -670,7 +671,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .logger(log)
                 .build();
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
@@ -737,7 +737,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         rootSch.add(schema.getName(), schema);
         SchemaPlus plus = rootSch.plus().getSubSchema(schema.getName());
 
-        when(schemaManagerMock.schema(any(), anyInt())).thenReturn(plus);
+        when(schemaManagerMock.schema(anyInt())).thenReturn(plus);
 
         var targetProvider = new ExecutionTargetProvider() {
             @Override
@@ -755,7 +755,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider);
+        var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, taskExecutor);
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
@@ -784,13 +784,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private BaseQueryContext createContext() {
         return BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .logger(log)
                 .build();
     }
 
@@ -1029,7 +1029,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             );
         }
 
-        return new TestTable(new TableDescriptorImpl(columns, distr), name, size, List.of());
+        return new TestTable(1, new TableDescriptorImpl(columns, distr), name, size, List.of());
     }
 
     private static class CapturingMailboxRegistry implements MailboxRegistry {

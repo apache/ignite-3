@@ -22,9 +22,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
-import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.ReplExceptionHandlers;
@@ -40,7 +38,6 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOp
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.expander.NoopExpander;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
@@ -73,19 +70,15 @@ public class ReplExecutorImpl implements ReplExecutor {
 
     private final Terminal terminal;
 
-    private final NodeNameRegistry nodeNameRegistry;
-
     /**
      * Constructor.
      *
      * @param commandsFactory picocli commands factory.
      * @param terminal terminal instance.
-     * @param nodeNameRegistry node name registry.
      */
-    public ReplExecutorImpl(PicocliCommandsFactory commandsFactory, Terminal terminal, NodeNameRegistry nodeNameRegistry) {
+    public ReplExecutorImpl(PicocliCommandsFactory commandsFactory, Terminal terminal) {
         this.factory = commandsFactory;
         this.terminal = terminal;
-        this.nodeNameRegistry = nodeNameRegistry;
     }
 
     private static void createTailTipWidgets(SystemRegistryImpl registry, LineReader reader) {
@@ -185,7 +178,6 @@ public class ReplExecutorImpl implements ReplExecutor {
         }
         CommandLineContextProvider.setCmd(cmd);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler(exceptionHandlers));
-        cmd.registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setTrimQuotes(true);
 
         DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);

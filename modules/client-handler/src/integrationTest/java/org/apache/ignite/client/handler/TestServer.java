@@ -131,7 +131,6 @@ public class TestServer {
                 mock(MetricManager.class),
                 metrics,
                 authenticationManager(),
-                securityConfiguration,
                 new HybridClockImpl(),
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class)
