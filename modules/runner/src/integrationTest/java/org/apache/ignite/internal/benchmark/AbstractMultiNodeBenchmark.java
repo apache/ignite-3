@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.benchmark;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.sql.engine.property.PropertiesHelper.newBuilder;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -30,17 +29,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.sql.engine.QueryContext;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.intellij.lang.annotations.Language;
@@ -80,12 +75,6 @@ public class AbstractMultiNodeBenchmark {
 
         var queryEngine = clusterNode.queryEngine();
 
-        SessionId sessionId = queryEngine.createSession(newBuilder()
-                .set(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
-                .set(QueryProperty.QUERY_TIMEOUT, TimeUnit.SECONDS.toMillis(60))
-                .build()
-        );
-
         var sql = "CREATE TABLE " + TABLE_NAME + "(\n"
                 + "    ycsb_key int PRIMARY KEY,\n"
                 + "    field1   varchar(100),\n"
@@ -100,15 +89,9 @@ public class AbstractMultiNodeBenchmark {
                 + "    field10  varchar(100)\n"
                 + ");";
 
-        try {
-            var context = QueryContext.create(SqlQueryType.ALL);
-
-            getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, clusterNode.transactions(), sql))
-            );
-        } finally {
-            queryEngine.closeSession(sessionId);
-        }
+        getAllFromCursor(
+                await(queryEngine.querySingleAsync(SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, sql))
+        );
     }
 
     /**

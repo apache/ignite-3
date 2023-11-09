@@ -31,14 +31,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder.Builder;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test class to verify {@link PropertiesHelper} class.
+ * Test class to verify {@link SqlPropertiesHelper} class.
  */
-class PropertiesHelperTest {
+class SqlPropertiesHelperTest {
     private static final String NON_STATIC_PROP_NAME = "non_static_prop";
 
     @SuppressWarnings("WeakerAccess")
@@ -55,7 +55,7 @@ class PropertiesHelperTest {
 
     @Test
     public void buildPropMapFromClass() {
-        var propMap = PropertiesHelper.createPropsByNameMap(TestProps.class);
+        var propMap = SqlPropertiesHelper.createPropsByNameMap(TestProps.class);
 
         assertFalse(propMap.isEmpty());
 
@@ -92,10 +92,10 @@ class PropertiesHelperTest {
 
     @Test
     public void mergeEmptyHolders() {
-        PropertiesHolder first = PropertiesHelper.emptyHolder();
-        PropertiesHolder second = PropertiesHelper.emptyHolder();
+        SqlProperties first = SqlPropertiesHelper.emptyProperties();
+        SqlProperties second = SqlPropertiesHelper.emptyProperties();
 
-        PropertiesHolder result = PropertiesHelper.merge(first, second);
+        SqlProperties result = SqlPropertiesHelper.merge(first, second);
 
         assertThat(result, notNullValue());
         assertThat(result.iterator().hasNext(), is(false));
@@ -103,15 +103,15 @@ class PropertiesHelperTest {
 
     @Test
     public void mergeEmptyAndNonEmptyHolder() {
-        PropertiesHolder empty = PropertiesHelper.emptyHolder();
-        PropertiesHolder nonEmpty = PropertiesHelper.newBuilder()
+        SqlProperties empty = SqlPropertiesHelper.emptyProperties();
+        SqlProperties nonEmpty = SqlPropertiesHelper.newBuilder()
                 .set(TestProps.LONG_PROP, 42L)
                 .build();
 
-        List<Pair<PropertiesHolder, PropertiesHolder>> pairs = List.of(new Pair<>(empty, nonEmpty), new Pair<>(nonEmpty, empty));
+        List<Pair<SqlProperties, SqlProperties>> pairs = List.of(new Pair<>(empty, nonEmpty), new Pair<>(nonEmpty, empty));
 
-        for (Pair<PropertiesHolder, PropertiesHolder> pair : pairs) {
-            PropertiesHolder result = PropertiesHelper.merge(pair.getFirst(), pair.getSecond());
+        for (Pair<SqlProperties, SqlProperties> pair : pairs) {
+            SqlProperties result = SqlPropertiesHelper.merge(pair.getFirst(), pair.getSecond());
 
             assertThat(result, notNullValue());
 
@@ -130,23 +130,86 @@ class PropertiesHelperTest {
 
     @Test
     public void mergeNonEmptyWithConflict() {
-        PropertiesHolder first = PropertiesHelper.newBuilder()
+        SqlProperties first = SqlPropertiesHelper.newBuilder()
                 .set(TestProps.LONG_PROP, 1L)
                 .set(TestProps.BYTE_PROP, (byte) 1)
                 .build();
 
-        PropertiesHolder second = PropertiesHelper.newBuilder()
+        SqlProperties second = SqlPropertiesHelper.newBuilder()
                 .set(TestProps.LONG_PROP, 2L)
                 .set(TestProps.STRING_PROP, "2")
                 .build();
 
-        PropertiesHolder result = PropertiesHelper.merge(first, second);
+        SqlProperties result = SqlPropertiesHelper.merge(first, second);
 
         assertThat(result.get(TestProps.BYTE_PROP), is((byte) 1));
         assertThat(result.get(TestProps.LONG_PROP), is(1L));
         assertThat(result.get(TestProps.STRING_PROP), is("2"));
 
-        result = PropertiesHelper.merge(second, first);
+        result = SqlPropertiesHelper.merge(second, first);
+
+        assertThat(result.get(TestProps.BYTE_PROP), is((byte) 1));
+        assertThat(result.get(TestProps.LONG_PROP), is(2L));
+        assertThat(result.get(TestProps.STRING_PROP), is("2"));
+    }
+
+    @Test
+    public void chainEmptyHolders() {
+        SqlProperties first = SqlPropertiesHelper.emptyProperties();
+        SqlProperties second = SqlPropertiesHelper.emptyProperties();
+
+        SqlProperties result = SqlPropertiesHelper.chain(first, second);
+
+        assertThat(result, notNullValue());
+        assertThat(result.iterator().hasNext(), is(false));
+    }
+
+    @Test
+    public void chainEmptyAndNonEmptyHolder() {
+        SqlProperties empty = SqlPropertiesHelper.emptyProperties();
+        SqlProperties nonEmpty = SqlPropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 42L)
+                .build();
+
+        List<Pair<SqlProperties, SqlProperties>> pairs = List.of(new Pair<>(empty, nonEmpty), new Pair<>(nonEmpty, empty));
+
+        for (Pair<SqlProperties, SqlProperties> pair : pairs) {
+            SqlProperties result = SqlPropertiesHelper.chain(pair.getFirst(), pair.getSecond());
+
+            assertThat(result, notNullValue());
+
+            Iterator<Entry<Property<?>, Object>> it = result.iterator();
+
+            assertThat(it.hasNext(), is(true));
+
+            Map.Entry<Property<?>, Object> entry = it.next();
+
+            assertThat(entry.getKey(), is(TestProps.LONG_PROP));
+            assertThat(entry.getValue(), is(42L));
+
+            assertThat(it.hasNext(), is(false));
+        }
+    }
+
+    @Test
+    public void chainNonEmptyWithConflict() {
+        SqlProperties first = SqlPropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 1L)
+                .set(TestProps.BYTE_PROP, (byte) 1)
+                .build();
+
+        SqlProperties second = SqlPropertiesHelper.newBuilder()
+                .set(TestProps.LONG_PROP, 2L)
+                .set(TestProps.STRING_PROP, "2")
+                .build();
+
+        SqlProperties result = SqlPropertiesHelper.chain(first, second);
+
+        assertThat(result.get(TestProps.BYTE_PROP), is((byte) 1));
+        assertThat(result.get(TestProps.LONG_PROP), is(1L));
+        assertThat(result.get(TestProps.STRING_PROP), is("2"));
+
+        result = SqlPropertiesHelper.merge(second, first);
 
         assertThat(result.get(TestProps.BYTE_PROP), is((byte) 1));
         assertThat(result.get(TestProps.LONG_PROP), is(2L));
@@ -155,13 +218,13 @@ class PropertiesHelperTest {
 
     @Test
     public void createBuilderFromHolder() {
-        PropertiesHolder base = PropertiesHelper.newBuilder()
+        SqlProperties base = SqlPropertiesHelper.newBuilder()
                 .set(TestProps.BYTE_PROP, (byte) 1)
                 .set(TestProps.LONG_PROP, 1L)
                 .build();
 
         {
-            PropertiesHolder newHolder = PropertiesHelper.builderFromHolder(base)
+            SqlProperties newHolder = SqlPropertiesHelper.builderFromProperties(base)
                     .set(TestProps.STRING_PROP, "1")
                     .build();
 
@@ -172,7 +235,7 @@ class PropertiesHelperTest {
         }
 
         {
-            PropertiesHolder newHolder = PropertiesHelper.builderFromHolder(base)
+            SqlProperties newHolder = SqlPropertiesHelper.builderFromProperties(base)
                     .set(TestProps.LONG_PROP, 2L)
                     .build();
 
@@ -194,7 +257,7 @@ class PropertiesHelperTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> setter.setProp(PropertiesHelper.newBuilder(), TestProps.LONG_PROP, "42")
+                () -> setter.setProp(SqlPropertiesHelper.newBuilder(), TestProps.LONG_PROP, "42")
         );
     }
 }

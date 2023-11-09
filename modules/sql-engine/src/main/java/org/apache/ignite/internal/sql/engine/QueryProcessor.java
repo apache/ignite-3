@@ -20,61 +20,36 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionInfo;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * QueryProcessor interface.
  */
 public interface QueryProcessor extends IgniteComponent {
     /**
-     * Creates a session with given properties.
-     *
-     * @param properties Properties to store within a new session.
-     * @return An identifier of a created session.
-     */
-    SessionId createSession(PropertiesHolder properties);
-
-    /**
-     * Closes the session with given id.
-     *
-     * <p>This method just return a completed future in case the session was already closed or never exists.
-     *
-     * @param sessionId An identifier of a session to close.
-     * @return A future representing result of an operation.
-     */
-    CompletableFuture<Void> closeSession(SessionId sessionId);
-
-    /**
-     * Provide list of live sessions.
-     *
-     * <p>This method return the information is actual only on method invocation time.
-     *
-     * @return List of active sessions.
-     */
-    List<SessionInfo> liveSessions();
-
-    /**
      * Execute the single statement query with given schema name and parameters.
      *
      * <p>If the query string contains more than one statement the IgniteException will be thrown.
      *
-     * @param sessionId A session identifier.
-     * @param context User query context.
+     * @param properties User query properties. See {@link QueryProperty} for available properties.
      * @param transactions Transactions facade.
+     * @param transaction A transaction to use for query execution. If null, an implicit transaction
+     *      will be started by provided transactions facade.
      * @param qry Single statement SQL query.
      * @param params Query parameters.
      * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.
+     * @see QueryProperty
      */
     CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionId,
-            QueryContext context,
+            SqlProperties properties,
             IgniteTransactions transactions,
+            @Nullable InternalTransaction transaction,
             String qry,
             Object... params
     );
