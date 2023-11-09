@@ -47,7 +47,6 @@ import org.junit.jupiter.api.Test;
  * Tests about interaction between Schema Synchronization and Replication.
  */
 @SuppressWarnings("resource")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-20709")
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 3;
 
