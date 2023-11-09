@@ -41,6 +41,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -234,14 +235,8 @@ public class IgniteImpl implements Ignite {
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
-    /** Distributed configuration validator. */
-    private final ConfigurationValidator distributedConfigurationValidator;
-
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
-
-    /** Cluster configuration defaults setter. */
-    private final ConfigurationDynamicDefaultsPatcherImpl configurationDynamicDefaultsPatcher;
 
     /** Cluster initializer. */
     private final ClusterInitializer clusterInitializer;
@@ -407,23 +402,27 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        distributedConfigurationValidator =
-                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators());
+        ConfigurationValidator distributedCfgValidator = ConfigurationValidatorImpl.withDefaultValidators(
+                distributedConfigurationGenerator,
+                modules.distributed().validators()
+        );
+
+        ConfigurationDynamicDefaultsPatcher clusterCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
+                modules.distributed(),
+                distributedConfigurationGenerator
+        );
+
+        clusterInitializer = new ClusterInitializer(
+                clusterSvc,
+                clusterCfgDynamicDefaultsPatcher,
+                distributedCfgValidator
+        );
 
         NodeAttributesCollector nodeAttributesCollector =
                 new NodeAttributesCollector(
                         nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
                         nodeConfigRegistry.getConfiguration(StorageProfilesConfiguration.KEY)
                 );
-
-        configurationDynamicDefaultsPatcher =
-                new ConfigurationDynamicDefaultsPatcherImpl(modules.distributed(), distributedConfigurationGenerator);
-
-        clusterInitializer = new ClusterInitializer(
-                clusterSvc,
-                configurationDynamicDefaultsPatcher,
-                distributedConfigurationValidator
-        );
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
@@ -462,7 +461,7 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,
-                distributedConfigurationValidator
+                distributedCfgValidator
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

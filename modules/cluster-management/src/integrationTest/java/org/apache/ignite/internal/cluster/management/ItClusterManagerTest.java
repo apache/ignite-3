@@ -110,7 +110,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         String[] metaStorageNodes = { cluster.get(1).name() };
 
-        String configuration = "cluster-configuration.json";
+        String configuration = "{security: {enabled: true}}";
 
         initCluster(metaStorageNodes, cmgNodes, configuration);
 

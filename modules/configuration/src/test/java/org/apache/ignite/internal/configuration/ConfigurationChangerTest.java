@@ -587,7 +587,7 @@ public class ConfigurationChangerTest {
 
         assertEquals("foo", root.defStr());
         assertEquals("initialStr", root.child().defStr());
-        assertEquals(List.of("bar"), Arrays.asList(root.child().arr()));
+        assertArrayEquals(new String[]{"bar"}, root.child().arr());
     }
 
     private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {

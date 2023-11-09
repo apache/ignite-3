@@ -355,6 +355,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private void onElectedAsLeader(long term) {
         LOG.info("CMG leader has been elected, executing onLeaderElected callback");
 
+        // Complete the initialClusterConfigurationFuture to initialize the cluster configuration on the CMG leader.
         raftServiceAfterJoin()
                 .thenCompose(CmgRaftService::readClusterState)
                 .thenAccept(state -> initialClusterConfigurationFuture.complete(state.initialClusterConfiguration()));
@@ -447,6 +448,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         ClusterState state = msg.clusterState();
 
+        // Complete the initialClusterConfigurationFuture to initialize the cluster configuration on the local node.
         initialClusterConfigurationFuture.complete(state.initialClusterConfiguration());
 
         synchronized (raftServiceLock) {

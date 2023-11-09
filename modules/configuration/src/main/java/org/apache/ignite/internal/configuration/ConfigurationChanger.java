@@ -89,12 +89,17 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Configuration storage. */
     private final ConfigurationStorage storage;
 
+    /** Configuration validator. */
     private final ConfigurationValidator configurationValidator;
 
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
 
-    private volatile ConfigurationSource initialConfiguration;
+    /**
+     * Initial configuration. This configuration will be used to initialize the configuration if the storage is empty. If the storage is not
+     * empty, this configuration will be ignored.
+     */
+    private volatile ConfigurationSource initialConfiguration = ConfigurationUtil.EMPTY_CFG_SRC;
 
     /** Future that resolves after the defaults are persisted to the storage. */
     private final CompletableFuture<Void> defaultsPersisted = new CompletableFuture<>();
@@ -269,7 +274,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         addDefaults(superRoot);
 
         // Fill the configuration with the initial configuration.
-        if (version == 0 && initialConfiguration != null) {
+        if (version == 0) {
             initialConfiguration.descend(superRoot);
         }
 
@@ -297,8 +302,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private void persistDefaults() {
         // If the storage version is 0, it indicates that the storage is empty.
         // In this case, write the defaults along with the initial configuration.
-        ConfigurationSource cfgSrc =
-                initialConfiguration != null && storageRoots.version == 0 ? initialConfiguration : ConfigurationUtil.EMPTY_CFG_SRC;
+        ConfigurationSource cfgSrc = storageRoots.version == 0 ? initialConfiguration : ConfigurationUtil.EMPTY_CFG_SRC;
 
         changeInternally(cfgSrc, true)
                 .whenComplete((v, e) -> {
@@ -311,14 +315,14 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /**
-     * Initializes the configuration with the given source. This method should be used only for the initial setup of the configuration. The
-     * configuration is initialized with the provided source only if the storage is empty, and it is saved along with the defaults. This
-     * method must be called before {@link #start()}.
+     * Sets {@link #initialConfiguration}. This configuration will be used to initialize the configuration if the storage is empty. If the
+     * storage is not empty, this configuration will be ignored. This method should be called before {@link #start()}. If the method is
+     * called after the start, the provided configuration will be ignored.
      *
-     * @param cfg the configuration source to initialize with.
+     * @param configurationSource the configuration source to initialize with.
      */
-    public void initializeConfigurationWith(ConfigurationSource cfg) {
-        initialConfiguration = cfg;
+    public void initializeConfigurationWith(ConfigurationSource configurationSource) {
+        initialConfiguration = configurationSource;
     }
 
     /** {@inheritDoc} */
