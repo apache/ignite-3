@@ -19,6 +19,8 @@ package org.apache.ignite.internal.tx;
 
 import static java.util.Objects.requireNonNull;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Transaction state.
  */
@@ -55,7 +57,7 @@ public enum TxState {
      * @param after State after.
      * @return Whether the transition is correct.
      */
-    public static boolean checkTransitionCorrectness(TxState before, TxState after) {
+    public static boolean checkTransitionCorrectness(@Nullable TxState before, TxState after) {
         requireNonNull(after);
 
         int beforeOrd = before == null ? 0 : before.ordinal() + 1;
