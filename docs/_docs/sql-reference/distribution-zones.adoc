@@ -14,7 +14,7 @@
 // limitations under the License.
 = Distribution Zones
 
-This section describes Apache Ignite 3 distribution zones.
+This section describes Apache Ignite distribution zones. In Ignite 3, you can fine tune distribution of your partitions on nodes for better performance and stability.
 
 == CREATE ZONE
 
@@ -22,7 +22,16 @@ Creates a new distribution zone.
 
 [source,sql]
 ----
-CREATE ZONE [IF NOT EXISTS] qualified_zone_name [;]
+CREATE ZONE [IF NOT EXISTS] qualified_zone_name [ENGINE engine_name]
+[WITH
+    [PARTITIONS = partitionNumber],
+    [REPLICAS = replicaNumber],
+    {[DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value |
+    DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value |
+    (DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value & DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value)]},
+    [DATA_NODES_FILTER = jsonPathFilter]
+]
+[;]
 ----
 
 Parameters:
@@ -30,10 +39,13 @@ Parameters:
 
 * `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
 * `IF NOT EXISTS` - create a zone only if a different zone with the same name does not exist.
-//* `WITH` - accepts the following additional parameters:
-//- `DATA_NODES_AUTO_ADJUST` - the delay in seconds between any topology changes and the start of data zone adjustment.
-//- `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
-//- `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
+* `ENGINE` - selects the storage engine to use. Currently `aipersist`, `aimem` and `rocksdb` are available.
+* `WITH` - accepts the following additional parameters:
+- `PARTITIONS` - the number of parts data is divinded into. Partitions are then split between nodes for storage.
+- `REPLICAS` - the number of copies of each partition.
+- `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
+- `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
+- `DATA_NODES_FILTER` - specifies the nodes that can be used to store data in the distribution zone based on node attributes. You can configure node attributes by using cli.  Filter uses JSONPath rules. If the attribute is not found, all negative comparisons will be valid. For example, `$[?(@.storage != 'SSD']}` will also include nodes without the `storage` attribute specified.
 
 Examples:
 
@@ -45,41 +57,12 @@ CREATE ZONE IF NOT EXISTS exampleZone
 ----
 
 
-//Creates an `exampleZone` distribution zone that will only use nodes with SSD attribute and adjust 300 seconds after cluster topology changes:
+Creates an `exampleZone` distribution zone that will only use nodes with SSD attribute and adjust 300 seconds after cluster topology changes:
 
-//[source,sql]
-//----
-//CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_AUTO_ADJUST=300
-//----
-
-
-//== ALTER ZONE
-
-//Modifies an existing distribution zone.
-
-//[source,sql]
-//----
-//ALTER ZONE IF EXISTS { 'qualified_zone_name' }
-//    [WITH
-//        [
-//            ([DATA_NODES_AUTO_ADJUST = adjust_value],
-//            [DATA_NODES_AUTO_ADJUST_SCALE_UP = adjust_value],
-//            [DATA_NODES_AUTO_ADJUST_SCALE_DOWN = adjust_value],
-//            [DATA_NODES_FILTER = filter_name])
-//        ]
-//    ]
-//[;]
-//----
-
-//Parameters:
-
-//* `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
-//* `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
-//* `WITH` - accepts the following additional parameters:
-//- `DATA_NODES_AUTO_ADJUST` - the delay in seconds between any topology changes and the start of data zone adjustment.
-//- `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
-//- `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
-//- `DATA_NODES_FILTER` - a list of node names or node attributes. Only the nodes with these attributes are included in the distribution zone.
+[source,sql]
+----
+CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER="$[?(@.storage == 'SSD')]", DATA_NODES_AUTO_ADJUST=300
+----
 
 == ALTER ZONE
 
@@ -87,13 +70,28 @@ Renames a distribution zone.
 
 [source,sql]
 ----
-ALTER ZONE IF EXISTS { 'qualified_zone_name' } [RENAME TO {new_qualified_zone_name}] [;]
+ALTER ZONE IF EXISTS { 'qualified_zone_name' } [RENAME TO {new_qualified_zone_name}]
+[WITH
+    [PARTITIONS = partitionNumber],
+    [REPLICAS = replicaNumber],
+    {[DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value |
+    DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value |
+    (DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value & DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value)]},
+    [DATA_NODES_FILTER = jsonPathFilter]
+]
+[;]
 ----
 
 Parameters:
 
 * `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
 * `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
+* `WITH` - accepts the following additional parameters:
+- `PARTITIONS` - the number of parts data is divinded into. Partitions are then split between nodes for storage.
+- `REPLICAS` - the number of copies of each partition.
+- `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
+- `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
+- `DATA_NODES_FILTER` - specifies the nodes that can be used to store data in the distribution zone based on node attributes.
 
 == DROP ZONE
 
