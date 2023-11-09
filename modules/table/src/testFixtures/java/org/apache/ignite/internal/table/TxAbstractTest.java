@@ -83,7 +83,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -124,7 +123,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     protected IgniteTransactions igniteTransactions;
 
-    
+
+    @Test
     public void testCommitRollbackSameTxDoesNotThrow() throws TransactionException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
@@ -138,6 +138,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testRollbackCommitSameTxDoesNotThrow() throws TransactionException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
@@ -151,6 +152,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testRepeatedCommitRollbackAfterUpdateWithException() throws Exception {
         injectFailureOnNextOperation(accounts);
 
@@ -170,6 +172,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
@@ -191,6 +194,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testDeleteUpsertCommit() throws TransactionException {
         deleteUpsert().commit();
 
@@ -198,6 +202,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testDeleteUpsertRollback() throws TransactionException {
         deleteUpsert().rollback();
 
@@ -219,6 +224,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testDeleteUpsertAllCommit() throws TransactionException {
         deleteUpsertAll().commit();
 
@@ -227,6 +233,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testDeleteUpsertAllRollback() throws TransactionException {
         deleteUpsertAll().rollback();
 
@@ -259,6 +266,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testMixedPutGet() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
 
@@ -275,6 +283,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testLockOrdering() throws InterruptedException {
         accounts.recordView().upsert(null, makeValue(1, 50.));
 
@@ -315,6 +324,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests a transaction closure.
      */
     
+    @Test
     public void testTxClosure() throws TransactionException {
         RecordView<Tuple> view = accounts.recordView();
 
@@ -341,6 +351,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests a transaction closure over key-value view.
      */
     
+    @Test
     public void testTxClosureKeyValueView() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
         accounts.recordView().upsert(null, makeValue(2, BALANCE_2));
@@ -366,6 +377,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests positive transfer scenario.
      */
     
+    @Test
     public void testTxClosureAsync() {
         double balance1 = 200.;
         double balance2 = 300.;
@@ -384,6 +396,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests negative transfer scenario.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17861")
+    @Test
     public void testTxClosureAbortAsync() {
         double balance1 = 10.;
         double balance2 = 300.;
@@ -400,6 +413,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests uncaught exception in the closure.
      */
     
+    @Test
     public void testTxClosureUncaughtExceptionAsync() {
         double balance = 10.;
         double delta = 50.;
@@ -432,6 +446,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests uncaught exception in the chain.
      */
     
+    @Test
     public void testTxClosureUncaughtExceptionInChainAsync() {
         RecordView<Tuple> view = accounts.recordView();
 
@@ -448,6 +463,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testBatchPutConcurrently() {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
@@ -476,6 +492,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testBatchReadPutConcurrently() throws InterruptedException {
         InternalTransaction tx1 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
@@ -532,6 +549,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests an asynchronous transaction.
      */
     
+    @Test
     public void testTxAsync() {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
         accounts.recordView().upsert(null, makeValue(2, BALANCE_2));
@@ -557,6 +575,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests an asynchronous transaction over key-value view.
      */
     
+    @Test
     public void testTxAsyncKeyValueView() {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
         accounts.recordView().upsert(null, makeValue(2, BALANCE_2));
@@ -579,6 +598,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testSimpleConflict() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -609,6 +629,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testCommit() throws TransactionException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
@@ -630,6 +651,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testAbort() throws TransactionException {
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
@@ -651,6 +673,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testAbortNoUpdate() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -662,6 +685,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testConcurrent() throws TransactionException {
         Transaction tx = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
@@ -685,6 +709,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests if a lost update is not happening on concurrent increment.
      */
     
+    @Test
     public void testIncrement() throws TransactionException {
         Transaction tx1 = igniteTransactions.begin();
         Transaction tx2 = igniteTransactions.begin();
@@ -718,6 +743,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testAbortWithValue() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(0, 100.));
 
@@ -733,6 +759,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testInsert() throws TransactionException {
         assertNull(accounts.recordView().get(null, makeKey(1)));
 
@@ -767,6 +794,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testDelete() throws TransactionException {
         Tuple key = makeKey(1);
 
@@ -802,6 +830,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testGetAll() {
         List<Tuple> keys = List.of(makeKey(1), makeKey(2));
 
@@ -821,6 +850,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests if a transaction is rolled back if one of the batch keys can't be locked.
      */
     
+    @Test
     public void testGetAllAbort() throws TransactionException {
         List<Tuple> keys = List.of(makeKey(1), makeKey(2));
 
@@ -842,6 +872,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Tests if a transaction is rolled back if one of the batch keys can't be locked.
      */
     
+    @Test
     public void testGetAllConflict() throws Exception {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
@@ -868,6 +899,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testPutAll() throws TransactionException {
         igniteTransactions.runInTransaction(tx -> {
             accounts.recordView().upsertAll(tx, List.of(makeValue(1, 100.), makeValue(2, 200.)));
@@ -887,6 +919,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testInsertAll() throws TransactionException {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
@@ -910,6 +943,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testDeleteAll() throws TransactionException {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
@@ -924,6 +958,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testReplace() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -936,6 +971,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testGetAndReplace() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -948,6 +984,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testDeleteExact() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -962,6 +999,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testDeleteAllExact() throws TransactionException {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
@@ -980,6 +1018,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testGetAndPut() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -992,6 +1031,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testGetAndDelete() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1003,6 +1043,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testRollbackUpgradedLock() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1026,6 +1067,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15938") // TODO asch IGNITE-15938
+    @Test
     public void testUpgradedLockInvalidation() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1051,6 +1093,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testReorder() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1074,6 +1117,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testCrossTable() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1111,6 +1155,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testTwoTables() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1149,6 +1194,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testCrossTableKeyValueView() throws Exception {
         customers.recordView().upsert(null, makeValue(1L, "test"));
         accounts.recordView().upsert(null, makeValue(1L, 100.));
@@ -1187,6 +1233,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testCrossTableAsync() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1205,6 +1252,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testCrossTableAsyncRollback() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1223,6 +1271,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testCrossTableAsyncKeyValueView() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1242,6 +1291,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testCrossTableAsyncKeyValueViewRollback() throws Exception {
         customers.recordView().upsert(null, makeValue(1, "test"));
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1260,22 +1310,25 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(() -> lockManager(accounts).isEmpty(), 10_000));
     }
 
-    @RepeatedTest(100)
+    @Test
     public void testBalance() throws InterruptedException {
         doTestSingleKeyMultithreaded(5_000, false);
     }
 
     
+    @Test
     public void testLockedTooLong() {
         // TODO asch IGNITE-15936 if lock can't be acquired until timeout tx should be rolled back.
     }
 
     
+    @Test
     public void testScan() throws Exception {
         doTestScan(null);
     }
 
     
+    @Test
     public void testScanExplicit() throws Exception {
         igniteTransactions.runInTransaction(this::doTestScan);
     }
@@ -1350,21 +1403,25 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testComplexImplicit() {
         doTestComplex(accounts.recordView(), null);
     }
 
     
+    @Test
     public void testComplexExplicit() throws TransactionException {
         doTestComplex(accounts.recordView(), igniteTransactions.begin());
     }
 
     
+    @Test
     public void testComplexImplicitKeyValueView() {
         doTestComplexKeyValue(accounts.keyValueView(), null);
     }
 
     
+    @Test
     public void testComplexExplicitKeyValueView() throws TransactionException {
         doTestComplexKeyValue(accounts.keyValueView(), igniteTransactions.begin());
     }
@@ -1816,6 +1873,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testReadOnlyGet() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1824,6 +1882,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testReadOnlyScan() throws Exception {
         accounts.recordView().upsert(null, makeValue(1, 100.));
         accounts.recordView().upsert(null, makeValue(2, 500.));
@@ -1885,6 +1944,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testReadOnlyGetWriteIntentResolutionUpdate() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1908,6 +1968,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testReadOnlyGetWriteIntentResolutionRemove() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -1932,6 +1993,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testReadOnlyGetAll() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
         accounts.recordView().upsert(null, makeValue(2, 200.));
@@ -1943,6 +2005,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testReadOnlyPendingWriteIntentSkippedCombined() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
         accounts.recordView().upsert(null, makeValue(2, 200.));
@@ -1968,6 +2031,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testTransactionAlreadyCommitted() {
         testTransactionAlreadyFinished(true, true, (transaction, uuid) -> {
             transaction.commit();
@@ -1977,6 +2041,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testTransactionAlreadyRolledback() {
         testTransactionAlreadyFinished(false, true, (transaction, uuid) -> {
             transaction.rollback();
@@ -1986,12 +2051,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testImplicit() {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
         assertEquals(BALANCE_1, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
     
+    @Test
     public void testWriteIntentResolutionFallbackToCommitPartitionPath() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -2016,6 +2083,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testSingleGet() {
         var accountRecordsView = accounts.recordView();
 
@@ -2036,6 +2104,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     
+    @Test
     public void testBatchSinglePartitionGet() throws Exception {
         var accountRecordsView = accounts.recordView();
 
