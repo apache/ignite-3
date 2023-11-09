@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -90,6 +89,7 @@ import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
@@ -176,7 +176,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final AtomicBoolean partitionAssignmentChanged = new AtomicBoolean();
 
     /** Partition assignment change listener. */
-    private final Consumer<IgniteTablesInternal> partitionAssignmentsChangeListener;
+    private final EventListener partitionAssignmentsChangeListener;
 
     /** Authentication manager. */
     private final AuthenticationManager authenticationManager;
@@ -701,8 +701,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         out.packInt(flags);
     }
 
-    private void onPartitionAssignmentChanged(IgniteTablesInternal tables) {
+    private CompletableFuture<Boolean> onPartitionAssignmentChanged(Object parameters, @Nullable Throwable exception) {
         partitionAssignmentChanged.set(true);
+
+        return CompletableFuture.completedFuture(true);
     }
 
     /** {@inheritDoc} */

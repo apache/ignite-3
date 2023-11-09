@@ -52,12 +52,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -90,6 +88,7 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -107,6 +106,7 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -312,9 +312,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Partitions storage path. */
     private final Path storagePath;
-
-    /** Assignment change event listeners. */
-    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
@@ -1057,24 +1054,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void addPrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        // TODO: Subscribe once? Or just add every listener separately to avoid tracking them here?
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (event, err) -> {
-            System.out.println("Primary replica event: " + event);
-            return CompletableFuture.completedFuture(false); // Continue listening.
-        });
-
-        assignmentsChangeListeners.add(listener);
+    public void addPrimaryReplicaChangeListener(EventListener<PrimaryReplicaEventParameters> listener) {
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, listener);
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean removePrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        return assignmentsChangeListeners.remove(listener);
+    public void removePrimaryReplicaChangeListener(EventListener<PrimaryReplicaEventParameters> listener) {
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, listener);
     }
 
     /**
@@ -1114,13 +1101,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     zoneDescriptor,
                     assignmentsFuture,
                     catalogVersion
-            ).whenComplete((v, e) -> {
-                if (e == null) {
-                    for (var listener : assignmentsChangeListeners) {
-                        listener.accept(this);
-                    }
-                }
-            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
+            ).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
         });
     }
 

@@ -21,15 +21,14 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.client.ClientClusterNode;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -70,7 +69,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
 
-    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<EventListener> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
 
     private volatile List<String> partitionAssignments = null;
 
@@ -183,19 +182,17 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("rawtypes")
     @Override
-    public void addPrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
+    public void addPrimaryReplicaChangeListener(EventListener listener) {
         assignmentsChangeListeners.add(listener);
     }
 
     /** {@inheritDoc} */
+    @SuppressWarnings("rawtypes")
     @Override
-    public boolean removePrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        return assignmentsChangeListeners.remove(listener);
+    public void removePrimaryReplicaChangeListener(EventListener listener) {
+        assignmentsChangeListeners.remove(listener);
     }
 
     /**
@@ -203,11 +200,12 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      *
      * @param assignments Assignments.
      */
+    @SuppressWarnings({"unchecked", "DataFlowIssue"})
     public void setPartitionAssignments(List<String> assignments) {
         partitionAssignments = assignments;
 
         for (var listener : assignmentsChangeListeners) {
-            listener.accept(this);
+            listener.notify(null, null);
         }
     }
 

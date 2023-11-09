@@ -20,7 +20,9 @@ package org.apache.ignite.internal.table;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -93,12 +95,12 @@ public interface IgniteTablesInternal extends IgniteTables {
      *
      * @param listener Listener.
      */
-    void addPrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener);
+    void addPrimaryReplicaChangeListener(EventListener<PrimaryReplicaEventParameters> listener);
 
     /**
      * Removes primary replica change listener.
      *
      * @param listener Listener.
      */
-    boolean removePrimaryReplicaChangeListener(Consumer<IgniteTablesInternal> listener);
+    void removePrimaryReplicaChangeListener(EventListener<PrimaryReplicaEventParameters> listener);
 }
