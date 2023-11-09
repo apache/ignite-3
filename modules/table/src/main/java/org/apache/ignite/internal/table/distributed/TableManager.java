@@ -218,9 +218,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
-    /** Vault manager. */
-    private final VaultManager vaultManager;
-
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
 
@@ -404,7 +401,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.dataStorageMgr = dataStorageMgr;
         this.storagePath = storagePath;
         this.metaStorageMgr = metaStorageMgr;
-        this.vaultManager = vaultManager;
         this.schemaManager = schemaManager;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
@@ -1713,8 +1709,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (shouldStartLocalServices) {
             localServicesStartFuture = localPartsByTableIdVv.get(revision)
                     .thenComposeAsync(oldMap ->
-                        inBusyLock(busyLock, () -> localPartsUpdate(tbl, oldMap, List.of(pendingAssignments)))
-                    , ioExecutor)
+                        inBusyLock(busyLock, () -> localPartsUpdate(tbl, oldMap, List.of(pendingAssignments))),
+                        ioExecutor)
                     .thenRunAsync(() -> {
                         startPartition(tbl, replicaGrpId.partitionId(), List.of(pendingAssignments, stableAssignments), null);
                     }, ioExecutor);
@@ -1918,9 +1914,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
                     .thenComposeAsync(mvPartitionStorage -> {
                         TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
-                        System.out.println("qqq created storage table=" + table.name() + ", partId=" + partitionId + ", node=" + localNode() +
-                                ", tableManager=" + this + ", internalTable=" + internalTable +
-                                ", partition=" + internalTable.storage().getMvPartition(partitionId));
+                        System.out.println("qqq created storage table=" + table.name() + ", partId=" + partitionId + ", node=" + localNode()
+                                + ", tableManager=" + this + ", internalTable=" + internalTable
+                                + ", partition=" + internalTable.storage().getMvPartition(partitionId));
 
                         if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
                                 || txStateStorage.lastAppliedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
