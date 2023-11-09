@@ -394,7 +394,7 @@ abstract class FieldAccessor {
      * @param obj Source object.
      * @throws MarshallerException If failed.
      */
-    final void write(MarshallerWriter writer, Object obj) throws MarshallerException {
+    final void write(MarshallerWriter writer, @Nullable Object obj) throws MarshallerException {
         try {
             write0(writer, obj);
         } catch (Exception ex) {
@@ -409,7 +409,7 @@ abstract class FieldAccessor {
      * @param obj Source object.
      * @throws Exception If write failed.
      */
-    abstract void write0(MarshallerWriter writer, Object obj) throws Exception;
+    abstract void write0(MarshallerWriter writer, @Nullable Object obj) throws Exception;
 
     /**
      * Reads value fom row to object field.
@@ -786,7 +786,7 @@ abstract class FieldAccessor {
         }
 
         @Override
-        void write0(MarshallerWriter writer, Object obj) {
+        void write0(MarshallerWriter writer, @Nullable Object obj) {
             assert writer != null;
 
             if (obj == null) {

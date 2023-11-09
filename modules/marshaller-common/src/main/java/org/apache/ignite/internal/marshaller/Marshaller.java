@@ -188,7 +188,7 @@ public abstract class Marshaller {
      * @param writer Row writer.
      * @throws MarshallerException If failed.
      */
-    public abstract void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException;
+    public abstract void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException;
 
     /**
      * Marshaller for objects of natively supported types.
@@ -223,7 +223,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException {
+        public void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException {
             fieldAccessor.write(writer, obj);
         }
     }
@@ -269,7 +269,7 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public void writeObject(Object obj, MarshallerWriter writer) throws MarshallerException {
+        public void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException {
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
             }
