@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
