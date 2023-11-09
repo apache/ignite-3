@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.core;
 
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_CIPHERS;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_CLIENT_AUTH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PATH;
@@ -72,6 +73,7 @@ public class JdbcUrlFactory {
         addIfSet(queryParams, JDBC_KEY_STORE_PATH, "keyStorePath");
         addIfSet(queryParams, JDBC_KEY_STORE_PASSWORD, "keyStorePassword");
         addIfSet(queryParams, JDBC_CLIENT_AUTH, "clientAuth");
+        addIfSet(queryParams, JDBC_CIPHERS, "ciphers");
         addSslEnabledIfNeeded(queryParams);
         addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthenticationUsername");
         addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthenticationPassword");

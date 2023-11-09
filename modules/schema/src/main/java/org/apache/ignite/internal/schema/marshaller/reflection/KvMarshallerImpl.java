@@ -87,7 +87,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(K key, V val) throws MarshallerException {
+    public Row marshal(K key, @Nullable V val) throws MarshallerException {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
@@ -153,7 +153,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      * @return Row assembler.
      * @throws MarshallerException If failed to read key or value object content.
      */
-    private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
+    private RowAssembler createAssembler(Object key, @Nullable Object val) throws MarshallerException {
         try {
             return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
         } catch (Throwable e) {

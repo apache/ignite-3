@@ -51,7 +51,7 @@ public interface KvMarshaller<K, V> {
      * @return Table row with columns from given key-value pair.
      * @throws MarshallerException If failed to marshal key and/or value.
      */
-    Row marshal(K key, V val) throws MarshallerException;
+    Row marshal(K key, @Nullable V val) throws MarshallerException;
 
     /**
      * Unmarshal given row to a key object.
