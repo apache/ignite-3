@@ -158,8 +158,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
 
-                if (cmd.safeTimeLong() > maxObservableSafeTimeVerificator) {
-                    maxObservableSafeTimeVerificator = cmd.safeTimeLong();
+                if (cmd.safeTime().longValue() > maxObservableSafeTimeVerificator) {
+                    maxObservableSafeTimeVerificator = cmd.safeTime().longValue();
                 } else {
                     assert false : "Safe time reordering detected.";
                 }
@@ -478,8 +478,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
 
-            if (cmd.safeTimeLong() > maxObservableSafeTime) {
-                maxObservableSafeTime = cmd.safeTimeLong();
+            if (cmd.safeTime().longValue() > maxObservableSafeTime) {
+                maxObservableSafeTime = cmd.safeTime().longValue();
             } else {
                 throw new SafeTimeReorderException();
             }
