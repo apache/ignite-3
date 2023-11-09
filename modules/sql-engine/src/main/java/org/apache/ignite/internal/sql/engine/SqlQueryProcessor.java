@@ -40,7 +40,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -53,7 +52,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -432,19 +430,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
 
-        QueryCancel queryCancel = new QueryCancel();
-
         CompletableFuture<AsyncSqlCursorIterator<List<Object>>> start = new CompletableFuture<>();
 
         CompletableFuture<AsyncSqlCursorIterator<List<Object>>> parseFut = start
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenApply(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
-                            schemaName, transactions, explicitTransaction, queryCancel, parsedResults, params);
-
-                    queryCancel.add(() -> handler.cancelAll(
-                            new SqlException(EXECUTION_CANCELLED_ERR, "The query was cancelled while executing")
-                    ));
+                            schemaName, transactions, explicitTransaction, parsedResults, params);
 
                     // Begin script execution.
                     taskExecutor.execute(handler::processNext);
@@ -459,7 +451,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> executeParsedStatement(
             String schemaName,
-            ParsedResult result,
+            ParsedResult parsedResult,
             QueryTransactionWrapper txWrapper,
             QueryCancel queryCancel,
             Object[] params,
@@ -475,7 +467,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .parameters(params)
                             .build();
 
-                    return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(txWrapper, ctx, plan));
+                    return prepareSvc.prepareAsync(parsedResult, ctx).thenApply(plan -> executePlan(txWrapper, ctx, plan));
                 }).whenComplete((res, ex) -> {
                     if (ex != null) {
                         txWrapper.rollback();
@@ -616,24 +608,20 @@ public class SqlQueryProcessor implements QueryProcessor {
     private class MultiStatementHandler {
         private final String schemaName;
         private final IgniteTransactions transactions;
-        private final @Nullable InternalTransaction outerTx;
-        private final QueryCancel queryCancel;
+        private final @Nullable InternalTransaction explicitTransaction;
         private final List<CompletableFuture<AsyncSqlCursor<List<Object>>>> cursorFutures;
         private final Queue<ScriptStatementParameters> statements;
-        private final AtomicInteger cancelledStatementsCount = new AtomicInteger();
 
         MultiStatementHandler(
                 String schemaName,
                 IgniteTransactions transactions,
-                @Nullable InternalTransaction outerTx,
-                QueryCancel queryCancel,
+                @Nullable InternalTransaction explicitTransaction,
                 List<ParsedResult> parsedResults,
                 Object[] params
         ) {
             this.schemaName = schemaName;
             this.transactions = transactions;
-            this.outerTx = outerTx;
-            this.queryCancel = queryCancel;
+            this.explicitTransaction = explicitTransaction;
 
             List<ScriptStatementParameters> statementsList = splitDynamicParameters(parsedResults, params);
 
@@ -686,7 +674,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return;
                 }
 
-                QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(parsedResult.queryType(), transactions, outerTx);
+                QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(parsedResult.queryType(), transactions, explicitTransaction);
 
                 executeParsedStatementAndWaitPrefetch(txWrapper, parsedResult, dynamicParams)
                         .whenComplete((res, ex) -> {
@@ -713,22 +701,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         }
 
-        private void onStatementCancel() {
-            int total = cursorFutures.size();
-            int cancelled = cancelledStatementsCount.incrementAndGet();
-
-            if (cancelled == total) {
-                queryCancel.cancel();
-            }
-
-            if (cancelled > total) {
-                IllegalStateException ex = new IllegalStateException(
-                        "Unexpected script statement cancellation (cancelled=" + cancelled + ", total=" + total + ')');
-
-                Loggers.forClass(SqlQueryProcessor.class).warn(ex.getMessage(), ex);
-            }
-        }
-
         private CompletableFuture<AsyncSqlCursor<List<Object>>> executeParsedStatementAndWaitPrefetch(
                 QueryTransactionWrapper txWrapper,
                 ParsedResult parsedResult,
@@ -736,12 +708,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         ) {
             CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
             QueryCancel cancel = new QueryCancel();
-
-            // Unregister the session resource when all statements are canceled.
-            cancel.add(this::onStatementCancel);
-
-            // Ability to cancel execution of all statements by closing the session.
-            queryCancel.add(cancel);
 
             return executeParsedStatement(schemaName, parsedResult, txWrapper, cancel, dynamicParams, new PrefetchCallback(prefetchFut))
                     // Wait for the prefetch, otherwise the user will be able to execute
@@ -777,19 +743,15 @@ public class SqlQueryProcessor implements QueryProcessor {
                     continue;
                 }
 
-                if (fut.completeExceptionally(new SqlException(
+                fut.completeExceptionally(new SqlException(
                         EXECUTION_CANCELLED_ERR,
                         "The script statement execution was canceled due to an error in the previous statement.",
                         cause
-                ))) {
-                    onStatementCancel();
-                }
+                ));
             }
-
-            queryCancel.cancel();
         }
 
-        class PrefetchCallback implements QueryPrefetchCallback {
+        private class PrefetchCallback implements QueryPrefetchCallback {
             private final CompletableFuture<Void> prefetchFuture;
 
             PrefetchCallback(CompletableFuture<Void> prefetchFuture) {

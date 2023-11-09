@@ -54,12 +54,6 @@ import org.junit.jupiter.api.Test;
 public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     private static final String CANCELLED_ERR_MSG = "script statement execution was canceled";
 
-    @Override
-    protected int initialNodes() {
-        // TODO remove this method.
-        return 1;
-    }
-
     @AfterEach
     void dropTables() {
         dropAllTables();
