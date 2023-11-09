@@ -24,35 +24,42 @@ import java.util.Map;
  *
  * @see Property
  */
-public interface PropertiesHolder extends Iterable<Map.Entry<Property<?>, Object>> {
+public interface SqlProperties extends Iterable<Map.Entry<Property<?>, Object>> {
     /**
      * Returns the value for specified property or throws an {@link PropertyNotFoundException}
-     * if such property is not specified in the current holder.
+     * if such property is not specified.
      *
      * @param prop Property of interest.
      * @param <T> Value type of the property.
      * @return The value of the property. Never returns null.
-     * @throws PropertyNotFoundException If a given property is not found in the current holder.
+     * @throws PropertyNotFoundException If a given property is not found.
      */
     <T> T get(Property<T> prop);
 
     /**
-     * Returns the value for specified property or provided default if such property is not
-     * specified in the current holder.
+     * Returns the value for specified property or provided default if such property is not specified.
      *
      * @param prop Property of interest.
-     * @param defaultValue A value to return if given property not found in the holder.
+     * @param defaultValue A value to return if given property not found.
      * @param <T> Value type of the property.
-     * @return The value of the property or provided default if such property is not specified in the current holder.
+     * @return The value of the property or provided default if such property is not specified.
      */
     <T> T getOrDefault(Property<T> prop, T defaultValue);
 
     /**
-     * A builder interface to constructs the holder with certain properties.
+     * Returns {@code true} if properties object contains given property.
+     *
+     * @param prop A property of interest.
+     * @return {@code true} if properties object contains given property.
      */
-    public interface Builder {
+    boolean hasProperty(Property<?> prop);
+
+    /**
+     * A builder interface to constructs the properties object.
+     */
+    interface Builder {
         /**
-         * Stores the value of a given property on a future holder.
+         * Stores the value of a given property.
          *
          * <p>If such property was set earlier, then replace the old value with the new one.
          *
@@ -64,7 +71,7 @@ public interface PropertiesHolder extends Iterable<Map.Entry<Property<?>, Object
          */
         <T> Builder set(Property<T> property, T value);
 
-        /** Creates a holder object with specified properties. */
-        PropertiesHolder build();
+        /** Creates a properties object. */
+        SqlProperties build();
     }
 }

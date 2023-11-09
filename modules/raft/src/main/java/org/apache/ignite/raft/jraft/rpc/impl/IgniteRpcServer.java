@@ -155,7 +155,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
         /** {@inheritDoc} */
         @Override public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
-            RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
             ClusterNode sender = clusterService().topologyService().getByConsistentId(senderConsistentId);
 
@@ -163,15 +162,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 throw new UnresolvableConsistentIdException("No node by consistent ID " + senderConsistentId);
             }
 
-            // TODO asch cache mapping https://issues.apache.org/jira/browse/IGNITE-14832
-            if (prc == null) {
-                for (Class<?> iface : cls.getInterfaces()) {
-                    prc = processors.get(iface.getName());
-
-                    if (prc != null)
-                        break;
-                }
-            }
+            RpcProcessor<NetworkMessage> prc = getProcessor(cls, cls);
 
             if (prc == null)
                 return;
@@ -196,6 +187,26 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
                 LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());
             }
+        }
+
+        private @Nullable RpcProcessor<NetworkMessage> getProcessor(Class<?> origin, Class<?> cls) {
+            RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
+
+            if (prc != null) {
+                return prc;
+            }
+
+            for (Class<?> iface : cls.getInterfaces()) {
+                prc = getProcessor(origin, iface);
+
+                if (prc != null) {
+                    processors.putIfAbsent(origin.getName(), prc);
+
+                    return prc;
+                }
+            }
+
+            return null;
         }
     }
 

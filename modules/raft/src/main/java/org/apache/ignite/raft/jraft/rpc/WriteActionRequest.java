@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+package org.apache.ignite.raft.jraft.rpc;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcActionMessageGroup;
 
 /**
- * Thrown when session has expired or no longer exists.
+ * Submit a  write action to a replication group.
  */
-public class SessionNotFoundException extends IgniteInternalException {
-
-    private static final long serialVersionUID = -6297499977667006250L;
-
-    /** Constructor. */
-    public SessionNotFoundException(SessionId sessionId) {
-        super(INTERNAL_ERR, format("Session not found [{}]", sessionId));
-    }
+@Transferable(RpcActionMessageGroup.WRITE_ACTION_REQUEST)
+public interface WriteActionRequest extends ActionRequest {
+    /**
+     * Returns an action's command.
+     */
+    WriteCommand command();
 }

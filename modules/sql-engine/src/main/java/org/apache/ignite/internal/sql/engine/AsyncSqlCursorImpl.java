@@ -34,6 +34,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final ResultSetMetadata meta;
     private final QueryTransactionWrapper txWrapper;
     private final AsyncCursor<T> dataCursor;
+    private final Runnable onClose;
 
     /**
      * Constructor.
@@ -41,17 +42,20 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
      * @param queryType Type of the query.
      * @param meta The meta of the result set.
      * @param dataCursor The result set.
+     * @param onClose Callback to invoke when cursor is closed.
      */
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
             QueryTransactionWrapper txWrapper,
-            AsyncCursor<T> dataCursor
+            AsyncCursor<T> dataCursor,
+            Runnable onClose
     ) {
         this.queryType = queryType;
         this.meta = meta;
         this.txWrapper = txWrapper;
         this.dataCursor = dataCursor;
+        this.onClose = onClose;
     }
 
     /** {@inheritDoc} */
@@ -78,8 +82,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             }
 
             if (!batch.hasMore()) {
-                // last batch, need to commit transaction
-                txWrapper.commitImplicit();
+                closeAsync();
             }
 
             return batch;
@@ -91,6 +94,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public CompletableFuture<Void> closeAsync() {
         // Commit implicit transaction, if any.
         txWrapper.commitImplicit();
+
+        onClose.run();
 
         return dataCursor.closeAsync();
     }

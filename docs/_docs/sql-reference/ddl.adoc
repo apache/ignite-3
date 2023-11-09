@@ -48,12 +48,6 @@ NonTerminal('column_list')
 ),
 Optional(
 Sequence(
-NonTerminal('ENGINE'),
-NonTerminal('engine_name')
-)
-),
-Optional(
-Sequence(
 NonTerminal('WITH'),
 OneOrMore('param_name')
 )
@@ -66,7 +60,6 @@ Parameters:
 * `table_name` - name of the table. Can be schema-qualified.
 * `table_column` - name and type of a column to be created in the new table.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
-* `ENGINE` - selects the storage engine to use. Currently `aipersist`, `aimem` and `rocksdb` are available.
 * `COLOCATED BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
 * `WITH` - accepts the following additional parameters:
 

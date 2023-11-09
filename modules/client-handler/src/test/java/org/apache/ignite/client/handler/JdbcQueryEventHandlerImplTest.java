@@ -25,9 +25,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.only;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -35,11 +33,9 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.JdbcConnectionContext;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -50,13 +46,10 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -102,59 +95,6 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         assertThat(context, notNullValue());
 
         verifyNoInteractions(queryProcessor);
-
-        SessionId expectedSessionId = new SessionId(UUID.randomUUID());
-
-        when(queryProcessor.createSession(any())).thenReturn(expectedSessionId);
-
-        await(context.doInSession(actualSessionId -> {
-            assertThat(actualSessionId, is(expectedSessionId));
-
-            return CompletableFuture.completedFuture(null);
-        }));
-
-        verify(queryProcessor, only()).createSession(any());
-        verifyNoMoreInteractions(queryProcessor);
-    }
-
-    @Test
-    public void sessionRecreatedIfExpired() throws IgniteInternalCheckedException {
-        long connectionId = acquireConnectionId();
-
-        JdbcConnectionContext context = resourceRegistry.get(connectionId).get(JdbcConnectionContext.class);
-
-        SessionId sessionId = new SessionId(UUID.randomUUID());
-        AtomicBoolean shouldThrow = new AtomicBoolean(true);
-
-        await(context.doInSession(id -> {
-            if (shouldThrow.compareAndSet(true, false)) {
-                return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
-            }
-
-            return CompletableFuture.completedFuture(null);
-        }));
-
-        verify(queryProcessor, times(2 /* initial session + 1 not session found error */)).createSession(any());
-        verifyNoMoreInteractions(queryProcessor);
-    }
-
-    @Test
-    public void sessionRecreatedOnlyOnce() throws IgniteInternalCheckedException {
-        long connectionId = acquireConnectionId();
-
-        JdbcConnectionContext context = resourceRegistry.get(connectionId).get(JdbcConnectionContext.class);
-
-        when(queryProcessor.createSession(any())).thenAnswer(inv -> new SessionId(UUID.randomUUID()));
-
-        CompletableFuture<?> result = context.doInSession(
-                sessionId -> CompletableFuture.failedFuture(new SessionNotFoundException(sessionId))
-        );
-
-        assertThat(result.isDone(), is(true));
-        assertThat(result.isCompletedExceptionally(), is(true));
-
-        verify(queryProcessor, times(2 /* initial session + recreation */)).createSession(any());
-        verifyNoMoreInteractions(queryProcessor);
     }
 
     @Test
@@ -167,26 +107,6 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         assertThat(result.status(), is(STATUS_FAILED));
         assertThat(result.hasResults(), is(false));
         assertThat(result.err(), containsString("Unable to connect"));
-    }
-
-    @Test
-    void sessionIdIsUsedForQueryExecution() {
-        SessionId expectedSessionId = new SessionId(UUID.randomUUID());
-
-        when(queryProcessor.createSession(any())).thenReturn(expectedSessionId);
-
-        when(queryProcessor.querySingleAsync(eq(expectedSessionId), any(), any(), any()))
-                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("This is fine")));
-
-        long connectionId = acquireConnectionId();
-
-        await(eventHandler.queryAsync(connectionId, new JdbcQueryExecuteRequest(
-                JdbcStatementType.SELECT_STATEMENT_TYPE, "my_schema", 1024, 1024, "SELECT 1", ArrayUtils.OBJECT_EMPTY_ARRAY, true
-        )));
-
-        verify(queryProcessor).createSession(any());
-        verify(queryProcessor).querySingleAsync(eq(expectedSessionId), any(), any(), any(), any(Object[].class));
-        verifyNoMoreInteractions(queryProcessor);
     }
 
     @Test
@@ -221,7 +141,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void explicitTxRollbackOnCloseRegistry() {
-        Transaction tx = mock(Transaction.class);
+        InternalTransaction tx = mock(InternalTransaction.class);
 
         when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
         when(igniteTransactions.begin()).thenReturn(tx);
@@ -240,10 +160,10 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void singleTxUsedForMultipleOperations() {
-        when(queryProcessor.querySingleAsync(any(), any(), any(), any()))
+        when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Expected")));
 
-        Transaction tx = mock(Transaction.class);
+        InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.commitAsync()).thenReturn(CompletableFuture.completedFuture(null));
         when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
         when(igniteTransactions.begin()).thenReturn(tx);
@@ -274,15 +194,6 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         verifyNoMoreInteractions(igniteTransactions);
         verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any(), any(Object[].class));
-    }
-
-    @Test
-    public void contextClosedBeforeSessionCreated() {
-        acquireConnectionId();
-
-        resourceRegistry.close();
-
-        verify(queryProcessor, times(0)).closeSession(null);
     }
 
     private long acquireConnectionId() {
