@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_MISS;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_REORDERING;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
 import java.nio.file.Path;
@@ -465,20 +465,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onBeforeApply(Command command) {
-        // TODO: comment about thread safety
+        // Given method is is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
 
             if (cmd.safeTimeLong() > maxObservableSafeTime) {
-//                System.out.println("Updating maxObservableSafeTime cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", " + command.getClass());
                 maxObservableSafeTime = cmd.safeTimeLong();
             } else {
-//                System.out.println(
-//                        "!!! maxObservableSafeTime = " + maxObservableSafeTime + ", cmd.safeTimeLong() = " + cmd.safeTimeLong() + ", "
-//                                + command.getClass());
                 if (cmd instanceof TxCleanupCommand) {
-                    // TODO: Use proper message instead
-                    throw new SafeTimeReorderException(REPLICATION_SAFE_TIME_MISS, "errorMsg");
+                    throw new SafeTimeReorderException();
                 }
             }
         }
