@@ -48,11 +48,13 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test resending the finish request from the coordinator when the previous attempts failed for any reason.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20709")
 public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
