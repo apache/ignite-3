@@ -15,16 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.exp;
+package org.apache.ignite.internal.rest.exception.handler;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Binary scalar used for two inputs and single output.
+ * Echo message.
  */
-@FunctionalInterface
-public interface BiScalar extends Scalar {
-    /** Two inputs and single output. */
-    void execute(ExecutionContext ctx, Object in1, Object in2, RowBuilder out);
+public class EchoMessage {
+    private final String text;
+
+    @JsonCreator
+    public EchoMessage(@JsonProperty("text") String text) {
+        this.text = text;
+    }
+
+    @JsonProperty("text")
+    public String msg() {
+        return text;
+    }
 }

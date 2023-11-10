@@ -33,12 +33,15 @@ import reactor.core.publisher.FluxSink;
 /**
  * Implementation of {@link AuthenticationProvider}. Delegates authentication to {@link AuthenticationManager}.
  */
-public class DelegatingAuthenticationProvider implements AuthenticationProvider {
-
+public class IgniteAuthenticationProvider implements AuthenticationProvider {
     private final AuthenticationManager authenticationManager;
 
-    public DelegatingAuthenticationProvider(AuthenticationManager authenticationManager) {
+    IgniteAuthenticationProvider(AuthenticationManager authenticationManager) {
         this.authenticationManager = authenticationManager;
+    }
+
+    boolean authenticationEnabled() {
+        return authenticationManager.authenticationEnabled();
     }
 
     @Override

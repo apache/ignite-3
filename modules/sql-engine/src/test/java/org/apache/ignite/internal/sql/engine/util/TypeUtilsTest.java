@@ -91,9 +91,6 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         Object original = TypeUtils.fromInternal(internal, type);
         assertEquals(value, original, "toInternal -> fromInternal");
         assertNotNull(original, "Conversion from internal has produced null");
-
-        Object internal2 = TypeUtils.toInternal(original);
-        assertEquals(internal, internal2, "toInternal w/o type parameter");
     }
 
     private static Stream<Arguments> valueAndType() {

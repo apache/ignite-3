@@ -15,31 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception.handler;
+package org.apache.ignite.internal.rest.exception.handler.replacement;
 
+import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
+import io.micronaut.http.server.exceptions.UnsatisfiedRouteHandler;
+import io.micronaut.web.router.exceptions.UnsatisfiedRouteException;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
-import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Handles {@link ClusterNotInitializedException} and represents it as a rest response.
+ * Replacement for {@link UnsatisfiedRouteHandler} that returns {@link Problem} instead of {@link HttpResponse}.
  */
 @Singleton
-@Requires(classes = {ClusterNotInitializedException.class, ExceptionHandler.class})
-public class ClusterNotInitializedExceptionHandler implements
-        ExceptionHandler<ClusterNotInitializedException, HttpResponse<? extends Problem>> {
+@Replaces(UnsatisfiedRouteHandler.class)
+@Requires(classes = {UnsatisfiedRouteException.class, ExceptionHandler.class})
+public class UnsatisfiedRouteHandlerReplacement implements ExceptionHandler<UnsatisfiedRouteException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, ClusterNotInitializedException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, UnsatisfiedRouteException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.CONFLICT)
-                        .title("Cluster not initialized")
-                        .detail("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster")
+                Problem.fromHttpCode(HttpCode.BAD_REQUEST)
+                        .detail(exception.getMessage())
         );
     }
 }

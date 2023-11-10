@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.context.ApplicationContext;
-import io.micronaut.context.annotation.Property;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
@@ -48,7 +47,6 @@ import org.junit.jupiter.api.Test;
  * The base test for configuration controllers.
  */
 @MicronautTest
-@Property(name = "micronaut.security.enabled", value = "false")
 public abstract class ConfigurationControllerBaseTest {
 
     private final Set<String> secretKeys = Set.of("password");
