@@ -175,7 +175,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                logger?.Debug("ConnectAsync 1");
+                logger?.Debug("ConnectAsync 1"); // TODO: Remove here and below
                 socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
                 {
                     NoDelay = true
