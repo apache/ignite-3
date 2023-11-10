@@ -2439,6 +2439,15 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     HybridTimestamp safeTimeForRetry = hybridClock.now();
 
+                    // Within primary replica it's required to update safe time in order to prevent double storage updates in case of !1PC.
+                    // Otherwise, it may be possible that a newer entry will be overwritten by an older one that came as part of the raft
+                    // replication flow:
+                    // tx1 = transactions.begin();
+                    // tx1.put(k1, v1) -> primary.apply(k1,v1) + asynchronous raft replication (k1,v1)
+                    // tx1.put(k1, v2) -> primary.apply(k1,v2) + asynchronous raft replication (k1,v1)
+                    // (k1,v1) replication overrides newer (k1, v2). Eventually (k1,v2) replication will restore proper value.
+                    // However it's possible that tx1.get(k1) will see v1 instead of v2.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Better solution requied. Given one is correct, but fragile.
                     if ((cmd instanceof UpdateCommand && !((UpdateCommand) cmd).full())
                             || (cmd instanceof UpdateAllCommand && !((UpdateAllCommand) cmd).full())) {
                         synchronized (safeTime) {
