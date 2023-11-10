@@ -54,7 +54,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Test resending the finish request from the coordinator when the previous attempts failed for any reason.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-20709")
 public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
@@ -179,6 +178,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20825")
     void testCoordinatorMissedResponse() throws ExecutionException, InterruptedException {
         testFinishRow(this::coordinatorMissedResponse, this::commitRow);
     }

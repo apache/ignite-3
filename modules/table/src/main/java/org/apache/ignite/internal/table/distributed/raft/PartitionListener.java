@@ -101,8 +101,12 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
+    /** Is used in order to detect and retry safe time reordering within onBeforeApply. */
     private long maxObservableSafeTime = -1;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
+    /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerificator = -1;
 
 
@@ -157,11 +161,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+                long proposedSafeTime = cmd.safeTime().longValue();
 
-                if (cmd.safeTime().longValue() > maxObservableSafeTimeVerificator) {
-                    maxObservableSafeTimeVerificator = cmd.safeTime().longValue();
+                if (proposedSafeTime > maxObservableSafeTimeVerificator) {
+                    maxObservableSafeTimeVerificator = proposedSafeTime;
                 } else {
-                    assert false : "Safe time reordering detected.";
+                    assert false : "Safe time reordering detected [current=" + maxObservableSafeTimeVerificator +
+                            ", proposed=" + proposedSafeTime + "]";
                 }
             }
 
@@ -477,9 +483,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // Given method is is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+            long proposedSafeTime = cmd.safeTime().longValue();
 
-            if (cmd.safeTime().longValue() > maxObservableSafeTime) {
-                maxObservableSafeTime = cmd.safeTime().longValue();
+            if (proposedSafeTime > maxObservableSafeTime) {
+                maxObservableSafeTime = proposedSafeTime;
             } else {
                 throw new SafeTimeReorderException();
             }
