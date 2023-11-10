@@ -40,8 +40,7 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should connect to last connected cluster HTTPS url")
     void connectOnStart() throws IOException {
         // Given prompt before connect
-        String promptBefore = getPrompt();
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -64,16 +63,14 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
                 () -> assertOutputContains("Connected to https://localhost:10400")
         );
         // And prompt is changed to connect
-        String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
+        assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
     }
 
     @Test
     @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url")
     void connectOnStartAskSsl() throws IOException {
         // Given prompt before connect
-        String promptBefore = getPrompt();
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -96,8 +93,7 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
                 () -> assertOutputContains("Connected to https://localhost:10400")
         );
         // And prompt is changed to connect
-        String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
+        assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
 
         assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
                 .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath));

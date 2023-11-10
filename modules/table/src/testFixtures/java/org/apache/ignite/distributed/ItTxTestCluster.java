@@ -17,13 +17,16 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -80,7 +83,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
@@ -94,6 +96,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
@@ -109,11 +112,11 @@ import org.apache.ignite.internal.table.distributed.replicator.TransactionStateR
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.table.impl.DummySchemas;
+import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
@@ -410,7 +413,7 @@ public class ItTxTestCluster {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    public TableImpl startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
+    public TableViewInternal startTable(String tableName, int tableId, SchemaDescriptor schemaDescriptor) throws Exception {
         CatalogService catalogService = mock(CatalogService.class);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
@@ -545,7 +548,7 @@ public class ItTxTestCluster {
                                         txStateStorage,
                                         transactionStateResolver,
                                         storageUpdateHandler,
-                                        new DummySchemas(schemaManager),
+                                        new DummyValidationSchemasSource(schemaManager),
                                         consistentIdToNode.apply(assignment),
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
@@ -641,7 +644,7 @@ public class ItTxTestCluster {
             TxStateStorage txStateStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
-            Schemas schemas,
+            ValidationSchemasSource validationSchemasSource,
             ClusterNode localNode,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
@@ -663,7 +666,7 @@ public class ItTxTestCluster {
                 txStateStorage,
                 transactionStateResolver,
                 storageUpdateHandler,
-                schemas,
+                validationSchemasSource,
                 localNode,
                 schemaSyncService,
                 catalogService,
@@ -725,11 +728,7 @@ public class ItTxTestCluster {
      * @throws Exception If failed.
      */
     public void shutdownCluster() throws Exception {
-        cluster.parallelStream().map(c -> {
-            c.stop();
-            return null;
-        }).forEach(o -> {
-        });
+        cluster.parallelStream().forEach(ClusterService::stop);
 
         if (client != null) {
             client.stop();
@@ -745,13 +744,25 @@ public class ItTxTestCluster {
 
                 ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-                for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
-                    replicaMgr.stopReplica(grp).join();
-                }
+                CompletableFuture<?>[] replicaStopFutures = replicaMgr.startedGroups().stream()
+                        .map(grp -> {
+                            try {
+                                return replicaMgr.stopReplica(grp);
+                            } catch (NodeStoppingException e) {
+                                throw new AssertionError(e);
+                            }
+                        })
+                        .toArray(CompletableFuture[]::new);
 
-                for (RaftNodeId nodeId : rs.localNodes()) {
-                    rs.stopRaftNode(nodeId);
-                }
+                assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
+
+                rs.localNodes().parallelStream().forEach(nodeId -> {
+                    try {
+                        rs.stopRaftNode(nodeId);
+                    } catch (NodeStoppingException e) {
+                        throw new AssertionError(e);
+                    }
+                });
 
                 replicaMgr.stop();
                 rs.stop();

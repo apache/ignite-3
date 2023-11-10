@@ -24,28 +24,33 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
-import org.apache.ignite.internal.sql.engine.QueryContext;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.property.Property;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
-import org.apache.ignite.internal.sql.engine.session.SessionProperty;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -62,6 +67,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Embedded implementation of the SQL session.
@@ -72,6 +78,12 @@ public class SessionImpl implements AbstractSession {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
+    private final AtomicInteger cursorIdGen = new AtomicInteger();
+
+    private final ConcurrentMap<Integer, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
+
+    private final SessionBuilderFactory sessionBuilderFactory;
+
     private final QueryProcessor qryProc;
 
     private final IgniteTransactions transactions;
@@ -80,28 +92,51 @@ public class SessionImpl implements AbstractSession {
 
     private final int pageSize;
 
-    private final PropertiesHolder props;
+    private final SqlProperties props;
+
+    private final long idleTimeoutMs;
+
+    private final IdleExpirationTracker expirationTracker;
+
+    private final Runnable onClose;
 
     /**
      * Constructor.
      *
+     * @param sessionId Identifier of the session.
+     * @param sessionBuilderFactory Map of created sessions.
      * @param qryProc Query processor.
      * @param transactions Transactions facade.
      * @param pageSize Query fetch page size.
+     * @param idleTimeoutMs Duration in milliseconds after which the session will be considered expired if no action have been
+     *                      performed on behalf of this session during this period.
      * @param props Session's properties.
+     * @param timeProvider The time provider used to update the timestamp on every touch of this object.
      */
     SessionImpl(
             SessionId sessionId,
+            SessionBuilderFactory sessionBuilderFactory,
             QueryProcessor qryProc,
             IgniteTransactions transactions,
             int pageSize,
-            PropertiesHolder props
+            long idleTimeoutMs,
+            SqlProperties props,
+            CurrentTimeProvider timeProvider,
+            Runnable onClose
     ) {
         this.qryProc = qryProc;
         this.transactions = transactions;
         this.sessionId = sessionId;
         this.pageSize = pageSize;
         this.props = props;
+        this.idleTimeoutMs = idleTimeoutMs;
+        this.sessionBuilderFactory = sessionBuilderFactory;
+        this.onClose = onClose;
+
+        expirationTracker = new IdleExpirationTracker(
+                idleTimeoutMs,
+                timeProvider
+        );
     }
 
     /** {@inheritDoc} */
@@ -125,7 +160,7 @@ public class SessionImpl implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public long idleTimeout(TimeUnit timeUnit) {
-        return timeUnit.convert(props.get(SessionProperty.IDLE_TIMEOUT), TimeUnit.MILLISECONDS);
+        return timeUnit.convert(idleTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
@@ -161,7 +196,7 @@ public class SessionImpl implements AbstractSession {
             propertyMap.put(entry.getKey().name, entry.getValue());
         }
 
-        return new SessionBuilderImpl(qryProc, transactions, propertyMap)
+        return sessionBuilderFactory.fromProperties(propertyMap)
                 .defaultPageSize(pageSize);
     }
 
@@ -170,26 +205,46 @@ public class SessionImpl implements AbstractSession {
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             String query,
-            @Nullable Object... arguments) {
+            @Nullable Object... arguments
+    ) {
+        touchAndCloseIfExpired();
+
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
+            return CompletableFuture.failedFuture(sessionIsClosedException());
         }
 
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            QueryContext ctx = QueryContext.create(SqlQueryType.SINGLE_STMT_TYPES, transaction);
+            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                    .build();
 
-            result = qryProc.querySingleAsync(sessionId, ctx, transactions, query, arguments)
-                    .thenCompose(cur -> cur.requestNextAsync(pageSize)
-                            .thenApply(
-                                    batchRes -> new AsyncResultSetImpl<>(
-                                            cur,
-                                            batchRes,
-                                            pageSize,
-                                            () -> {}
-                                    )
-                            )
+            result = qryProc.querySingleAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
+                    .thenCompose(cur -> {
+                        if (!busyLock.enterBusy()) {
+                            cur.closeAsync();
+
+                            return CompletableFuture.failedFuture(sessionIsClosedException());
+                        }
+
+                        try {
+                            int cursorId = registerCursor(cur);
+
+                            return cur.requestNextAsync(pageSize)
+                                    .thenApply(
+                                            batchRes -> new AsyncResultSetImpl<>(
+                                                    cur,
+                                                    batchRes,
+                                                    pageSize,
+                                                    expirationTracker,
+                                                    () -> openedCursors.remove(cursorId)
+                                            )
+                                    );
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
+                    }
             );
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
@@ -200,10 +255,6 @@ public class SessionImpl implements AbstractSession {
         // Closing a session must be done outside of the lock.
         return result.exceptionally((th) -> {
             Throwable cause = ExceptionUtils.unwrapCause(th);
-
-            if (cause instanceof SessionNotFoundException) {
-                closeInternal();
-            }
 
             throw new CompletionException(mapToPublicSqlException(cause));
         });
@@ -242,34 +293,64 @@ public class SessionImpl implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+        touchAndCloseIfExpired();
+
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
+            return CompletableFuture.failedFuture(sessionIsClosedException());
         }
 
         try {
-            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction);
+            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                    .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
+                    .build();
 
             var counters = new LongArrayList(batch.size());
-            CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
-            ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batch.size());
+            CompletableFuture<?> tail = CompletableFuture.completedFuture(null);
+            ArrayList<CompletableFuture<?>> batchFuts = new ArrayList<>(batch.size());
 
             for (int i = 0; i < batch.size(); ++i) {
                 Object[] args = batch.get(i).toArray();
 
-                final var qryFut = tail
-                        .thenCompose(v -> qryProc.querySingleAsync(sessionId, ctx, transactions, query, args));
+                tail = tail.thenCompose(v -> {
+                    if (!busyLock.enterBusy()) {
+                        return CompletableFuture.failedFuture(sessionIsClosedException());
+                    }
 
-                tail = qryFut.thenCompose(cur -> cur.requestNextAsync(1))
-                        .thenAccept(page -> {
-                            validateDmlResult(page);
+                    try {
+                        return qryProc.querySingleAsync(properties, transactions, (InternalTransaction) transaction, query, args)
+                                .thenCompose(cursor -> {
+                                    if (!busyLock.enterBusy()) {
+                                        cursor.closeAsync();
 
-                            counters.add((long) page.items().get(0).get(0));
-                        })
-                        .whenComplete((v, ex) -> {
-                            if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
-                                qryFut.cancel(false);
-                            }
-                        });
+                                        return CompletableFuture.failedFuture(sessionIsClosedException());
+                                    }
+
+                                    try {
+                                        int cursorId = registerCursor(cursor);
+
+                                        return cursor.requestNextAsync(1)
+                                                .handle((page, th) -> {
+                                                    openedCursors.remove(cursorId);
+                                                    cursor.closeAsync();
+
+                                                    if (th != null) {
+                                                        return CompletableFuture.failedFuture(th);
+                                                    }
+
+                                                    validateDmlResult(page);
+
+                                                    counters.add((long) page.items().get(0).get(0));
+
+                                                    return CompletableFuture.completedFuture(null);
+                                                }).thenCompose(Function.identity());
+                                    } finally {
+                                        busyLock.leaveBusy();
+                                    }
+                                });
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                });
 
                 batchFuts.add(tail);
             }
@@ -365,7 +446,7 @@ public class SessionImpl implements AbstractSession {
         try {
             closeInternal();
 
-            return qryProc.closeSession(sessionId);
+            return Commons.completedFuture();
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
@@ -377,9 +458,29 @@ public class SessionImpl implements AbstractSession {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean closed() {
+        return closed.get();
+    }
+
+    boolean expired() {
+        return expirationTracker.expired();
+    }
+
+    SessionId id() {
+        return sessionId;
+    }
+
+    @SuppressWarnings("resource")
     private void closeInternal() {
         if (closed.compareAndSet(false, true)) {
             busyLock.block();
+
+            openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
+            openedCursors.clear();
+
+            onClose.run();
         }
     }
 
@@ -391,5 +492,35 @@ public class SessionImpl implements AbstractSession {
                 || page.hasMore()) {
             throw new IgniteInternalException(INTERNAL_ERR, "Invalid DML results: " + page);
         }
+    }
+
+    private void touchAndCloseIfExpired() {
+        if (!expirationTracker.touch()) {
+            closeAsync();
+        }
+    }
+
+    private int registerCursor(AsyncSqlCursor<?> cursor) {
+        int cursorId = cursorIdGen.incrementAndGet();
+
+        Object old = openedCursors.put(cursorId, cursor);
+
+        assert old == null;
+
+        return cursorId;
+    }
+
+    private static SqlException sessionIsClosedException() {
+        return new SqlException(SESSION_CLOSED_ERR, "Session is closed.");
+    }
+
+    @FunctionalInterface
+    interface SessionBuilderFactory {
+        SessionBuilder fromProperties(Map<String, Object> properties);
+    }
+
+    @TestOnly
+    List<AsyncSqlCursor<?>> openedCursors() {
+        return List.copyOf(openedCursors.values());
     }
 }

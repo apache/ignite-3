@@ -36,11 +36,6 @@ public class NetworkConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = DEFAULT_PORT;
 
-    /** Network port range. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final int portRange = 0;
-
     /**
      * Graceful shutdown of the Netty's EventExecutorGroup ensures that no tasks are submitted for
      * <i>'the quiet period'</i> before it shuts itself down. If a task is submitted during the quiet period,

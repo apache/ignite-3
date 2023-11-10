@@ -45,10 +45,10 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -199,7 +199,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static RaftGroupService getRaftClient(Ignite node, int partitionId) {
-        TableImpl table = getTableImpl(node, TABLE_NAME);
+        TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
         return table.internalTable().partitionRaftGroupService(partitionId);
@@ -241,8 +241,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             boolean dropBuildIndexCommand
     ) {
         return (nodeConsistentId, networkMessage) -> {
-            if (networkMessage instanceof ActionRequest) {
-                Command command = ((ActionRequest) networkMessage).command();
+            if (networkMessage instanceof WriteActionRequest) {
+                Command command = ((WriteActionRequest) networkMessage).command();
 
                 if (command instanceof BuildIndexCommand) {
                     sendBuildIndexCommandFuture.complete(((BuildIndexCommand) command).indexId());

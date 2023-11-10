@@ -36,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -107,6 +109,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+        when(replicaService.invoke(anyString(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
         txManager = new TxManagerImpl(
                 replicaService,
@@ -343,6 +347,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Same primary that was enlisted is returned during finish phase and commitTimestamp is less that primary.expirationTimestamp.
         when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(CompletableFuture.completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         // Ensure that commit doesn't throw exceptions.
         InternalTransaction committedTransaction = prepareTransaction();
@@ -357,6 +363,8 @@ public class TxManagerTest extends IgniteAbstractTest {
     public void testFinishExpiredWithNullPrimary() {
         // Null is returned as primaryReplica during finish phase.
         when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(CompletableFuture.completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
 
         assertCommitThrowsTransactionExceptionWithPrimaryReplicaExpiredExceptionAsCause();
 
@@ -369,6 +377,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         // It's impossible from the point of view of getPrimaryReplica to return expired lease,
         // given test checks that an assertion exception will be thrown and wrapped with proper transaction public one.
         when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(CompletableFuture.completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
 
         InternalTransaction committedTransaction = prepareTransaction();
@@ -388,6 +398,8 @@ public class TxManagerTest extends IgniteAbstractTest {
     public void testFinishExpiredWithDifferentEnlistmentConsistencyToken() {
         // Primary with another enlistment consistency token is returned.
         when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(CompletableFuture.completedFuture(
+                new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(2), HybridTimestamp.MAX_VALUE)));
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(CompletableFuture.completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(2), HybridTimestamp.MAX_VALUE)));
 
         assertCommitThrowsTransactionExceptionWithPrimaryReplicaExpiredExceptionAsCause();

@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.Collections.emptyIterator;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.partitionBuildIndexMetastoreKey;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.assertMetastoreKeyAbsent;
@@ -35,45 +32,29 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTa
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexDescriptor;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.indexId;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.makeIndexAvailable;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.tableId;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
-import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -81,31 +62,22 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/** For {@link IndexAvailabilityControllerRestorer} testing. */
+/** For {@link IndexAvailabilityController} testing on node recovery. */
 @ExtendWith(WorkDirectoryExtension.class)
 public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractTest {
-    private static final int PARTITION_ID = 0;
-
     @WorkDirectory
     private Path workDir;
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final PlacementDriver placementDriver = mock(PlacementDriver.class);
-
     private final ClusterService clusterService = mock(ClusterService.class);
-
-    private final IndexManager indexManager = mock(IndexManager.class);
 
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
@@ -115,7 +87,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     private CatalogManager catalogManager;
 
-    private IndexAvailabilityControllerRestorer restorer;
+    private IndexAvailabilityController controller;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -135,7 +107,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                restorer == null ? null : restorer::close,
+                controller == null ? null : controller::close,
                 catalogManager == null ? null : catalogManager::stop,
                 metaStorageManager == null ? null : metaStorageManager::stop,
                 vaultManager::stop
@@ -177,131 +149,39 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
-        assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
+        assertMetastoreKeyAbsent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
         assertTrue(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
     }
 
     @Test
-    void testRemovePartitionBuildIndexMetastoreKeyForRegisteredIndex() throws Exception {
-        createIndexWithIndexBuildingKeys(INDEX_NAME, PARTITION_ID);
+    void testPutIndexBuildKeysForRegisteredIndexes() throws Exception {
+        createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
         int indexId = indexId(catalogManager, INDEX_NAME, clock);
-        TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
-        ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(LOCAL_NODE, replicaGroupId);
-
-        prepareToRestartNode(replicaGroupId, indexId, primaryReplicaMeta);
 
         restartComponentsAndPerformRecovery();
 
         // Let's do checks.
         assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertMetastoreKeyAbsent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, PARTITION_ID));
+
+        int partitions = getPartitionCountFromCatalog(catalogManager, indexId, catalogManager.latestCatalogVersion());
+        assertThat(partitions, greaterThan(0));
+
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, partitionId));
+        }
 
         assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
-    }
-
-    @Test
-    void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfBuildingIndexNotComplete() throws Exception {
-        createIndexWithIndexBuildingKeys(INDEX_NAME, PARTITION_ID);
-
-        int indexId = indexId(catalogManager, INDEX_NAME, clock);
-        TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
-        ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(LOCAL_NODE, replicaGroupId);
-
-        prepareToRestartNode(replicaGroupId, indexId, primaryReplicaMeta, new RowId(PARTITION_ID));
-
-        restartComponentsAndPerformRecovery();
-
-        // Let's do checks.
-        assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, PARTITION_ID));
-
-        assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
-    }
-
-    @Test
-    void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfPrimaryReplicaMetaNull() throws Exception {
-        createIndexWithIndexBuildingKeys(INDEX_NAME, PARTITION_ID);
-
-        int indexId = indexId(catalogManager, INDEX_NAME, clock);
-        TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
-
-        prepareToRestartNode(replicaGroupId, indexId, null);
-
-        restartComponentsAndPerformRecovery();
-
-        // Let's do checks.
-        assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, PARTITION_ID));
-
-        assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
-    }
-
-    @Test
-    void testNotRemovePartitionBuildIndexMetastoreKeyForRegisteredIndexIfPrimaryReplicaMetaChanges() throws Exception {
-        createIndexWithIndexBuildingKeys(INDEX_NAME, PARTITION_ID);
-
-        int indexId = indexId(catalogManager, INDEX_NAME, clock);
-        TablePartitionId replicaGroupId = new TablePartitionId(tableId(catalogManager, TABLE_NAME, clock), PARTITION_ID);
-
-        ReplicaMeta primaryReplicaMeta = createPrimaryReplicaMetaThatExpireInOneDay(
-                new ClusterNodeImpl(NODE_ID + "_ID_OLD", NODE_NAME + "_OLD", mock(NetworkAddress.class)),
-                replicaGroupId
-        );
-
-        prepareToRestartNode(replicaGroupId, indexId, primaryReplicaMeta);
-
-        restartComponentsAndPerformRecovery();
-
-        // Let's do checks.
-        assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
-        assertMetastoreKeyPresent(metaStorageManager, partitionBuildIndexMetastoreKey(indexId, PARTITION_ID));
-
-        assertFalse(indexDescriptor(catalogManager, INDEX_NAME, clock).available());
-    }
-
-    private void createIndexWithIndexBuildingKeys(String indexName, int partitionId) {
-        createIndex(catalogManager, TABLE_NAME, indexName, COLUMN_NAME);
-
-        int indexId = indexId(catalogManager, indexName, clock);
-
-        putInProgressBuildIndexMetastoreKeyInMetastore(indexId);
-        putPartitionBuildIndexMetastoreKeyInMetastore(indexId, partitionId);
-    }
-
-    private ReplicaMeta createPrimaryReplicaMetaThatExpireInOneDay(ClusterNode clusterNode, TablePartitionId replicaGroupId) {
-        HybridTimestamp startTime = clock.now();
-        HybridTimestamp expirationTime = startTime.addPhysicalTime(TimeUnit.DAYS.toMillis(1));
-
-        return newPrimaryReplicaMeta(clusterNode, replicaGroupId, startTime, expirationTime);
-    }
-
-    private void prepareToRestartNode(
-            TablePartitionId replicaGroupId,
-            int indexId,
-            @Nullable ReplicaMeta primaryReplicaMeta,
-            RowId... rowIdsToBuild
-    ) {
-        setIndexStorageToIndexManager(replicaGroupId, indexId, rowIdsToBuild);
-        setLocalNodeToClusterService(LOCAL_NODE);
-        setPrimaryReplicaMetaToPlacementDriver(replicaGroupId, primaryReplicaMeta);
     }
 
     private void putInProgressBuildIndexMetastoreKeyInMetastore(int indexId) {
         assertThat(metaStorageManager.put(inProgressBuildIndexMetastoreKey(indexId), BYTE_EMPTY_ARRAY), willCompleteSuccessfully());
     }
 
-    private void putPartitionBuildIndexMetastoreKeyInMetastore(int indexId, int partitionId) {
-        assertThat(
-                metaStorageManager.put(partitionBuildIndexMetastoreKey(indexId, partitionId), BYTE_EMPTY_ARRAY),
-                willCompleteSuccessfully()
-        );
-    }
-
     private void restartComponentsAndPerformRecovery() throws Exception {
         stopAndRestartComponentsNoDeployWatches();
 
-        assertThat(recoveryRestorer(), willCompleteSuccessfully());
+        recoveryRestorer();
 
         deployWatches();
     }
@@ -329,46 +209,23 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
     }
 
-    private CompletableFuture<Void> recoveryRestorer() throws Exception {
-        if (restorer != null) {
-            restorer.close();
+    private void recoveryRestorer() {
+        if (controller != null) {
+            controller.close();
         }
 
-        restorer = new IndexAvailabilityControllerRestorer(
-                catalogManager,
-                metaStorageManager,
-                indexManager,
-                placementDriver,
-                clusterService,
-                clock
-        );
+        controller = new IndexAvailabilityController(catalogManager, metaStorageManager, mock(IndexBuilder.class));
 
         CompletableFuture<Long> metastoreRecoveryFuture = metaStorageManager.recoveryFinishedFuture();
 
         assertThat(metastoreRecoveryFuture, willBe(greaterThan(0L)));
 
-        return restorer.recover(metastoreRecoveryFuture.join());
-    }
-
-    private void setIndexStorageToIndexManager(TablePartitionId replicaGroupId, int indexId, RowId... rowIdsToBuild) {
-        MvTableStorage mvTableStorage = mock(MvTableStorage.class);
-        IndexStorage indexStorage = mock(IndexStorage.class);
-
-        Iterator<RowId> it = nullOrEmpty(rowIdsToBuild) ? emptyIterator() : List.of(rowIdsToBuild).iterator();
-
-        when(indexStorage.getNextRowIdToBuild()).then(invocation -> it.hasNext() ? it.next() : null);
-
-        when(mvTableStorage.getIndex(replicaGroupId.partitionId(), indexId)).thenReturn(indexStorage);
-        when(indexManager.getMvTableStorage(anyLong(), eq(replicaGroupId.tableId()))).thenReturn(completedFuture(mvTableStorage));
+        controller.recover(metastoreRecoveryFuture.join());
     }
 
     private void setLocalNodeToClusterService(ClusterNode clusterNode) {
         TopologyService topologyService = mock(TopologyService.class, invocation -> clusterNode);
 
         when(clusterService.topologyService()).thenReturn(topologyService);
-    }
-
-    private void setPrimaryReplicaMetaToPlacementDriver(TablePartitionId replicaGroupId, @Nullable ReplicaMeta primaryReplicaMeta) {
-        when(placementDriver.getPrimaryReplica(eq(replicaGroupId), any())).thenReturn(completedFuture(primaryReplicaMeta));
     }
 }

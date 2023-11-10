@@ -50,14 +50,14 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -86,7 +86,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @param qry Query to execute.
      * @return Instance of QueryChecker.
      */
-    protected static QueryChecker assertQuery(Transaction tx, String qry) {
+    protected static QueryChecker assertQuery(InternalTransaction tx, String qry) {
         IgniteImpl node = CLUSTER.aliveNode();
 
         return queryCheckerFactory.create(node.queryEngine(), node.transactions(), tx, qry);
@@ -261,11 +261,11 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
 
         CLUSTER.runningNodes().forEach(clusterNode -> {
             try {
-                TableImpl tableImpl = getTableImpl(clusterNode, tableName);
+                TableViewInternal table = getTableView(clusterNode, tableName);
 
-                assertNotNull(tableImpl, clusterNode.name() + " : " + tableName);
+                assertNotNull(table, clusterNode.name() + " : " + tableName);
 
-                InternalTable internalTable = tableImpl.internalTable();
+                InternalTable internalTable = table.internalTable();
 
                 assertTrue(
                         waitForCondition(() -> getIndexDescriptor(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
@@ -320,12 +320,12 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @param node Node.
      * @param tableName Table name.
      */
-    protected static @Nullable TableImpl getTableImpl(Ignite node, String tableName) {
+    protected static @Nullable TableViewInternal getTableView(Ignite node, String tableName) {
         CompletableFuture<Table> tableFuture = node.tables().tableAsync(tableName);
 
         assertThat(tableFuture, willSucceedFast());
 
-        return (TableImpl) tableFuture.join();
+        return (TableViewInternal) tableFuture.join();
     }
 
     /**

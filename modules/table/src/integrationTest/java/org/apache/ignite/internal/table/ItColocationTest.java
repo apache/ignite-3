@@ -131,7 +131,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private SchemaRegistry schemaRegistry;
 
-    private TableImpl tbl;
+    private TableViewInternal tbl;
 
     private TupleMarshallerImpl marshaller;
 
@@ -156,8 +156,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
                     TablePartitionId commitPartition,
-                    ClusterNode recipientNode,
-                    Long term,
                     boolean commit,
                     Map<TablePartitionId, Long> enlistedGroups,
                     UUID txId

@@ -189,6 +189,7 @@ dependencies {
     testFixturesImplementation project(':ignite-sql-engine')
     testFixturesImplementation project(':ignite-table')
     testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-sql-engine'))

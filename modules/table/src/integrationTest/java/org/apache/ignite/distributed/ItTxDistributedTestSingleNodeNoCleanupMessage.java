@@ -46,7 +46,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.Schemas;
+import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -136,7 +136,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                     TxStateStorage txStateStorage,
                     TransactionStateResolver transactionStateResolver,
                     StorageUpdateHandler storageUpdateHandler,
-                    Schemas schemas,
+                    ValidationSchemasSource validationSchemasSource,
                     ClusterNode localNode,
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
@@ -158,7 +158,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends ItTxDistribut
                         txStateStorage,
                         transactionStateResolver,
                         storageUpdateHandler,
-                        schemas,
+                        validationSchemasSource,
                         localNode,
                         schemaSyncService,
                         catalogService,

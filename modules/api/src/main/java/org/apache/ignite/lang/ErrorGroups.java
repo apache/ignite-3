@@ -348,6 +348,9 @@ public class ErrorGroups {
 
         /** Failure due to primary replica expiration. */
         public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
+
+        /** Coordinator tries to commit a transaction that has already been aborted. */
+        public static final int TX_WAS_ABORTED_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Replicator error group. */
