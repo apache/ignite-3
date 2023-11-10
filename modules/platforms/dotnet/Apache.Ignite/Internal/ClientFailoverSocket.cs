@@ -356,8 +356,7 @@ namespace Apache.Ignite.Internal
                     _logger.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
                 }
 
-                // Don't use WhenAll - await every task separately.
-                // We want to log all exceptions and await all tasks before starting the next iteration.
+                // Await every task separately instead of using WhenAll to capture exceptions and avoid extra allocations.
                 int failed = 0;
                 foreach (var task in tasks)
                 {
