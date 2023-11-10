@@ -45,8 +45,8 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
         // And trust store is configured
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
 
         // And last connected URL is equal to the default URL
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
@@ -95,9 +95,9 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
 
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+        assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
                 .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath));
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+        assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                 .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword));
     }
 }

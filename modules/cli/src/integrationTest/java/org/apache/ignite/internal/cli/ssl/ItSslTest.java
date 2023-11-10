@@ -23,6 +23,7 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -59,11 +60,10 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
     @DisplayName("Should connect to cluster with given url")
     void connectToSecuredNode() {
         // When set up ssl configuration
-        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath);
-        execute("cli", "config", "set", "ignite.rest.key-store.password=" + NodeConfig.keyStorePassword);
-        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath);
-        execute("cli", "config", "set", "ignite.rest.trust-store.password=" + NodeConfig.trustStorePassword);
-        resetOutput();
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD, NodeConfig.keyStorePassword);
 
         // And connect via HTTPS
         connect("https://localhost:10401");
@@ -79,10 +79,10 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
     @DisplayName("Should show an error message, when key-store password is incorrect")
     void incorrectKeyStorePassword() {
         // When set up ssl configuration
-        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath);
-        execute("cli", "config", "set", "ignite.rest.key-store.password=wrong-password");
-        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath);
-        execute("cli", "config", "set", "ignite.rest.trust-store.password=" + NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD, "wrong-password");
         resetOutput();
 
         // And connect via HTTPS
@@ -99,11 +99,10 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
     @DisplayName("Should show an error message, when trust-store password is incorrect")
     void incorrectTrustStorePassword() {
         // When set up ssl configuration
-        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath);
-        execute("cli", "config", "set", "ignite.rest.key-store.password=" + NodeConfig.keyStorePassword);
-        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath);
-        execute("cli", "config", "set", "ignite.rest.trust-store.password=wrong-password");
-        resetOutput();
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, "wrong-password");
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD, NodeConfig.keyStorePassword);
 
         // And connect via HTTPS
         connect("https://localhost:10401");
@@ -119,11 +118,10 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
     @DisplayName("Should show an error message, when key-store path is incorrect")
     void incorrectKeyStorePath() {
         // When set up ssl configuration
-        execute("cli", "config", "set", "ignite.rest.key-store.path=" + NodeConfig.resolvedKeystorePath + "-wrong-path");
-        execute("cli", "config", "set", "ignite.rest.key-store.password=" + NodeConfig.keyStorePassword);
-        execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath);
-        execute("cli", "config", "set", "ignite.rest.trust-store.password=" + NodeConfig.keyStorePassword);
-        resetOutput();
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath + "-wrong-path");
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD, NodeConfig.keyStorePassword);
 
         // And connect via HTTPS
         connect("https://localhost:10401");
