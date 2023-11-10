@@ -164,6 +164,6 @@ public class ReconnectTests
 
         // All connections are restored.
         logger.Debug("Waiting for all connections to be restored...");
-        client.WaitForConnections(10);
+        client.WaitForConnections(count: 10, timeoutMs: 10_000);
     }
 }
