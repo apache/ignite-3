@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
@@ -47,6 +48,8 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Abstract class for testing descendants of {@link AbstractFilePageStoreIo}.
@@ -372,5 +375,37 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
 
             verify(ioFactory).create(newFilePath, CREATE, READ, WRITE);
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("ioFactories")
+    void testRenameAndReadRace(FileIoFactory ioFactory) throws Exception {
+        Path filePath = workDir.resolve("test");
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(filePath, ioFactory)) {
+            filePageStoreIo.ensure();
+
+            long expPageId = createDataPageId(() -> 1);
+
+            ByteBuffer byteBuffer = createPageByteBuffer(expPageId, PAGE_SIZE);
+
+            filePageStoreIo.write(expPageId, byteBuffer.rewind(), true);
+
+            // Loop works way better when you need to reproduce a particularly naughty race.
+            for (int i = 0; i < 100; i++) {
+                Path newFilePath = workDir.resolve("test" + i);
+
+                byteBuffer.rewind();
+
+                runRace(
+                        () -> filePageStoreIo.renameFilePath(newFilePath),
+                        () -> filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), byteBuffer, false)
+                );
+            }
+        }
+    }
+
+    private static FileIoFactory[] ioFactories() {
+        return new FileIoFactory[]{new RandomAccessFileIoFactory(), new AsyncFileIoFactory()};
     }
 }
