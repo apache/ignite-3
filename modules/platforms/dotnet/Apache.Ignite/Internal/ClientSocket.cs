@@ -217,33 +217,38 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                if (stream != null)
+                try
                 {
-                    await stream.DisposeAsync().ConfigureAwait(false);
+                    socket?.Dispose();
+
+                    if (stream != null)
+                    {
+                        await stream.DisposeAsync().ConfigureAwait(false);
+                    }
+
+                    throw new IgniteClientConnectionException(
+                        ErrorGroups.Client.Connection,
+                        "Failed to connect to endpoint: " + endPoint.EndPoint,
+                        e);
                 }
-
-                socket?.Dispose();
-
-                logger?.Warn($"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {e.Message}.", e);
-
-                if (e.GetBaseException() is TimeoutException)
+                finally
                 {
-                    Metrics.HandshakesFailedTimeout.Add(1);
-                }
-                else
-                {
-                    Metrics.HandshakesFailed.Add(1);
-                }
+                    logger?.Warn($"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {e.Message}.", e);
 
-                if (connected)
-                {
-                    Metrics.ConnectionsActiveDecrement();
-                }
+                    if (e.GetBaseException() is TimeoutException)
+                    {
+                        Metrics.HandshakesFailedTimeout.Add(1);
+                    }
+                    else
+                    {
+                        Metrics.HandshakesFailed.Add(1);
+                    }
 
-                throw new IgniteClientConnectionException(
-                    ErrorGroups.Client.Connection,
-                    "Failed to connect to endpoint: " + endPoint.EndPoint,
-                    e);
+                    if (connected)
+                    {
+                        Metrics.ConnectionsActiveDecrement();
+                    }
+                }
             }
         }
 
