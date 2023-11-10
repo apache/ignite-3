@@ -742,7 +742,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                 fut.completeExceptionally(new SqlException(
                         EXECUTION_CANCELLED_ERR,
-                        "The script statement execution was canceled due to an error in the previous statement.",
+                        "The script execution was canceled due to an error in the previous statement.",
                         cause
                 ));
             }

@@ -19,10 +19,9 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import javax.annotation.concurrent.NotThreadSafe;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.util.SqlBasicVisitor;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,18 +34,31 @@ public final class ScriptParseResult extends ParseResult {
      * Parse operation is expected to return one or multiple statements.
      */
     public static final ParseMode<ScriptParseResult> MODE = new ParseMode<>() {
+        private final SqlDynamicParamsAdjuster dynamicParamsAdjuster = new SqlDynamicParamsAdjuster();
+
         @Override
         ScriptParseResult createResult(List<SqlNode> list, int dynamicParamsCount) {
             if (list.size() == 1) {
                 return new ScriptParseResult(List.of(new StatementParseResult(list.get(0), dynamicParamsCount)), dynamicParamsCount);
             }
 
-            SqlDynamicParamsCounter paramsCounter = dynamicParamsCount == 0 ? null : new SqlDynamicParamsCounter();
             List<StatementParseResult> results = list.stream()
-                    .map(node -> new StatementParseResult(node, paramsCounter == null ? 0 : paramsCounter.forNode(node)))
+                    .map(node -> makeParseResultFromTree(node, dynamicParamsCount))
                     .collect(Collectors.toList());
 
             return new ScriptParseResult(results, dynamicParamsCount);
+        }
+
+        private StatementParseResult makeParseResultFromTree(SqlNode tree, int dynamicParamsCount) {
+            if (dynamicParamsCount == 0) {
+                return new StatementParseResult(tree, 0);
+            }
+
+            SqlNode newTree = dynamicParamsAdjuster.visitNode(tree);
+
+            assert newTree != null;
+
+            return new StatementParseResult(newTree, dynamicParamsAdjuster.count);
         }
     };
 
@@ -69,25 +81,21 @@ public final class ScriptParseResult extends ParseResult {
     }
 
     /**
-     * Counts the number of {@link SqlDynamicParam} nodes in the tree.
+     * Adjusts the dynamic parameter indexes to match the single statement parameter indexes.
      */
-    @NotThreadSafe
-    static class SqlDynamicParamsCounter extends SqlBasicVisitor<Object> {
-        int count;
+    private static final class SqlDynamicParamsAdjuster extends SqlShuttle {
+        private int count;
 
         @Override
-        public @Nullable Object visit(SqlDynamicParam param) {
-            count++;
-
-            return null;
+        public SqlNode visit(SqlDynamicParam param) {
+            return new SqlDynamicParam(count++, param.getParserPosition());
         }
 
-        int forNode(SqlNode node) {
+        @Override
+        public @Nullable SqlNode visitNode(SqlNode n) {
             count = 0;
 
-            this.visitNode(node);
-
-            return count;
+            return super.visitNode(n);
         }
     }
 

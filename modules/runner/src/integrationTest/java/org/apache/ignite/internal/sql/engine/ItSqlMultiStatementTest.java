@@ -120,11 +120,12 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
     @Test
     void queryWithDynamicParameters() {
-        String sql = "CREATE TABLE test (id INT PRIMARY KEY, val INT);"
+        String sql = "CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR DEFAULT '3');"
                 + "INSERT INTO test VALUES(?, ?);"
+                + "INSERT INTO test VALUES(?, DEFAULT);"
                 + "INSERT INTO test VALUES(?, ?);";
 
-        AsyncSqlCursorIterator<List<Object>> itr = runScript(sql, null, 0, 1, 2, 3);
+        AsyncSqlCursorIterator<List<Object>> itr = runScript(sql, null, 0, "1", 2, 4, "5");
         assertThat(itr, notNullValue());
 
         while (itr.hasNext()) {
@@ -132,8 +133,9 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         }
 
         assertQuery("SELECT * FROM test")
-                .returns(0, 1)
-                .returns(2, 3)
+                .returns(0, "1")
+                .returns(2, "3")
+                .returns(4, "5")
                 .check();
     }
 
