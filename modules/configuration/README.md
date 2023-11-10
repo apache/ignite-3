@@ -341,40 +341,81 @@ public interface ChildView {
 }
 
 public interface PolymorphicView {
-    String typeId();
+  String typeId();
 }
 
 public interface FirstPolymorphicInstanceView extends PolymorphicView {
-    int intVal();
+  int intVal();
 }
 ```
 
-`ParentView#polymorphicChild()` will return a view of a specific type of polymorphic configuration, for example `FirstPolymorphicInstanceView`.
+`ParentView#polymorphicChild()` will return a view of a specific type of polymorphic configuration, for
+example `FirstPolymorphicInstanceView`.
+
+### Dynamic configuration defaults
+
+Configuration defaults are defined in the configuration schema. However, it is not possible define them there in the following cases:
+
+* the value is a list (`NamedListConfiguration`).
+* the default value is not known at compile time and it depends on some external factors.
+
+In such cases, one can override `ConfigurationModule.patchConfigurationWithDynamicDefaults` method to provide the defaults. The method will
+be called on cluster initialization with the user-provided configuration tree as an argument.
+
+Note, that dynamic defaults are not supported for node local configuration.
+
+```java
+public class MyConfigurationModule extends AbstractConfigurationModule {
+  @Override
+  protected void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
+    rootChange.changeRoot(SecurityConfiguration.KEY).changeAuthentication(authenticationChange -> {
+      if (authenticationChange.changeProviders().size() == 0) {
+        authenticationChange.changeProviders().create(DEFAULT_PROVIDER_NAME, change -> {
+          change.convert(BasicAuthenticationProviderChange.class)
+                  .changeUsername(DEFAULT_USERNAME)
+                  .changePassword(DEFAULT_PASSWORD)
+                  .changeRoles(AuthorizationConfigurationSchema.DEFAULT_ROLE);
+        });
+      }
+    });
+  }
+}
+```
+
+### Configuration initialization
+
+Custom configuration initialization can be done by calling `ConfigurationRegistry#initializeConfigurationWith` method. The method accepts
+initial configuration that will be used as a base for the configuration tree. If the configuration is not provided, the default
+configuration will be used. The method should be called before `ConfigurationRegistry#start` method. If the method is called after the
+start, the provided configuration will be ignored.
 
 ### Changing the configuration
 
-To modify the configuration tree, one should use the `change` method, which executes the update requests 
+To modify the configuration tree, one should use the `change` method, which executes the update requests
 asynchronously and in a transactional manner. Update requests are represented by a set of `Change` interfaces.
 For the example above, the following interfaces would be generated:
 
 ```java
-public interface ParentChange extends ParentView { 
-    ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
-    NamedListChange<NamedElementChange> changeElements();
+public interface ParentChange extends ParentView {
+  ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
 
-    ParentChange changeChild(Consumer<ChildChange> child);
-    ChildChange changeChild();
+  NamedListChange<NamedElementChange> changeElements();
 
-    ParentChange changePolymorphicChild(Consumer<PolymorphicChange> polymorphicChild);
-    PolymorphicChange changePolymorphicChild();
+  ParentChange changeChild(Consumer<ChildChange> child);
+
+  ChildChange changeChild();
+
+  ParentChange changePolymorphicChild(Consumer<PolymorphicChange> polymorphicChild);
+
+  PolymorphicChange changePolymorphicChild();
 }
 
 public interface ChildChange extends ChildView {
-    ChildChange changeStr(String str);
+  ChildChange changeStr(String str);
 }
 
 public interface PolymorphicChange extends FirstPolymorphicView {
-    <T extends PolymorphicChange> T convert(Class<T> changeClass);
+  <T extends PolymorphicChange> T convert(Class<T> changeClass);
 }
 
 public interface FirstPolymorphicInstanceChange extends FirstPolymorphicInstanceView, PolymorphicChange {
