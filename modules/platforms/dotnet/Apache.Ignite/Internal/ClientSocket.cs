@@ -165,13 +165,13 @@ namespace Apache.Ignite.Internal
             IgniteClientConfiguration configuration,
             IClientSocketEventListener listener)
         {
+            var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+            bool connected = false;
+
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
                 NoDelay = true
             };
-
-            var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
-            bool connected = false;
 
             try
             {
@@ -213,6 +213,9 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
+                // ReSharper disable once MethodHasAsyncOverload
+                socket.Dispose();
+
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {e.Message}.", e);
 
                 if (e.GetBaseException() is TimeoutException)
@@ -223,9 +226,6 @@ namespace Apache.Ignite.Internal
                 {
                     Metrics.HandshakesFailed.Add(1);
                 }
-
-                // ReSharper disable once MethodHasAsyncOverload
-                socket.Dispose();
 
                 if (connected)
                 {

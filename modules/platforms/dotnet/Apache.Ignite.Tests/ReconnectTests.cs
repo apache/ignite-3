@@ -166,7 +166,6 @@ public class ReconnectTests
 
         // Connections are restored.
         logger.Debug("Waiting for connections to be restored...");
-        client.WaitForConnections(count: 5, timeoutMs: 10_000, greaterOrEqual: true);
         var sw = Stopwatch.StartNew();
 
         while (sw.ElapsedMilliseconds < 10_000)
