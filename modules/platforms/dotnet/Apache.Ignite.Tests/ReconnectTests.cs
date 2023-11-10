@@ -171,7 +171,7 @@ public class ReconnectTests
         while (sw.ElapsedMilliseconds < 10_000)
         {
             var connectionInfos = client.GetConnections();
-            Console.WriteLine($"[{DateTime.Now:HH:mm:s}] Connections: {connectionInfos.Count}");
+            Console.WriteLine($"[{DateTime.Now:HH:mm:s}], [{sw.ElapsedMilliseconds}] Connections: {connectionInfos.Count}");
 
             if (connectionInfos.Count >= 5)
             {
