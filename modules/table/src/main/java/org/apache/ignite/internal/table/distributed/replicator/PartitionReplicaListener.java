@@ -2673,8 +2673,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                             // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
-                            // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
-                            // just because there's only one operation in 1PC.
+                            // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't
+                            // possible just because there's only one operation in 1PC.
                             storageUpdateHandler.handleUpdateAll(
                                     cmd.txId(),
                                     cmd.rowsToUpdate(),
