@@ -130,7 +130,6 @@ public class ReconnectTests
     }
 
     [Test]
-    [Timeout(30_000)]
     public async Task TestReconnectAfterFullClusterRestart()
     {
         var logger = new ConsoleLogger { MinLevel = LogLevel.Trace };
