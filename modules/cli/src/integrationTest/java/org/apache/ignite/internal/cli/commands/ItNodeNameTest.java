@@ -17,20 +17,19 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for ignite node commands with a provided node name. */
 public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
-
-    @Inject
-    private NodeNameRegistry nodeNameRegistry;
 
     @Override
     protected Class<?> getCommandClass() {
@@ -43,6 +42,18 @@ public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
         resetOutput();
         // wait to pulling node names
         await().until(() -> !nodeNameRegistry.names().isEmpty());
+    }
+
+    @Test
+    void nodeUrls() {
+        List<String> urls = CLUSTER_NODES.stream()
+                .map(IgniteImpl.class::cast)
+                .map(IgniteImpl::restHttpAddress)
+                .map(address -> "http://" + address)
+                .collect(Collectors.toList());
+
+        // Node urls contain HTTP urls
+        assertThat(nodeNameRegistry.urls()).containsExactlyInAnyOrderElementsOf(urls);
     }
 
     @Test

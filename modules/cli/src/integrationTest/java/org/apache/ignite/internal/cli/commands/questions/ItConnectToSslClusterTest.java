@@ -19,10 +19,14 @@ package org.apache.ignite.internal.cli.commands.questions;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.NodeConfig;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
@@ -99,5 +103,29 @@ class ItConnectToSslClusterTest extends ItConnectToClusterTestBase {
                 .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath));
         assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
                 .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword));
+    }
+
+    @Test
+    void nodeUrls() {
+        // When set up ssl configuration
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath);
+        setConfigProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD, NodeConfig.keyStorePassword);
+
+        // And connect via HTTPS
+        execute("connect", "https://localhost:10400");
+
+        // Then wait for node names
+        await().until(() -> !nodeNameRegistry.names().isEmpty());
+
+        List<String> urls = CLUSTER_NODES.stream()
+                .map(IgniteImpl.class::cast)
+                .map(IgniteImpl::restHttpsAddress)
+                .map(address -> "https://" + address)
+                .collect(Collectors.toList());
+
+        // Then node urls contain HTTPS urls
+        assertThat(nodeNameRegistry.urls()).containsExactlyInAnyOrderElementsOf(urls);
     }
 }
