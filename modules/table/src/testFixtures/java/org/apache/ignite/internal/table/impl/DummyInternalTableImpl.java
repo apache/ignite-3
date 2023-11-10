@@ -444,7 +444,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        return new TxManagerImpl(
+        var txManager = new TxManagerImpl(
                 clusterService,
                 replicaSvc,
                 new HeapLockManager(),
@@ -453,6 +453,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 TEST_PLACEMENT_DRIVER,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
+
+        txManager.start();
+
+        return txManager;
     }
 
     /** {@inheritDoc} */

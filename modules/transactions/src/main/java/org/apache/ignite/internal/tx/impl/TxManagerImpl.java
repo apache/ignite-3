@@ -586,7 +586,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public void start() {
         localNodeId = clusterService.topologyService().localMember().id();
-        replicaService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
+        clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
         txRecoveryManager.start(txStateMap);
         orphanDetector.start(txStateMap);
     }
