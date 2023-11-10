@@ -685,7 +685,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 return;
                             }
 
-                            if (parsedResult.queryType() == SqlQueryType.DML || parsedResult.queryType() == SqlQueryType.DDL) {
+                            if (parsedResult.queryType() != SqlQueryType.QUERY) {
                                 txWrapper.commitImplicit();
                             }
 

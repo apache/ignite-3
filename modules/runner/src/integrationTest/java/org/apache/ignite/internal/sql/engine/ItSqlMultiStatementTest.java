@@ -65,15 +65,17 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void basicMultiStatementQuery() throws InterruptedException {
+    void basicMultiStatementQuery() {
         String sql = "CREATE TABLE test (id INT PRIMARY KEY, val INT);"
                 + "INSERT INTO test VALUES (0, 0);"
+                + "EXPLAIN PLAN FOR SELECT * FROM test;"
                 + "SELECT * FROM test";
 
         AsyncSqlCursorIterator<List<Object>> itr = runScript(sql);
 
         validateSingleResult(itr.next(), true);
         validateSingleResult(itr.next(), 1L);
+        assertThat(itr.next(), willCompleteSuccessfully()); // Skip explain.
         validateSingleResult(itr.next(), 0, 0);
 
         assertFalse(itr.hasNext());
