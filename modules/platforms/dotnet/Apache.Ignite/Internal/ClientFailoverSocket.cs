@@ -331,30 +331,50 @@ namespace Apache.Ignite.Internal
 
             while (!_disposed)
             {
-                try
-                {
-                    tasks.Clear();
+                tasks.Clear();
 
-                    foreach (var endpoint in _endpoints)
+                foreach (var endpoint in _endpoints)
+                {
+                    try
                     {
-                        if (endpoint.Socket?.IsDisposed == false)
+                        var connectTask = ConnectAsync(endpoint);
+                        if (connectTask.IsCompleted)
                         {
                             continue;
                         }
 
-                        tasks.Add(ConnectAsync(endpoint).AsTask());
+                        tasks.Add(connectTask.AsTask());
                     }
-
-                    _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
-
-                    // TODO: WhenAll is problematic here, because it will throw on the first error.
-                    await Task.WhenAll(tasks).ConfigureAwait(false);
-
-                    _logger?.Debug("All secondary connections established.");
+                    catch (Exception e)
+                    {
+                        _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                    }
                 }
-                catch (Exception e)
+
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                    _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
+                }
+
+                // Don't use WhenAll - await every task separately.
+                // We want to log all exceptions and await all tasks before starting the next iteration.
+                int failed = 0;
+                foreach (var task in tasks)
+                {
+                    try
+                    {
+                        await task.ConfigureAwait(false);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                        failed++;
+                    }
+                }
+
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"{tasks.Count - failed} secondary connections established, {failed} failed.");
                 }
 
                 if (Configuration.ReconnectInterval <= TimeSpan.Zero)
