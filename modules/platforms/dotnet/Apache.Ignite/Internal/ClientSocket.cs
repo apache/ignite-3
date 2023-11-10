@@ -166,7 +166,7 @@ namespace Apache.Ignite.Internal
             IgniteClientConfiguration configuration,
             IClientSocketEventListener listener)
         {
-            using var cts = new CancellationTokenSource(configuration.SocketTimeout);
+            using var cts = new CancellationTokenSource();
             var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
 
             bool connected = false;
