@@ -1396,8 +1396,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             int attemptsToCleanupReplica
     ) {
+        // Avoid invoking async chain in raft threads.
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
-                .map(partitionId -> changeStateFuture.thenCompose(ignored ->
+                .map(partitionId -> changeStateFuture.thenComposeAsync(ignored ->
                         cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attemptsToCleanupReplica)))
                 .toArray(size -> new CompletableFuture<?>[size]);
 
@@ -1914,10 +1915,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<ReplicaResult> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
-        TablePartitionId committedPartitionId = request.commitPartitionId().asTablePartitionId();
+        TablePartitionId commitdPartitionId = request.commitPartitionId().asTablePartitionId();
         List<BinaryRow> searchRows = request.binaryRows();
 
-        assert committedPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
+        assert commitdPartitionId != null : "Commit partition is null [type=" + request.requestType() + ']';
 
         switch (request.requestType()) {
             case RW_DELETE_EXACT_ALL: {
@@ -2918,8 +2919,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
-                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
+//        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.IX) // IX lock on table
+//                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
+//                .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
+
+        return takePutLockOnIndexes(binaryRow, rowId, txId)
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
 

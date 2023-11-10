@@ -59,7 +59,7 @@ public interface LockManager {
      * @param txId Transaction Id.
      * @return An iterator over a collection of locks.
      */
-    Iterator<Waiter> locks(UUID txId);
+    Iterator<Lock> locks(UUID txId);
 
     /**
      * Release all locks associated with a transaction.

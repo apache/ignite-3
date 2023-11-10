@@ -510,10 +510,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
             boolean lockUpgraded = false;
 
-            for (Iterator<Waiter> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
-                Waiter waiter = it.next();
+            for (Iterator<Lock> it = txManager(accounts).lockManager().locks(tx1.id()); it.hasNext(); ) {
+                Lock lock = it.next();
 
-                lockUpgraded = waiter.intendedLockMode() == LockMode.X;
+                lockUpgraded = txManager(accounts).lockManager().waiter(lock.lockKey(), tx1.id()).intendedLockMode() == LockMode.X;
 
                 if (lockUpgraded) {
                     break;

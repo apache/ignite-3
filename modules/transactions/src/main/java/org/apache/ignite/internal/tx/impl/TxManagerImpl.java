@@ -305,6 +305,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Map<TablePartitionId, Long> enlistedGroups,
             UUID txId
     ) {
+        LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}].", recipientNode, term, commit, txId, enlistedGroups);
+
         assert enlistedGroups != null;
 
         // Here we put finishing state meta into the local map, so that all concurrent operations trying to read tx state
@@ -340,45 +342,45 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     commit ? verifyCommitTimestamp(enlistedGroups, commitTimestamp) : completedFuture(null);
 
             return verificationFuture.handle(
-                    (unused, throwable) -> {
-                        Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>(enlistedGroups.keySet());
+                            (unused, throwable) -> {
+                                Collection<ReplicationGroupId> replicationGroupIds = new HashSet<>(enlistedGroups.keySet());
 
-                        boolean verifiedCommit = throwable == null && commit;
+                                boolean verifiedCommit = throwable == null && commit;
 
-                        TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                                .txId(txId)
-                                .timestampLong(clock.nowLong())
-                                .groupId(commitPartition)
-                                .groups(replicationGroupIds)
-                                // In case of verification future failure transaction will be rolled back.
-                                .commit(verifiedCommit)
-                                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                                .term(term)
-                                .build();
+                                TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
+                                        .txId(txId)
+                                        .timestampLong(clock.nowLong())
+                                        .groupId(commitPartition)
+                                        .groups(replicationGroupIds)
+                                        // In case of verification future failure transaction will be rolled back.
+                                        .commit(verifiedCommit)
+                                        .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                                        .term(term)
+                                        .build();
 
-                        return replicaService.invoke(recipientNode, req).thenRun(
-                                () -> {
-                                    updateTxMeta(txId, old -> {
-                                        if (isFinalState(old.txState())) {
-                                            finishingStateMeta.txFinishFuture().complete(old);
+                                return replicaService.invoke(recipientNode, req).thenRun(
+                                        () -> {
+                                            updateTxMeta(txId, old -> {
+                                                if (isFinalState(old.txState())) {
+                                                    finishingStateMeta.txFinishFuture().complete(old);
 
-                                            return old;
-                                        }
+                                                    return old;
+                                                }
 
-                                        assert old instanceof TxStateMetaFinishing;
+                                                assert old instanceof TxStateMetaFinishing;
 
-                                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(verifiedCommit, commitTimestamp);
+                                                TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(verifiedCommit, commitTimestamp);
 
-                                        finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
+                                                finishingStateMeta.txFinishFuture().complete(finalTxStateMeta);
 
-                                        return finalTxStateMeta;
-                                    });
+                                                return finalTxStateMeta;
+                                            });
 
-                                    if (verifiedCommit) {
-                                        observableTimestampTracker.update(commitTimestamp);
-                                    }
-                                });
-                    })
+                                            if (verifiedCommit) {
+                                                observableTimestampTracker.update(commitTimestamp);
+                                            }
+                                        });
+                            })
                     .thenCompose(Function.identity())
                     // verification future is added in order to share proper exception with the client
                     .thenCompose(r -> verificationFuture);

@@ -165,9 +165,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             ClusterNode recipientNode = nodeAndTerm.get1();
             Long term = nodeAndTerm.get2();
 
-            LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}].",
-                    recipientNode, term, commit, id(), enlistedGroups);
-
             assert recipientNode != null;
             assert term != null;
 

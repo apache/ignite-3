@@ -31,7 +31,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 @State(Scope.Benchmark)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class LockManagerBenchmark {
     private LockManager lockManager;
     private TransactionIdGenerator generator;
@@ -52,7 +52,9 @@ public class LockManagerBenchmark {
      */
     @TearDown
     public void tearDown() throws Exception {
-        assert lockManager.isEmpty();
+        if (!lockManager.isEmpty()) {
+            throw new AssertionError("Invalid lock manager state");
+        }
     }
 
     /**
@@ -60,8 +62,6 @@ public class LockManagerBenchmark {
      */
     @Param({"200"})
     private int concTxns;
-
-    private int iter;
 
     @Benchmark
     @Warmup(iterations = 1, time = 3)
@@ -74,17 +74,12 @@ public class LockManagerBenchmark {
         for (int i = 0; i < concTxns; i++) {
             UUID txId = generator.transactionIdFor(clock.now());
             ids.add(txId);
-            CompletableFuture<Lock> fut = lockManager.acquire(txId, new LockKey(0, new RowId(0, new UUID(0, c++))), LockMode.X);
-            fut.join();
+            lockManager.acquire(txId, new LockKey(0, new RowId(0, new UUID(0, c++))), LockMode.X).join();
         }
 
         for (UUID id : ids) {
             lockManager.releaseAll(id);
         }
-
-//        if (!lockManager.isEmpty()) {
-//            throw new IllegalStateException();
-//        }
     }
 
     /**
@@ -94,7 +89,7 @@ public class LockManagerBenchmark {
         // TODO JVM args
         Options opt = new OptionsBuilder()
                 .include(".*" + LockManagerBenchmark.class.getSimpleName() + ".*")
-                .forks(0)
+                .forks(1)
                 .threads(1)
                 .mode(Mode.AverageTime)
                 .build();
