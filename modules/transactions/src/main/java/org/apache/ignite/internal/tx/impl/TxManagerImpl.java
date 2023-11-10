@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -89,7 +88,7 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.Lazy;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.tx.TransactionException;
@@ -146,8 +145,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Lock to update and read the low watermark. */
     private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
 
-    private final Lazy<String> localNodeId;
-
     private final PlacementDriver placementDriver;
 
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
@@ -158,48 +155,35 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /**
-     * The constructor.
-     *
-     * @param replicaService Replica service.
-     * @param lockManager Lock manager.
-     * @param clock A hybrid logical clock.
-     * @param transactionIdGenerator Used to generate transaction IDs.
-     */
-    public TxManagerImpl(
-            ReplicaService replicaService,
-            LockManager lockManager,
-            HybridClock clock,
-            TransactionIdGenerator transactionIdGenerator,
-            Supplier<String> localNodeIdSupplier,
-            PlacementDriver placementDriver
-    ) {
-        this(
-                replicaService,
-                lockManager,
-                clock,
-                transactionIdGenerator,
-                localNodeIdSupplier,
-                placementDriver,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
-        );
-    }
+    /** Cluster service. */
+    private final ClusterService clusterService;
+
+    /** Transaction recovery manager. */
+    private final TxRecoveryProcessor txRecoveryManager;
+
+    /** Detector of transactions that lost the coordinator. */
+    private final OrphanDetector orphanDetector;
+
+    /** Local node network identity. This id is available only after the network has started. */
+    private String localNodeId;
 
     /**
      * The constructor.
      *
+     * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
      * @param clock A hybrid logical clock.
      * @param transactionIdGenerator Used to generate transaction IDs.
+     * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      */
     public TxManagerImpl(
+            ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
             HybridClock clock,
             TransactionIdGenerator transactionIdGenerator,
-            Supplier<String> localNodeIdSupplier,
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
@@ -207,7 +191,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
-        this.localNodeId = new Lazy<>(localNodeIdSupplier);
+        this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
 
@@ -220,6 +204,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("tx-async-cleanup", LOG));
+
+        txRecoveryManager = new TxRecoveryProcessor(clusterService);
+        orphanDetector = new OrphanDetector(clusterService, placementDriver, clock);
     }
 
     @Override
@@ -231,7 +218,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, coordinatorId(), null));
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null, null));
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, timestampTracker, txId);
@@ -315,15 +302,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             finalState = ABORTED;
         }
 
-        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitTimestamp()));
+        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
         return commit ? clock.now() : null;
-    }
-
-    private String coordinatorId() {
-        return localNodeId.get();
     }
 
     @Override
@@ -338,7 +321,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
-            updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitTimestamp(commit)));
+            updateTxMeta(txId, old -> coordinatorFinalTxStateMeta(commit, commitPartition, commitTimestamp(commit)));
 
             return completedFuture(null);
         }
@@ -349,9 +332,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // than all the read timestamps processed before.
         // Every concurrent operation will now use a finish future from the finishing state meta and get only final transaction
         // state after the transaction is finished.
-        TxStateMetaFinishing finishingStateMeta = new TxStateMetaFinishing(coordinatorId());
+        AtomicReference<TxStateMetaFinishing> finishingStateMetaRef = new AtomicReference<>();
 
-        updateTxMeta(txId, old -> finishingStateMeta);
+        updateTxMeta(txId, old -> {
+            var finishingState = new TxStateMetaFinishing(localNodeId, old == null ? null : old.commitPartitionId());
+
+            finishingStateMetaRef.set(finishingState);
+
+            return finishingState;
+        });
+
+        TxStateMetaFinishing finishingStateMeta = finishingStateMetaRef.get();
 
         AtomicBoolean performingFinish = new AtomicBoolean();
         TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
@@ -455,7 +446,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                             if (transactionException.code() == TX_WAS_ABORTED_ERR) {
                                 updateTxMeta(txId, old -> {
-                                    TxStateMeta txStateMeta = new TxStateMeta(ABORTED, old.txCoordinatorId(), null);
+                                    TxStateMeta txStateMeta = new TxStateMeta(ABORTED, old.txCoordinatorId(), commitPartition, null);
 
                                     txFinishFuture.complete(txStateMeta);
 
@@ -526,7 +517,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                         assert old instanceof TxStateMetaFinishing;
 
-                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(commit, commitTimestamp);
+                        TxStateMeta finalTxStateMeta = coordinatorFinalTxStateMeta(
+                                commit,
+                                old.commitPartitionId(),
+                                commitTimestamp
+                        );
 
                         txFinishFuture.complete(finalTxStateMeta);
 
@@ -590,7 +585,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void start() {
+        localNodeId = clusterService.topologyService().localMember().id();
         replicaService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
+        txRecoveryManager.start(txStateMap);
+        orphanDetector.start(txStateMap);
+    }
+
+    @Override
+    public void beforeNodeStop() {
+        orphanDetector.stop();
+        txRecoveryManager.stop();
     }
 
     @Override
@@ -718,11 +722,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * Creates final {@link TxStateMeta} for coordinator node.
      *
      * @param commit Commit flag.
+     * @param commitPartitionId Commit partition id.
      * @param commitTimestamp Commit timestamp.
      * @return Transaction meta.
      */
-    private TxStateMeta coordinatorFinalTxStateMeta(boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        return new TxStateMeta(commit ? COMMITED : ABORTED, coordinatorId(), commitTimestamp);
+    private TxStateMeta coordinatorFinalTxStateMeta(
+            boolean commit,
+            ReplicationGroupId commitPartitionId,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
+        return new TxStateMeta(commit ? COMMITED : ABORTED, localNodeId, commitPartitionId, commitTimestamp);
     }
 
     /**

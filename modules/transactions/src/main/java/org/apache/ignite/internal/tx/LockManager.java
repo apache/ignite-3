@@ -21,13 +21,10 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.event.EventProducer;
-import org.apache.ignite.internal.tx.event.LockEvent;
-import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.jetbrains.annotations.TestOnly;
 
 /** Lock manager allows to acquire locks and release locks and supports deadlock prevention by transaction id ordering. */
-public interface LockManager extends EventProducer<LockEvent, LockEventParameters> {
+public interface LockManager {
     /**
      * Attempts to acquire a lock for the specified {@code lockKey} in specified {@code lockMode}.
      *

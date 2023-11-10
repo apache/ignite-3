@@ -37,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -48,8 +47,6 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
-import org.apache.ignite.internal.tx.event.LockEvent;
-import org.apache.ignite.internal.tx.event.LockEventParameters;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -62,7 +59,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Read lock can be upgraded to write lock (only available for the lowest read-locked entry of
  * the queue).
  */
-public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
+public class HeapLockManager implements LockManager {
     private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
 
     private final DeadlockPreventionPolicy deadlockPreventionPolicy;
@@ -265,8 +262,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    conflictFound(tmp.txId(), waiter.txId());
-
                     if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(lockException(waiter.txId(), tmp));
 
@@ -282,8 +277,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    conflictFound(tmp.txId(), waiter.txId());
-
                     if (skipFail) {
                         return false;
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
@@ -490,16 +483,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             synchronized (waiters) {
                 return waiters.get(txId);
             }
-        }
-
-        /**
-         * Notifies about the found lock conflict.
-         *
-         * @param holderTx Transaction id which holds a lock.
-         * @param acquirerTx Transaction id which cannot acquire a lock.
-         */
-        private void conflictFound(UUID holderTx, UUID acquirerTx) {
-            fireEvent(LockEvent.CONFLICT_FOUND, new LockEventParameters(lockKey, holderTx, acquirerTx));
         }
     }
 

@@ -134,13 +134,13 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
 
-        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, null), List.of(0));
+        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, tx.commitPartition(), null), List.of(0));
         checkLocalTxStateOnNodes(tx.id(), null, IntStream.range(1, NODES).boxed().collect(toList()));
 
         touchOp.accept(tx);
 
         if (checkAfterTouch) {
-            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, null));
+            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, tx.commitPartition(), null));
         }
 
         if (commit) {
@@ -154,6 +154,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 new TxStateMeta(
                         commit ? COMMITED : ABORTED,
                         coordinatorId,
+                        tx.commitPartition(),
                         commit ? testCluster.clocks.get(coord.name()).now() : null
                 )
         );

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -351,6 +352,7 @@ public class ItTxTestCluster {
             replicaServices.put(node.name(), replicaSvc);
 
             TxManagerImpl txMgr = newTxManager(
+                    cluster.get(i),
                     replicaSvc,
                     clock,
                     new TransactionIdGenerator(i),
@@ -384,6 +386,7 @@ public class ItTxTestCluster {
     }
 
     protected TxManagerImpl newTxManager(
+            ClusterService clusterService,
             ReplicaService replicaSvc,
             HybridClock clock,
             TransactionIdGenerator generator,
@@ -391,12 +394,13 @@ public class ItTxTestCluster {
             PlacementDriver placementDriver
     ) {
         return new TxManagerImpl(
+                clusterService,
                 replicaSvc,
                 new HeapLockManager(),
                 clock,
                 generator,
-                node::id,
-                placementDriver
+                placementDriver,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
     }
 
@@ -822,15 +826,14 @@ public class ItTxTestCluster {
     }
 
     private void initializeClientTxComponents() {
-        Supplier<String> localNodeIdSupplier = () -> client.topologyService().localMember().id();
-
         clientTxManager = new TxManagerImpl(
+                client,
                 clientReplicaSvc,
                 new HeapLockManager(),
                 clientClock,
                 new TransactionIdGenerator(-1),
-                localNodeIdSupplier,
-                placementDriver
+                placementDriver,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
         );
 
         clientTxStateResolver = new TransactionStateResolver(

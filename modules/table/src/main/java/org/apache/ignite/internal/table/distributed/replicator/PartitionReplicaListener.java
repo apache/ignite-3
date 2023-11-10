@@ -478,7 +478,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
-                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
+                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
+                        PENDING,
+                        senderId,
+                        req.commitPartitionId().asTablePartitionId(),
+                        null
+                ));
             }
         }
 
@@ -635,7 +640,12 @@ public class PartitionReplicaListener implements ReplicaListener {
             // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
             // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
             // If they don't fit the bucket, the transaction is treated as 2pc.
-            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
+            txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(
+                    PENDING,
+                    senderId,
+                    req.commitPartitionId().asTablePartitionId(),
+                    null
+            ));
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
@@ -3687,7 +3697,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txManager.updateTxMeta(txId, old -> old == null
                 ? null
-                : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null));
+                : new TxStateMeta(
+                        txState,
+                        old.txCoordinatorId(),
+                        old.commitPartitionId(),
+                        txState == COMMITED ? commitTimestamp : null
+                ));
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below

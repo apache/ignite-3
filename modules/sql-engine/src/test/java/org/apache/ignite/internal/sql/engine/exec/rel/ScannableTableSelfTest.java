@@ -54,6 +54,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -128,7 +129,17 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         } else {
             ClusterNode clusterNode = tx.clusterNode();
 
-            verify(internalTable).scan(partitionId, tx.id(), new PrimaryReplica(clusterNode, term), null, null, null, 0, null);
+            verify(internalTable).scan(
+                    partitionId,
+                    tx.id(),
+                    tx.commitPartition(),
+                    new PrimaryReplica(clusterNode, term),
+                    null,
+                    null,
+                    null,
+                    0,
+                    null
+            );
         }
 
         data.sendRows();
@@ -207,6 +218,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
+                    eq(tx.commitPartition()),
                     eq(primaryReplica),
                     eq(indexId),
                     condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
@@ -279,6 +291,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
+                    eq(tx.commitPartition()),
                     eq(primaryReplica),
                     eq(indexId),
                     nullable(BinaryTuplePrefix.class),
@@ -396,6 +409,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
+                    eq(tx.commitPartition()),
                     eq(primaryReplica),
                     eq(indexId),
                     prefix.capture(),
@@ -447,6 +461,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).lookup(
                     eq(partitionId),
                     eq(tx.id()),
+                    any(),
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
@@ -496,6 +511,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).lookup(
                     eq(partitionId),
                     eq(tx.id()),
+                    any(),
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
@@ -568,8 +584,17 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                 doAnswer(invocation -> input.publisher).when(internalTable)
                         .scan(anyInt(), any(HybridTimestamp.class), any(ClusterNode.class));
             } else {
-                doAnswer(invocation -> input.publisher).when(internalTable)
-                        .scan(anyInt(), any(UUID.class), any(PrimaryReplica.class), isNull(), isNull(), isNull(), eq(0), isNull());
+                doAnswer(invocation -> input.publisher).when(internalTable).scan(
+                        anyInt(),
+                        any(UUID.class),
+                        any(TablePartitionId.class),
+                        any(PrimaryReplica.class),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        eq(0),
+                        isNull()
+                );
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
@@ -600,6 +625,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                 doAnswer(i -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
+                        any(TablePartitionId.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuplePrefix.class),
@@ -637,6 +663,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                 doAnswer(i -> input.publisher).when(internalTable).lookup(
                         anyInt(),
                         any(UUID.class),
+                        any(TablePartitionId.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuple.class),

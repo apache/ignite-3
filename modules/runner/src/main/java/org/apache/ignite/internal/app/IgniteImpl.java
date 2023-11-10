@@ -153,7 +153,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.impl.TxRecoveryManager;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
@@ -314,9 +313,6 @@ public class IgniteImpl implements Ignite {
 
     /** Index building manager. */
     private final IndexBuildingManager indexBuildingManager;
-
-    /** Transaction recovery manager. */
-    private final TxRecoveryManager txRecoveryManager;
 
     /**
      * The Constructor.
@@ -567,16 +563,14 @@ public class IgniteImpl implements Ignite {
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
+                clusterSvc,
                 replicaSvc,
                 lockMgr,
                 clock,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
-                () -> clusterSvc.topologyService().localMember().id(),
                 placementDriverMgr.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
-
-        txRecoveryManager = new TxRecoveryManager(lockMgr, txManager, clusterSvc);
 
         distributedTblMgr = new TableManager(
                 name,
@@ -825,7 +819,6 @@ public class IgniteImpl implements Ignite {
                                     computeComponent,
                                     replicaMgr,
                                     txManager,
-                                    txRecoveryManager,
                                     dataStorageMgr,
                                     schemaManager,
                                     volatileLogStorageFactoryCreator,
