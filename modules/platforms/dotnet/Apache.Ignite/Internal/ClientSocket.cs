@@ -161,6 +161,7 @@ namespace Apache.Ignite.Internal
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
         [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed")]
         public static async Task<ClientSocket> ConnectAsync(
             SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
@@ -222,7 +223,7 @@ namespace Apache.Ignite.Internal
 
                 return new ClientSocket(stream, configuration, context, listener, logger);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
                 try
                 {
@@ -233,30 +234,32 @@ namespace Apache.Ignite.Internal
                     {
                         await stream.DisposeAsync().ConfigureAwait(false);
                     }
-
-                    throw new IgniteClientConnectionException(
-                        ErrorGroups.Client.Connection,
-                        "Failed to connect to endpoint: " + endPoint.EndPoint,
-                        e);
                 }
-                finally
+                catch (Exception disposeEx)
                 {
-                    logger?.Warn($"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {e.Message}.", e);
-
-                    if (e.GetBaseException() is TimeoutException)
-                    {
-                        Metrics.HandshakesFailedTimeout.Add(1);
-                    }
-                    else
-                    {
-                        Metrics.HandshakesFailed.Add(1);
-                    }
-
-                    if (connected)
-                    {
-                        Metrics.ConnectionsActiveDecrement();
-                    }
+                    logger?.Warn(disposeEx, "Failed to dispose socket after failed connection attempt: " + disposeEx.Message);
                 }
+
+                logger?.Warn(ex, $"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {ex.Message}.");
+
+                if (ex.GetBaseException() is TimeoutException)
+                {
+                    Metrics.HandshakesFailedTimeout.Add(1);
+                }
+                else
+                {
+                    Metrics.HandshakesFailed.Add(1);
+                }
+
+                if (connected)
+                {
+                    Metrics.ConnectionsActiveDecrement();
+                }
+
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.Connection,
+                    "Failed to connect to endpoint: " + endPoint.EndPoint,
+                    ex);
             }
         }
 
