@@ -15,33 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.authentication.exception;
+package org.apache.ignite.internal.rest.exception.handler.replacement;
 
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
-import io.micronaut.security.authentication.AuthenticationException;
-import io.micronaut.security.authentication.AuthenticationExceptionHandler;
+import io.micronaut.http.server.exceptions.UnsatisfiedArgumentHandler;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Replacement for {@link AuthenticationExceptionHandler}. Returns {@link HttpProblemResponse}.
+ * Replacement for {@link UnsatisfiedArgumentHandler} that returns {@link Problem} instead of {@link HttpResponse}.
  */
 @Singleton
-@Replaces(AuthenticationExceptionHandler.class)
-@Requires(classes = {Exception.class, ExceptionHandler.class})
-public class AuthenticationExceptionHandlerReplacement implements
-        ExceptionHandler<AuthenticationException, HttpResponse<? extends Problem>> {
-
+@Replaces(UnsatisfiedArgumentHandler.class)
+@Requires(classes = {UnsatisfiedArgumentException.class, ExceptionHandler.class})
+public class UnsatisfiedArgumentHandlerReplacement implements
+        ExceptionHandler<UnsatisfiedArgumentException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, AuthenticationException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, UnsatisfiedArgumentException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.UNAUTHORIZED)
+                Problem.fromHttpCode(HttpCode.BAD_REQUEST)
                         .detail(exception.getMessage())
         );
     }
