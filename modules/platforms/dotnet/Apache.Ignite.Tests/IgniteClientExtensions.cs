@@ -28,10 +28,9 @@ public static class IgniteClientExtensions
     /// <param name="client">Client.</param>
     /// <param name="count">Connection count.</param>
     /// <param name="timeoutMs">Timeout.</param>
-    /// <param name="greaterOrEqual">Whether to allow more connections than specified.</param>
-    public static void WaitForConnections(this IIgniteClient client, int count, int timeoutMs = 15_000, bool greaterOrEqual = false) =>
+    public static void WaitForConnections(this IIgniteClient client, int count, int timeoutMs = 15_000) =>
         TestUtils.WaitForCondition(
-            condition: () => greaterOrEqual ? client.GetConnections().Count >= count : client.GetConnections().Count == count,
+            condition: () => client.GetConnections().Count == count,
             timeoutMs: timeoutMs,
             messageFactory: () => $"Connection count: expected = {count}, actual = {client.GetConnections().Count}");
 }

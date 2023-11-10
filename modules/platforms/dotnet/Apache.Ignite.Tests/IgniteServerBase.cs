@@ -155,8 +155,6 @@ public abstract class IgniteServerBase : IDisposable
             using Socket handler = _listener.Accept();
             if (DropNewConnections)
             {
-                Console.WriteLine($"{GetType()} dropping new connection [Port={Port}, DropNewConnections={DropNewConnections}]");
-
                 handler.Disconnect(true);
                 _handler = null;
 
