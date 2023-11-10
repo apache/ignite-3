@@ -178,8 +178,10 @@ public class ReconnectTests
                 break;
             }
 
-            await Task.Delay(10);
+            await Task.Delay(300);
         }
+
+        Assert.GreaterOrEqual(client.GetConnections().Count, 5);
 
         // TODO: One of the ClientSocket instances can't be disposed - it is stuck somewhere. Check that all calls have a timeout.
         logger.Debug("Connections restored, end of test.");
