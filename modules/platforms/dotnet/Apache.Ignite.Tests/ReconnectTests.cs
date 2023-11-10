@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests;
 
 using System;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Internal;
@@ -137,7 +136,7 @@ public class ReconnectTests
         var cfg = new IgniteClientConfiguration
         {
             ReconnectInterval = TimeSpan.FromMilliseconds(100),
-            SocketTimeout = TimeSpan.FromSeconds(1),
+            SocketTimeout = TimeSpan.FromSeconds(2),
             Logger = logger
         };
 
@@ -163,26 +162,8 @@ public class ReconnectTests
         // Client works again.
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
 
-        // Connections are restored.
-        logger.Debug("Waiting for connections to be restored...");
-        var sw = Stopwatch.StartNew();
-
-        while (sw.ElapsedMilliseconds < 10_000)
-        {
-            var connectionInfos = client.GetConnections();
-            Console.WriteLine($"[{DateTime.Now:HH:mm:s}], [{sw.ElapsedMilliseconds}] Connections: {connectionInfos.Count}");
-
-            if (connectionInfos.Count >= 5)
-            {
-                break;
-            }
-
-            await Task.Delay(300);
-        }
-
-        Assert.GreaterOrEqual(client.GetConnections().Count, 5);
-
-        // TODO: One of the ClientSocket instances can't be disposed - it is stuck somewhere. Check that all calls have a timeout.
-        logger.Debug("Connections restored, end of test.");
+        // All connections are restored.
+        logger.Debug("Waiting for all connections to be restored...");
+        client.WaitForConnections(10);
     }
 }
