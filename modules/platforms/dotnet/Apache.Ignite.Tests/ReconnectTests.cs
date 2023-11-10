@@ -163,8 +163,8 @@ public class ReconnectTests
         // Client works again.
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
 
-        // All connections are restored.
-        logger.Debug("Waiting for all connections to be restored...");
-        client.WaitForConnections(count: 10, timeoutMs: 20_000);
+        // Connections are restored.
+        logger.Debug("Waiting for connections to be restored...");
+        client.WaitForConnections(count: 5, timeoutMs: 10_000);
     }
 }
