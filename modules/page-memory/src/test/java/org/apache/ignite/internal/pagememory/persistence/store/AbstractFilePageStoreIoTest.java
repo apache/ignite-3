@@ -391,7 +391,7 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
 
             filePageStoreIo.write(expPageId, byteBuffer.rewind(), true);
 
-            // Loop works way better when you need to reproduce a particularly naughty race.
+            // Loop works way better than @RepeatedTest when you need to reproduce a particularly naughty race.
             for (int i = 0; i < 1000; i++) {
                 Path newFilePath = workDir.resolve("test" + i);
 
