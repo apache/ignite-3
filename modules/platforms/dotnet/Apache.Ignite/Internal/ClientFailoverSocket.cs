@@ -353,7 +353,7 @@ namespace Apache.Ignite.Internal
 
                 if (_logger?.IsEnabled(LogLevel.Debug) == true)
                 {
-                    _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
+                    _logger.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
                 }
 
                 // Don't use WhenAll - await every task separately.
