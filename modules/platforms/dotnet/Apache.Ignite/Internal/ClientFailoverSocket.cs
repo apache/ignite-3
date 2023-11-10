@@ -446,13 +446,13 @@ namespace Apache.Ignite.Internal
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
-            if (endpoint.Socket?.IsDisposed == false)
-            {
-                return endpoint.Socket;
-            }
-
             try
             {
+                if (endpoint.Socket?.IsDisposed == false)
+                {
+                    return endpoint.Socket;
+                }
+
                 var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, this).ConfigureAwait(false);
 
                 if (_clusterId == null)
