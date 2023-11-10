@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -120,6 +121,9 @@ public class Cluster {
 
     private volatile boolean stopped = false;
 
+    /** Number of nodes in the cluster on first startAndInit() [if it was invoked]. */
+    private volatile int initialClusterSize;
+
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
 
@@ -209,6 +213,8 @@ public class Cluster {
             throw new IllegalStateException("The cluster is already started");
         }
 
+        initialClusterSize = nodeCount;
+
         List<CompletableFuture<IgniteImpl>> futures = IntStream.range(0, nodeCount)
                 .mapToObj(nodeIndex -> startNodeAsync(nodeIndex, nodeBootstrapConfigTemplate))
                 .collect(toList());
@@ -254,7 +260,7 @@ public class Cluster {
         String config = IgniteStringFormatter.format(
                 nodeBootstrapConfigTemplate,
                 BASE_PORT + nodeIndex,
-                CONNECT_NODE_ADDR,
+                seedAddressesString(),
                 BASE_CLIENT_PORT + nodeIndex,
                 BASE_HTTP_PORT + nodeIndex,
                 BASE_HTTPS_PORT + nodeIndex
@@ -283,6 +289,16 @@ public class Cluster {
 
                     return ignite;
                 });
+    }
+
+    private String seedAddressesString() {
+        // We do this maxing because in some scenarios startAndInit() is not invoked, instead startNode() is used directly.
+        int seedsCount = Math.max(Math.max(initialClusterSize, nodes.size()), 1);
+
+        return IntStream.range(0, seedsCount)
+                .map(index -> BASE_PORT + index)
+                .mapToObj(port -> "\"localhost:" + port + '\"')
+                .collect(joining(", "));
     }
 
     /**
