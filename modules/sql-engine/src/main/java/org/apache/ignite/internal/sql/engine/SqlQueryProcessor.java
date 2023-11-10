@@ -689,6 +689,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 txWrapper.commitImplicit();
                             }
 
+                            taskExecutor.execute(this::processNext);
+
                             cursorFuture.complete(res);
                         });
             } catch (Exception e) {
@@ -748,6 +750,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
         }
 
+        /** Completes the provided future when the callback is called. */
         private class PrefetchCallback implements QueryPrefetchCallback {
             private final CompletableFuture<Void> prefetchFuture;
 
@@ -759,8 +762,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             public void onPrefetchComplete(@Nullable Throwable ex) {
                 if (ex == null) {
                     prefetchFuture.complete(null);
-
-                    processNext();
                 } else {
                     prefetchFuture.completeExceptionally(mapToPublicSqlException(ex));
                 }
