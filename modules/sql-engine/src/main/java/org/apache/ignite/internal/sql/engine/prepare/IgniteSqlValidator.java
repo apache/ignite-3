@@ -203,15 +203,21 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType targetRowType,
             SqlNode query
     ) {
-        super.checkTypeAssignment(sourceScope, table, sourceRowType, targetRowType, query);
+        boolean coerced = false;
 
         if (config().typeCoercionEnabled()) {
             if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
                     sourceRowType, targetRowType, null)) {
-                if (targetRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)) {
-                    getTypeCoercion().querySourceCoercion(sourceScope, sourceRowType, targetRowType, query);
+                if ((query.getKind() == SqlKind.INSERT || query.getKind() == SqlKind.UPDATE)
+                        && targetRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)
+                        && sourceRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)) {
+                    coerced = getTypeCoercion().querySourceCoercion(sourceScope, sourceRowType, targetRowType, query);
                 }
             }
+        }
+
+        if (!coerced) {
+            super.checkTypeAssignment(sourceScope, table, sourceRowType, targetRowType, query);
         }
     }
 

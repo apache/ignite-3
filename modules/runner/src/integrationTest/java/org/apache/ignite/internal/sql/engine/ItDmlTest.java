@@ -681,6 +681,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             sql("INSERT INTO T_HELPER VALUES (1, 1);");
             sql(String.format("INSERT INTO T_HELPER VALUES (2, %d);", max));
             sql("INSERT INTO T_HELPER VALUES (3, -1);");
+            sql(String.format("INSERT INTO %s VALUES (1, 1);", type));
             sql(String.format("INSERT INTO T_HELPER VALUES (4, %d);", min));
 
             BigDecimal moreThanMax = new BigDecimal(max).add(BigDecimal.ONE);

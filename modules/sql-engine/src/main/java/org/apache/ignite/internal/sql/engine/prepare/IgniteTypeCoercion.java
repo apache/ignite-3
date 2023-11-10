@@ -272,7 +272,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 return false;
             }
 
-            if (fromType.getSqlTypeName() == SqlTypeName.BIGINT) {
+            if (fromType.getSqlTypeName() == SqlTypeName.BIGINT && toType.getSqlTypeName() == SqlTypeName.BIGINT) {
                 if (node.getKind() == SqlKind.LITERAL) {
                     return true;
                 }
@@ -285,6 +285,10 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
             // IgniteCustomType: whether we need implicit cast from one type to another.
             return TypeUtils.customDataTypeNeedCast(typeFactory, fromType, toType);
+        }
+
+        if (fromType.getSqlTypeName() == SqlTypeName.ROW) {
+            return false;
         }
 
         return super.needToCast(scope, node, toType);
