@@ -178,6 +178,11 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
     }
 
     @Override
+    public boolean authenticationEnabled() {
+        return authEnabled;
+    }
+
+    @Override
     public void listen(AuthenticationListener listener) {
         listeners.add(listener);
     }
