@@ -107,7 +107,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20826 Restore on restart
     /** Is used in order to assert safe time reordering within onWrite. */
-    private long maxObservableSafeTimeVerificator = -1;
+    private long maxObservableSafeTimeVerifier = -1;
 
 
     /**
@@ -163,10 +163,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
                 long proposedSafeTime = cmd.safeTime().longValue();
 
-                if (proposedSafeTime > maxObservableSafeTimeVerificator) {
-                    maxObservableSafeTimeVerificator = proposedSafeTime;
+                if (proposedSafeTime > maxObservableSafeTimeVerifier) {
+                    maxObservableSafeTimeVerifier = proposedSafeTime;
                 } else {
-                    assert false : "Safe time reordering detected [current=" + maxObservableSafeTimeVerificator +
+                    assert false : "Safe time reordering detected [current=" + maxObservableSafeTimeVerifier +
                             ", proposed=" + proposedSafeTime + "]";
                 }
             }
@@ -480,7 +480,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onBeforeApply(Command command) {
-        // Given method is is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
+        // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
         if (command instanceof SafeTimePropagatingCommand) {
             SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
             long proposedSafeTime = cmd.safeTime().longValue();

@@ -241,9 +241,9 @@ public enum RaftError {
     EACCES(1016),
 
     /**
-     * Command reordering detected
+     * Command reordering detected. This is not the original JRAFT error code, but an Ignite specific one.
      */
-    EREORDER(1017);
+    EREORDER(2017);
 
     private static final Map<Integer, RaftError> RAFT_ERROR_MAP = new HashMap<>();
 

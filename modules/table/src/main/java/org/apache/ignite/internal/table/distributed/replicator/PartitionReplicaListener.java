@@ -1620,7 +1620,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             int catalogVersion,
             List<TablePartitionIdMessage> tablePartitionIds
     ) {
-        // TODO: synchonized should go here. Not within finishTransaction but with all apply command.
         synchronized (commandProcessingLinearizationMutex) {
             FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
                     .txId(transactionId)
@@ -1739,7 +1738,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd, resultFuture);
 
-        return resultFuture.thenApply(res -> null);
+        return resultFuture
+                .exceptionally(e -> {
+                    LOG.warn("Failed to complete transaction cleanup command [txId=" + transactionId + ']', e);
+
+                    return completedFuture(null);
+                })
+                .thenApply(res -> null);
     }
 
     private String getTxCoordinatorId(UUID txId) {
@@ -2410,10 +2415,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cmd Raft command.
      * @return Raft future.
      */
-    private void applyCmdWithExceptionHandling(Command cmd, CompletableFuture<Object> resultFuture) {
+    private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<Object> resultFuture) {
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
 
-        resultFuture.exceptionally(throwable -> {
+        return resultFuture.exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
                 throw new ReplicationTimeoutException(replicationGroupId);
             } else if (throwable instanceof RuntimeException) {
@@ -2505,17 +2510,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                     updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                 }
 
-                CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+                CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
+                        .thenApply(res -> {
+                            // This check guaranties the result will never be lost. Currently always null.
+                            assert res == null : "Replication result is lost";
 
-                applyCmdWithExceptionHandling(cmd, resultFuture);
-
-                CompletableFuture<UUID> fut = resultFuture.thenApply(res -> {
-                    // This check guaranties the result will never be lost. Currently always null.
-                    assert res == null : "Replication result is lost";
-
-                    // Set context for delayed response.
-                    return cmd.txId();
-                });
+                            // Set context for delayed response.
+                            return cmd.txId();
+                        });
 
                 return completedFuture(fut);
             } else {
@@ -2627,11 +2629,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                     }
 
-                    CompletableFuture<Object> resultFuture = new CompletableFuture<>();
-
-                    applyCmdWithExceptionHandling(cmd, resultFuture);
-
-                    return resultFuture.thenApply(res -> null);
+                    return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>()).thenApply(res -> null);
                 } else {
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                     synchronized (safeTime) {
@@ -2647,44 +2645,38 @@ public class PartitionReplicaListener implements ReplicaListener {
                         updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
                     }
 
-                    CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+                    CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
+                            .thenApply(res -> {
+                                // Currently result is always null on a successfull execution of a replication command.
+                                // This check guaranties the result will never be lost.
+                                assert res == null : "Replication result is lost";
 
-                    applyCmdWithExceptionHandling(cmd, resultFuture);
-
-                    CompletableFuture<Object> fut = resultFuture.thenApply(res -> {
-                        // Currently result is always null on a successfull execution of a replication command.
-                        // This check guaranties the result will never be lost.
-                        assert res == null : "Replication result is lost";
-
-                        // Set context for delayed response.
-                        return cmd.txId();
-                    });
+                                // Set context for delayed response.
+                                return cmd.txId();
+                            });
 
                     return completedFuture(fut);
                 }
             } else {
-                CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+                return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
+                        .thenApply(res -> {
+                            assert res == null : "Replication result is lost";
 
-                applyCmdWithExceptionHandling(cmd, resultFuture);
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
+                            // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
+                            // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
+                            // just because there's only one operation in 1PC.
+                            storageUpdateHandler.handleUpdateAll(
+                                    cmd.txId(),
+                                    cmd.rowsToUpdate(),
+                                    cmd.tablePartitionId().asTablePartitionId(),
+                                    false,
+                                    null,
+                                    cmd.safeTime()
+                            );
 
-                return resultFuture.thenApply(res -> {
-                    assert res == null : "Replication result is lost";
-
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                    // In case of full (1PC) commit double update is only a matter of optimisation and not correctness, because
-                    // there's no other transaction that can rewrite given key because of locks and same transaction re-write isn't possible
-                    // just because there's only one operation in 1PC.
-                    storageUpdateHandler.handleUpdateAll(
-                            cmd.txId(),
-                            cmd.rowsToUpdate(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            false,
-                            null,
-                            cmd.safeTime()
-                    );
-
-                    return null;
-                });
+                            return null;
+                        });
             }
         }
     }
@@ -2696,7 +2688,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param rowsToUpdate All {@link BinaryRow}s represented as {@link TimedBinaryRowMessage}s to be updated.
      * @param txCoordinatorId Transaction coordinator id.
      * @param catalogVersion Validated catalog version associated with given operation.
-     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
+     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command, CompletableFuture)}.
      */
     private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
             ReadWriteMultiRowReplicaRequest request,
