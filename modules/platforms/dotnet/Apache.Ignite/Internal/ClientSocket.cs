@@ -175,15 +175,19 @@ namespace Apache.Ignite.Internal
 
             try
             {
+                logger?.Debug("ConnectAsync 1");
                 socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
                 {
                     NoDelay = true
                 };
 
+                logger?.Debug("ConnectAsync 2");
                 await socket.ConnectAsync(endPoint.EndPoint, cts.Token)
                     .AsTask()
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
+
+                logger?.Debug("ConnectAsync 3");
 
                 connected = true;
 
@@ -210,6 +214,8 @@ namespace Apache.Ignite.Internal
                             $"SSL connection established [remoteAddress={socket.RemoteEndPoint}]: {sslStream.NegotiatedCipherSuite}");
                     }
                 }
+
+                logger?.Debug("ConnectAsync 4");
 
                 var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration, cts.Token)
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
