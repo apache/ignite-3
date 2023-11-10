@@ -23,10 +23,14 @@ import static org.apache.calcite.sql.type.SqlTypeName.SMALLINT;
 import static org.apache.calcite.sql.type.SqlTypeName.TINYINT;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
+import java.math.BigDecimal;
 import org.apache.ignite.sql.SqlException;
 
 /** Math operations with overflow checking. */
 public class IgniteMath {
+    private static final BigDecimal UPPER_LONG = BigDecimal.valueOf(Long.MAX_VALUE);
+    private static final BigDecimal LOWER_LONG = BigDecimal.valueOf(Long.MIN_VALUE);
+
     /** Returns the sum of its arguments, throwing an exception if the result overflows an {@code long}. */
     public static long addExact(long x, long y) {
         long r = x + y;
@@ -53,22 +57,22 @@ public class IgniteMath {
     public static short addExact(short x, short y) {
         int r = x + y;
 
-        if (r != (short)r) {
+        if (r != (short) r) {
             throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
         }
 
-        return (short)r;
+        return (short) r;
     }
 
     /** Returns the sum of its arguments, throwing an exception if the result overflows an {@code byte}. */
     public static byte addExact(byte x, byte y) {
         int r = x + y;
 
-        if (r != (byte)r) {
+        if (r != (byte) r) {
             throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
         }
 
-        return (byte)r;
+        return (byte) r;
     }
 
     /** Returns the negation of the argument, throwing an exception if the result overflows an {@code long}. */
@@ -101,7 +105,7 @@ public class IgniteMath {
             throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
         }
 
-        return (short)res;
+        return (short) res;
     }
 
     /** Returns the negation of the argument, throwing an exception if the result overflows an {@code byte}. */
@@ -112,7 +116,7 @@ public class IgniteMath {
             throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
         }
 
-        return (byte)res;
+        return (byte) res;
     }
 
     /** Returns the difference of the arguments, throwing an exception if the result overflows an {@code long}.*/
@@ -141,22 +145,22 @@ public class IgniteMath {
     public static short subtractExact(short x, short y) {
         int r = x - y;
 
-        if (r != (short)r) {
+        if (r != (short) r) {
             throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
         }
 
-        return (short)r;
+        return (short) r;
     }
 
     /** Returns the difference of the arguments, throwing an exception if the result overflows an {@code byte}.*/
     public static byte subtractExact(byte x, byte y) {
         int r = x - y;
 
-        if (r != (byte)r) {
+        if (r != (byte) r) {
             throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
         }
 
-        return (byte)r;
+        return (byte) r;
     }
 
     /** Returns the product of the arguments, throwing an exception if the result overflows an {@code long}. */
@@ -174,93 +178,129 @@ public class IgniteMath {
 
     /** Returns the product of the arguments, throwing an exception if the result overflows an {@code int}. */
     public static int multiplyExact(int x, int y) {
-        long r = (long)x * (long)y;
+        long r = (long) x * (long) y;
 
-        if ((int)r != r) {
+        if ((int) r != r) {
             throw new SqlException(RUNTIME_ERR, INTEGER.getName() + " out of range");
         }
 
-        return (int)r;
+        return (int) r;
     }
 
     /** Returns the product of the arguments, throwing an exception if the result overflows an {@code short}. */
     public static short multiplyExact(short x, short y) {
         int r = x * y;
 
-        if (r != (short)r) {
+        if (r != (short) r) {
             throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
         }
 
-        return (short)r;
+        return (short) r;
     }
 
     /** Returns the product of the arguments, throwing an exception if the result overflows an {@code byte}. */
     public static byte multiplyExact(byte x, byte y) {
         int r = x * y;
 
-        if (r != (byte)r) {
+        if (r != (byte) r) {
             throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
         }
 
-        return (byte)r;
+        return (byte) r;
     }
 
     /** Returns the quotient of the arguments, throwing an exception if the result overflows an {@code long}. */
     public static long divideExact(long x, long y) {
-        if (y == -1)
+        if (y == -1) {
             return negateExact(x);
+        }
 
         return x / y;
     }
 
     /** Returns the quotient of the arguments, throwing an exception if the result overflows an {@code int}. */
     public static int divideExact(int x, int y) {
-        if (y == -1)
+        if (y == -1) {
             return negateExact(x);
+        }
 
         return x / y;
     }
 
     /** Returns the quotient of the arguments, throwing an exception if the result overflows an {@code short}. */
     public static short divideExact(short x, short y) {
-        if (y == -1)
+        if (y == -1) {
             return negateExact(x);
+        }
 
-        return (short)(x / y);
+        return (short) (x / y);
     }
 
     /** Returns the quotient of the arguments, throwing an exception if the result overflows an {@code byte}. */
     public static byte divideExact(byte x, byte y) {
-        if (y == -1)
+        if (y == -1) {
             return negateExact(x);
+        }
 
-        return (byte)(x / y);
+        return (byte) (x / y);
     }
 
     /** Cast value to {@code int}, throwing an exception if the result overflows an {@code int}. */
     public static int convertToIntExact(long x) {
-        if ((int)x != x) {
+        if ((int) x != x) {
             throw new SqlException(RUNTIME_ERR, INTEGER.getName() + " out of range");
         }
 
-        return (int)x;
+        return (int) x;
+    }
+
+    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
+    public static long convertToLongExact(BigDecimal x) {
+        if (x.compareTo(UPPER_LONG) > 0 || x.compareTo(LOWER_LONG) < 0) {
+            throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
+        }
+        return x.longValue();
+    }
+
+    /** Cast value to {@code long}, throwing an exception if the result overflows an {@code long}. */
+    public static long convertToLongExact(String x) {
+        long exact;
+        try {
+            exact = Long.parseLong(x);
+        } catch (NumberFormatException e) {
+            throw new SqlException(RUNTIME_ERR, BIGINT.getName() + " out of range");
+        }
+
+        return exact;
     }
 
     /** Cast value to {@code short}, throwing an exception if the result overflows an {@code short}. */
     public static short convertToShortExact(long x) {
-        if ((short)x != x) {
+        if ((short) x != x) {
             throw new SqlException(RUNTIME_ERR, SMALLINT.getName() + " out of range");
         }
 
-        return (short)x;
+        return (short) x;
+    }
+
+    /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
+    public static short convertToShortExact(BigDecimal x) {
+        long num = x.longValue();
+        return convertToShortExact(num);
     }
 
     /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
     public static byte convertToByteExact(long x) {
-        if ((byte)x != x) {
+        if ((byte) x != x) {
             throw new SqlException(RUNTIME_ERR, TINYINT.getName() + " out of range");
         }
 
-        return (byte)x;
+        return (byte) x;
+    }
+
+    /** Cast value to {@code byte}, throwing an exception if the result overflows an {@code byte}. */
+    public static byte convertToByteExact(BigDecimal x) {
+        long num = x.longValue();
+        return convertToByteExact(num);
     }
 }

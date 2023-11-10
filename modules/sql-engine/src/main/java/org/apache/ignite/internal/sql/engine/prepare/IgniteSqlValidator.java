@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.calcite.sql.type.SqlTypeName.INT_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeUtil.equalSansNullability;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -191,6 +192,27 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Update creates a source expression list which is not updated
         // after type coercion adds CASTs to source expressions.
         syncSelectList(select, call);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void checkTypeAssignment(
+            SqlValidatorScope sourceScope,
+            SqlValidatorTable table,
+            RelDataType sourceRowType,
+            RelDataType targetRowType,
+            SqlNode query
+    ) {
+        super.checkTypeAssignment(sourceScope, table, sourceRowType, targetRowType, query);
+
+        if (config().typeCoercionEnabled()) {
+            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
+                    sourceRowType, targetRowType, null)) {
+                if (targetRowType.getFieldList().stream().anyMatch(fld -> fld.getType().getSqlTypeName() == SqlTypeName.BIGINT)) {
+                    getTypeCoercion().querySourceCoercion(sourceScope, sourceRowType, targetRowType, query);
+                }
+            }
+        }
     }
 
     /** {@inheritDoc} */
@@ -473,7 +495,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             if (fromCustomType != null && returnCustomType != null) {
                 // it`s not allowed to convert between different custom types for now.
-                check = SqlTypeUtil.equalSansNullability(typeFactory, firstType, returnType);
+                check = equalSansNullability(typeFactory, firstType, returnType);
             } else if (fromCustomType != null) {
                 check = coercionRules.needToCast(returnType, (IgniteCustomType) fromCustomType);
             } else if (returnCustomType != null) {
@@ -517,7 +539,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             try {
                 if (Long.valueOf(litValue).compareTo(max) > 0 || Long.valueOf(litValue).compareTo(min) < 0) {
-                    throw new SqlException(STMT_PARSE_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+                    throw new SqlException(STMT_PARSE_ERR, "Value '" + litValue + "'"
+                            + " out of range for type " + toType.getSqlTypeName());
                 }
             } catch (NumberFormatException e) {
                 if (!numeric.matcher(litValue).matches()) {
@@ -747,7 +770,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
          * operator's SqlOperandTypeInference and SqlOperandTypeCheckers.
          */
 
-        if (inferredType.equals(unknownType) || (!SqlTypeUtil.equalSansNullability(type, inferredType))) {
+        if (inferredType.equals(unknownType) || (!equalSansNullability(type, inferredType))) {
             paramTypeToUse = type;
         } else {
             paramTypeToUse = inferredType;
@@ -796,7 +819,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType derivedType = getValidatedNodeType(param);
 
             // We can check for nullability, but it was set to true.
-            if (!SqlTypeUtil.equalSansNullability(derivedType, paramType)) {
+            if (!equalSansNullability(derivedType, paramType)) {
                 String message = format(
                         "Type of dynamic parameter#{} does not match. Expected: {} derived: {}", i, paramType.getFullTypeString(),
                         derivedType.getFullTypeString()

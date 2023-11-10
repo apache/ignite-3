@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,10 +30,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
@@ -40,6 +41,9 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Various DML tests.
@@ -668,30 +672,45 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT d FROM test").returnNothing().check();
     }
 
-    @Test
-    public void testInsertValueOverflow() {
-        sql("CREATE TABLE TEST_SOURCE (ID INT PRIMARY KEY, VAL SMALLINT);");
-        sql("INSERT INTO TEST_SOURCE (ID, VAL) VALUES (2147483647, 200);");
-        sql("CREATE TABLE TEST_DEST (ID INT PRIMARY KEY, VAL TINYINT);");
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("decimalLimits")
+    public void testInsertValueOverflow(String type, long max, long min) {
+        try {
+            sql(String.format("CREATE TABLE %s (ID INT PRIMARY KEY, VAL %s);", type, type));
+            sql(String.format("CREATE TABLE T_HELPER (ID INT PRIMARY KEY, VAL %s);", type));
+            sql("INSERT INTO T_HELPER VALUES (1, 1);");
+            sql(String.format("INSERT INTO T_HELPER VALUES (2, %d);", max));
+            sql("INSERT INTO T_HELPER VALUES (3, -1);");
+            sql(String.format("INSERT INTO T_HELPER VALUES (4, %d);", min));
 
-        assertThrowsSqlException(
-                Sql.RUNTIME_ERR,
-                "INTEGER out of range",
-                () -> sql("SELECT ID + 10 FROM TEST_SOURCE")
-        );
+            BigDecimal moreThanMax = new BigDecimal(max).add(BigDecimal.ONE);
 
-        assertThrowsSqlException(Sql.RUNTIME_ERR, "TINYINT out of range", () -> sql("INSERT INTO TEST_DEST VALUES (1, 200)"));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, String.format("%s out of range", type),
+                    () -> sql(String.format("INSERT INTO %s (ID, VAL) VALUES (1, %s);", type, moreThanMax.toString())));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, String.format("%s out of range", type),
+                    () -> sql(String.format("INSERT INTO %s (ID, VAL) VALUES (1, %d + 1);", type, max)));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, String.format("%s out of range", type),
+                    () -> sql(String.format("INSERT INTO %s (ID, VAL) VALUES (1, %d - 1);", type, min)));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, String.format("%s out of range", type),
+                    () -> sql(String.format("INSERT INTO %s (ID, VAL) VALUES (1, %d + (SELECT 1));", type, max)));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, String.format("%s out of range", type),
+                    () -> sql(String.format("INSERT INTO %s (ID, VAL) VALUES (1, %d + (SELECT -1));", type, min)));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, String.format("%s out of range", type),
+                    () -> sql(String.format("INSERT INTO %s (ID, VAL) VALUES (1, (SELECT SUM(VAL) FROM T_HELPER WHERE VAL > 0));", type)));
+            assertThrowsSqlException(Sql.RUNTIME_ERR, String.format("%s out of range", type),
+                    () -> sql(String.format("INSERT INTO %s (ID, VAL) VALUES (1, (SELECT SUM(VAL) FROM T_HELPER WHERE VAL < 0));", type)));
+        } finally {
+            sql("DROP TABLE " + type);
+            sql("DROP TABLE T_HELPER");
+        }
+    }
 
-        assertThrowsSqlException(
-                Sql.RUNTIME_ERR,
-                "TINYINT out of range",
-                () -> sql("INSERT INTO TEST_DEST VALUES (1, (SELECT VAL FROM TEST_SOURCE WHERE ID=2147483647))")
-        );
-
-        assertThrowsSqlException(
-                Sql.RUNTIME_ERR,
-                "TINYINT out of range",
-                () -> sql("INSERT INTO TEST_DEST VALUES (1, (SELECT VAL FROM TEST_SOURCE WHERE ID=2147483647))")
+    private static Stream<Arguments> decimalLimits() {
+        return Stream.of(
+                arguments(SqlTypeName.BIGINT.getName(), Long.MAX_VALUE, Long.MIN_VALUE),
+                arguments(SqlTypeName.INTEGER.getName(), Integer.MAX_VALUE, Integer.MIN_VALUE),
+                arguments(SqlTypeName.SMALLINT.getName(), Short.MAX_VALUE, Short.MIN_VALUE),
+                arguments(SqlTypeName.TINYINT.getName(), Byte.MAX_VALUE, Byte.MIN_VALUE)
         );
     }
 }

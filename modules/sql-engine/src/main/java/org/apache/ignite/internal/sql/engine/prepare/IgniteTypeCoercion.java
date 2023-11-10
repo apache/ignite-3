@@ -271,6 +271,12 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             if (fromType == null) {
                 return false;
             }
+
+            if (fromType.getSqlTypeName() == SqlTypeName.BIGINT) {
+                if (node.getKind() == SqlKind.LITERAL) {
+                    return true;
+                }
+            }
             // The following checks ensure that there no ClassCastException when casting from one
             // integer type to another (e.g. int to smallint, int to bigint)
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {

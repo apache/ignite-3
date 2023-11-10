@@ -422,15 +422,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> decimalOverflows() {
         return Stream.of(
-                // INTEGER
-                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 + 1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 * 2", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -2147483648 - 1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -(-2147483647 - 1)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -CAST(-2147483648 AS INTEGER)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -(?)", -2147483648),
-                arguments(SqlTypeName.INTEGER, "SELECT -2147483648/-1", EMPTY_PARAM),
-
                 //BIGINT
                 arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 + 1", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 * 2", EMPTY_PARAM),
@@ -439,6 +430,15 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.BIGINT, "SELECT -CAST(-9223372036854775808 AS BIGINT)", EMPTY_PARAM),
                 arguments(SqlTypeName.BIGINT, "SELECT -(?)", -9223372036854775808L),
                 arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808/-1", EMPTY_PARAM),
+
+                // INTEGER
+                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 + 1", EMPTY_PARAM),
+                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 * 2", EMPTY_PARAM),
+                arguments(SqlTypeName.INTEGER, "SELECT -2147483648 - 1", EMPTY_PARAM),
+                arguments(SqlTypeName.INTEGER, "SELECT -(-2147483647 - 1)", EMPTY_PARAM),
+                arguments(SqlTypeName.INTEGER, "SELECT -CAST(-2147483648 AS INTEGER)", EMPTY_PARAM),
+                arguments(SqlTypeName.INTEGER, "SELECT -(?)", -2147483648),
+                arguments(SqlTypeName.INTEGER, "SELECT -2147483648/-1", EMPTY_PARAM),
 
                 //SMALLINT
                 arguments(SqlTypeName.SMALLINT, "SELECT 32000::SMALLINT + 1000::SMALLINT", EMPTY_PARAM),

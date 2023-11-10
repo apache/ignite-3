@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.ExpressionType;
 import org.apache.calcite.linq4j.tree.Expressions;
@@ -41,7 +42,7 @@ public class IgniteExpressions {
         }
     }
 
-    /** */
+    /** Make unary expression with arithmetic operations override. */
     public static Expression makeUnary(ExpressionType unaryType, Expression operand) {
         switch (unaryType) {
             case Negate:
@@ -56,8 +57,9 @@ public class IgniteExpressions {
     public static Expression addExact(Expression left, Expression right) {
         Type largerType = larger(left.getType(), right.getType());
 
-        if (largerType == Integer.TYPE || largerType == Long.TYPE || largerType == Short.TYPE || largerType == Byte.TYPE)
+        if (largerType == Integer.TYPE || largerType == Long.TYPE || largerType == Short.TYPE || largerType == Byte.TYPE) {
             return Expressions.call(IgniteMath.class, "addExact", left, right);
+        }
 
         return Expressions.makeBinary(ExpressionType.Add, left, right);
     }
@@ -66,8 +68,9 @@ public class IgniteExpressions {
     public static Expression subtractExact(Expression left, Expression right) {
         Type largerType = larger(left.getType(), right.getType());
 
-        if (largerType == Integer.TYPE || largerType == Long.TYPE || largerType == Short.TYPE || largerType == Byte.TYPE)
+        if (largerType == Integer.TYPE || largerType == Long.TYPE || largerType == Short.TYPE || largerType == Byte.TYPE) {
             return Expressions.call(IgniteMath.class, "subtractExact", left, right);
+        }
 
         return Expressions.makeBinary(ExpressionType.Subtract, left, right);
     }
@@ -76,8 +79,9 @@ public class IgniteExpressions {
     public static Expression multiplyExact(Expression left, Expression right) {
         Type largerType = larger(left.getType(), right.getType());
 
-        if (largerType == Integer.TYPE || largerType == Long.TYPE || largerType == Short.TYPE || largerType == Byte.TYPE)
+        if (largerType == Integer.TYPE || largerType == Long.TYPE || largerType == Short.TYPE || largerType == Byte.TYPE) {
             return Expressions.call(IgniteMath.class, "multiplyExact", left, right);
+        }
 
         return Expressions.makeBinary(ExpressionType.Multiply, left, right);
     }
@@ -86,8 +90,9 @@ public class IgniteExpressions {
     public static Expression divideExact(Expression left, Expression right) {
         Type largerType = larger(left.getType(), right.getType());
 
-        if (largerType == Integer.TYPE || largerType == Long.TYPE || largerType == Short.TYPE || largerType == Byte.TYPE)
+        if (largerType == Integer.TYPE || largerType == Long.TYPE || largerType == Short.TYPE || largerType == Byte.TYPE) {
             return Expressions.call(IgniteMath.class, "divideExact", left, right);
+        }
 
         return Expressions.makeBinary(ExpressionType.Divide, left, right);
     }
@@ -96,8 +101,20 @@ public class IgniteExpressions {
     public static Expression convertToIntExact(Expression exp) {
         Type type = exp.getType();
 
-        if (type == Long.TYPE || type == Long.class)
+        if (type == Long.TYPE || type == Long.class) {
             return Expressions.call(IgniteMath.class, "convertToIntExact", exp);
+        }
+
+        return exp;
+    }
+
+    /** Generate expression for method IgniteMath.convertToIntExact(). */
+    public static Expression convertToLongExact(Expression exp) {
+        Type type = exp.getType();
+
+        if (type == BigDecimal.class || type == String.class) {
+            return Expressions.call(IgniteMath.class, "convertToLongExact", exp);
+        }
 
         return exp;
     }
@@ -106,8 +123,9 @@ public class IgniteExpressions {
     public static Expression convertToShortExact(Expression exp) {
         Type type = exp.getType();
 
-        if (type == Long.TYPE || type == Long.class || type == Integer.TYPE || type == Integer.class)
+        if (type == Long.TYPE || type == Long.class || type == Integer.TYPE || type == Integer.class || type == BigDecimal.class) {
             return Expressions.call(IgniteMath.class, "convertToShortExact", exp);
+        }
 
         return exp;
     }
@@ -117,8 +135,9 @@ public class IgniteExpressions {
         Type type = exp.getType();
 
         if (type == Long.TYPE || type == Long.class || type == Integer.TYPE || type == Integer.class
-                || type == Short.TYPE || type == Short.class)
+                || type == Short.TYPE || type == Short.class || type == BigDecimal.class) {
             return Expressions.call(IgniteMath.class, "convertToByteExact", exp);
+        }
 
         return exp;
     }
@@ -129,27 +148,32 @@ public class IgniteExpressions {
 
         Type opType = operand.getType();
 
-        if (opType == Integer.TYPE || opType == Long.TYPE || opType == Short.TYPE || opType == Byte.TYPE)
+        if (opType == Integer.TYPE || opType == Long.TYPE || opType == Short.TYPE || opType == Byte.TYPE) {
             return Expressions.call(IgniteMath.class, "negateExact", operand);
+        }
 
         return Expressions.makeUnary(unaryType, operand);
     }
 
     /** Find larger in type hierarchy. */
     private static Type larger(Type type0, Type type1) {
-        if (type0 != Double.TYPE && type0 != Double.class && type1 != Double.TYPE && type1 != Double.class)
-            if (type0 != Float.TYPE && type0 != Float.class && type1 != Float.TYPE && type1 != Float.class)
-                if (type0 != Long.TYPE && type0 != Long.class && type1 != Long.TYPE && type1 != Long.class)
-                    if (type0 != Integer.TYPE && type0 != Integer.class && type1 != Integer.TYPE && type1 != Integer.class)
+        if (type0 != Double.TYPE && type0 != Double.class && type1 != Double.TYPE && type1 != Double.class) {
+            if (type0 != Float.TYPE && type0 != Float.class && type1 != Float.TYPE && type1 != Float.class) {
+                if (type0 != Long.TYPE && type0 != Long.class && type1 != Long.TYPE && type1 != Long.class) {
+                    if (type0 != Integer.TYPE && type0 != Integer.class && type1 != Integer.TYPE && type1 != Integer.class) {
                         return type0 != Short.TYPE && type0 != Short.class && type1 != Short.TYPE && type1 != Short.class
                                 ? Byte.TYPE : Short.TYPE;
-                    else
+                    } else {
                         return Integer.TYPE;
-                else
+                    }
+                } else {
                     return Long.TYPE;
-            else
+                }
+            } else {
                 return Float.TYPE;
-        else
+            }
+        } else {
             return Double.TYPE;
+        }
     }
 }
