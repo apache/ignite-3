@@ -347,6 +347,7 @@ namespace Apache.Ignite.Internal
 
                     _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
 
+                    // TODO: WhenAll is problematic here, because it will throw on the first error.
                     await Task.WhenAll(tasks).ConfigureAwait(false);
 
                     _logger?.Debug("All secondary connections established.");
