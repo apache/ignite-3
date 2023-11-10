@@ -385,6 +385,9 @@ public class ErrorGroups {
         /** Replication safe time reordering. */
         public static final int REPLICATION_SAFE_TIME_REORDERING_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
 
+        /** Amount of replication retries exceeds maximum possible value. */
+        public static final int REPLICATION_RETRIES_AMOUNT_EXCEEDED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 10);
+
     }
 
     /** Storage error group. */

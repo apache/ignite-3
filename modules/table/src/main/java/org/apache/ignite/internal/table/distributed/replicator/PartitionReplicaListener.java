@@ -87,6 +87,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.ReplicationMaxRetriesExceededException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -188,6 +189,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    /** Replication retries limit. */
+    private static final int MAX_RETIES_ON_SAFE_TIME_REORDERING = 1000;
 
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
@@ -938,7 +942,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         applyCmdWithRetryOnSafeTimeReorderException(
                 REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build(),
-                resultFuture
+                resultFuture,
+                0
         );
 
         return resultFuture.thenApply(res -> null);
@@ -1634,7 +1639,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
             CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-            applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build(), resultFuture);
+            applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build(), resultFuture, 0);
 
             return resultFuture;
         }
@@ -1736,7 +1741,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-        applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd, resultFuture);
+        applyCmdWithRetryOnSafeTimeReorderException(txCleanupCmd, resultFuture, 0);
 
         return resultFuture
                 .exceptionally(e -> {
@@ -2416,7 +2421,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future.
      */
     private CompletableFuture<Object> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<Object> resultFuture) {
-        applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
+        applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture, 0);
 
         return resultFuture.exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
@@ -2429,7 +2434,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
     }
 
-    private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture) {
+    private void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<Object> resultFuture, int attemptsCounter) {
+        attemptsCounter++;
+        if (attemptsCounter >= MAX_RETIES_ON_SAFE_TIME_REORDERING) {
+            resultFuture.completeExceptionally(
+                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
+        }
+
         raftClient.run(cmd).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
@@ -2457,7 +2468,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     safeTimePropagatingCommand.safeTimeLong(safeTimeForRetry.longValue());
 
-                    applyCmdWithRetryOnSafeTimeReorderException(safeTimePropagatingCommand, resultFuture);
+                    applyCmdWithRetryOnSafeTimeReorderException(safeTimePropagatingCommand, resultFuture, 0);
                 } else {
                     resultFuture.completeExceptionally(ex);
                 }
