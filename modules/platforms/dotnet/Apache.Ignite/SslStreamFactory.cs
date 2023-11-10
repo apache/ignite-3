@@ -37,7 +37,7 @@ public sealed class SslStreamFactory : ISslStreamFactory
     {
         IgniteArgumentCheck.NotNull(stream);
 
-        var sslStream = new SslStream(stream, false, null, null);
+        var sslStream = new SslStream(stream, leaveInnerStreamOpen: false, null, null);
 
         var options = SslClientAuthenticationOptions ?? new SslClientAuthenticationOptions();
         options.TargetHost ??= targetHost;

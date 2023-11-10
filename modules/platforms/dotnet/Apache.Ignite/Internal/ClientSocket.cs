@@ -160,21 +160,25 @@ namespace Apache.Ignite.Internal
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         public static async Task<ClientSocket> ConnectAsync(
             SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
             IClientSocketEventListener listener)
         {
             var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
-            bool connected = false;
 
-            var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
-            {
-                NoDelay = true
-            };
+            bool connected = false;
+            Socket? socket = null;
+            Stream? stream = null;
 
             try
             {
+                socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
+                {
+                    NoDelay = true
+                };
+
                 await socket.ConnectAsync(endPoint.EndPoint).ConfigureAwait(false);
                 connected = true;
 
@@ -186,7 +190,7 @@ namespace Apache.Ignite.Internal
                 Metrics.ConnectionsEstablished.Add(1);
                 Metrics.ConnectionsActiveIncrement();
 
-                Stream stream = new NetworkStream(socket, ownsSocket: true);
+                stream = new NetworkStream(socket, ownsSocket: true);
 
                 if (configuration.SslStreamFactory is { } sslStreamFactory &&
                     await sslStreamFactory.CreateAsync(stream, endPoint.Host).ConfigureAwait(false) is { } sslStream)
@@ -213,8 +217,12 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                // ReSharper disable once MethodHasAsyncOverload
-                socket.Dispose();
+                if (stream != null)
+                {
+                    await stream.DisposeAsync().ConfigureAwait(false);
+                }
+
+                socket?.Dispose();
 
                 logger?.Warn($"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {e.Message}.", e);
 
