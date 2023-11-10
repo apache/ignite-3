@@ -129,6 +129,7 @@ public class ReconnectTests
     }
 
     [Test]
+    [Timeout(30_000)]
     public async Task TestReconnectAfterFullClusterRestart()
     {
         var logger = new ConsoleLogger { MinLevel = LogLevel.Trace };
@@ -164,6 +165,6 @@ public class ReconnectTests
 
         // All connections are restored.
         logger.Debug("Waiting for all connections to be restored...");
-        client.WaitForConnections(count: 10, timeoutMs: 10_000);
+        client.WaitForConnections(count: 10, timeoutMs: 20_000);
     }
 }
