@@ -15,31 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.cluster.exception.handler;
+package org.apache.ignite.internal.rest.exception.handler.replacement;
 
+import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.convert.exceptions.ConversionErrorException;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
+import io.micronaut.http.server.exceptions.ConversionErrorHandler;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Handles {@link IgniteInternalException} and represents it as a rest response.
+ * Replacement for {@link ConversionErrorHandler}. Returns {@link HttpProblemResponse}.
  */
 @Singleton
-@Requires(classes = {IgniteInternalException.class, ExceptionHandler.class})
-public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<? extends Problem>> {
-
+@Replaces(ConversionErrorHandler.class)
+@Requires(classes = {ConversionErrorException.class, ExceptionHandler.class})
+public class ConversionErrorHandlerReplacement implements ExceptionHandler<ConversionErrorException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, ConversionErrorException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
-                        .traceId(exception.traceId())
-                        .code(exception.codeAsString())
+                Problem.fromHttpCode(HttpCode.BAD_REQUEST)
+                        .title("Invalid parameter")
                         .detail(exception.getMessage())
         );
     }

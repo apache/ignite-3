@@ -22,24 +22,25 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
-import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Handles {@link ClusterNotInitializedException} and represents it as a rest response.
+ * Handles {@link IgniteInternalException} and represents it as a rest response.
  */
 @Singleton
-@Requires(classes = {ClusterNotInitializedException.class, ExceptionHandler.class})
-public class ClusterNotInitializedExceptionHandler implements
-        ExceptionHandler<ClusterNotInitializedException, HttpResponse<? extends Problem>> {
+@Requires(classes = {IgniteInternalException.class, ExceptionHandler.class})
+public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<? extends Problem>> {
+
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, ClusterNotInitializedException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.CONFLICT)
-                        .title("Cluster not initialized")
-                        .detail("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster")
+                Problem.fromHttpCode(HttpCode.INTERNAL_SERVER_ERROR)
+                        .traceId(exception.traceId())
+                        .code(exception.codeAsString())
+                        .detail(exception.getMessage())
         );
     }
 }

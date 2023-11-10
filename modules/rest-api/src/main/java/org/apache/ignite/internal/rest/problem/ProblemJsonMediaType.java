@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.exp;
+package org.apache.ignite.internal.rest.problem;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import io.micronaut.http.MediaType;
 
 /**
- * Binary scalar used for two inputs and single output.
+ * Media type for problem json.
  */
-@FunctionalInterface
-public interface BiScalar extends Scalar {
-    /** Two inputs and single output. */
-    void execute(ExecutionContext ctx, Object in1, Object in2, RowBuilder out);
+public final class ProblemJsonMediaType extends MediaType {
+    /**
+     * Media type for problem json.
+     */
+    public static final ProblemJsonMediaType APPLICATION_JSON_PROBLEM_TYPE = new ProblemJsonMediaType("application/json+problem");
+
+    private ProblemJsonMediaType(String name) {
+        super(name);
+    }
 }

@@ -15,31 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception.handler;
+package org.apache.ignite.internal.rest.exception.handler.replacement;
 
+import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
-import io.micronaut.http.HttpResponse;
+import io.micronaut.http.MutableHttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
+import io.micronaut.security.authentication.AuthorizationException;
+import io.micronaut.security.authentication.DefaultAuthorizationExceptionHandler;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
-import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Handles {@link ClusterNotInitializedException} and represents it as a rest response.
+ * Replacement for {@link DefaultAuthorizationExceptionHandler}. Returns {@link HttpProblemResponse}.
  */
 @Singleton
-@Requires(classes = {ClusterNotInitializedException.class, ExceptionHandler.class})
-public class ClusterNotInitializedExceptionHandler implements
-        ExceptionHandler<ClusterNotInitializedException, HttpResponse<? extends Problem>> {
+@Replaces(DefaultAuthorizationExceptionHandler.class)
+@Requires(classes = {AuthorizationException.class, ExceptionHandler.class})
+public class DefaultAuthorizationExceptionHandlerReplacement extends DefaultAuthorizationExceptionHandler {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, ClusterNotInitializedException exception) {
+    protected MutableHttpResponse<? extends Problem> httpResponseWithStatus(HttpRequest<?> request, AuthorizationException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.CONFLICT)
-                        .title("Cluster not initialized")
-                        .detail("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster")
+                Problem.fromHttpCode(exception.isForbidden() ? HttpCode.FORBIDDEN : HttpCode.UNAUTHORIZED)
         );
     }
 }
