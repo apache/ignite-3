@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Internal;
@@ -166,6 +167,22 @@ public class ReconnectTests
         // Connections are restored.
         logger.Debug("Waiting for connections to be restored...");
         client.WaitForConnections(count: 5, timeoutMs: 10_000, greaterOrEqual: true);
+        var sw = Stopwatch.StartNew();
+
+        while (sw.ElapsedMilliseconds < 10_000)
+        {
+            var connectionInfos = client.GetConnections();
+            Console.WriteLine($"Connections: {connectionInfos.Count}");
+
+            if (connectionInfos.Count >= 5)
+            {
+                break;
+            }
+
+            await Task.Delay(10);
+        }
+
+        // TODO: One of the ClientSocket instances can't be disposed - it is stuck somewhere. Check that all calls have a timeout.
         logger.Debug("Connections restored, end of test.");
     }
 }
