@@ -95,11 +95,11 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         if (kind == SqlKind.CAST) {
             SqlCall call = (SqlCall) expr;
             SqlNode op0 = call.operand(0);
-            if (!(op0 instanceof SqlNumericLiteral)) {
+            SqlNode type = call.operand(1);
+            if (!(op0 instanceof SqlNumericLiteral) || !(type instanceof SqlDataTypeSpec)) {
                 return null;
             }
             SqlNumericLiteral literal = (SqlNumericLiteral) op0;
-            SqlNode type = call.operand(1);
             RelDataType derived = ((SqlDataTypeSpec) type).deriveType(validator);
             if (derived.getSqlTypeName() == SqlTypeName.BIGINT) {
                 RexLiteral lit = rexBuilder.makeLiteral(literal.toValue());
