@@ -166,6 +166,7 @@ namespace Apache.Ignite.Internal
             IgniteClientConfiguration configuration,
             IClientSocketEventListener listener)
         {
+            using var cts = new CancellationTokenSource(configuration.SocketTimeout);
             var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
 
             bool connected = false;
@@ -179,13 +180,9 @@ namespace Apache.Ignite.Internal
                     NoDelay = true
                 };
 
-                // TODO: Do we really need this?
-                using var timeoutCts = new CancellationTokenSource(configuration.SocketTimeout);
-                var cancellationToken = timeoutCts.Token;
-
-                await socket.ConnectAsync(endPoint.EndPoint, cancellationToken)
+                await socket.ConnectAsync(endPoint.EndPoint, cts.Token)
                     .AsTask()
-                    .WaitAsync(configuration.SocketTimeout, cancellationToken)
+                    .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
                 connected = true;
@@ -201,8 +198,8 @@ namespace Apache.Ignite.Internal
                 stream = new NetworkStream(socket, ownsSocket: true);
 
                 if (configuration.SslStreamFactory is { } sslStreamFactory &&
-                    await sslStreamFactory.CreateAsync(stream, endPoint.Host, cancellationToken)
-                        .WaitAsync(configuration.SocketTimeout, cancellationToken)
+                    await sslStreamFactory.CreateAsync(stream, endPoint.Host, cts.Token)
+                        .WaitAsync(configuration.SocketTimeout, cts.Token)
                         .ConfigureAwait(false) is { } sslStream)
                 {
                     stream = sslStream;
@@ -214,8 +211,8 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
-                var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration, cancellationToken)
-                    .WaitAsync(configuration.SocketTimeout, cancellationToken)
+                var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration, cts.Token)
+                    .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
                 if (logger?.IsEnabled(LogLevel.Debug) == true)
@@ -229,16 +226,12 @@ namespace Apache.Ignite.Internal
             {
                 try
                 {
+                    cts.Cancel();
                     socket?.Dispose();
 
                     if (stream != null)
                     {
                         await stream.DisposeAsync().ConfigureAwait(false);
-                    }
-
-                    if (e is OperationCanceledException)
-                    {
-                        e = new TimeoutException("Could not connect within specified timeout: " + configuration.SocketTimeout, e);
                     }
 
                     throw new IgniteClientConnectionException(
