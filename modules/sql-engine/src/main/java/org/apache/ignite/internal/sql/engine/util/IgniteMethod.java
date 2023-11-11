@@ -32,6 +32,7 @@ import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.BiScalar;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.exec.exp.SingleScalar;
@@ -40,8 +41,8 @@ import org.apache.ignite.internal.sql.engine.exec.exp.SingleScalar;
  * Contains methods used in metadata definitions.
  */
 public enum IgniteMethod {
-    /** See {@link RowHandler#set(int, Object, Object)}. */
-    ROW_HANDLER_SET(RowHandler.class, "set", int.class, Object.class, Object.class),
+    /** See {@link RowBuilder#addField(Object)} )}. */
+    ROW_BUILDER_ADD_FIELD(RowBuilder.class, "addField", Object.class),
 
     /** See {@link RowHandler#get(int, Object)}. */
     ROW_HANDLER_GET(RowHandler.class, "get", int.class, Object.class),
@@ -62,11 +63,11 @@ public enum IgniteMethod {
     /** See {@link ExecutionContext#getParameter(String, Type)}. */
     CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
 
-    /** See {@link SingleScalar#execute(ExecutionContext, Object, Object)}. */
-    SCALAR_EXECUTE(SingleScalar.class, "execute", ExecutionContext.class, Object.class, Object.class),
+    /** See {@link SingleScalar#execute(ExecutionContext, Object, RowBuilder)}. */
+    SCALAR_EXECUTE(SingleScalar.class, "execute", ExecutionContext.class, Object.class, RowBuilder.class),
 
-    /** See {@link BiScalar#execute(ExecutionContext, Object, Object, Object)}. */
-    BI_SCALAR_EXECUTE(BiScalar.class, "execute", ExecutionContext.class, Object.class, Object.class, Object.class),
+    /** See {@link BiScalar#execute(ExecutionContext, Object, Object, RowBuilder)}. */
+    BI_SCALAR_EXECUTE(BiScalar.class, "execute", ExecutionContext.class, Object.class, Object.class, RowBuilder.class),
 
     SYSTEM_RANGE2(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class),
 

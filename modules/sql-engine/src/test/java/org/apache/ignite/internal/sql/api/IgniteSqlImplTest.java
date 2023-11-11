@@ -20,15 +20,11 @@ package org.apache.ignite.internal.sql.api;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -110,9 +106,6 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
     private static IgniteSqlImpl newSqlFacade() {
         QueryProcessor queryProcessor = mock(QueryProcessor.class);
-
-        when(queryProcessor.createSession(any()))
-                .thenAnswer(ignored -> new SessionId(UUID.randomUUID()));
 
         return new IgniteSqlImpl("test", queryProcessor, mock(IgniteTransactions.class));
     }

@@ -15,32 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.cluster.exception.handler;
+package org.apache.ignite.internal.rest.exception.handler.replacement;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
+import io.micronaut.http.server.exceptions.JsonExceptionHandler;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * Handles {@link IgniteInternalCheckedException} and represents it as a rest response.
+ * Replacement for {@link JsonExceptionHandler}. Returns {@link HttpProblemResponse}.
  */
 @Singleton
-@Requires(classes = {IgniteInternalCheckedException.class, ExceptionHandler.class})
-public class IgniteInternalCheckedExceptionHandler
-        implements ExceptionHandler<IgniteInternalCheckedException, HttpResponse<? extends Problem>> {
-
+@Replaces(JsonExceptionHandler.class)
+@Requires(classes = {JsonProcessingException.class, ExceptionHandler.class})
+public class JsonExceptionHandlerReplacement implements ExceptionHandler<JsonProcessingException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalCheckedException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, JsonProcessingException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
-                        .traceId(exception.traceId())
-                        .code(exception.codeAsString())
+                Problem.fromHttpCode(HttpCode.BAD_REQUEST)
+                        .title("Invalid JSON")
                         .detail(exception.getMessage())
         );
     }

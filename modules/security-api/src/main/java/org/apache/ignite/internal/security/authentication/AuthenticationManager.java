@@ -26,6 +26,13 @@ import org.apache.ignite.internal.security.configuration.SecurityView;
  */
 public interface AuthenticationManager extends Authenticator, ConfigurationListener<SecurityView> {
     /**
+     * Check if authentication is enabled.
+     *
+     * @return {@code true} if authentication is enabled.
+     */
+    boolean authenticationEnabled();
+
+    /**
      * Listen to authentication events.
      *
      * @param listener Listener.

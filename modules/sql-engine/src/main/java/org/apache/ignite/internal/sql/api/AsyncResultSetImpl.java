@@ -153,6 +153,10 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
                     .thenApply(page -> {
                         curPage = page;
 
+                        if (!curPage.hasMore()) {
+                            closeAsync();
+                        }
+
                         return this;
                     });
         }

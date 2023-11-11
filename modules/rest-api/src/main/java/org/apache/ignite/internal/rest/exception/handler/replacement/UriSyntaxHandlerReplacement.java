@@ -15,34 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception.handler;
+package org.apache.ignite.internal.rest.exception.handler.replacement;
 
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
-import io.micronaut.core.convert.exceptions.ConversionErrorException;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.server.exceptions.ConversionErrorHandler;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
+import io.micronaut.http.server.exceptions.URISyntaxHandler;
 import jakarta.inject.Singleton;
+import java.net.URISyntaxException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
- * Replacement for {@link ConversionErrorHandler}. Returns {@link HttpProblemResponse}.
+ * Replacement for {@link URISyntaxHandler} that returns {@link Problem} instead of {@link HttpResponse}.
  */
 @Singleton
-@Replaces(ConversionErrorHandler.class)
-@Requires(classes = {Exception.class, ExceptionHandler.class})
-public class ConversionErrorHandlerReplacement implements ExceptionHandler<ConversionErrorException, HttpResponse<? extends Problem>> {
-
+@Replaces(URISyntaxHandler.class)
+@Requires(classes = {URISyntaxException.class, ExceptionHandler.class})
+public class UriSyntaxHandlerReplacement implements ExceptionHandler<URISyntaxException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, ConversionErrorException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, URISyntaxException exception) {
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.BAD_REQUEST)
-                        .detail(ExceptionUtils.getCause(exception).getMessage())
+                        .title("Malformed URI")
+                        .detail(exception.getMessage())
         );
     }
 }
