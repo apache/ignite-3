@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.Collections.emptyIterator;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -168,15 +169,7 @@ public class HeapLockManager implements LockManager {
 
             LockMode newLockMode = futureTuple.get2();
 
-            return futureTuple.get1().thenApply(res -> {
-                Lock lock = new Lock(lockKey, newLockMode, txId);
-
-                if (record) {
-                    recordedLocks.add(lock);
-                }
-
-                return lock;
-            });
+            return futureTuple.get1().thenApply(res -> new Lock(lockKey, newLockMode, txId));
         }
     }
 
@@ -224,6 +217,10 @@ public class HeapLockManager implements LockManager {
     @Override
     public Iterator<Lock> locks(UUID txId) {
         ConcurrentLinkedQueue<LockState> lockStates = txMap.get(txId);
+
+        if (lockStates == null) {
+            return emptyIterator();
+        }
 
         List<Lock> result = new ArrayList<>();
 
@@ -475,7 +472,7 @@ public class HeapLockManager implements LockManager {
          * @return If the value is true, no one waits of any lock of the key, false otherwise.
          */
         boolean tryRelease(UUID txId, LockMode lockMode) {
-            List<WaiterImpl> toNotify = Collections.emptyList();
+            List<WaiterImpl> toNotify = emptyList();
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(txId);
 
@@ -515,7 +512,7 @@ public class HeapLockManager implements LockManager {
                     markedForRemove = true;
                 }
 
-                return Collections.emptyList();
+                return emptyList();
             }
 
             return unlockCompatibleWaiters();
@@ -528,7 +525,7 @@ public class HeapLockManager implements LockManager {
          */
         private List<WaiterImpl> unlockCompatibleWaiters() {
             if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
-                return Collections.emptyList();
+                return emptyList();
             }
 
             ArrayList<WaiterImpl> toNotify = new ArrayList<>();
@@ -803,6 +800,8 @@ public class HeapLockManager implements LockManager {
             } else {
                 assert lockMode != null;
 
+                // TODO FIXME complete async if waiters are in queue to prevent to prevent thread pool starvation.
+                // This method can be called from raft thread, for example.
                 fut.complete(null);
             }
         }
@@ -879,16 +878,6 @@ public class HeapLockManager implements LockManager {
         public String toString() {
             return S.toString(WaiterImpl.class, this, "isDone", fut.isDone());
         }
-    }
-
-    @Override
-    public void recordLocks(boolean mode) {
-        record = mode;
-    }
-
-    @Override
-    public List<Lock> recordedLocks() {
-        return recordedLocks;
     }
 
     private static int spread(int h) {

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.TestOnly;
@@ -59,6 +58,7 @@ public interface LockManager {
      * @param txId Transaction Id.
      * @return An iterator over a collection of locks.
      */
+    @TestOnly
     Iterator<Lock> locks(UUID txId);
 
     /**
@@ -94,20 +94,4 @@ public interface LockManager {
      */
     @TestOnly
     boolean isEmpty();
-
-    /**
-     * Record acquired locks.
-     *
-     * @param mode Mode.
-     */
-    @TestOnly
-    void recordLocks(boolean mode);
-
-    /**
-     * Return recorded locks. Can clear collection to reset state.
-     *
-     * @return Recorded locks.
-     */
-    @TestOnly
-    List<Lock> recordedLocks();
 }

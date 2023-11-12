@@ -158,6 +158,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
         LOG.info("LockTable [emptySlots={} collisions={}]", empty, coll);
 
+        assertTrue(coll > 0);
+
         List<CompletableFuture<?>> finishFuts = new ArrayList<>();
         for (Transaction txn : txns) {
             finishFuts.add(txn.commitAsync());

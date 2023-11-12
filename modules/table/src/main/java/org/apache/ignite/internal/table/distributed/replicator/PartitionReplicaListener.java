@@ -1398,7 +1398,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         // Avoid invoking async chain in raft threads.
         CompletableFuture<?>[] futures = enlistedPartitions.stream()
-                .map(partitionId -> changeStateFuture.thenComposeAsync(ignored ->
+                .map(partitionId -> changeStateFuture.thenCompose(ignored ->
                         cleanupWithRetry(commit, commitTimestamp, txId, partitionId, attemptsToCleanupReplica)))
                 .toArray(size -> new CompletableFuture<?>[size]);
 
