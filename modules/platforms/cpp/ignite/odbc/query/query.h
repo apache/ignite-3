@@ -45,6 +45,9 @@ enum class query_type {
 
     /** Primary keys. */
     PRIMARY_KEYS,
+
+    /** Special columns. */
+    SPECIAL_COLUMNS,
 };
 
 /**
