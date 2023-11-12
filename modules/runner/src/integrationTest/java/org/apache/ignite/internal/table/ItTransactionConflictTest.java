@@ -40,6 +40,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -65,6 +66,7 @@ public class ItTransactionConflictTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20773")
     public void test() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
