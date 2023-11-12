@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -68,19 +67,11 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      */
-    CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(
+    CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> queryScriptAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
             String qry,
             Object... params
     );
-
-    /**
-     * Asynchronous iterator over asynchronous cursors.
-     * The interface serves as a shorthand alias for {@link Iterator} with a cumbersome generic type.
-     */
-    interface AsyncSqlCursorIterator<T> extends Iterator<CompletableFuture<AsyncSqlCursor<T>>> {
-
-    }
 }

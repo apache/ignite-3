@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.QueryProcessor.AsyncSqlCursorIterator;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -71,12 +70,12 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "EXPLAIN PLAN FOR SELECT * FROM test;"
                 + "SELECT * FROM test";
 
-        AsyncSqlCursorIterator<List<Object>> itr = runScript(sql);
+        AsyncIterator<AsyncSqlCursor<List<Object>>> itr = runScript(sql);
 
-        validateSingleResult(itr.next(), true);
-        validateSingleResult(itr.next(), 1L);
-        assertThat(itr.next(), willCompleteSuccessfully()); // Skip explain.
-        validateSingleResult(itr.next(), 0, 0);
+        validateSingleResult(itr.fetchNext(), true);
+        validateSingleResult(itr.fetchNext(), 1L);
+        assertThat(itr.fetchNext(), willCompleteSuccessfully()); // Skip explain.
+        validateSingleResult(itr.fetchNext(), 0, 0);
 
         assertFalse(itr.hasNext());
 
@@ -91,7 +90,7 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
         List<AsyncSqlCursor<List<Object>>> cursorsToClose = new ArrayList<>();
 
         while (itr.hasNext()) {
-            AsyncSqlCursor<List<Object>> cursor = await(itr.next());
+            AsyncSqlCursor<List<Object>> cursor = await(itr.fetchNext());
 
             cursorsToClose.add(cursor);
         }
@@ -109,12 +108,12 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     /** Checks single statement execution using multi-statement API. */
     @Test
     void singleStatementQuery() {
-        AsyncSqlCursorIterator<List<Object>> itr = runScript("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-        validateSingleResult(itr.next(), true);
+        AsyncIterator<AsyncSqlCursor<List<Object>>> itr = runScript("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+        validateSingleResult(itr.fetchNext(), true);
         assertFalse(itr.hasNext());
 
         itr = runScript("INSERT INTO test VALUES (0, 0)");
-        validateSingleResult(itr.next(), 1L);
+        validateSingleResult(itr.fetchNext(), 1L);
         assertFalse(itr.hasNext());
     }
 
@@ -125,11 +124,11 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "INSERT INTO test VALUES(?, DEFAULT);"
                 + "INSERT INTO test VALUES(?, ?);";
 
-        AsyncSqlCursorIterator<List<Object>> itr = runScript(sql, null, 0, "1", 2, 4, "5");
+        AsyncIterator<AsyncSqlCursor<List<Object>>> itr = runScript(sql, null, 0, "1", 2, 4, "5");
         assertThat(itr, notNullValue());
 
         while (itr.hasNext()) {
-            assertThat(itr.next(), willCompleteSuccessfully());
+            assertThat(itr.fetchNext(), willCompleteSuccessfully());
         }
 
         assertQuery("SELECT * FROM test")
@@ -155,13 +154,13 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
     void transactionControlStatementDoesNotCreateCursor() {
         assertFalse(runScript("START TRANSACTION; COMMIT").hasNext());
 
-        AsyncSqlCursorIterator<List<Object>> curItr = runScript(
+        AsyncIterator<AsyncSqlCursor<List<Object>>> curItr = runScript(
                 "START TRANSACTION;"
                         + "SELECT 1;"
                         + "COMMIT"
         );
 
-        validateSingleResult(curItr.next(), 1);
+        validateSingleResult(curItr.fetchNext(), 1);
 
         assertFalse(curItr.hasNext());
     }
@@ -173,20 +172,20 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "SELECT 2/0;"
                 + "INSERT INTO test VALUES (0)";
 
-        AsyncSqlCursorIterator<List<Object>> itr0 = runScript(sql);
+        AsyncIterator<AsyncSqlCursor<List<Object>>> itr0 = runScript(sql);
 
-        assertThat(itr0.next(), willCompleteSuccessfully());
-        assertThrowsSqlException(RUNTIME_ERR, "/ by zero", () -> await(itr0.next()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, "execution was canceled", () -> await(itr0.next()));
+        assertThat(itr0.fetchNext(), willCompleteSuccessfully());
+        assertThrowsSqlException(RUNTIME_ERR, "/ by zero", () -> await(itr0.fetchNext()));
+        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, "execution was canceled", () -> await(itr0.fetchNext()));
 
         // Validation error.
         sql = "INSERT INTO test VALUES (?);"
                 + "INSERT INTO test VALUES (1)";
 
-        AsyncSqlCursorIterator<List<Object>> itr1 = runScript(sql, null, "Incompatible param");
+        AsyncIterator<AsyncSqlCursor<List<Object>>> itr1 = runScript(sql, null, "Incompatible param");
 
-        assertThrowsSqlException(STMT_VALIDATION_ERR, "operator must have compatible types", () -> await(itr1.next()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr1.next()));
+        assertThrowsSqlException(STMT_VALIDATION_ERR, "operator must have compatible types", () -> await(itr1.fetchNext()));
+        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr1.fetchNext()));
 
         assertQuery("SELECT count(*) FROM test").returns(0L).check();
 
@@ -196,17 +195,17 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "SELECT (SELECT id FROM test);"
                 + "INSERT INTO test VALUES(2);";
 
-        AsyncSqlCursorIterator<List<Object>> itr2 = runScript(sql);
+        AsyncIterator<AsyncSqlCursor<List<Object>>>  itr2 = runScript(sql);
 
         for (int i = 0; i < 2; i++) {
             assertTrue(itr2.hasNext());
-            assertThat(itr2.next(), willCompleteSuccessfully());
+            assertThat(itr2.fetchNext(), willCompleteSuccessfully());
         }
 
         assertTrue(itr2.hasNext());
 
-        assertThrowsSqlException(INTERNAL_ERR, "Subquery returned more than 1 value", () -> await(itr2.next()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr2.next()));
+        assertThrowsSqlException(INTERNAL_ERR, "Subquery returned more than 1 value", () -> await(itr2.fetchNext()));
+        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr2.fetchNext()));
 
         assertQuery("SELECT * FROM test")
                 .returns(0)
@@ -222,24 +221,24 @@ public class ItSqlMultiStatementTest extends BaseSqlIntegrationTest {
                 + "INSERT INTO test VALUES(4);"
                 + "SELECT 1;";
 
-        AsyncSqlCursorIterator<List<Object>> itr3 = runScript(sql, (InternalTransaction) tx);
+        AsyncIterator<AsyncSqlCursor<List<Object>>> itr3 = runScript(sql, (InternalTransaction) tx);
 
-        assertThrowsSqlException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished", () -> await(itr3.next()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr3.next()));
-        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr3.next()));
+        assertThrowsSqlException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished", () -> await(itr3.fetchNext()));
+        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr3.fetchNext()));
+        assertThrowsSqlException(EXECUTION_CANCELLED_ERR, CANCELLED_ERR_MSG, () -> await(itr3.fetchNext()));
 
         assertFalse(itr3.hasNext());
 
         // DDL inside outer transaction.
         assertThrowsSqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.",
-                () -> await(runScript("CREATE TABLE test2 (id INT PRIMARY KEY)", (InternalTransaction) tx).next()));
+                () -> await(runScript("CREATE TABLE test2 (id INT PRIMARY KEY)", (InternalTransaction) tx).fetchNext()));
     }
 
-    private AsyncSqlCursorIterator<List<Object>> runScript(String query) {
+    private AsyncIterator<AsyncSqlCursor<List<Object>>> runScript(String query) {
         return runScript(query, null);
     }
 
-    private AsyncSqlCursorIterator<List<Object>> runScript(
+    private AsyncIterator<AsyncSqlCursor<List<Object>>> runScript(
             String query,
             @Nullable InternalTransaction tx,
             Object ... params

@@ -29,7 +29,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -360,7 +359,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(
+    public CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> queryScriptAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -420,7 +419,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return stage;
     }
 
-    private CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScript0(
+    private CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> queryScript0(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction explicitTransaction,
@@ -430,9 +429,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
         String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
 
-        CompletableFuture<AsyncSqlCursorIterator<List<Object>>> start = new CompletableFuture<>();
+        CompletableFuture<?> start = new CompletableFuture<>();
 
-        CompletableFuture<AsyncSqlCursorIterator<List<Object>>> parseFut = start
+        CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> parseFut = start
                 .thenApply(ignored -> parserService.parseScript(sql))
                 .thenApply(parsedResults -> {
                     MultiStatementHandler handler = new MultiStatementHandler(
@@ -441,7 +440,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     // Begin script execution.
                     taskExecutor.execute(handler::processNext);
 
-                    return handler.asyncCursorIterator();
+                    return handler.cursorIterator();
                 });
 
         start.completeAsync(() -> null, taskExecutor);
@@ -635,20 +634,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .collect(toUnmodifiableList());
         }
 
-        AsyncSqlCursorIterator<List<Object>> asyncCursorIterator() {
-            Iterator<CompletableFuture<AsyncSqlCursor<List<Object>>>> delegate = cursorFutures.iterator();
-
-            return new AsyncSqlCursorIterator<>() {
-                @Override
-                public boolean hasNext() {
-                    return delegate.hasNext();
-                }
-
-                @Override
-                public CompletableFuture<AsyncSqlCursor<List<Object>>> next() {
-                    return delegate.next();
-                }
-            };
+        AsyncIterator<AsyncSqlCursor<List<Object>>> cursorIterator() {
+            return new AsyncIteratorImpl<>(cursorFutures.iterator());
         }
 
         void processNext() {

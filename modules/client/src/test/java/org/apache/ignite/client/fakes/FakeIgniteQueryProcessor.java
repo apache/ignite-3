@@ -19,6 +19,7 @@ package org.apache.ignite.client.fakes;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.AsyncIterator;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
@@ -42,7 +43,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(
+    public CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> queryScriptAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,

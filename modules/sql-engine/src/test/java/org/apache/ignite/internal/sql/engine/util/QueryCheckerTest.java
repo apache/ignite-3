@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.containsString;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.AsyncIterator;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -294,7 +295,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<AsyncSqlCursorIterator<List<Object>>> queryScriptAsync(
+        public CompletableFuture<AsyncIterator<AsyncSqlCursor<List<Object>>>> queryScriptAsync(
                 SqlProperties properties,
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction transaction,
